@@ -36,6 +36,14 @@ interface AguiItem {
   tokens: number
 }
 
+export interface FrontendTool {
+  id: string
+  name: string
+  description: string
+  raw: JsonValue
+  tokens: number
+}
+
 // Distinguish a real agent system prompt from runtime/state-sync scaffolding
 // that AG-UI middleware (e.g. CopilotKit) injects as `role: system` messages
 // each turn — JSON state snapshots, "Here is the current state…", summarize
@@ -104,14 +112,17 @@ function aguiLabelFor(content: string): string {
   return 'Directive'
 }
 
-export function collectToolGroups(spans: Span[]): ToolGroup[] {
+const FRONTEND_DOMAIN = 'frontend'
+const DEFAULT_DOMAIN = 'tools'
+
+export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): ToolGroup[] {
   const byKey = new Map<string, ToolDef>()
   for (const span of spans) {
     if (span.operation !== 'chat' || span.toolDefinitions == null) continue
     for (const raw of flattenToolDefinitions(span.toolDefinitions)) {
       const name = toolName(raw)
       const description = toolDescription(raw)
-      const domain = toolDomain(raw, name)
+      const domain = frontendNames?.has(name) ? FRONTEND_DOMAIN : toolDomain(raw)
       const text = formatJson(raw)
       const key = `${domain}:${name}:${description}`
       if (byKey.has(key)) continue
@@ -138,7 +149,58 @@ export function collectToolGroups(spans: Span[]): ToolGroup[] {
       tools: tools.sort((a, b) => a.name.localeCompare(b.name)),
       tokens: tools.reduce((sum, tool) => sum + tool.tokens, 0),
     }))
-    .sort((a, b) => b.tokens - a.tokens || a.domain.localeCompare(b.domain))
+    .sort((a, b) => {
+      // Frontend group pinned first; everything else by token weight, alpha tiebreak.
+      if (a.domain === FRONTEND_DOMAIN) return -1
+      if (b.domain === FRONTEND_DOMAIN) return 1
+      return b.tokens - a.tokens || a.domain.localeCompare(b.domain)
+    })
+}
+
+// Tools whose name the LLM emitted in a tool_call, but which never appear as
+// an execute_tool span — backend never handled them, so they were handled
+// frontend-side (CopilotKit useFrontendTool / useHumanInTheLoop / etc.).
+// Tool definitions look identical on the wire whether they're backend or
+// frontend, so this differential is the only signal we have.
+export function collectFrontendTools(spans: Span[]): FrontendTool[] {
+  const backendExecuted = new Set<string>()
+  for (const span of spans) {
+    if (span.operation === 'tool' && span.toolName) backendExecuted.add(span.toolName)
+  }
+
+  const calledNames = new Set<string>()
+  for (const span of spans) {
+    if (span.operation !== 'chat') continue
+    for (const msg of asMessages(span.llmOutput)) {
+      for (const part of msg.parts) {
+        if (part.kind === 'tool_call') calledNames.add(part.name)
+      }
+    }
+  }
+
+  const defs = new Map<string, { description: string; raw: JsonValue }>()
+  for (const span of spans) {
+    if (span.operation !== 'chat' || span.toolDefinitions == null) continue
+    for (const raw of flattenToolDefinitions(span.toolDefinitions)) {
+      const name = toolName(raw)
+      if (!defs.has(name)) defs.set(name, { description: toolDescription(raw), raw })
+    }
+  }
+
+  const out: FrontendTool[] = []
+  for (const name of calledNames) {
+    if (backendExecuted.has(name)) continue
+    const def = defs.get(name)
+    const raw: JsonValue = def?.raw ?? null
+    out.push({
+      id: `frontend-${name}`,
+      name,
+      description: def?.description ?? '',
+      raw,
+      tokens: raw != null ? estimateTokens(formatJson(raw)) : 0,
+    })
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 function collectAguiItems(spans: Span[], extra: AguiItem[]): AguiItem[] {
@@ -203,15 +265,14 @@ function toolDescription(value: JsonValue): string {
   return ''
 }
 
-function toolDomain(value: JsonValue, name: string): string {
+function toolDomain(value: JsonValue): string {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     for (const key of ['domain', 'namespace', 'server', 'mcp_server', 'provider']) {
       const candidate = value[key]
       if (typeof candidate === 'string' && candidate) return candidate
     }
   }
-  const [prefix] = name.split(/[.:/_-]/)
-  return prefix && prefix !== name ? prefix : 'default'
+  return DEFAULT_DOMAIN
 }
 
 function findAguiValues(value: JsonValue | undefined, path: string[] = []): { label: string; value: string }[] {
@@ -244,8 +305,8 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
   const systemHits = useMemo(() => collectSystemHits(spans), [spans])
   const systemBlocks = systemHits.prompts
   const aguiItems = useMemo(() => collectAguiItems(spans, systemHits.agui), [spans, systemHits.agui])
+  const frontendTools = useMemo(() => collectFrontendTools(spans), [spans])
   const systemTokens = systemBlocks.reduce((sum, block) => sum + block.tokens, 0)
-  const aguiTokens = aguiItems.reduce((sum, item) => sum + item.tokens, 0)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -255,7 +316,7 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
           {(
             [
               ['system', `System ${systemTokens ? `(${systemTokens.toLocaleString()})` : ''}`],
-              ['agui', `AG-UI ${aguiTokens ? `(${aguiTokens.toLocaleString()})` : ''}`],
+              ['agui', 'AG-UI'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -276,7 +337,11 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
-        {tab === 'system' ? <ContextSystem blocks={systemBlocks} /> : <ContextAgui items={aguiItems} />}
+        {tab === 'system' ? (
+          <ContextSystem blocks={systemBlocks} />
+        ) : (
+          <ContextAgui items={aguiItems} frontendTools={frontendTools} />
+        )}
       </div>
     </div>
   )
@@ -307,11 +372,16 @@ export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
 
 export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   if (groups.length === 0) return <ContextEmpty>No tool definitions found in chat span inputs.</ContextEmpty>
+  // Wrapped: frontend + per-server (named, meaningful). Flat: the catch-all
+  // bucket renders as bare rows — no fake group header.
+  const wrapped = groups.filter((g) => g.domain !== DEFAULT_DOMAIN)
+  const flat = groups.find((g) => g.domain === DEFAULT_DOMAIN)?.tools ?? []
   return (
     <div className="space-y-3">
-      {groups.map((group) => (
+      {wrapped.map((group) => (
         <details
           key={group.domain}
+          open={group.domain === FRONTEND_DOMAIN}
           className="rounded-lg bg-zinc-950/[0.025] ring-1 ring-zinc-950/10 dark:bg-white/[0.03] dark:ring-white/10"
         >
           <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-zinc-900 dark:text-zinc-100">
@@ -322,27 +392,38 @@ export function ContextTools({ groups }: { groups: ToolGroup[] }) {
           </summary>
           <div className="divide-y divide-zinc-950/10 border-zinc-950/10 border-t dark:divide-white/10 dark:border-white/10">
             {group.tools.map((tool) => (
-              <details key={tool.id} className="group">
-                <summary className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2 text-xs">
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium text-zinc-900 dark:text-zinc-100">{tool.name}</span>
-                    {tool.description && (
-                      <span className="mt-0.5 block truncate text-zinc-500 dark:text-zinc-400">{tool.description}</span>
-                    )}
-                  </span>
-                  <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                    {tool.tokens.toLocaleString()} tok
-                  </span>
-                </summary>
-                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-white/70 px-3 py-2 text-[11px] leading-snug text-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-200">
-                  {formatJson(tool.raw)}
-                </pre>
-              </details>
+              <ToolRow key={tool.id} tool={tool} />
             ))}
           </div>
         </details>
       ))}
+      {flat.length > 0 && (
+        <div className="divide-y divide-zinc-950/10 overflow-hidden rounded-lg ring-1 ring-zinc-950/10 dark:divide-white/10 dark:ring-white/10">
+          {flat.map((tool) => (
+            <ToolRow key={tool.id} tool={tool} />
+          ))}
+        </div>
+      )}
     </div>
+  )
+}
+
+function ToolRow({ tool }: { tool: ToolDef }) {
+  return (
+    <details className="group">
+      <summary className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2 text-xs">
+        <span className="min-w-0">
+          <span className="block truncate font-medium text-zinc-900 dark:text-zinc-100">{tool.name}</span>
+          {tool.description && (
+            <span className="mt-0.5 block truncate text-zinc-500 dark:text-zinc-400">{tool.description}</span>
+          )}
+        </span>
+        <span className="tabular-nums text-zinc-500 dark:text-zinc-400">{tool.tokens.toLocaleString()} tok</span>
+      </summary>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-white/70 px-3 py-2 text-[11px] leading-snug text-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-200">
+        {formatJson(tool.raw)}
+      </pre>
+    </details>
   )
 }
 
@@ -350,12 +431,16 @@ function isShortValue(value: string): boolean {
   return !value.includes('\n') && value.length < 120
 }
 
-function ContextAgui({ items }: { items: AguiItem[] }) {
-  if (items.length === 0) return <ContextEmpty>No AG-UI/runtime context detected in this session.</ContextEmpty>
+function ContextAgui({ items, frontendTools }: { items: AguiItem[]; frontendTools: FrontendTool[] }) {
+  if (items.length === 0 && frontendTools.length === 0) {
+    return <ContextEmpty>No AG-UI/runtime context detected in this session.</ContextEmpty>
+  }
   const identifiers = items.filter((item) => isShortValue(item.value))
   const payloads = items.filter((item) => !isShortValue(item.value))
   return (
     <div className="space-y-4">
+      {frontendTools.length > 0 && <FrontendToolsSection tools={frontendTools} />}
+
       {identifiers.length > 0 && (
         <dl className="overflow-hidden rounded-lg ring-1 ring-zinc-950/10 dark:ring-white/10">
           {identifiers.map((item, i) => (
@@ -396,6 +481,39 @@ function ContextAgui({ items }: { items: AguiItem[] }) {
         </div>
       )}
     </div>
+  )
+}
+
+function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
+  return (
+    <section>
+      <header className="mb-2 flex items-baseline justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <span>Frontend tools</span>
+        <span className="tabular-nums">{tools.length}</span>
+      </header>
+      <div className="divide-y divide-zinc-950/10 overflow-hidden rounded-lg ring-1 ring-zinc-950/10 dark:divide-white/10 dark:ring-white/10">
+        {tools.map((tool) => (
+          <details key={tool.id} className="group">
+            <summary className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2 text-xs">
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-zinc-900 dark:text-zinc-100">{tool.name}</span>
+                {tool.description && (
+                  <span className="mt-0.5 block truncate text-zinc-500 dark:text-zinc-400">{tool.description}</span>
+                )}
+              </span>
+              <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                {tool.tokens ? `${tool.tokens.toLocaleString()} tok` : '—'}
+              </span>
+            </summary>
+            {tool.raw != null && (
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-white/70 px-3 py-2 text-[11px] leading-snug text-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-200">
+                {formatJson(tool.raw)}
+              </pre>
+            )}
+          </details>
+        ))}
+      </div>
+    </section>
   )
 }
 
