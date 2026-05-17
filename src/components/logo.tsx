@@ -9,8 +9,8 @@ export function Logo({ className, ...props }: { className?: string } & React.Com
       className={clsx(
         className,
         'inline-grid shrink-0 place-items-center rounded-[20%] align-middle',
-        'outline -outline-offset-1 outline-black/10 dark:outline-white/10',
-        'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900',
+        'outline -outline-offset-1 outline-border',
+        'bg-foreground text-background',
       )}
     >
       <svg

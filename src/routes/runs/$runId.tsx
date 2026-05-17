@@ -1,10 +1,17 @@
-import { ChevronLeftIcon } from '@heroicons/react/16/solid'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { SiteHeader } from '#/components/site-header'
 import { Badge } from '#/components/ui/badge'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '#/components/ui/breadcrumb'
 import type { Span } from '#/lib/spans'
 import { RUN_SPANS, runSpansQuery } from './-data'
 
@@ -29,14 +36,22 @@ function RunDetail() {
       <SiteHeader
         title={
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Link
-              to="/runs"
-              aria-label="Back to runs"
-              className="-ml-1 inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <ChevronLeftIcon className="size-4 fill-current" />
-            </Link>
-            <h1 className="text-base font-medium">Run #{runId}</h1>
+            <h1 className="sr-only">Run #{runId}</h1>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/runs" search={(prev) => prev}>
+                      Runs
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Run #{runId}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
             <span className="text-xs text-muted-foreground">
               {spans[0]?.service ?? '—'} · {(total / 1000).toFixed(2)}s · {spans.length} spans
             </span>

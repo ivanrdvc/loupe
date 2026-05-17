@@ -40,11 +40,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '#/components/ui/sidebar'
-import { useUser, useUserId } from '#/hooks/use-user'
-import { truncateId } from '#/lib/format'
+import { useUser } from '#/hooks/use-user'
 import { DEFAULT_TIME_RANGE_DAYS } from '#/lib/time-range'
 import { inboxUnreadCountQuery } from '#/routes/inbox/-data'
-import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 
 const APP_VERSION = `v${__APP_VERSION__}`
 
@@ -63,18 +61,21 @@ const MAIN_NAV: NavItem[] = [
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals') },
 ]
 
+const MOCK_RECENT_SESSIONS: { sessionId: string; title: string }[] = [
+  { sessionId: 'demo-1', title: 'Triage spike in checkout latency' },
+  { sessionId: 'demo-2', title: 'Refactor auth middleware to JWT' },
+  { sessionId: 'demo-3', title: 'Add telemetry to onboarding flow' },
+]
+
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const [userId] = useUserId()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { data: unreadCount = 0 } = useQuery(inboxUnreadCountQuery())
-  const { data: sessionsData } = useQuery(currentUserSessionsQuery(7, userId))
-  const recentSessions = (sessionsData?.sessions ?? []).slice(0, 5)
 
   return (
     <>
       <SettingsDialog open={settingsOpen} onClose={setSettingsOpen} />
-      <Sidebar collapsible="none" className="h-auto bg-transparent">
+      <Sidebar collapsible="offcanvas">
         <SidebarHeader className="flex h-12 shrink-0 flex-row items-center gap-2 border-b px-2">
           <SidebarMenu>
             <SidebarMenuItem>
@@ -109,30 +110,26 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {recentSessions.length > 0 && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Recent</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {recentSessions.map((session) => (
-                    <SidebarMenuItem key={session.sessionId}>
-                      <SidebarMenuButton asChild>
-                        <Link
-                          to="/sessions/$sessionId"
-                          params={{ sessionId: session.sessionId }}
-                          search={{ days: DEFAULT_TIME_RANGE_DAYS, view: 'conversation' }}
-                        >
-                          <span className="truncate">
-                            {session.title?.trim() || session.firstInput?.trim() || truncateId(session.sessionId)}
-                          </span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
+          <SidebarGroup>
+            <SidebarGroupLabel>Recent</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {MOCK_RECENT_SESSIONS.map((session) => (
+                  <SidebarMenuItem key={session.sessionId}>
+                    <SidebarMenuButton asChild>
+                      <Link
+                        to="/sessions/$sessionId"
+                        params={{ sessionId: session.sessionId }}
+                        search={{ days: DEFAULT_TIME_RANGE_DAYS, view: 'conversation' }}
+                      >
+                        <span className="truncate">{session.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
           <SidebarGroup className="mt-auto">
             <SidebarGroupContent>
@@ -150,8 +147,8 @@ export function AppSidebar() {
                         <HugeiconsIcon icon={InboxIcon} className="size-4 shrink-0" />
                         {unreadCount > 0 && (
                           <span className="pointer-events-none absolute -top-1 -right-1 flex">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
-                            <span className="relative inline-flex min-w-3.5 items-center justify-center rounded-full bg-rose-500 px-1 text-center text-[9px]/3.5 font-semibold text-white shadow-sm">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-60" />
+                            <span className="relative inline-flex min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-center text-[9px]/3.5 font-semibold text-destructive-foreground shadow-sm">
                               {unreadCount > 99 ? '99+' : unreadCount}
                             </span>
                           </span>
@@ -190,7 +187,7 @@ function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="size-8 rounded-md">
-                <AvatarFallback className="rounded-md bg-zinc-900 text-xs font-medium text-white">
+                <AvatarFallback className="rounded-md bg-secondary text-xs font-medium text-secondary-foreground">
                   {user.initials}
                 </AvatarFallback>
               </Avatar>

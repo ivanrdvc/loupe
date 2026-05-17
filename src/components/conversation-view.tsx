@@ -4,6 +4,7 @@ import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { CopyButton } from '#/components/copy-button'
 import { Markdown } from '#/components/markdown'
 import { ScaffoldGroup } from '#/components/scaffold-group'
+import { Badge } from '#/components/ui/badge'
 import { groupScaffolding } from '#/lib/agui-scaffolding'
 import { buildConversation, type ConversationEvent } from '#/lib/conversation'
 import { estimateTokens, formatTime, formatTokens, metricTone } from '#/lib/format'
@@ -68,9 +69,7 @@ export function ConversationView({ spans, onSelect }: ConversationViewProps) {
 
   if (events.length === 0) {
     return (
-      <div className="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-600">
-        No conversation data in this run.
-      </div>
+      <div className="px-3 py-6 text-center text-xs text-muted-foreground/70">No conversation data in this run.</div>
     )
   }
 
@@ -107,7 +106,7 @@ function ShowAllToggle({ showAll, onToggle }: { showAll: boolean; onToggle: () =
       type="button"
       onClick={onToggle}
       title={showAll ? 'Hide AG-UI scaffolding' : 'Show all messages including scaffolding'}
-      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border border-zinc-950/10 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900/90 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border bg-background/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
     >
       {showAll ? <EyeSlashIcon className="size-3" /> : <EyeIcon className="size-3" />}
       {showAll ? 'Hide scaffolding' : 'Show all'}
@@ -128,7 +127,7 @@ function ConversationScrollButton() {
       type="button"
       aria-label="Jump to latest"
       onClick={handleScrollToBottom}
-      className="absolute bottom-4 left-[50%] z-10 inline-flex size-9 translate-x-[-50%] items-center justify-center rounded-full border border-zinc-950/10 bg-white text-zinc-700 shadow-md hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+      className="absolute bottom-4 left-[50%] z-10 inline-flex size-9 translate-x-[-50%] items-center justify-center rounded-full border bg-background text-foreground shadow-md hover:bg-accent"
     >
       <ArrowDownIcon className="size-4 fill-current" />
     </button>
@@ -190,9 +189,9 @@ function MessageBubble({ event }: MessageBubbleProps) {
   if (isUser) {
     return (
       <div className="flex items-start justify-end">
-        <div className="max-w-[75%] rounded-2xl rounded-tr-sm bg-zinc-100 px-3 py-2 text-xs text-zinc-950 dark:bg-white/10 dark:text-white">
+        <div className="max-w-[75%] rounded-2xl rounded-tr-sm bg-muted px-3 py-2 text-xs text-foreground">
           <Markdown>{event.content}</Markdown>
-          <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+          <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
             <span>{formatTime(event.timestamp)}</span>
           </div>
         </div>
@@ -204,12 +203,12 @@ function MessageBubble({ event }: MessageBubbleProps) {
     <div className="group flex w-fit max-w-[85%] items-start gap-1.5 px-2 py-1 text-xs">
       <div className="min-w-0">
         {event.role !== 'assistant' && (
-          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             {event.role}
           </div>
         )}
         <Markdown>{event.content}</Markdown>
-        <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
           <span>{formatTime(event.timestamp)}</span>
           {hasTokens && (
             <>
@@ -225,7 +224,7 @@ function MessageBubble({ event }: MessageBubbleProps) {
 
 function TokenBadge({ input, output }: { input?: number; output?: number }) {
   const total = (input ?? 0) + (output ?? 0)
-  const neutral = 'text-zinc-500 dark:text-zinc-400'
+  const neutral = 'text-muted-foreground'
   return (
     <span className="inline-flex items-center gap-1 font-mono">
       {input !== undefined && <span className={metricTone('tokens', input, neutral)}>↑{input}</span>}
@@ -250,24 +249,19 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
   const resultTokens = result ? estimateTokens(formatValue(result.result)) : undefined
 
   return (
-    <div
-      className={[
-        'rounded-md border text-xs',
-        selected ? 'border-indigo-500/60 dark:border-indigo-400/60' : 'border-zinc-950/10 dark:border-white/10',
-      ].join(' ')}
-    >
+    <div className={['rounded-md border text-xs', selected ? 'border-primary' : 'border-border'].join(' ')}>
       <button
         type="button"
         onClick={() => {
           onToggle()
           onSelect()
         }}
-        className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-white/5"
+        className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left hover:bg-accent"
       >
-        <span className="text-zinc-500 dark:text-zinc-400">⚒</span>
-        <span className="truncate font-medium text-zinc-950 dark:text-white">{call.toolName}</span>
+        <span className="text-muted-foreground">⚒</span>
+        <span className="truncate font-medium text-foreground">{call.toolName}</span>
         <StatusPill status={status} />
-        <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <ToolTokenBadge input={argumentTokens} output={resultTokens} />
           <span>{formatTime(call.timestamp)}</span>
           {expanded ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
@@ -275,11 +269,11 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
       </button>
 
       {expanded && (
-        <div className="space-y-2 border-t border-zinc-950/5 px-3 py-2 dark:border-white/5">
+        <div className="space-y-2 border-t border-border px-3 py-2">
           <KeyValueBlock label="Arguments" value={call.arguments} />
           {result && <KeyValueBlock label="Result" value={result.result} />}
           {result?.error && (
-            <div className="rounded border border-rose-500/30 bg-rose-500/5 px-2 py-1 text-[11px] text-rose-700 dark:text-rose-300">
+            <div className="rounded border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
               <span className="font-semibold">{result.error.kind}</span>
               {result.error.message && <span>: {result.error.message}</span>}
             </div>
@@ -291,12 +285,12 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
 }
 
 function ToolTokenBadge({ input, output }: { input: number; output?: number }) {
-  const neutral = 'text-zinc-500 dark:text-zinc-400'
+  const neutral = 'text-muted-foreground'
   return (
     <span className="inline-flex items-center gap-1 font-mono" title="Estimated tool payload tokens">
       <span className={metricTone('tokens', input, neutral)}>↑{formatTokens(input)}</span>
       {output !== undefined && <span className={metricTone('tokens', output, neutral)}>↓{formatTokens(output)}</span>}
-      <span className="text-zinc-400 dark:text-zinc-500">est</span>
+      <span className="text-muted-foreground">est</span>
     </span>
   )
 }
@@ -339,13 +333,13 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
         <span className="rounded bg-agui-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-agui-700 dark:text-agui-300">
           agent
         </span>
-        <span className="truncate font-medium text-zinc-950 dark:text-white">{event.agentName}</span>
+        <span className="truncate font-medium text-foreground">{event.agentName}</span>
         {hasActions && (
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+          <span className="text-[10px] text-muted-foreground">
             ({actions.length} action{actions.length === 1 ? '' : 's'})
           </span>
         )}
-        <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <ToolTokenBadge input={inputTokens} output={outputTokens} />
           <span>{formatTime(event.timestamp)}</span>
           {expanded ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
@@ -357,10 +351,8 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
           <KeyValueBlock label="Input" value={event.input} />
           <KeyValueBlock label="Output" value={event.result} />
           {hasActions && (
-            <div className="space-y-2 border-t border-zinc-950/5 pt-2 dark:border-white/5">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Actions
-              </div>
+            <div className="space-y-2 border-t border-border pt-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</div>
               <div className="flex flex-col gap-2">{actions.map((c) => renderEvent(c, ctx))}</div>
             </div>
           )}
@@ -371,14 +363,9 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
 }
 
 function StatusPill({ status }: { status: 'pending' | 'completed' | 'failed' }) {
-  const cls =
-    status === 'completed'
-      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-      : status === 'failed'
-        ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
-        : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+  const variant = status === 'completed' ? 'success' : status === 'failed' ? 'destructive' : 'secondary'
   const label = status === 'completed' ? '✓ Completed' : status === 'failed' ? '✗ Failed' : '⋯ Pending'
-  return <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>
+  return <Badge variant={variant}>{label}</Badge>
 }
 
 function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
@@ -386,12 +373,10 @@ function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="group/kv relative">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          {label}
-        </div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
         <CopyButton value={formatted} className="opacity-0 transition-opacity group-hover/kv:opacity-100" />
       </div>
-      <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded bg-zinc-950/5 px-2 py-1.5 font-mono text-[11px] text-zinc-800 dark:bg-white/5 dark:text-zinc-200">
+      <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted px-2 py-1.5 font-mono text-[11px] text-foreground">
         {formatted}
       </pre>
     </div>

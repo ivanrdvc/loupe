@@ -28,7 +28,7 @@ export function CopyButton({ value, className, label = 'Copy' }: CopyButtonProps
       aria-label={copied ? 'Copied' : label}
       title={copied ? 'Copied' : label}
       className={[
-        'inline-flex size-5 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white',
+        'inline-flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
         className ?? '',
       ].join(' ')}
     >

@@ -1,7 +1,8 @@
-import { Refresh01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { Refresh01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Button } from '#/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '#/components/ui/dropdown-menu'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
+import { Separator } from '#/components/ui/separator'
 import { cn } from '#/lib/utils'
 
 export const AUTO_REFRESH_OPTIONS = [
@@ -25,7 +26,7 @@ export const AUTO_REFRESH_MS: Record<AutoRefreshInterval, false | number> = {
 interface AutoRefreshSelectProps {
   value: AutoRefreshInterval
   onChange: (value: AutoRefreshInterval) => void
-  onRefresh: () => void
+  onRefresh?: () => void
   loading?: boolean
 }
 
@@ -34,34 +35,37 @@ export function AutoRefreshSelect({ value, onChange, onRefresh, loading = false 
 
   return (
     <div className="inline-flex items-center gap-1">
-      <Button
-        type="button"
-        aria-label="Refresh now"
-        variant="outline"
-        size="icon-sm"
-        onClick={onRefresh}
-        disabled={loading}
-      >
-        <HugeiconsIcon
-          icon={Refresh01Icon}
-          className={cn(loading && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
-        />
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            {selected.selectedLabel}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-40">
+      {onRefresh && (
+        <Button
+          type="button"
+          aria-label="Refresh now"
+          variant="outline"
+          size="icon-sm"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <HugeiconsIcon
+            icon={Refresh01Icon}
+            className={cn(loading && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
+          />
+        </Button>
+      )}
+      <Select value={value} onValueChange={(v) => onChange(v as AutoRefreshInterval)}>
+        <SelectTrigger size="sm" aria-label="Auto refresh">
+          <span className="text-muted-foreground">Auto</span>
+          <Separator orientation="vertical" className="data-[orientation=vertical]:h-3.5" />
+          <SelectValue>
+            <span className="tabular-nums">{selected.selectedLabel}</span>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent position="popper" align="end">
           {AUTO_REFRESH_OPTIONS.map((option) => (
-            <DropdownMenuItem key={option.value} onSelect={() => onChange(option.value)}>
-              <HugeiconsIcon icon={Tick02Icon} className={value === option.value ? 'opacity-100' : 'opacity-0'} />
+            <SelectItem key={option.value} value={option.value}>
               {option.label}
-            </DropdownMenuItem>
+            </SelectItem>
           ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </SelectContent>
+      </Select>
     </div>
   )
 }

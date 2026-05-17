@@ -21,7 +21,7 @@ interface Row {
 const INDENT = 22
 const HANDLE = 16
 const LEAF_DOT = 8
-const TREE_LINE = 'bg-zinc-300 dark:bg-zinc-700'
+const TREE_LINE = 'bg-border'
 // Normal completions — don't surface these on the row, they're just noise.
 const NORMAL_FINISH = new Set(['stop', 'end_turn', 'complete', 'end', 'eos'])
 
@@ -116,7 +116,7 @@ export function SpanTreeList({ spans, selectedId, onSelect }: SpanTreeListProps)
 
   if (rows.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-3 text-center text-xs text-zinc-400 dark:text-zinc-600">
+      <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
         No spans in this session.
       </div>
     )
@@ -211,8 +211,8 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
               className={[
                 'group absolute flex items-center justify-center rounded-full text-[10px] font-semibold ring-1 ring-inset transition-colors -translate-x-1/2 -translate-y-1/2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/80',
                 isCollapsed
-                  ? 'bg-zinc-800 text-white ring-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 dark:ring-zinc-200'
-                  : 'bg-zinc-200 text-zinc-700 ring-zinc-300 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-700',
+                  ? 'bg-foreground text-background ring-foreground'
+                  : 'bg-muted text-muted-foreground ring-border hover:bg-accent',
               ].join(' ')}
               style={{ ...indicatorAnchor, width: HANDLE, height: HANDLE }}
             >
@@ -240,27 +240,25 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
                 {display.tagLabel}
               </span>
             )}
-            <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{display.name}</span>
+            <span className="truncate font-medium text-foreground">{display.name}</span>
             {errored && (
-              <span className="shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 dark:text-rose-300">
+              <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
                 error
               </span>
             )}
           </div>
           {!isAgent && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums text-[11px] text-muted-foreground">
               <span>{formatDuration(durationMs)}</span>
               {showTokens && (
                 <span>
                   {fmtNum(span.inputTokens)} → {fmtNum(span.outputTokens)}
-                  {cached > 0 && (
-                    <span className="text-emerald-700 dark:text-emerald-300"> · {fmtNum(cached)} cached</span>
-                  )}
+                  {cached > 0 && <span className="text-success"> · {fmtNum(cached)} cached</span>}
                 </span>
               )}
               {subtreeTokens > 0 && !showTokens && (
                 <span>
-                  <span className="text-zinc-400 dark:text-zinc-600">∑</span> {fmtNum(subtreeTokens)} tok
+                  <span className="text-muted-foreground/70">∑</span> {fmtNum(subtreeTokens)} tok
                 </span>
               )}
               {showFinish && <span className={finishCls}>{finishReason}</span>}
@@ -285,7 +283,7 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
             {display.tagLabel}
           </span>
         )}
-        <span className="truncate text-sm font-semibold text-zinc-950 dark:text-white">{display.name}</span>
+        <span className="truncate text-sm font-semibold text-foreground">{display.name}</span>
       </div>
 
       <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
@@ -317,11 +315,11 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
       )}
 
       {(span.responseId || span.systemFingerprint) && (
-        <details className="rounded-lg ring-1 ring-zinc-950/10 dark:ring-white/10">
-          <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <details className="rounded-lg ring-1 ring-border">
+          <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Debug
           </summary>
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-zinc-950/10 border-t px-3 py-2 text-[11px] dark:border-white/10">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-border border-t px-3 py-2 text-[11px]">
             {span.responseId && <Stat label="Response id" value={span.responseId} />}
             {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
           </dl>
@@ -349,7 +347,7 @@ function MessagesBlock({ input, output, spans }: { input?: JsonValue; output?: J
   }
   return (
     <section className="flex flex-col gap-2">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Messages</div>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Messages</div>
       <div className="space-y-2">
         {inputMsgs.map((msg, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
@@ -365,8 +363,8 @@ function MessagesBlock({ input, output, spans }: { input?: JsonValue; output?: J
 }
 
 const ROLE_STYLES: Record<MessageRole, { label: string; ring: string }> = {
-  system: { label: 'System', ring: 'ring-zinc-950/10 dark:ring-white/10' },
-  user: { label: 'User', ring: 'ring-zinc-950/10 dark:ring-white/10' },
+  system: { label: 'System', ring: 'ring-border' },
+  user: { label: 'User', ring: 'ring-border' },
   assistant: { label: 'Assistant', ring: 'ring-violet-500/30 dark:ring-violet-400/25' },
 }
 
@@ -394,10 +392,10 @@ function MessageCard({
 }) {
   const style = ROLE_STYLES[msg.role]
   return (
-    <div className={`min-w-0 rounded-md bg-white px-3 py-2 ring-1 dark:bg-zinc-950/30 ${style.ring}`}>
-      <div className="mb-1.5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+    <div className={`min-w-0 rounded-md bg-card px-3 py-2 ring-1 ${style.ring}`}>
+      <div className="mb-1.5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         <span>{style.label}</span>
-        {response && <span className="text-zinc-400 dark:text-zinc-600">· response</span>}
+        {response && <span className="text-muted-foreground/70">· response</span>}
       </div>
       <div className="space-y-2">
         {msg.parts.map((part, i) => (
@@ -418,9 +416,7 @@ function MessagePartView({
 }) {
   if (part.kind === 'text') {
     return (
-      <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-zinc-800 dark:text-zinc-200">
-        {part.content}
-      </pre>
+      <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground">{part.content}</pre>
     )
   }
   if (part.kind === 'tool_call') {
@@ -434,28 +430,28 @@ function MessagePartView({
       <div className={tone.card}>
         <div className="flex items-center gap-2 text-[11px]">
           <span className={tone.badge}>{tone.label}</span>
-          <span className="font-mono text-zinc-900 dark:text-zinc-100">{part.name}</span>
+          <span className="font-mono text-foreground">{part.name}</span>
           {subAgent && subAgentName && subAgentName !== part.name && (
-            <span className="text-zinc-500 dark:text-zinc-400">→ {subAgentName}</span>
+            <span className="text-muted-foreground">→ {subAgentName}</span>
           )}
           {errored && (
-            <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 dark:text-rose-300">
+            <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
               error
             </span>
           )}
-          <span className="ml-auto truncate font-mono text-[10px] text-zinc-400 dark:text-zinc-500" title={part.id}>
+          <span className="ml-auto truncate font-mono text-[10px] text-muted-foreground" title={part.id}>
             {part.id}
           </span>
         </div>
         {part.arguments != null && (
-          <pre className="mt-1.5 max-h-60 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-zinc-700 dark:text-zinc-300">
+          <pre className="mt-1.5 max-h-60 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
             {formatJson(part.arguments)}
           </pre>
         )}
         {hasResult && (
-          <div className="mt-1.5 border-zinc-950/10 border-t pt-1.5 dark:border-white/10">
-            <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Result</div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-zinc-800 dark:text-zinc-200">
+          <div className="mt-1.5 border-border border-t pt-1.5">
+            <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Result</div>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
               {formatJson(resolved.result)}
             </pre>
           </div>
@@ -464,7 +460,7 @@ function MessagePartView({
     )
   }
   return (
-    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-zinc-700 dark:text-zinc-300">
+    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
       {formatJson(part.response)}
     </pre>
   )
@@ -472,12 +468,9 @@ function MessagePartView({
 
 function RoleBlock({ content }: { content: string }) {
   return (
-    <details
-      open
-      className="rounded-lg bg-zinc-950/[0.025] ring-1 ring-zinc-950/10 dark:bg-white/[0.03] dark:ring-white/10"
-    >
-      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-zinc-900 dark:text-zinc-100">Role</summary>
-      <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words border-zinc-950/10 border-t px-3 py-2 text-[11px] leading-relaxed text-zinc-800 dark:border-white/10 dark:text-zinc-200">
+    <details open className="rounded-lg bg-muted ring-1 ring-border">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">Role</summary>
+      <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2 text-[11px] leading-relaxed text-foreground">
         {content}
       </pre>
     </details>
@@ -487,8 +480,8 @@ function RoleBlock({ content }: { content: string }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
-      <dd className="min-w-0 break-words tabular-nums text-zinc-900 dark:text-zinc-100">{value}</dd>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words tabular-nums text-foreground">{value}</dd>
     </>
   )
 }
@@ -496,9 +489,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 function finishReasonClass(reason: string | undefined): string {
   if (!reason) return ''
   if (reason === 'tool_calls' || reason === 'tool_use') return 'text-sky-700 dark:text-sky-300'
-  if (reason === 'length' || reason === 'max_tokens') return 'text-amber-700 dark:text-amber-300'
-  if (reason === 'content_filter' || reason === 'error') return 'text-rose-700 dark:text-rose-300'
-  return 'text-zinc-500 dark:text-zinc-400'
+  if (reason === 'length' || reason === 'max_tokens') return 'text-warning'
+  if (reason === 'content_filter' || reason === 'error') return 'text-destructive'
+  return 'text-muted-foreground'
 }
 
 function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?: string }) {
@@ -513,8 +506,8 @@ function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?
     })()
   return (
     <div className="min-w-0 max-w-full">
-      <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</div>
-      <pre className="max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-zinc-50 p-2 text-[11px] leading-snug text-zinc-800 ring-1 ring-zinc-950/5 dark:bg-zinc-950/60 dark:text-zinc-200 dark:ring-white/10">
+      <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <pre className="max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-[11px] leading-snug text-foreground ring-1 ring-border">
         {text}
       </pre>
     </div>

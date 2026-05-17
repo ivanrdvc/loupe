@@ -21,7 +21,7 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
         'rounded-md border text-xs',
         isAgui
           ? 'border-agui-500/20 bg-agui-500/[0.04] dark:border-agui-400/20 dark:bg-agui-400/[0.04]'
-          : 'border-zinc-950/5 bg-zinc-50/50 dark:border-white/5 dark:bg-white/[0.02]',
+          : 'border bg-muted/40',
       ].join(' ')}
     >
       <button
@@ -31,7 +31,7 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
           'flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left',
           isAgui
             ? 'text-agui-700 hover:bg-agui-500/[0.08] dark:text-agui-300 dark:hover:bg-agui-400/[0.08]'
-            : 'text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5',
+            : 'text-muted-foreground hover:bg-accent/50',
         ].join(' ')}
       >
         {open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
@@ -51,19 +51,14 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
         <div
           className={[
             'flex flex-col gap-2 border-t px-3 py-2',
-            isAgui ? 'border-agui-500/15 dark:border-agui-400/15' : 'border-zinc-950/5 dark:border-white/5',
+            isAgui ? 'border-agui-500/15 dark:border-agui-400/15' : 'border-border',
           ].join(' ')}
         >
           {messages.map((m) => (
-            <div
-              key={`${m.spanId ?? ''}-${m.seq}`}
-              className="flex flex-col gap-1 text-[11px] text-zinc-700 dark:text-zinc-300"
-            >
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                {m.role}
-              </span>
+            <div key={`${m.spanId ?? ''}-${m.seq}`} className="flex flex-col gap-1 text-[11px] text-foreground">
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{m.role}</span>
               <Markdown>{m.content}</Markdown>
-              <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{formatTime(m.timestamp)}</div>
+              <div className="text-[10px] text-muted-foreground">{formatTime(m.timestamp)}</div>
             </div>
           ))}
         </div>

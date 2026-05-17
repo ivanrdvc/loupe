@@ -20,6 +20,10 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import * as React from 'react'
+import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
+import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
+import { type Env, EnvSelect } from '#/components/env-select'
+import { TimeRangeSelect } from '#/components/time-range-select'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -31,12 +35,9 @@ import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import type { SessionSummary } from '#/lib/telemetry'
+import type { TimeRangeDays } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { AutoRefreshSelect } from './auto-refresh-select'
 import { sessionColumns } from './columns'
-import { DataTableFacetedFilter } from './data-table-faceted-filter'
-import { EnvSelect } from './env-select'
-import { TimeRangeSelect } from './time-range-select'
 
 const STATUS_OPTIONS = [
   { label: 'OK', value: 'ok' },
@@ -48,9 +49,30 @@ interface DataTableProps {
   isLoading?: boolean
   onRowClick?: (row: SessionSummary) => void
   rowClassName?: (row: SessionSummary) => string | undefined
+  env: Env
+  onEnvChange: (env: Env) => void
+  days: TimeRangeDays
+  onDaysChange: (days: TimeRangeDays) => void
+  autoRefresh: AutoRefreshInterval
+  onAutoRefreshChange: (interval: AutoRefreshInterval) => void
+  onRefresh: () => void
+  refreshing?: boolean
 }
 
-export function DataTable({ data, isLoading, onRowClick, rowClassName }: DataTableProps) {
+export function DataTable({
+  data,
+  isLoading,
+  onRowClick,
+  rowClassName,
+  env,
+  onEnvChange,
+  days,
+  onDaysChange,
+  autoRefresh,
+  onAutoRefreshChange,
+  onRefresh,
+  refreshing,
+}: DataTableProps) {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -85,7 +107,7 @@ export function DataTable({ data, isLoading, onRowClick, rowClassName }: DataTab
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
 
   return (
-    <div className="flex w-full flex-col justify-start gap-6">
+    <div className="flex h-full w-full flex-col gap-4 md:gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {searchColumn && (
@@ -104,9 +126,14 @@ export function DataTable({ data, isLoading, onRowClick, rowClassName }: DataTab
           {table.getColumn('status') && (
             <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
           )}
-          <EnvSelect />
-          <TimeRangeSelect />
-          <AutoRefreshSelect />
+          <EnvSelect value={env} onChange={onEnvChange} />
+          <TimeRangeSelect value={days} onChange={onDaysChange} />
+          <AutoRefreshSelect
+            value={autoRefresh}
+            onChange={onAutoRefreshChange}
+            onRefresh={onRefresh}
+            loading={refreshing}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -133,8 +160,8 @@ export function DataTable({ data, isLoading, onRowClick, rowClassName }: DataTab
           </DropdownMenu>
         </div>
       </div>
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
-        <div className="overflow-hidden rounded-lg border">
+      <div className="flex min-h-0 flex-1 flex-col px-4 lg:px-6">
+        <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">
               {table.getHeaderGroups().map((headerGroup) => (
@@ -170,7 +197,9 @@ export function DataTable({ data, isLoading, onRowClick, rowClassName }: DataTab
             </TableBody>
           </Table>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-3 px-4">
+      </div>
+      <div className="-mx-0 -mb-4 shrink-0 border-t bg-background md:-mb-6">
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 lg:px-6">
           <div className="flex items-center gap-4 lg:gap-6">
             <div className="hidden items-center gap-2 lg:flex">
               <p className="text-xs font-medium">Rows per page</p>

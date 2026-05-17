@@ -1,8 +1,12 @@
-import { Tick02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Button } from '#/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '#/components/ui/dropdown-menu'
-import { TIME_RANGE_DAYS, type TimeRangeDays, timeRangeLabel, timeRangeShortcut } from '#/lib/time-range'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
+import { Separator } from '#/components/ui/separator'
+import {
+  parseTimeRangeDays,
+  TIME_RANGE_DAYS,
+  type TimeRangeDays,
+  timeRangeLabel,
+  timeRangeShortcut,
+} from '#/lib/time-range'
 
 interface TimeRangeSelectProps {
   value: TimeRangeDays
@@ -12,20 +16,21 @@ interface TimeRangeSelectProps {
 
 export function TimeRangeSelect({ value, onChange, options = TIME_RANGE_DAYS }: TimeRangeSelectProps) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          <span className="font-mono text-[11px] tabular-nums">{timeRangeShortcut(value)}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-44">
+    <Select value={String(value)} onValueChange={(v) => onChange(parseTimeRangeDays(v))}>
+      <SelectTrigger size="sm" aria-label="Time range">
+        <span className="text-muted-foreground">Range</span>
+        <Separator orientation="vertical" className="data-[orientation=vertical]:h-3.5" />
+        <SelectValue>
+          <span className="tabular-nums">{timeRangeShortcut(value)}</span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent position="popper" align="end">
         {options.map((days) => (
-          <DropdownMenuItem key={days} onSelect={() => onChange(days)}>
-            <HugeiconsIcon icon={Tick02Icon} className={value === days ? 'opacity-100' : 'opacity-0'} />
+          <SelectItem key={days} value={String(days)}>
             {timeRangeLabel(days)}
-          </DropdownMenuItem>
+          </SelectItem>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </SelectContent>
+    </Select>
   )
 }

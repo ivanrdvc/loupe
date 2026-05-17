@@ -34,8 +34,8 @@ export function IconTabs<T extends string>({
           className={[
             'inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors',
             value === id
-              ? 'bg-zinc-950/[0.06] text-zinc-950 ring-1 ring-zinc-950/10 dark:bg-white/[0.08] dark:text-white dark:ring-white/10'
-              : 'text-zinc-500 hover:bg-zinc-950/[0.035] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-white',
+              ? 'bg-accent text-accent-foreground ring-1 ring-border'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
           ].join(' ')}
         >
           <Icon className="size-3.5 shrink-0" aria-hidden />

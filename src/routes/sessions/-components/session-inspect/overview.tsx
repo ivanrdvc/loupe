@@ -2,6 +2,7 @@ import { CommandLineIcon, InformationCircleIcon, WrenchScrewdriverIcon } from '@
 import { useMemo, useState } from 'react'
 import { contextWindowFor, formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import {
   descendantSpans,
@@ -43,27 +44,27 @@ export function SessionInspectLayout({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col md:flex-row">
-      <section className="h-64 w-full shrink-0 overflow-auto border-zinc-950/10 border-b md:h-full md:w-1/3 md:border-r md:border-b-0 dark:border-white/10">
-        {loading && spans.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-xs text-zinc-400 dark:text-zinc-600">
-            Loading spans…
-          </div>
-        ) : (
-          <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} />
-        )}
+      <section className="h-64 w-full shrink-0 border-border border-b md:h-full md:w-1/3 md:border-r md:border-b-0">
+        <ScrollArea className="h-full">
+          {loading && spans.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground/70">
+              Loading spans…
+            </div>
+          ) : (
+            <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} />
+          )}
+        </ScrollArea>
       </section>
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         {loading && spans.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-xs text-zinc-400 dark:text-zinc-600">
-            Loading…
-          </div>
+          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground/70">Loading…</div>
         ) : (
           <>
-            <div className="min-w-0 shrink-0 border-zinc-950/10 border-b dark:border-white/10">
+            <div className="min-w-0 shrink-0 border-border border-b">
               <SessionOverview spans={spans} />
             </div>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="flex shrink-0 items-center border-zinc-950/10 border-b px-3 py-2 dark:border-white/10">
+              <div className="flex shrink-0 items-center border-border border-b px-3 py-2">
                 <IconTabs
                   tabs={INSPECTOR_TABS}
                   value={inspectorTab}
@@ -71,12 +72,12 @@ export function SessionInspectLayout({
                   aria-label="Session inspector panel"
                 />
               </div>
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+              <ScrollArea className="min-h-0 min-w-0 flex-1">
                 {inspectorTab === 'details' ? (
                   selectedSpan ? (
                     <DetailPanel span={selectedSpan} spans={spans} />
                   ) : (
-                    <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-zinc-400 dark:text-zinc-600">
+                    <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
                       Select a span in the tree for details
                     </div>
                   )
@@ -85,7 +86,7 @@ export function SessionInspectLayout({
                 ) : (
                   <SessionLogs spans={spans} />
                 )}
-              </div>
+              </ScrollArea>
             </div>
           </>
         )}
@@ -130,8 +131,8 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
   return (
     <div className="px-4 py-4">
       <header className="mb-3 flex items-baseline justify-between gap-2 text-[11px]">
-        <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">{scopeLabel}</span>
-        <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+        <span className="truncate font-medium text-foreground">{scopeLabel}</span>
+        <span className="shrink-0 tabular-nums text-muted-foreground">
           {totals.count} tool{totals.count === 1 ? '' : 's'} ·{' '}
           {totals.tokens ? `${formatTokens(totals.tokens)} tokens` : '—'}
         </span>
@@ -166,18 +167,18 @@ function SessionLogs({ spans }: { spans: Span[] }) {
 
   return (
     <div className="px-4 py-3">
-      <div className="overflow-hidden rounded-md bg-zinc-950 text-[11px] text-zinc-200 shadow-inner dark:bg-black">
+      <div className="overflow-hidden rounded-md bg-muted text-[11px] text-foreground shadow-inner ring-1 ring-border">
         {logs.map((log, index) => (
           <div
             key={`${log.source}-${log.t}`}
             className={[
               'grid grid-cols-[5.75rem_3.5rem_4.5rem_1fr] gap-2 px-3 py-2 font-mono',
-              index > 0 ? 'border-white/10 border-t' : '',
+              index > 0 ? 'border-border border-t' : '',
             ].join(' ')}
           >
-            <span className="text-zinc-500">{log.timeStr}</span>
-            <span className={log.level === 'info' ? 'text-sky-300' : 'text-zinc-400'}>{log.level}</span>
-            <span className="text-emerald-300">{log.source}</span>
+            <span className="text-muted-foreground">{log.timeStr}</span>
+            <span className={log.level === 'info' ? 'text-foreground' : 'text-muted-foreground'}>{log.level}</span>
+            <span className="text-muted-foreground">{log.source}</span>
             <span className="min-w-0 truncate">{log.message}</span>
           </div>
         ))}
@@ -245,7 +246,7 @@ function SessionOverview({ spans }: { spans: Span[] }) {
 
   if (orchestratorIds.length === 0) {
     return (
-      <div className="px-4 py-5 text-center text-xs text-zinc-400 dark:text-zinc-600">
+      <div className="px-4 py-5 text-center text-xs text-muted-foreground/70">
         No agent invocation found in this session.
       </div>
     )
@@ -255,8 +256,8 @@ function SessionOverview({ spans }: { spans: Span[] }) {
     <section className="flex max-h-[min(46vh,470px)] flex-col overflow-hidden">
       <header className="shrink-0 px-4 pt-3 pb-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-zinc-950 dark:text-white">{agent}</div>
-          <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <div className="truncate text-sm font-semibold text-foreground">{agent}</div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
             {turns.length} turn{turns.length === 1 ? '' : 's'} · {formatDuration(totals.duration)}
           </div>
         </div>
@@ -280,19 +281,17 @@ function SessionOverview({ spans }: { spans: Span[] }) {
         </div>
       </header>
 
-      <div className="shrink-0 border-zinc-950/10 border-t px-4 py-3 dark:border-white/10">
+      <div className="shrink-0 border-border border-t px-4 py-3">
         <div className="flex items-baseline justify-between gap-3">
           <div className="flex items-baseline gap-2 text-[11px]">
-            <span className="font-medium text-zinc-700 dark:text-zinc-200">Context breakdown</span>
-            {peakWindow && (
-              <span className="tabular-nums text-zinc-500 dark:text-zinc-400">{(peakPct * 100).toFixed(0)}%</span>
-            )}
-            <span className={`text-[10px] text-zinc-400 dark:text-zinc-500 ${ready ? 'opacity-0' : 'opacity-100'}`}>
+            <span className="font-medium text-foreground">Context breakdown</span>
+            {peakWindow && <span className="tabular-nums text-muted-foreground">{(peakPct * 100).toFixed(0)}%</span>}
+            <span className={`text-[10px] text-muted-foreground ${ready ? 'opacity-0' : 'opacity-100'}`}>
               counting…
             </span>
           </div>
           {peakWindow && (
-            <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            <span className="text-[10px] tabular-nums text-muted-foreground">
               ~{formatTokens(peakIn)} / {formatTokens(peakWindow)} Tokens
             </span>
           )}
@@ -305,25 +304,25 @@ function SessionOverview({ spans }: { spans: Span[] }) {
         />
       </div>
 
-      <div className="min-h-0 overflow-auto border-zinc-950/10 border-t px-4 py-2.5 dark:border-white/10">
-        <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-          <span>Turns</span>
-          {totals.errors > 0 && (
-            <span className="tabular-nums text-rose-600 dark:text-rose-300">{totals.errors} errors</span>
-          )}
+      <ScrollArea className="min-h-0 border-border border-t">
+        <div className="px-4 py-2.5">
+          <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+            <span>Turns</span>
+            {totals.errors > 0 && <span className="tabular-nums text-destructive">{totals.errors} errors</span>}
+          </div>
+          <ol className="space-y-1.5">
+            {turns.map((turn, index) => (
+              <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} />
+            ))}
+          </ol>
         </div>
-        <ol className="space-y-1.5">
-          {turns.map((turn, index) => (
-            <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} />
-          ))}
-        </ol>
-      </div>
+      </ScrollArea>
     </section>
   )
 }
 
 const SEGMENT_COLORS = {
-  system: 'bg-zinc-400 dark:bg-zinc-500',
+  system: 'bg-muted-foreground/60',
   tools: 'bg-indigo-300 dark:bg-indigo-400',
   messages: 'bg-orange-300 dark:bg-orange-400',
   subagents: 'bg-sky-300 dark:bg-sky-400',
@@ -376,7 +375,7 @@ function ContextBreakdown({
 
   return (
     <div className="mt-2">
-      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-zinc-950/[0.06] dark:bg-white/[0.08]">
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
         {segments.map((s) =>
           s.tokens > 0 ? (
             <div
@@ -401,9 +400,9 @@ function ContextBreakdown({
             }`}
           >
             <span className={`size-1.5 rounded-full ${SEGMENT_COLORS[s.key]}`} />
-            <span className="text-zinc-500 dark:text-zinc-400">{s.label}</span>
-            <span className="text-zinc-700 dark:text-zinc-300">{s.tokens ? formatTokens(s.tokens) : '—'}</span>
-            {s.tokens > 0 && <span className="text-zinc-400 dark:text-zinc-500">· {s.pct}%</span>}
+            <span className="text-muted-foreground">{s.label}</span>
+            <span className="text-foreground">{s.tokens ? formatTokens(s.tokens) : '—'}</span>
+            {s.tokens > 0 && <span className="text-muted-foreground">· {s.pct}%</span>}
           </li>
         ))}
       </ul>
@@ -422,19 +421,14 @@ function SummaryMetric({
   sub?: string
   tone?: 'danger' | 'good'
 }) {
-  const valueClass =
-    tone === 'danger'
-      ? 'text-rose-600 dark:text-rose-300'
-      : tone === 'good'
-        ? 'text-emerald-700 dark:text-emerald-300'
-        : 'text-zinc-950 dark:text-white'
+  const valueClass = tone === 'danger' ? 'text-destructive' : tone === 'good' ? 'text-success' : 'text-foreground'
   return (
-    <div className="min-w-0 rounded-lg bg-zinc-950/[0.04] px-3 py-2 ring-1 ring-zinc-950/5 dark:bg-white/[0.06] dark:ring-white/10">
-      <div className="truncate text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+    <div className="min-w-0 rounded-lg bg-muted px-3 py-2 ring-1 ring-border">
+      <div className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         Total {label}
       </div>
       <div className={`mt-0.5 truncate text-base font-semibold tabular-nums ${valueClass}`}>{value}</div>
-      {sub && <div className="mt-0.5 truncate text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">{sub}</div>}
+      {sub && <div className="mt-0.5 truncate text-[10px] tabular-nums text-muted-foreground">{sub}</div>}
     </div>
   )
 }
@@ -450,17 +444,17 @@ function SessionTurnRow({ turn, index }: { turn: Turn; index: number }) {
   const callCount = chats.length
 
   return (
-    <li className="grid grid-cols-[2.75rem_1fr_auto] items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ring-1 ring-zinc-950/5 dark:ring-white/10">
-      <span className="font-medium text-zinc-500 dark:text-zinc-400">T{index}</span>
-      <span className="min-w-0 truncate text-zinc-800 dark:text-zinc-200">
+    <li className="grid grid-cols-[2.75rem_1fr_auto] items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ring-1 ring-border">
+      <span className="font-medium text-muted-foreground">T{index}</span>
+      <span className="min-w-0 truncate text-foreground">
         {modelLabel}
-        {callCount > 1 && <span className="ml-1.5 text-zinc-400 dark:text-zinc-500">· {callCount} calls</span>}
+        {callCount > 1 && <span className="ml-1.5 text-muted-foreground">· {callCount} calls</span>}
       </span>
-      <span className="flex shrink-0 items-center gap-2 tabular-nums text-zinc-500 dark:text-zinc-400">
-        {errors ? <span className="text-rose-600 dark:text-rose-300">{errors} err</span> : null}
+      <span className="flex shrink-0 items-center gap-2 tabular-nums text-muted-foreground">
+        {errors ? <span className="text-destructive">{errors} err</span> : null}
         <span>{tokenTotal ? formatTokens(tokenTotal) : '—'} tok</span>
         {totals.cachedTokens > 0 && (
-          <span className="text-emerald-700 dark:text-emerald-300">
+          <span className="text-success">
             {formatTokens(totals.cachedTokens)} cached ({cachePct}%)
           </span>
         )}

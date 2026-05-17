@@ -1,8 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table'
+import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { Badge } from '#/components/ui/badge'
 import { formatAgo, formatCost, formatTokens, truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
-import { DataTableColumnHeader } from './data-table-column-header'
 
 function userPrimary(s: SessionSummary): string {
   return s.userName ?? s.userId ?? s.host ?? '—'

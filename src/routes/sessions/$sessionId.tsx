@@ -1,4 +1,3 @@
-import { ChevronLeftIcon } from '@heroicons/react/16/solid'
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
@@ -7,8 +6,15 @@ import { AUTO_REFRESH_MS, AutoRefreshSelect, DEFAULT_AUTO_REFRESH_INTERVAL } fro
 import { ConversationView } from '#/components/conversation-view'
 import { IconTabs } from '#/components/icon-tabs'
 import { SiteHeader } from '#/components/site-header'
-import { TimeRangeSelect } from '#/components/time-range-select'
 import { Badge } from '#/components/ui/badge'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { parseTimeRangeDays, type TimeRangeDays } from '#/lib/time-range'
 import { SessionContextView } from './-components/session-inspect/context'
@@ -63,12 +69,6 @@ function SessionDetail() {
     setSelectedId(search.view === 'spans' && search.span ? search.span : null)
   }, [search.view, search.span])
 
-  const setDays = (days: TimeRangeDays) => {
-    navigate({
-      search: (prev) => ({ ...prev, days }),
-    })
-  }
-
   const spans = data?.spans ?? []
   const source = data?.source ?? null
   const provider = data?.provider
@@ -97,15 +97,22 @@ function SessionDetail() {
       <SiteHeader
         title={
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Link
-              to="/sessions"
-              search={{ days: search.days }}
-              aria-label="Back to sessions"
-              className="-ml-1 inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <ChevronLeftIcon className="size-4 fill-current" />
-            </Link>
-            <h1 className="text-base font-medium">Session</h1>
+            <h1 className="sr-only">Session</h1>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/sessions" search={{ days: search.days }}>
+                      Sessions
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Session</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
             {source === 'agent-instance' && (
               <Badge
                 variant="warning"
@@ -122,17 +129,14 @@ function SessionDetail() {
           </div>
         }
         actions={
-          <>
-            <TimeRangeSelect value={search.days} onChange={setDays} />
-            <AutoRefreshSelect
-              value={autoRefresh}
-              onChange={setAutoRefresh}
-              onRefresh={() => {
-                void refetch()
-              }}
-              loading={isFetching}
-            />
-          </>
+          <AutoRefreshSelect
+            value={autoRefresh}
+            onChange={setAutoRefresh}
+            onRefresh={() => {
+              void refetch()
+            }}
+            loading={isFetching}
+          />
         }
       />
 
