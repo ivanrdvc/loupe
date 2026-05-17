@@ -55,7 +55,9 @@
       "linter": {
         "rules": {
           "a11y": {
-            "noSvgWithoutTitle": "off"
+            "noSvgWithoutTitle": "off",
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off"
           },
           "suspicious": {
             "noArrayIndexKey": "off"

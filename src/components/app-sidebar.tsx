@@ -1,19 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link, useRouterState } from '@tanstack/react-router'
 import {
-  ChevronsUpDownIcon,
-  FlaskConicalIcon,
-  HomeIcon,
+  ArrowUpDownIcon,
+  Home01Icon,
   InboxIcon,
-  LogOutIcon,
-  MessagesSquareIcon,
-  MoonIcon,
+  Logout01Icon,
+  MessageMultiple01Icon,
+  Moon01Icon,
   PlayCircleIcon,
   PuzzleIcon,
-  SettingsIcon,
-  SunIcon,
+  Settings01Icon,
+  Sun01Icon,
+  TestTubeIcon,
   UserCircleIcon,
-} from 'lucide-react'
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useQuery } from '@tanstack/react-query'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { useTheme } from 'next-themes'
 import { useState } from 'react'
 import { Logo } from '#/components/logo'
@@ -49,16 +50,16 @@ const APP_VERSION = `v${__APP_VERSION__}`
 type NavItem = {
   to: '/' | '/sessions' | '/runs' | '/mcp' | '/evals'
   label: string
-  icon: typeof HomeIcon
+  icon: typeof Home01Icon
   match: (path: string) => boolean
 }
 
 const MAIN_NAV: NavItem[] = [
-  { to: '/', label: 'Home', icon: HomeIcon, match: (p) => p === '/' },
-  { to: '/sessions', label: 'Sessions', icon: MessagesSquareIcon, match: (p) => p.startsWith('/sessions') },
+  { to: '/', label: 'Home', icon: Home01Icon, match: (p) => p === '/' },
+  { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon, match: (p) => p.startsWith('/sessions') },
   { to: '/runs', label: 'Runs', icon: PlayCircleIcon, match: (p) => p.startsWith('/runs') || p.startsWith('/live') },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, match: (p) => p.startsWith('/mcp') },
-  { to: '/evals', label: 'Evals', icon: FlaskConicalIcon, match: (p) => p.startsWith('/evals') },
+  { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals') },
 ]
 
 export function AppSidebar() {
@@ -97,7 +98,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton asChild isActive={item.match(pathname)} tooltip={item.label}>
                       <Link to={item.to}>
-                        <item.icon />
+                        <HugeiconsIcon icon={item.icon} />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -137,7 +138,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton onClick={() => setSettingsOpen(true)} tooltip="Settings">
-                    <SettingsIcon />
+                    <HugeiconsIcon icon={Settings01Icon} />
                     <span>Settings</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -145,7 +146,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild isActive={pathname.startsWith('/inbox')} tooltip="Inbox">
                     <Link to="/inbox">
                       <span className="relative shrink-0">
-                        <InboxIcon className="size-4 shrink-0" />
+                        <HugeiconsIcon icon={InboxIcon} className="size-4 shrink-0" />
                         {unreadCount > 0 && (
                           <span className="pointer-events-none absolute -top-1 -right-1 flex">
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
@@ -175,7 +176,7 @@ export function AppSidebar() {
 function NavUser() {
   const user = useUser()
   const { resolvedTheme, setTheme } = useTheme()
-  const ThemeIcon = resolvedTheme === 'dark' ? MoonIcon : SunIcon
+  const themeIcon = resolvedTheme === 'dark' ? Moon01Icon : Sun01Icon
 
   return (
     <SidebarMenu>
@@ -195,7 +196,7 @@ function NavUser() {
                 <span className="truncate text-sm font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">{user.email}</span>
               </div>
-              <ChevronsUpDownIcon className="ml-auto size-4" />
+              <HugeiconsIcon icon={ArrowUpDownIcon} className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -206,18 +207,18 @@ function NavUser() {
           >
             <DropdownMenuItem asChild>
               <a href="/account">
-                <UserCircleIcon />
+                <HugeiconsIcon icon={UserCircleIcon} />
                 My account
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
-              <ThemeIcon />
+              <HugeiconsIcon icon={themeIcon} />
               Toggle theme
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <a href="/login">
-                <LogOutIcon />
+                <HugeiconsIcon icon={Logout01Icon} />
                 Sign out
               </a>
             </DropdownMenuItem>

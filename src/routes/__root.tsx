@@ -3,6 +3,7 @@ import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/reac
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
+import { TooltipProvider } from '#/components/ui/tooltip'
 import appCss from '../styles.css?url'
 
 interface MyRouterContext {
@@ -50,10 +51,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="bg-background font-sans text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset className="md:m-2 md:ml-0 md:rounded-xl md:border md:shadow-sm">{children}</SidebarInset>
-          </SidebarProvider>
+          <TooltipProvider delayDuration={0}>
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset className="md:m-2 md:ml-0 md:rounded-xl md:border md:shadow-sm">{children}</SidebarInset>
+            </SidebarProvider>
+          </TooltipProvider>
         </ThemeProvider>
         <Scripts />
       </body>
