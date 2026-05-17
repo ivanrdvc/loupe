@@ -1,5 +1,5 @@
 import { PlayCircleIcon } from '@heroicons/react/24/outline'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { Page } from '#/components/page'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 
@@ -20,7 +20,7 @@ function RunsLanding() {
             <EmptyDescription>
               This section is for single-run views and future live ingestion — watching spans flush from the exporter,
               streaming events from a running app, or starting an agent here. Conversation threads and multi-run
-              grouping live under <a href="/sessions">Sessions</a>.
+              grouping live under <Link to="/sessions">Sessions</Link>.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

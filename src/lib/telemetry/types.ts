@@ -1,19 +1,23 @@
 import type { Span } from '#/lib/spans'
 
-export type TraceFetch = { kind: 'found'; spans: Span[]; truncated?: boolean } | { kind: 'not_found' }
-
-export interface GetTraceOpts {
+export interface WindowOpts {
   fromUs?: number
   toUs?: number
+}
+
+export interface IdentityFilter {
   userId?: string
   userName?: string
 }
 
-export interface ListTracesOpts {
-  fromUs?: number
-  toUs?: number
+export interface ListOpts extends WindowOpts {
   limit?: number
 }
+
+export type TraceFetch = { spans: Span[]; truncated?: boolean } | null
+
+export type GetTraceOpts = WindowOpts & IdentityFilter
+export type ListTracesOpts = ListOpts
 
 export interface TraceSummary {
   id: string
@@ -51,13 +55,7 @@ export interface SessionSummary {
   hasError?: boolean
 }
 
-export interface ListSessionsOpts {
-  fromUs?: number
-  toUs?: number
-  limit?: number
-  userId?: string
-  userName?: string
-}
+export type ListSessionsOpts = ListOpts & IdentityFilter
 
 export type InventoryDiscoveryKind = 'new_tool' | 'new_agent'
 
@@ -81,11 +79,7 @@ export interface LatencyRow {
   count: number
 }
 
-export interface LatencyOpts {
-  fromUs?: number
-  toUs?: number
-  limit?: number
-}
+export type LatencyOpts = ListOpts
 
 export interface ToolErrorRow {
   name: string
@@ -117,11 +111,7 @@ export interface ToolSpark {
   buckets: ToolBucketPoint[]
 }
 
-export interface TopOpts {
-  fromUs?: number
-  toUs?: number
-  limit?: number
-}
+export type TopOpts = ListOpts
 
 export interface OverviewAggregate {
   runs: number
@@ -130,21 +120,15 @@ export interface OverviewAggregate {
   totalCostUsd: number
 }
 
-export interface OverviewOpts {
-  fromUs?: number
-  toUs?: number
-}
+export type OverviewOpts = WindowOpts
 
-export type SessionFetch =
-  | {
-      kind: 'found'
-      sessionId: string
-      source: 'attribute' | 'agent-instance'
-      traceIds: string[]
-      spans: Span[]
-      title?: string
-    }
-  | { kind: 'not_found' }
+export type SessionFetch = {
+  sessionId: string
+  source: 'attribute' | 'agent-instance'
+  traceIds: string[]
+  spans: Span[]
+  title?: string
+} | null
 
 export interface TelemetryProvider {
   name: string

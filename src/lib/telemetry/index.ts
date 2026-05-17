@@ -120,7 +120,7 @@ export async function getTrace(traceId: string): Promise<{
 } | null> {
   const p = getActiveProvider()
   const r = await p.getTrace(traceId)
-  if (r.kind !== 'found') return null
+  if (!r) return null
   return { spans: r.spans, truncated: !!r.truncated, provider: p.name, fingerprint: p.fingerprint }
 }
 
@@ -161,16 +161,8 @@ export async function getSession(
   const p = getActiveProvider()
   if (!p.getSession) return null
   const r = await p.getSession(sessionId, opts)
-  if (r.kind !== 'found') return null
-  return {
-    sessionId: r.sessionId,
-    source: r.source,
-    spans: r.spans,
-    traceIds: r.traceIds,
-    provider: p.name,
-    fingerprint: p.fingerprint,
-    title: r.title,
-  }
+  if (!r) return null
+  return { ...r, provider: p.name, fingerprint: p.fingerprint }
 }
 
 export async function discoverInventory(

@@ -31,7 +31,7 @@ export async function runToolErrorRateDetection(w: AnomalyWindow): Promise<{ fir
     if (cur.errorRate < MIN_ERROR_RATE) continue
     const prev = priorByName.get(cur.name)
     const isNew = !prev || prev.errors === 0
-    const isSpike = !!prev && cur.errorRate >= prev.errorRate * ERROR_SPIKE_RATIO
+    const isSpike = !!prev && prev.errorRate > 0 && cur.errorRate >= prev.errorRate * ERROR_SPIKE_RATIO
     if (!isNew && !isSpike) continue
     const inserted = await db
       .insert(inboxItems)

@@ -18,8 +18,8 @@ const fetchHome = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const { from, to } = windowMs(data)
     const { fromUs, toUs } = windowUs(data)
-    // Fire-and-forget detection — anomalies surface in the inbox table.
-    await Promise.allSettled([
+    // Fire-and-forget detection — anomalies surface in the inbox table on the next refetch.
+    void Promise.allSettled([
       runDetection('new_tool'),
       runDetection('new_agent'),
       runToolErrorRateDetection({ fromUs, toUs }),

@@ -7,7 +7,7 @@ import {
   USER_NAME_ATTR_KEYS,
 } from '#/lib/classify-span'
 import { normalizeTraceRoots, propagateSessionInTrace, type Span, type SpanKind } from '#/lib/spans'
-import { aggregateSessions, mapLatencyRow, pickIdentityValue } from './shared'
+import { aggregateSessions, groupBy, mapLatencyRow, pickIdentityValue } from './shared'
 import type {
   GetTraceOpts,
   InventoryDiscoveryKind,
@@ -85,7 +85,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
     fingerprint: `${base}/${cfg.appId}`,
 
     async getTrace(traceId, opts): Promise<TraceFetch> {
-      if (!isSafeId(traceId)) return { kind: 'not_found' }
+      if (!isSafeId(traceId)) return null
       const q = `
         union dependencies, requests
         | where operation_Id == "${traceId}"
@@ -94,11 +94,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
         | top ${SESSION_SCAN_LIMIT} by timestamp asc
       `
       const rows = await kql(q, timespanFromOpts(opts))
-      if (rows.length === 0) return { kind: 'not_found' }
+      if (rows.length === 0) return null
       const spans = rows.map((r) => normalizeAiRow(r, traceId))
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
-      return { kind: 'found', spans, truncated: rows.length >= SESSION_SCAN_LIMIT }
+      return { spans, truncated: rows.length >= SESSION_SCAN_LIMIT }
     },
 
     async listTraces(opts): Promise<TraceSummary[]> {
@@ -162,7 +162,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
     },
 
     async getSession(sessionId, opts): Promise<SessionFetch> {
-      if (!isSafeId(sessionId)) return { kind: 'not_found' }
+      if (!isSafeId(sessionId)) return null
       const isHex = /^[a-f0-9]+$/i.test(sessionId)
       const hexClause = isHex ? `or name matches regex "^invoke_agent\\\\s+.*\\\\(${sessionId}\\\\)"` : ''
       const userFilter = kqlIdentityFilter(opts)
@@ -175,7 +175,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       `
       const traceRows = await kql(tracesQ, timespanFromOpts(opts))
       const traceIds = traceRows.map((r) => String(r.operation_Id)).filter(Boolean)
-      if (traceIds.length === 0) return { kind: 'not_found' }
+      if (traceIds.length === 0) return null
 
       const idList = traceIds.map((id) => `"${id}"`).join(',')
       const spansQ = `
@@ -187,13 +187,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       const spanRows = await kql(spansQ, timespanFromOpts(opts))
       const spans = spanRows.map((r) => normalizeAiRow(r, String(r.operation_Id ?? '')))
 
-      const byTrace = new Map<string, Span[]>()
-      for (const s of spans) {
-        const arr = byTrace.get(s.traceId) ?? []
-        arr.push(s)
-        byTrace.set(s.traceId, arr)
-      }
-      for (const trSpans of byTrace.values()) {
+      for (const trSpans of groupBy(spans, (s) => s.traceId).values()) {
         normalizeTraceRoots(trSpans)
         propagateSessionInTrace(trSpans)
       }
@@ -213,7 +207,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
         }
         if (title) break
       }
-      return { kind: 'found', sessionId, source, traceIds, spans, title }
+      return { sessionId, source, traceIds, spans, title }
     },
 
     async discoverInventory(kind, opts): Promise<InventoryObservation[]> {
@@ -229,7 +223,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
         | top 1000 by first_seen desc
       `
       const rows = await kql(q, timespanFromOpts(opts))
-      return rows.flatMap((r) => rowToInventoryObservation(kind, r))
+      return rows.map((r) => rowToInventoryObservation(kind, r)).filter((o): o is InventoryObservation => o !== null)
     },
 
     async listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]> {
@@ -338,25 +332,26 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   return summary
 }
 
-function rowToInventoryObservation(kind: InventoryDiscoveryKind, row: Record<string, unknown>): InventoryObservation[] {
+function rowToInventoryObservation(
+  kind: InventoryDiscoveryKind,
+  row: Record<string, unknown>,
+): InventoryObservation | null {
   const operationName = String(row.operation_name ?? '')
   const name =
     kind === 'new_tool'
       ? operationName.match(/^execute_tool\s+(\S+)/)?.[1]
       : operationName.match(/^invoke_agent\s+([^(\s]+)/)?.[1]
-  if (!name) return []
+  if (!name) return null
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : firstSeen
-  return [
-    {
-      kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
-      name,
-      namespace: '',
-      firstSeenMs: firstSeen,
-      lastSeenMs: lastSeen,
-      traceId: typeof row.sample_trace_id === 'string' ? row.sample_trace_id : undefined,
-    },
-  ]
+  return {
+    kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
+    name,
+    namespace: '',
+    firstSeenMs: firstSeen,
+    lastSeenMs: lastSeen,
+    traceId: typeof row.sample_trace_id === 'string' ? row.sample_trace_id : undefined,
+  }
 }
 
 function kqlIdentityFilter(opts: GetTraceOpts | ListSessionsOpts | undefined): string | undefined {

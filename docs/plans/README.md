@@ -26,10 +26,3 @@ choices, immutable log).
   of telemetry.
 - [Sessions](sessions.md) — the conversation itself as a first-class object,
   with OTel sitting underneath as the carrier.
-
-## Design notes
-
-- [Palette](palette.md) — 6 color roles on stock Tailwind v4. Governs the app
-  surface; Catalyst owns its component-internal tokens.
-- [shadcn migration](shadcn-migration.md) — migrating the whole app from
-  Catalyst (`@headlessui/react`) to shadcn-ui (`@radix-ui/*`).

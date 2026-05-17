@@ -1,13 +1,20 @@
-import {
-  classifySpan,
-  extractAgentName,
-  SESSION_ID_KEYS,
-  SESSION_TITLE_KEYS,
-  USER_ID_ATTR_KEYS,
-  USER_NAME_ATTR_KEYS,
-} from '#/lib/classify-span'
+import { classifySpan, extractAgentName, USER_ID_ATTR_KEYS, USER_NAME_ATTR_KEYS } from '#/lib/classify-span'
+
+// Only one session id / title column is materialized in OO today. If a second
+// lands, swap these for COALESCE expressions.
+const SESSION_ID_COL = 'ag_ui_thread_id'
+const SESSION_TITLE_COL = 'ag_ui_thread_title'
+
 import { normalizeTraceRoots, propagateSessionInTrace, type Span, type SpanKind } from '#/lib/spans'
-import { aggregateSessions, mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num, pickIdentityValue } from './shared'
+import {
+  aggregateSessions,
+  groupBy,
+  mapLatencyRow,
+  mapToolErrorRow,
+  mapToolPayloadRow,
+  num,
+  pickIdentityValue,
+} from './shared'
 import type {
   GetTraceOpts,
   InventoryDiscoveryKind,
@@ -47,23 +54,18 @@ const SESSION_SCAN_LIMIT = 10000
 // Last 30 days — OO scans local Parquet, cost ~free.
 const DEFAULT_WINDOW_US = 30 * 24 * 60 * 60 * 1_000_000
 
-const SESSION_ID_SELECT = SESSION_ID_KEYS.join(', ')
-const SESSION_ID_NOT_NULL = SESSION_ID_KEYS.map((k) => `${k} IS NOT NULL`).join(' OR ')
-const SESSION_ID_MAX_AS =
-  SESSION_ID_KEYS.length === 1
-    ? `MAX(${SESSION_ID_KEYS[0]})`
-    : `COALESCE(${SESSION_ID_KEYS.map((k) => `MAX(${k})`).join(', ')})`
-const SESSION_ID_FALLBACK_KEY = SESSION_ID_KEYS[0]
-const SESSION_TITLE_SELECT = SESSION_TITLE_KEYS.join(', ')
-const SESSION_TITLE_FALLBACK_KEY = SESSION_TITLE_KEYS[0]
-
-const LLM_INPUT_FALLBACK_KEY = 'llm_input'
+const LLM_INPUT_COL = 'llm_input'
 const USER_ID_KEYS = USER_ID_ATTR_KEYS.map(sqlColumnKey)
 const USER_NAME_KEYS = USER_NAME_ATTR_KEYS.map(sqlColumnKey)
 const HOST_KEYS = ['host_name']
 
 export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProvider {
-  const search = async (sql: string, fromUs: number, toUs: number, size = DEFAULT_SIZE) => {
+  const search = async (
+    sql: string,
+    fromUs: number,
+    toUs: number,
+    size = DEFAULT_SIZE,
+  ): Promise<Array<Record<string, unknown>>> => {
     const body = JSON.stringify({
       query: { sql, start_time: fromUs, end_time: toUs, from: 0, size },
     })
@@ -79,12 +81,11 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     if (!resp.ok) {
       const text = await resp.text()
       // 20002 = stream not yet created (nothing ingested) — treat as empty.
-      if (resp.status === 400 && text.includes('"code":20002')) {
-        return { hits: [] }
-      }
+      if (resp.status === 400 && text.includes('"code":20002')) return []
       throw new Error(`OpenObserve ${resp.status}: ${text}`)
     }
-    return (await resp.json()) as { hits?: unknown[] }
+    const json = (await resp.json()) as { hits?: unknown[] }
+    return (json.hits ?? []) as Array<Record<string, unknown>>
   }
 
   return {
@@ -94,14 +95,12 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     async getTrace(traceId, opts) {
       const { fromUs, toUs } = window(opts)
       const sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${traceId}'`
-      const data = await search(sql, fromUs, toUs)
-      const hits = (data.hits ?? []) as Array<Record<string, unknown>>
-      if (hits.length === 0) return { kind: 'not_found' }
+      const hits = await search(sql, fromUs, toUs)
+      if (hits.length === 0) return null
       const spans = hits.map(normalizeOpenObserveHit)
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
-      const truncated = hits.length >= DEFAULT_SIZE
-      return { kind: 'found', spans, truncated }
+      return { spans, truncated: hits.length >= DEFAULT_SIZE }
     },
 
     async listSessions(opts) {
@@ -118,9 +117,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
           span_id,
           reference_parent_span_id,
           operation_name,
-          ${has(SESSION_ID_FALLBACK_KEY) ? `${SESSION_ID_SELECT},` : ''}
-          ${has(SESSION_TITLE_FALLBACK_KEY) ? `${SESSION_TITLE_SELECT},` : ''}
-          ${has(LLM_INPUT_FALLBACK_KEY) ? `${LLM_INPUT_FALLBACK_KEY},` : ''}
+          ${has(SESSION_ID_COL) ? `${SESSION_ID_COL},` : ''}
+          ${has(SESSION_TITLE_COL) ? `${SESSION_TITLE_COL},` : ''}
+          ${has(LLM_INPUT_COL) ? `${LLM_INPUT_COL},` : ''}
           ${coalesceAs(USER_NAME_KEYS, 'user_name', skip)}
           ${coalesceAs(USER_ID_KEYS, 'user_id', skip)}
           ${coalesceAs(HOST_KEYS, 'host_name', skip)}
@@ -135,41 +134,31 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         WHERE (
           operation_name LIKE 'invoke_agent %'
           OR gen_ai_operation_name = 'chat'
-          ${has(SESSION_ID_FALLBACK_KEY) ? `OR ${SESSION_ID_NOT_NULL}` : ''}
+          ${has(SESSION_ID_COL) ? `OR ${SESSION_ID_COL} IS NOT NULL` : ''}
         )
         ${userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''}
         ORDER BY start_time DESC
         LIMIT ${SESSION_SCAN_LIMIT}
       `
       }
-      const data = await searchDroppingMissing(
+      const hits = await searchDroppingMissing(
         (skip) => search(buildSql(skip), fromUs, toUs, SESSION_SCAN_LIMIT),
-        [
-          LLM_INPUT_FALLBACK_KEY,
-          SESSION_TITLE_FALLBACK_KEY,
-          SESSION_ID_FALLBACK_KEY,
-          ...USER_NAME_KEYS,
-          ...USER_ID_KEYS,
-          ...HOST_KEYS,
-        ],
+        [LLM_INPUT_COL, SESSION_TITLE_COL, SESSION_ID_COL, ...USER_NAME_KEYS, ...USER_ID_KEYS, ...HOST_KEYS],
       )
-      const hits = (data.hits ?? []) as Array<Record<string, unknown>>
       const truncated = hits.length >= SESSION_SCAN_LIMIT
       return { sessions: aggregateSessions(hits, limit), truncated }
     },
 
     async getSession(sessionId, opts): Promise<SessionFetch> {
       // SQL-injection guard for the interpolated WHERE below.
-      if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) return { kind: 'not_found' }
+      if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) return null
       const isHex = /^[a-f0-9]+$/i.test(sessionId)
       const { fromUs, toUs } = window(opts)
       const buildTraceSql = (skip: ReadonlySet<string>) => {
         // Heuristic (agent-instance) sessions use the trace_id as the session id —
         // always try matching it directly so the drawer can resolve them.
         const clauses: string[] = [`trace_id = '${sessionId}'`]
-        for (const k of SESSION_ID_KEYS) {
-          if (!skip.has(k)) clauses.push(`${k} = '${sessionId}'`)
-        }
+        if (!skip.has(SESSION_ID_COL)) clauses.push(`${SESSION_ID_COL} = '${sessionId}'`)
         if (isHex) clauses.push(`operation_name LIKE 'invoke_agent %(${sessionId})%'`)
         const userPredicate = identityPredicate(opts, skip)
         return clauses.length === 0
@@ -178,31 +167,20 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
               userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''
             }`
       }
-      const trData = await searchDroppingMissing(
+      const trHits = await searchDroppingMissing(
         (skip) => {
           const sql = buildTraceSql(skip)
-          return sql ? search(sql, fromUs, toUs) : Promise.resolve({ hits: [] })
+          return sql ? search(sql, fromUs, toUs) : Promise.resolve([])
         },
-        [SESSION_ID_FALLBACK_KEY, ...USER_NAME_KEYS, ...USER_ID_KEYS],
+        [SESSION_ID_COL, ...USER_NAME_KEYS, ...USER_ID_KEYS],
       )
-      const trHits = (trData.hits ?? []) as Array<Record<string, unknown>>
       const traceIds = trHits.map((h) => String(h.trace_id)).filter(Boolean)
-      if (traceIds.length === 0) return { kind: 'not_found' }
-      // Step 2: bulk-fetch all spans for those traces.
+      if (traceIds.length === 0) return null
       const idList = traceIds.map((id) => `'${id}'`).join(',')
-      const spansSql = `SELECT * FROM "${cfg.stream}" WHERE trace_id IN (${idList})`
-      const spansData = await search(spansSql, fromUs, toUs)
-      const spanHits = (spansData.hits ?? []) as Array<Record<string, unknown>>
+      const spanHits = await search(`SELECT * FROM "${cfg.stream}" WHERE trace_id IN (${idList})`, fromUs, toUs)
       const spans = spanHits.map(normalizeOpenObserveHit)
-      // Propagate sessionId within each trace independently — different traces
-      // in the same session each have their own root invoke_agent.
-      const byTrace = new Map<string, Span[]>()
-      for (const s of spans) {
-        const arr = byTrace.get(s.traceId) ?? []
-        arr.push(s)
-        byTrace.set(s.traceId, arr)
-      }
-      for (const trSpans of byTrace.values()) {
+      // Propagate sessionId per-trace — each trace has its own root invoke_agent.
+      for (const trSpans of groupBy(spans, (s) => s.traceId).values()) {
         normalizeTraceRoots(trSpans)
         propagateSessionInTrace(trSpans)
       }
@@ -211,16 +189,13 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         : 'agent-instance'
       let title: string | undefined
       for (const h of spanHits) {
-        for (const k of SESSION_TITLE_KEYS) {
-          const v = h[k]
-          if (typeof v === 'string' && v.trim()) {
-            title = v.trim()
-            break
-          }
+        const v = h[SESSION_TITLE_COL]
+        if (typeof v === 'string' && v.trim()) {
+          title = v.trim()
+          break
         }
-        if (title) break
       }
-      return { kind: 'found', sessionId, source, traceIds, spans, title }
+      return { sessionId, source, traceIds, spans, title }
     },
 
     async listTraces(opts) {
@@ -238,7 +213,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
           SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN llm_usage_cost_total   ELSE 0 END) AS total_cost,
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN operation_name END) AS sample_agent,
           MAX(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS has_error,
-          ${skip.has(SESSION_ID_FALLBACK_KEY) ? '' : `${SESSION_ID_MAX_AS} AS session_id,`}
+          ${skip.has(SESSION_ID_COL) ? '' : `MAX(${SESSION_ID_COL}) AS session_id,`}
           MAX(service_name)    AS service_name
         FROM "${cfg.stream}"
         WHERE gen_ai_operation_name IS NOT NULL
@@ -246,11 +221,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY first_seen DESC
         LIMIT ${limit}
       `
-      const data = await searchDroppingMissing(
-        (skip) => search(buildSql(skip), fromUs, toUs, limit),
-        [SESSION_ID_FALLBACK_KEY],
-      )
-      const hits = (data.hits ?? []) as Array<Record<string, unknown>>
+      const hits = await searchDroppingMissing((skip) => search(buildSql(skip), fromUs, toUs, limit), [SESSION_ID_COL])
       return hits.map(hitToSummary)
     },
 
@@ -269,9 +240,10 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY first_seen DESC
         LIMIT 1000
       `
-      const data = await search(sql, fromUs, toUs, 1000)
-      const hits = (data.hits ?? []) as Array<Record<string, unknown>>
-      return hits.flatMap((hit) => hitToInventoryObservation(kind, hit))
+      const hits = await search(sql, fromUs, toUs, 1000)
+      return hits
+        .map((hit) => hitToInventoryObservation(kind, hit))
+        .filter((o): o is InventoryObservation => o !== null)
     },
 
     async listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]> {
@@ -290,8 +262,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY (CAST(errors AS DOUBLE) / total) DESC
         LIMIT ${limit}
       `
-      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
-      return ((data.hits ?? []) as Array<Record<string, unknown>>).map(mapToolErrorRow)
+      const hits = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
+      return hits.map(mapToolErrorRow)
     },
 
     async listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
@@ -312,8 +284,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY p95_chars DESC
         LIMIT ${limit}
       `
-      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
-      return ((data.hits ?? []) as Array<Record<string, unknown>>).map(mapToolPayloadRow)
+      const hits = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
+      return hits.map(mapToolPayloadRow)
     },
 
     async listToolErrorRatesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
@@ -329,8 +301,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         GROUP BY name, bucket
         ORDER BY name, bucket
       `
-      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, 5000))
-      return groupSparks((data.hits ?? []) as Array<Record<string, unknown>>, fromUs, toUs, bucketSec)
+      const hits = await searchOrEmpty(() => search(sql, fromUs, toUs, 5000))
+      return groupSparks(hits, fromUs, toUs, bucketSec)
     },
 
     async listToolPayloadSizesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
@@ -347,8 +319,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         GROUP BY name, bucket
         ORDER BY name, bucket
       `
-      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, 5000))
-      return groupSparks((data.hits ?? []) as Array<Record<string, unknown>>, fromUs, toUs, bucketSec)
+      const hits = await searchOrEmpty(() => search(sql, fromUs, toUs, 5000))
+      return groupSparks(hits, fromUs, toUs, bucketSec)
     },
 
     async getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {
@@ -364,8 +336,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
            OR operation_name LIKE 'execute_tool %'
            OR operation_name LIKE 'invoke_agent %'
       `
-      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, 1))
-      const row = ((data.hits ?? []) as Array<Record<string, unknown>>)[0] ?? {}
+      const hits = await searchOrEmpty(() => search(sql, fromUs, toUs, 1))
+      const row = hits[0] ?? {}
       return {
         runs: Number(row.runs ?? 0),
         erroredRuns: Number(row.errored_runs ?? 0),
@@ -393,19 +365,19 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY p95_ms DESC
         LIMIT ${limit}
       `
-      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
-      return ((data.hits ?? []) as Array<Record<string, unknown>>).map(mapLatencyRow)
+      const hits = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
+      return hits.map(mapLatencyRow)
     },
   }
 }
 
 // OO returns 20004 when the SQL references a column that doesn't exist yet
 // (fresh stream, no spans of that shape). Swallow → empty result.
-async function searchOrEmpty(run: () => Promise<{ hits?: unknown[] }>): Promise<{ hits?: unknown[] }> {
+async function searchOrEmpty<T>(run: () => Promise<T[]>): Promise<T[]> {
   try {
     return await run()
   } catch (e) {
-    if (e instanceof Error && e.message.includes('"code":20004')) return { hits: [] }
+    if (e instanceof Error && e.message.includes('"code":20004')) return []
     throw e
   }
 }
@@ -445,7 +417,7 @@ function sqlColumnKey(attrKey: string): string {
 }
 
 function coalesceAs(keys: readonly string[], alias: string, skip: ReadonlySet<string>): string {
-  const available = unique(keys).filter((k) => !skip.has(k))
+  const available = keys.filter((k) => !skip.has(k))
   if (available.length === 0) return `'' AS ${alias},`
   if (available.length === 1) return `${available[0]} AS ${alias},`
   return `COALESCE(${available.join(', ')}) AS ${alias},`
@@ -458,16 +430,12 @@ function identityPredicate(
   const id = pickIdentityValue(opts)
   if (!id) return undefined
   const cols = id.kind === 'id' ? USER_ID_KEYS : USER_NAME_KEYS
-  const keys = unique(cols).filter((k) => !skip.has(k))
+  const keys = cols.filter((k) => !skip.has(k))
   return keys.map((k) => `${k} = ${sqlString(id.value)}`).join(' OR ') || undefined
 }
 
 function sqlString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`
-}
-
-function unique(values: readonly string[]): string[] {
-  return [...new Set(values)]
 }
 
 function hitToSummary(h: Record<string, unknown>): TraceSummary {
@@ -493,23 +461,23 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   return summary
 }
 
-function hitToInventoryObservation(kind: InventoryDiscoveryKind, h: Record<string, unknown>): InventoryObservation[] {
+function hitToInventoryObservation(
+  kind: InventoryDiscoveryKind,
+  h: Record<string, unknown>,
+): InventoryObservation | null {
   const operationName = String(h.operation_name ?? '')
   const name = kind === 'new_tool' ? extractToolName(operationName) : extractAgentName(operationName)
-  if (!name) return []
-
+  if (!name) return null
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? firstSeenNs)
-  return [
-    {
-      kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
-      name,
-      namespace: '',
-      firstSeenMs: Math.floor(firstSeenNs / 1_000_000),
-      lastSeenMs: Math.floor(lastSeenNs / 1_000_000),
-      traceId: typeof h.sample_trace_id === 'string' ? h.sample_trace_id : undefined,
-    },
-  ]
+  return {
+    kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
+    name,
+    namespace: '',
+    firstSeenMs: Math.floor(firstSeenNs / 1_000_000),
+    lastSeenMs: Math.floor(lastSeenNs / 1_000_000),
+    traceId: typeof h.sample_trace_id === 'string' ? h.sample_trace_id : undefined,
+  }
 }
 
 function extractToolName(spanName: string): string | undefined {

@@ -23,6 +23,3 @@
 - Share button on session inspect — copy a deep link (`/sessions/$sessionId`) to
   the clipboard. Small icon button in the drawer header next to the close `✕`.
 - Sessions list preview uses `SessionInspectDrawer`; full session route shares `SessionInspectLayout` (Spans + Conversation tabs).
-- Apply palette — see `docs/plans/palette.md`. Live preview at `/palette`.
-  Sweep list is in the doc (~6 files). Zinc's purple-magenta tint is stock
-  Tailwind v4 (hue 285°), not a config override — we lean into it.

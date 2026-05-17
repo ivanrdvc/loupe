@@ -79,19 +79,11 @@ function SessionDetail() {
   const inspectView = search.view
   const setInspectView = (view: SessionInspectView) => {
     navigate({
-      search: (prev) => {
-        if (view === 'conversation') {
-          return { range: prev.range, view: 'conversation' }
-        }
-        if (view === 'context') {
-          return { range: prev.range, view: 'context' }
-        }
-        return {
-          range: prev.range,
-          view: 'spans',
-          ...(typeof prev.span === 'string' && prev.span.length > 0 ? { span: prev.span } : {}),
-        }
-      },
+      search: (prev) => ({
+        range: prev.range,
+        view,
+        ...(typeof prev.span === 'string' && prev.span.length > 0 ? { span: prev.span } : {}),
+      }),
     })
   }
 

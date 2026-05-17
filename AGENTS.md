@@ -7,7 +7,7 @@ For docs structure and where to put new ones, see `docs/README.md`.
 ## Layout
 
 - `src/routes/` — file-based routes. `-name.tsx` files are route-scoped and ignored by the router. Co-locate aggressively; lift to `src/lib/` or `src/components/` only when a 2nd route consumes it.
-- `src/components/ui/` — Catalyst kit. `src/components/` — app-specific composed components.
+- `src/components/ui/` — shadcn primitives (radix-mira preset, see `components.json`). `src/components/` — app-specific composed components.
 - `src/lib/` — cross-cutting client utilities and shared domain types (e.g. `spans.ts`).
 - `src/server/` — server-only code: ingest mappers, future API handlers.
 - `src/db/` — Drizzle schema + client. `src/integrations/` — framework wiring (tanstack-query).
@@ -16,7 +16,7 @@ For docs structure and where to put new ones, see `docs/README.md`.
 
 Optimize for tokens: use this map before broad searches.
 
-- App shell/nav lives in `src/components/application-layout.tsx`.
+- App shell mounts in `src/routes/__root.tsx`: `SidebarProvider` + `AppSidebar` (`src/components/app-sidebar.tsx`) + `SiteHeader` (`src/components/site-header.tsx`). Routes wrap their body in `Page` (`src/components/page.tsx`).
 - `/` Home shows "what's new/weird": new MCP tools, new agents, and anomaly entry points.
 - `/sessions` lists agent sessions with time range, search, status filters, cost/tokens, and opens `SessionInspectDrawer`.
 - `/sessions/$sessionId` is the session detail page (Spans + Conversation). Legacy `?view=trace` in the URL is treated as spans.
@@ -25,7 +25,6 @@ Optimize for tokens: use this map before broad searches.
 - `/mcp` lists MCP servers, owners, tool counts, findings, and fetch status.
 - `/evals` is currently an empty-state placeholder.
 - `/inbox` lists alerts with snooze/dismiss actions and links back to sessions and runs.
-- `/palette` is the visual/component preview route; it may have active design edits.
 
 Key session/run UI:
 

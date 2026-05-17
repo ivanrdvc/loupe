@@ -60,15 +60,10 @@ export function mapToolPayloadRow(row: Record<string, unknown>): ToolPayloadRow 
 }
 
 export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: number): SessionSummary[] {
-  const rowsByTrace = new Map<string, Array<Record<string, unknown>>>()
-  for (const h of hits) {
-    const traceId = String(h.trace_id ?? '')
-    if (!traceId) continue
-    const arr = rowsByTrace.get(traceId) ?? []
-    arr.push(h)
-    rowsByTrace.set(traceId, arr)
-  }
-
+  const rowsByTrace = groupBy(
+    hits.filter((h) => h.trace_id),
+    (h) => String(h.trace_id),
+  )
   const tracesBySession = new Map<string, TraceSession[]>()
   for (const [traceId, rows] of rowsByTrace) {
     const ts = resolveTraceSession(traceId, rows)
@@ -85,10 +80,7 @@ export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: n
       : 'agent-instance'
     const s: SessionSummary = {
       sessionId,
-      title: traces
-        .slice()
-        .sort((a, b) => b.endMs - a.endMs)
-        .find((t) => t.title)?.title,
+      title: pickLatest(traces, (t) => t.title),
       userName: pickLatest(traces, (t) => t.userName),
       userId: pickLatest(traces, (t) => t.userId),
       host: pickLatest(traces, (t) => t.host),
@@ -181,7 +173,7 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
       const agent = extractAgentName(h.operation_name)
       if (agent) agents.add(agent)
     }
-    if (!title) title = pickTitle(h)
+    if (!title) title = pickString(h, SESSION_TITLE_KEYS)
     if (!userName) userName = pickString(h, ['user_name'])
     if (!userId) userId = pickString(h, ['user_id'])
     if (!host) host = pickString(h, ['host_name', 'service_name'])
@@ -235,15 +227,7 @@ function pickLatest(traces: TraceSession[], pick: (trace: TraceSession) => strin
     .find((v): v is string => typeof v === 'string' && v.length > 0)
 }
 
-function pickTitle(row: Record<string, unknown>): string | undefined {
-  for (const key of SESSION_TITLE_KEYS) {
-    const v = row[key]
-    if (typeof v === 'string' && v.trim()) return v.trim()
-  }
-  return undefined
-}
-
-function pickString(row: Record<string, unknown>, keys: string[]): string | undefined {
+function pickString(row: Record<string, unknown>, keys: readonly string[]): string | undefined {
   for (const key of keys) {
     const v = row[key]
     if (typeof v === 'string' && v.trim()) return v.trim()
@@ -255,4 +239,15 @@ export function num(v: unknown): number | undefined {
   if (v === null || v === undefined || v === '') return undefined
   const n = Number(v)
   return Number.isFinite(n) ? n : undefined
+}
+
+export function groupBy<T, K>(items: readonly T[], key: (item: T) => K): Map<K, T[]> {
+  const out = new Map<K, T[]>()
+  for (const item of items) {
+    const k = key(item)
+    const arr = out.get(k)
+    if (arr) arr.push(item)
+    else out.set(k, [item])
+  }
+  return out
 }
