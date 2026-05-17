@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PaletteRouteImport } from './routes/palette'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as RunsIndexRouteImport } from './routes/runs/index'
@@ -21,11 +20,6 @@ import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessio
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
 import { Route as LiveRunIdRouteImport } from './routes/live/$runId'
 
-const PaletteRoute = PaletteRouteImport.update({
-  id: '/palette',
-  path: '/palette',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -79,7 +73,6 @@ const LiveRunIdRoute = LiveRunIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/palette': typeof PaletteRoute
   '/live/$runId': typeof LiveRunIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -92,7 +85,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/palette': typeof PaletteRoute
   '/live/$runId': typeof LiveRunIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -106,7 +98,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/palette': typeof PaletteRoute
   '/live/$runId': typeof LiveRunIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -121,7 +112,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/palette'
     | '/live/$runId'
     | '/runs/$runId'
     | '/sessions/$sessionId'
@@ -134,7 +124,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/palette'
     | '/live/$runId'
     | '/runs/$runId'
     | '/sessions/$sessionId'
@@ -147,7 +136,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/palette'
     | '/live/$runId'
     | '/runs/$runId'
     | '/sessions/$sessionId'
@@ -161,7 +149,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  PaletteRoute: typeof PaletteRoute
   LiveRunIdRoute: typeof LiveRunIdRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
@@ -175,13 +162,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/palette': {
-      id: '/palette'
-      path: '/palette'
-      fullPath: '/palette'
-      preLoaderRoute: typeof PaletteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -257,7 +237,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  PaletteRoute: PaletteRoute,
   LiveRunIdRoute: LiveRunIdRoute,
   RunsRunIdRoute: RunsRunIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,

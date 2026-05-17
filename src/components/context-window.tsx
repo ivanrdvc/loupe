@@ -1,5 +1,5 @@
-import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { useCallback, useMemo, useState } from 'react'
+import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import type { Span } from '#/lib/spans'
 import { formatCost } from '#/lib/spans'
@@ -62,38 +62,33 @@ export function ContextWindow({ spans }: ContextWindowProps) {
   if (chatSpans.length === 0) return null
 
   return (
-    <Popover className="relative">
-      <PopoverButton
+    <Popover>
+      <PopoverTrigger
         onMouseEnter={prime}
         onFocus={prime}
         onClick={prime}
-        className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-950/20 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:ring-white/20"
+        className="inline-flex h-7 items-center gap-2 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/30"
         aria-label="Model context usage"
       >
         <span className="tabular-nums">{limit ? `${(pct * 100).toFixed(1)}%` : formatTokens(peakInput)}</span>
         <Ring pct={pct} />
-      </PopoverButton>
-      <PopoverPanel
-        portal
-        anchor={{ to: 'bottom end', gap: 6 }}
-        transition
-        className="z-[100] w-64 rounded-lg border border-zinc-950/10 bg-white text-xs shadow-lg ring-1 ring-black/5 outline-hidden transition data-closed:opacity-0 dark:border-white/10 dark:bg-zinc-900 dark:ring-white/10"
-      >
-        <div className="border-b border-zinc-950/5 px-3 py-2 dark:border-white/10">
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={6} className="w-64 p-0 text-xs">
+        <div className="border-b px-3 py-2">
           <div className="flex items-baseline justify-between">
-            <div className="font-medium tabular-nums text-zinc-950 dark:text-white">
+            <div className="font-medium tabular-nums text-foreground">
               {limit ? `${(pct * 100).toFixed(1)}%` : formatTokens(peakInput)}
             </div>
-            <div className="tabular-nums text-zinc-500 dark:text-zinc-400">
+            <div className="tabular-nums text-muted-foreground">
               {limit ? `${formatTokens(peakInput)} / ${formatTokens(limit)}` : `${formatTokens(peakInput)} peak`}
             </div>
           </div>
           {limit && (
-            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-950/5 dark:bg-white/10">
-              <div className="h-full rounded-full bg-zinc-950 dark:bg-white" style={{ width: `${pct * 100}%` }} />
+            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-foreground" style={{ width: `${pct * 100}%` }} />
             </div>
           )}
-          {model && <div className="mt-1.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">{model}</div>}
+          {model && <div className="mt-1.5 truncate text-[11px] text-muted-foreground">{model}</div>}
         </div>
 
         <dl className="space-y-1.5 px-3 py-2.5">
@@ -103,14 +98,14 @@ export function ContextWindow({ spans }: ContextWindowProps) {
         </dl>
 
         {totalCost > 0 && (
-          <div className="flex items-center justify-between border-t border-zinc-950/5 px-3 py-2 dark:border-white/10">
-            <span className="text-zinc-500 dark:text-zinc-400">Total cost</span>
-            <span className="font-medium tabular-nums text-zinc-950 dark:text-white">
+          <div className="flex items-center justify-between border-t px-3 py-2">
+            <span className="text-muted-foreground">Total cost</span>
+            <span className="font-medium tabular-nums text-foreground">
               ${formatCost(totalCost) ?? totalCost.toFixed(4)}
             </span>
           </div>
         )}
-      </PopoverPanel>
+      </PopoverContent>
     </Popover>
   )
 }
@@ -118,14 +113,8 @@ export function ContextWindow({ spans }: ContextWindowProps) {
 function Row({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
-      <dd
-        className={[
-          'tabular-nums transition-opacity',
-          dim ? 'opacity-40' : 'opacity-100',
-          'text-zinc-950 dark:text-white',
-        ].join(' ')}
-      >
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={['tabular-nums text-foreground transition-opacity', dim ? 'opacity-40' : 'opacity-100'].join(' ')}>
         {value}
       </dd>
     </div>

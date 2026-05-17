@@ -213,7 +213,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
               aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${display.name}`}
               title={isCollapsed ? 'Expand children' : 'Collapse children'}
               className={[
-                'group absolute flex items-center justify-center rounded-full text-[10px] font-semibold ring-1 ring-inset transition-colors -translate-x-1/2 -translate-y-1/2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-500/80',
+                'group absolute flex items-center justify-center rounded-full text-[10px] font-semibold ring-1 ring-inset transition-colors -translate-x-1/2 -translate-y-1/2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/80',
                 isCollapsed
                   ? 'bg-zinc-800 text-white ring-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 dark:ring-zinc-200'
                   : 'bg-zinc-200 text-zinc-700 ring-zinc-300 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-700',
@@ -236,7 +236,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
         <button
           type="button"
           onClick={onSelect}
-          className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-1.5 pr-2 pl-1 text-left leading-tight focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-500/80"
+          className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-1.5 pr-2 pl-1 text-left leading-tight focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/80"
         >
           <div className="flex min-w-0 items-center gap-2">
             {display.tagLabel && (

@@ -9,14 +9,13 @@ import {
   SparklesIcon,
 } from '@heroicons/react/20/solid'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { BadgeSelect } from '#/components/badge-select'
 import { EmptyState } from '#/components/empty-state'
 import { EnvSelect } from '#/components/env-select'
 import { TimeRangeSelect } from '#/components/time-range-select'
-import { Link } from '#/components/ui/catalyst/link'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/catalyst/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { useEnv } from '#/hooks/use-env'
 import { formatAgo, formatDuration } from '#/lib/format'
 import type { LatencyRow } from '#/lib/telemetry'
@@ -88,7 +87,7 @@ function Home() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">Home</h1>
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">Home</h1>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <BadgeSelect
             label="Category"
@@ -140,27 +139,25 @@ function Home() {
             ) : (
               <Expandable rows={newTools}>
                 {(rows) => (
-                  <Table dense>
-                    <TableHead>
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableHeader>Tool</TableHeader>
-                        <TableHeader>Server</TableHeader>
-                        <TableHeader>First seen</TableHeader>
-                        <TableHeader />
+                        <TableHead>Tool</TableHead>
+                        <TableHead>Server</TableHead>
+                        <TableHead>First seen</TableHead>
+                        <TableHead />
                       </TableRow>
-                    </TableHead>
+                    </TableHeader>
                     <TableBody>
                       {rows.map((row) => (
                         <TableRow key={row.id}>
                           <TableCell className="font-mono text-xs">{row.name}</TableCell>
-                          <TableCell className="text-zinc-500 dark:text-zinc-400">
-                            {row.namespace || 'unknown'}
-                          </TableCell>
-                          <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                          <TableCell className="text-muted-foreground">{row.namespace || 'unknown'}</TableCell>
+                          <TableCell className="tabular-nums text-muted-foreground">
                             {formatAgo(row.firstSeenAtMs)}
                           </TableCell>
                           <TableCell>
-                            <OpenLink href={row.firstSeenTraceId ? `/runs/${row.firstSeenTraceId}` : '/sessions'} />
+                            <OpenLink traceId={row.firstSeenTraceId} />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -176,27 +173,27 @@ function Home() {
             ) : (
               <Expandable rows={newAgents}>
                 {(rows) => (
-                  <Table dense>
-                    <TableHead>
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableHeader>Agent</TableHeader>
-                        <TableHeader>First seen</TableHeader>
-                        <TableHeader>Last seen</TableHeader>
-                        <TableHeader />
+                        <TableHead>Agent</TableHead>
+                        <TableHead>First seen</TableHead>
+                        <TableHead>Last seen</TableHead>
+                        <TableHead />
                       </TableRow>
-                    </TableHead>
+                    </TableHeader>
                     <TableBody>
                       {rows.map((row) => (
                         <TableRow key={row.id}>
                           <TableCell className="font-medium">{row.name}</TableCell>
-                          <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                          <TableCell className="tabular-nums text-muted-foreground">
                             {formatAgo(row.firstSeenAtMs)}
                           </TableCell>
-                          <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                          <TableCell className="tabular-nums text-muted-foreground">
                             {formatAgo(row.lastSeenAtMs)}
                           </TableCell>
                           <TableCell>
-                            <OpenLink href={row.firstSeenTraceId ? `/runs/${row.firstSeenTraceId}` : '/sessions'} />
+                            <OpenLink traceId={row.firstSeenTraceId} />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -224,7 +221,7 @@ function CategoryGroup({
   return (
     <div className="flex flex-col gap-2">
       {showLabel && (
-        <h2 className="text-[11px] font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{label}</h2>
+        <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</h2>
       )}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">{children}</div>
     </div>
@@ -236,32 +233,32 @@ function LatencyTable({ rows, firstHeader }: { rows: LatencyRow[]; firstHeader: 
   return (
     <Expandable rows={rows}>
       {(visible) => (
-        <Table dense>
-          <TableHead>
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableHeader>{firstHeader}</TableHeader>
-              <TableHeader className="w-16 text-right tabular-nums">p50</TableHeader>
-              <TableHeader className="w-16 text-right tabular-nums">p90</TableHeader>
-              <TableHeader className="w-16 text-right tabular-nums">p95 ▼</TableHeader>
-              <TableHeader className="w-16 text-right tabular-nums">p99</TableHeader>
+              <TableHead>{firstHeader}</TableHead>
+              <TableHead className="w-16 text-right tabular-nums">p50</TableHead>
+              <TableHead className="w-16 text-right tabular-nums">p90</TableHead>
+              <TableHead className="w-16 text-right tabular-nums">p95 ▼</TableHead>
+              <TableHead className="w-16 text-right tabular-nums">p99</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {visible.map((row) => (
               <TableRow key={row.name}>
                 <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
                   {row.name}
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-zinc-500 dark:text-zinc-400">
+                <TableCell className="text-right tabular-nums text-muted-foreground">
                   {formatDuration(row.p50Ms)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-zinc-500 dark:text-zinc-400">
+                <TableCell className="text-right tabular-nums text-muted-foreground">
                   {formatDuration(row.p90Ms)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-zinc-500 dark:text-zinc-400">
+                <TableCell className="text-right tabular-nums text-muted-foreground">
                   {formatDuration(row.p95Ms)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-zinc-500 dark:text-zinc-400">
+                <TableCell className="text-right tabular-nums text-muted-foreground">
                   {formatDuration(row.p99Ms)}
                 </TableCell>
               </TableRow>
@@ -284,7 +281,7 @@ function Expandable<T>({ rows, children }: { rows: T[]; children: (visible: T[])
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+          className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
         >
           <ChevronDownIcon className={`size-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           {expanded ? 'Show less' : `Show more (${rows.length - PREVIEW_ROWS})`}
@@ -304,10 +301,10 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-lg border border-zinc-950/5 bg-white p-3 dark:border-white/8 dark:bg-zinc-900">
+    <section className="rounded-lg border bg-card p-3">
       <div className="flex items-center gap-2 pb-2">
-        <Icon className="size-4 fill-accent-500 dark:fill-accent-400" />
-        <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">{title}</h2>
+        <Icon className="size-4 fill-primary" />
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       </div>
       {children}
     </section>
@@ -315,16 +312,20 @@ function Section({
 }
 
 function SectionEmpty({ label }: { label: string }) {
-  return <div className="py-4 text-center text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
+  return <div className="py-4 text-center text-xs text-muted-foreground">{label}</div>
 }
 
-function OpenLink({ href }: { href: string }) {
+function OpenLink({ traceId }: { traceId?: string | null }) {
+  const cls = 'inline-flex items-center text-muted-foreground hover:text-foreground'
+  if (traceId) {
+    return (
+      <Link to="/runs/$runId" params={{ runId: traceId }} className={cls} aria-label="Open run">
+        <ArrowTopRightOnSquareIcon className="size-3.5" />
+      </Link>
+    )
+  }
   return (
-    <Link
-      href={href}
-      className="inline-flex items-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-      aria-label="Open"
-    >
+    <Link to="/sessions" search={{ days: 1 }} className={cls} aria-label="Open sessions">
       <ArrowTopRightOnSquareIcon className="size-3.5" />
     </Link>
   )

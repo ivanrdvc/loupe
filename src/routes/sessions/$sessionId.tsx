@@ -1,7 +1,7 @@
 import { ChevronLeftIcon } from '@heroicons/react/16/solid'
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
   AUTO_REFRESH_MS,
@@ -13,8 +13,7 @@ import { ConversationView } from '#/components/conversation-view'
 import { EmptyState } from '#/components/empty-state'
 import { IconTabs } from '#/components/icon-tabs'
 import { TimeRangeSelect } from '#/components/time-range-select'
-import { Link } from '#/components/ui/catalyst/link'
-import { DEFAULT_TIME_RANGE_DAYS, parseTimeRangeDays, type TimeRangeDays } from '#/lib/time-range'
+import { parseTimeRangeDays, type TimeRangeDays } from '#/lib/time-range'
 import { SessionContextView } from './-components/session-inspect/context'
 import { SESSION_VIEW_TABS, type SessionInspectView } from './-components/session-inspect/drawer'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
@@ -112,9 +111,9 @@ function SessionDetail() {
         refreshing={isFetching}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-zinc-950/10 dark:border-white/10">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t">
         <SessionInspectTabs active={inspectView} onSelect={setInspectView} />
-        <div className="min-h-0 flex-1 overflow-hidden bg-white dark:bg-zinc-900">
+        <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {!data ? (
             <EmptyState
               icon={ChatBubbleLeftRightIcon}
@@ -142,10 +141,7 @@ function SessionInspectTabs({
   onSelect: (view: SessionInspectView) => void
 }) {
   return (
-    <nav
-      className="flex shrink-0 flex-wrap border-zinc-950/10 border-b bg-white px-4 py-2 dark:border-white/10 dark:bg-zinc-900"
-      aria-label="Session view"
-    >
+    <nav className="flex shrink-0 flex-wrap border-b bg-background px-4 py-2" aria-label="Session view">
       <IconTabs tabs={SESSION_VIEW_TABS} value={active} onChange={onSelect} aria-label="Session view" />
     </nav>
   )
@@ -177,14 +173,14 @@ function Header({
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4">
       <Link
-        href="/sessions"
-        search={days && days !== DEFAULT_TIME_RANGE_DAYS ? { days } : undefined}
+        to="/sessions"
+        search={{ days }}
         aria-label="Back to sessions"
-        className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+        className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <ChevronLeftIcon className="size-4 fill-current" />
       </Link>
-      <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">Session</h1>
+      <h1 className="text-lg font-semibold tracking-tight text-foreground">Session</h1>
       {source === 'agent-instance' && (
         <span
           title="Derived from the agent-instance hex in span names; no session.id attribute present."

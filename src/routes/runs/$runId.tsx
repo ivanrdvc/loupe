@@ -1,9 +1,8 @@
 import { ChevronLeftIcon } from '@heroicons/react/16/solid'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
-import { Link } from '#/components/ui/catalyst/link'
 import type { Span } from '#/lib/spans'
 import { RUN_SPANS, runSpansQuery } from './-data'
 
@@ -27,14 +26,14 @@ function RunDetail() {
     <div className="flex h-full min-h-[60vh] flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-3">
         <Link
-          href="/runs"
+          to="/runs"
           aria-label="Back to runs"
-          className="-ml-1 inline-flex size-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+          className="-ml-1 inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <ChevronLeftIcon className="size-4 fill-current" />
         </Link>
-        <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">Run #{runId}</h1>
-        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">Run #{runId}</h1>
+        <div className="text-xs text-muted-foreground">
           {spans[0]?.service ?? '—'} · {(total / 1000).toFixed(2)}s · {spans.length} spans
         </div>
         {provider === 'openobserve' ? (
@@ -56,7 +55,7 @@ function RunDetail() {
         </div>
       </header>
 
-      <section className="min-h-0 flex-1 border-t border-zinc-950/10 dark:border-white/10">
+      <section className="min-h-0 flex-1 border-t">
         <ConversationView spans={spans} onSelect={() => {}} />
       </section>
     </div>
