@@ -1,5 +1,4 @@
-import { PlusSignIcon, Tick02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { IconCheck, IconCirclePlus } from '@tabler/icons-react'
 import type { Column } from '@tanstack/react-table'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -37,12 +36,12 @@ export function DataTableFacetedFilter<TData, TValue>({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 border-dashed">
-          <HugeiconsIcon icon={PlusSignIcon} />
+        <Button variant="outline" size="sm">
+          <IconCirclePlus />
           {title}
-          {selectedValues?.size > 0 && (
+          {selectedValues.size > 0 && (
             <>
-              <Separator orientation="vertical" className="mx-2 h-4" />
+              <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
               <Badge variant="secondary" className="rounded-sm px-1 font-normal lg:hidden">
                 {selectedValues.size}
               </Badge>
@@ -94,7 +93,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                           : 'border-input [&_svg]:invisible',
                       )}
                     >
-                      <HugeiconsIcon icon={Tick02Icon} className="size-3" strokeWidth={3} />
+                      <IconCheck className="size-3" />
                     </div>
                     {option.icon && <option.icon className="size-4 text-muted-foreground" />}
                     <span>{option.label}</span>

@@ -11,11 +11,13 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { BadgeSelect } from '#/components/badge-select'
-import { EmptyState } from '#/components/empty-state'
+import { ChartAreaInteractive } from '#/components/chart-area-interactive'
 import { EnvSelect } from '#/components/env-select'
+import { Page } from '#/components/page'
 import { TimeRangeSelect } from '#/components/time-range-select'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useEnv } from '#/hooks/use-env'
 import { formatAgo, formatDuration } from '#/lib/format'
 import type { LatencyRow } from '#/lib/telemetry'
@@ -85,17 +87,25 @@ function Home() {
   const inventory = showAll || category === 'inventory'
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">Home</h1>
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <BadgeSelect
-            label="Category"
-            value={category}
-            options={CATEGORIES}
-            onChange={setCategory}
-            format={(v) => CATEGORY_LABEL[v]}
-          />
+    <Page title="Home">
+      <div className="px-4 lg:px-6">
+        <ChartAreaInteractive />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-4 lg:px-6">
+        <ToggleGroup
+          type="single"
+          value={category}
+          onValueChange={(v) => v && isCategory(v) && setCategory(v)}
+          variant="outline"
+          size="sm"
+        >
+          {CATEGORIES.map((c) => (
+            <ToggleGroupItem key={c} value={c}>
+              {CATEGORY_LABEL[c]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <EnvSelect value={env} onChange={setEnv} />
           <TimeRangeSelect value={days} onChange={setDays} options={HOME_RANGE_DAYS} />
         </div>
@@ -104,18 +114,26 @@ function Home() {
       {signals && (
         <CategoryGroup label="Signals" showLabel={showAll}>
           <Section icon={InboxArrowDownIcon} title="Tools returning too much">
-            <EmptyState
-              icon={InboxArrowDownIcon}
-              title="No size anomalies yet"
-              description="No open payload-size alerts."
-            />
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <InboxArrowDownIcon />
+                </EmptyMedia>
+                <EmptyTitle>No size anomalies yet</EmptyTitle>
+                <EmptyDescription>No open payload-size alerts.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </Section>
           <Section icon={ExclamationTriangleIcon} title="Tools with high error rate">
-            <EmptyState
-              icon={ExclamationTriangleIcon}
-              title="No error-rate anomalies yet"
-              description="No open tool error-rate alerts."
-            />
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ExclamationTriangleIcon />
+                </EmptyMedia>
+                <EmptyTitle>No error-rate anomalies yet</EmptyTitle>
+                <EmptyDescription>No open tool error-rate alerts.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </Section>
         </CategoryGroup>
       )}
@@ -205,7 +223,7 @@ function Home() {
           </Section>
         </CategoryGroup>
       )}
-    </div>
+    </Page>
   )
 }
 
@@ -219,7 +237,7 @@ function CategoryGroup({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 px-4 lg:px-6">
       {showLabel && (
         <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</h2>
       )}

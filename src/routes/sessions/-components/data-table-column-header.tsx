@@ -1,5 +1,4 @@
-import { ArrowDown01Icon, ArrowUp01Icon, ArrowUpDownIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { IconArrowDown, IconArrowUp, IconEyeOff, IconSelector } from '@tabler/icons-react'
 import type { Column } from '@tanstack/react-table'
 import { Button } from '#/components/ui/button'
 import {
@@ -29,29 +28,29 @@ export function DataTableColumnHeader<TData, TValue>({
     <div className={cn('flex items-center gap-2', className)}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="-ml-2 h-7 data-[state=open]:bg-accent">
+          <Button variant="ghost" size="sm" className="-ml-2 data-[state=open]:bg-accent">
             <span>{title}</span>
             {column.getIsSorted() === 'desc' ? (
-              <HugeiconsIcon icon={ArrowDown01Icon} />
+              <IconArrowDown />
             ) : column.getIsSorted() === 'asc' ? (
-              <HugeiconsIcon icon={ArrowUp01Icon} />
+              <IconArrowUp />
             ) : (
-              <HugeiconsIcon icon={ArrowUpDownIcon} />
+              <IconSelector />
             )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-            <HugeiconsIcon icon={ArrowUp01Icon} />
+            <IconArrowUp />
             Asc
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-            <HugeiconsIcon icon={ArrowDown01Icon} />
+            <IconArrowDown />
             Desc
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-            <HugeiconsIcon icon={ViewOffIcon} />
+            <IconEyeOff />
             Hide
           </DropdownMenuItem>
         </DropdownMenuContent>

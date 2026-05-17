@@ -1,7 +1,9 @@
 import { CubeTransparentIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { EmptyState } from '#/components/empty-state'
+import { Page } from '#/components/page'
+import { Badge } from '#/components/ui/badge'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { formatAgo } from '#/lib/format'
 import { mcpQuery } from './-data'
@@ -17,23 +19,27 @@ function McpPage() {
   const findings = data?.findings ?? []
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pb-3">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">MCP</h1>
-        {data?.partial && (
-          <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 dark:text-rose-300">
-            partial
-          </span>
-        )}
-        {data && <span className="text-xs text-muted-foreground">fetched {formatAgo(data.fetchedAt)}</span>}
-      </header>
-
+    <Page
+      title="MCP"
+      actions={
+        <>
+          {data?.partial && <Badge variant="warning">partial</Badge>}
+          {data && <span className="text-xs text-muted-foreground">fetched {formatAgo(data.fetchedAt)}</span>}
+        </>
+      }
+    >
       {servers.length === 0 ? (
-        <EmptyState
-          icon={CubeTransparentIcon}
-          title="No MCP servers"
-          description="No registry references were returned."
-        />
+        <div className="px-4 lg:px-6">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <CubeTransparentIcon />
+              </EmptyMedia>
+              <EmptyTitle>No MCP servers</EmptyTitle>
+              <EmptyDescription>No registry references were returned.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
       ) : (
         <Table>
           <TableHeader>
@@ -71,16 +77,11 @@ function McpPage() {
           </TableBody>
         </Table>
       )}
-    </div>
+    </Page>
   )
 }
 
 function Status({ status }: { status: 'ok' | 'error' | 'skipped' }) {
-  const classes = {
-    ok: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    error: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-    skipped: 'bg-muted text-muted-foreground',
-  }[status]
-
-  return <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${classes}`}>{status}</span>
+  const variant = { ok: 'success', error: 'destructive', skipped: 'secondary' } as const
+  return <Badge variant={variant[status]}>{status}</Badge>
 }

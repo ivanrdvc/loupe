@@ -1,8 +1,9 @@
 import { ArrowTopRightOnSquareIcon, InboxIcon } from '@heroicons/react/20/solid'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { EmptyState } from '#/components/empty-state'
+import { Page } from '#/components/page'
 import { Button } from '#/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -27,13 +28,19 @@ function InboxPage() {
   const snooze = useMutation({ mutationFn: (id: number) => snoozeInboxItemFn({ data: id }), onSuccess: invalidate })
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pb-3">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">Inbox</h1>
-      </header>
-
+    <Page title="Inbox">
       {items.length === 0 ? (
-        <EmptyState icon={InboxIcon} title="Inbox is clear" description="No open alerts." />
+        <div className="px-4 lg:px-6">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <InboxIcon />
+              </EmptyMedia>
+              <EmptyTitle>Inbox is clear</EmptyTitle>
+              <EmptyDescription>No open alerts.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
       ) : (
         <Table>
           <TableHeader>
@@ -79,7 +86,7 @@ function InboxPage() {
           </TableBody>
         </Table>
       )}
-    </div>
+    </Page>
   )
 }
 

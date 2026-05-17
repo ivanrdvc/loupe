@@ -3,16 +3,13 @@ import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import {
-  AUTO_REFRESH_MS,
-  type AutoRefreshInterval,
-  AutoRefreshSelect,
-  DEFAULT_AUTO_REFRESH_INTERVAL,
-} from '#/components/auto-refresh-select'
+import { AUTO_REFRESH_MS, AutoRefreshSelect, DEFAULT_AUTO_REFRESH_INTERVAL } from '#/components/auto-refresh-select'
 import { ConversationView } from '#/components/conversation-view'
-import { EmptyState } from '#/components/empty-state'
 import { IconTabs } from '#/components/icon-tabs'
+import { SiteHeader } from '#/components/site-header'
 import { TimeRangeSelect } from '#/components/time-range-select'
+import { Badge } from '#/components/ui/badge'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { parseTimeRangeDays, type TimeRangeDays } from '#/lib/time-range'
 import { SessionContextView } from './-components/session-inspect/context'
 import { SESSION_VIEW_TABS, type SessionInspectView } from './-components/session-inspect/drawer'
@@ -96,30 +93,65 @@ function SessionDetail() {
   }
 
   return (
-    <div className="flex h-full min-h-[60vh] flex-col">
-      <Header
-        source={source}
-        provider={provider}
-        fingerprint={fingerprint}
-        days={search.days}
-        onDaysChange={setDays}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={setAutoRefresh}
-        onRefresh={() => {
-          void refetch()
-        }}
-        refreshing={isFetching}
+    <div className="flex h-full flex-col">
+      <SiteHeader
+        title={
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Link
+              to="/sessions"
+              search={{ days: search.days }}
+              aria-label="Back to sessions"
+              className="-ml-1 inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ChevronLeftIcon className="size-4 fill-current" />
+            </Link>
+            <h1 className="text-base font-medium">Session</h1>
+            {source === 'agent-instance' && (
+              <Badge
+                variant="warning"
+                title="Derived from the agent-instance hex in span names; no session.id attribute present."
+              >
+                heuristic id
+              </Badge>
+            )}
+            {provider === 'openobserve' && (
+              <Badge variant="success">
+                via {provider} · {fingerprint}
+              </Badge>
+            )}
+          </div>
+        }
+        actions={
+          <>
+            <TimeRangeSelect value={search.days} onChange={setDays} />
+            <AutoRefreshSelect
+              value={autoRefresh}
+              onChange={setAutoRefresh}
+              onRefresh={() => {
+                void refetch()
+              }}
+              loading={isFetching}
+            />
+          </>
+        }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SessionInspectTabs active={inspectView} onSelect={setInspectView} />
         <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {!data ? (
-            <EmptyState
-              icon={ChatBubbleLeftRightIcon}
-              title="Session not found"
-              description="No spans for this session id in the active provider. Widen the time range, or check that this id was emitted."
-            />
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ChatBubbleLeftRightIcon />
+                </EmptyMedia>
+                <EmptyTitle>Session not found</EmptyTitle>
+                <EmptyDescription>
+                  No spans for this session id in the active provider. Widen the time range, or check that this id was
+                  emitted.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : inspectView === 'spans' ? (
             <SessionInspectLayout spans={spans} loading={false} selectedId={selectedId} onSelect={setSelectedId} />
           ) : inspectView === 'conversation' ? (
@@ -144,65 +176,5 @@ function SessionInspectTabs({
     <nav className="flex shrink-0 flex-wrap border-b bg-background px-4 py-2" aria-label="Session view">
       <IconTabs tabs={SESSION_VIEW_TABS} value={active} onChange={onSelect} aria-label="Session view" />
     </nav>
-  )
-}
-
-interface HeaderProps {
-  source: 'attribute' | 'agent-instance' | null
-  provider?: string
-  fingerprint?: string
-  days: TimeRangeDays
-  onDaysChange: (days: TimeRangeDays) => void
-  autoRefresh: AutoRefreshInterval
-  onAutoRefreshChange: (value: AutoRefreshInterval) => void
-  onRefresh: () => void
-  refreshing?: boolean
-}
-
-function Header({
-  source,
-  provider,
-  fingerprint,
-  days,
-  onDaysChange,
-  autoRefresh,
-  onAutoRefreshChange,
-  onRefresh,
-  refreshing,
-}: HeaderProps) {
-  return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4">
-      <Link
-        to="/sessions"
-        search={{ days }}
-        aria-label="Back to sessions"
-        className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <ChevronLeftIcon className="size-4 fill-current" />
-      </Link>
-      <h1 className="text-lg font-semibold tracking-tight text-foreground">Session</h1>
-      {source === 'agent-instance' && (
-        <span
-          title="Derived from the agent-instance hex in span names; no session.id attribute present."
-          className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300"
-        >
-          heuristic id
-        </span>
-      )}
-      {provider === 'openobserve' && (
-        <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
-          via {provider} · {fingerprint}
-        </span>
-      )}
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
-        <TimeRangeSelect value={days} onChange={onDaysChange} />
-        <AutoRefreshSelect
-          value={autoRefresh}
-          onChange={onAutoRefreshChange}
-          onRefresh={onRefresh}
-          loading={refreshing}
-        />
-      </div>
-    </header>
   )
 }

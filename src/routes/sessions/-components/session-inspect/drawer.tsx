@@ -1,12 +1,13 @@
-import { ArrowsPointingOutIcon } from '@heroicons/react/20/solid'
 import { ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, QueueListIcon } from '@heroicons/react/24/outline'
+import { IconArrowsMaximize, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { IconTabs } from '#/components/icon-tabs'
-import { Sheet, SheetContent, SheetTitle } from '#/components/ui/sheet'
+import { Button } from '#/components/ui/button'
+import { Sheet, SheetClose, SheetContent, SheetTitle } from '#/components/ui/sheet'
 import type { Span } from '#/lib/spans'
 import type { TimeRangeDays } from '#/lib/time-range'
 import { SessionContextView } from './context'
@@ -100,7 +101,8 @@ export function SessionInspectDrawer({
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
         side="right"
-        className="w-full gap-0 bg-background p-0 text-foreground sm:max-w-[940px] 2xl:max-w-[70vw]"
+        showCloseButton={false}
+        className="w-full gap-0 bg-background p-0 text-foreground data-[side=right]:sm:max-w-[70vw]"
       >
         <header className="flex items-center justify-between border-b px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
@@ -109,18 +111,28 @@ export function SessionInspectDrawer({
           </div>
           <div className="flex items-center gap-1">
             {expandSession && expandSearch && (
-              <Link
-                to="/sessions/$sessionId"
-                params={{ sessionId: expandSession.sessionId }}
-                search={expandSearch}
-                onClick={() => onClose()}
+              <Button
+                asChild
+                variant="ghost"
+                size="icon-sm"
                 aria-label="Expand to session page"
                 title="Expand to session page"
-                className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <ArrowsPointingOutIcon className="size-4 fill-current" aria-hidden />
-              </Link>
+                <Link
+                  to="/sessions/$sessionId"
+                  params={{ sessionId: expandSession.sessionId }}
+                  search={expandSearch}
+                  onClick={() => onClose()}
+                >
+                  <IconArrowsMaximize />
+                </Link>
+              </Button>
             )}
+            <SheetClose asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Close">
+                <IconX />
+              </Button>
+            </SheetClose>
           </div>
         </header>
 

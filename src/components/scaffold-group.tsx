@@ -20,7 +20,7 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
       className={[
         'rounded-md border text-xs',
         isAgui
-          ? 'border-accent-500/20 bg-accent-500/[0.04] dark:border-accent-400/20 dark:bg-accent-400/[0.04]'
+          ? 'border-agui-500/20 bg-agui-500/[0.04] dark:border-agui-400/20 dark:bg-agui-400/[0.04]'
           : 'border-zinc-950/5 bg-zinc-50/50 dark:border-white/5 dark:bg-white/[0.02]',
       ].join(' ')}
     >
@@ -30,13 +30,13 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
         className={[
           'flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left',
           isAgui
-            ? 'text-accent-700 hover:bg-accent-500/[0.08] dark:text-accent-300 dark:hover:bg-accent-400/[0.08]'
+            ? 'text-agui-700 hover:bg-agui-500/[0.08] dark:text-agui-300 dark:hover:bg-agui-400/[0.08]'
             : 'text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5',
         ].join(' ')}
       >
         {open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
         {isAgui && (
-          <span className="rounded bg-accent-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent-700 dark:text-accent-300">
+          <span className="rounded bg-agui-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-agui-700 dark:text-agui-300">
             ag-ui
           </span>
         )}
@@ -51,7 +51,7 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
         <div
           className={[
             'flex flex-col gap-2 border-t px-3 py-2',
-            isAgui ? 'border-accent-500/15 dark:border-accent-400/15' : 'border-zinc-950/5 dark:border-white/5',
+            isAgui ? 'border-agui-500/15 dark:border-agui-400/15' : 'border-zinc-950/5 dark:border-white/5',
           ].join(' ')}
         >
           {messages.map((m) => (

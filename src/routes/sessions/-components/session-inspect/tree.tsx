@@ -170,11 +170,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
       <div
         className={[
           'relative flex min-h-10 w-full cursor-pointer items-stretch pl-2 text-left text-xs',
-          selected
-            ? 'bg-indigo-500/10 dark:bg-indigo-400/10'
-            : errored
-              ? 'bg-rose-500/5 hover:bg-rose-500/10 dark:bg-rose-400/5 dark:hover:bg-rose-400/10'
-              : 'hover:bg-zinc-50 dark:hover:bg-white/5',
+          selected ? 'bg-accent' : errored ? 'bg-destructive/5 hover:bg-destructive/10' : 'hover:bg-muted',
         ].join(' ')}
       >
         <div className="relative shrink-0" style={{ width: indentWidth }} aria-hidden>

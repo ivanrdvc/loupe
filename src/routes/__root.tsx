@@ -49,12 +49,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="bg-background font-sans text-foreground antialiased">
+      <body className="bg-sidebar font-sans text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
           <TooltipProvider delayDuration={0}>
-            <SidebarProvider>
+            <SidebarProvider className="bg-sidebar">
               <AppSidebar />
-              <SidebarInset className="md:m-2 md:ml-0 md:rounded-xl md:border md:shadow-sm">{children}</SidebarInset>
+              <SidebarInset>{children}</SidebarInset>
             </SidebarProvider>
           </TooltipProvider>
         </ThemeProvider>

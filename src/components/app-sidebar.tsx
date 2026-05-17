@@ -1,10 +1,10 @@
 import {
-  ArrowUpDownIcon,
   Home01Icon,
   InboxIcon,
   Logout01Icon,
   MessageMultiple01Icon,
   Moon01Icon,
+  MoreVerticalIcon,
   PlayCircleIcon,
   PuzzleIcon,
   Settings01Icon,
@@ -38,6 +38,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '#/components/ui/sidebar'
 import { useUser, useUserId } from '#/hooks/use-user'
 import { truncateId } from '#/lib/format'
@@ -73,8 +74,8 @@ export function AppSidebar() {
   return (
     <>
       <SettingsDialog open={settingsOpen} onClose={setSettingsOpen} />
-      <Sidebar collapsible="none" className="h-auto border-r">
-        <SidebarHeader className="border-b">
+      <Sidebar collapsible="none" className="h-auto bg-transparent">
+        <SidebarHeader className="flex h-12 shrink-0 flex-row items-center gap-2 border-b px-2">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
@@ -96,7 +97,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 {MAIN_NAV.map((item) => (
                   <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={item.match(pathname)} tooltip={item.label}>
+                    <SidebarMenuButton asChild isActive={item.match(pathname)}>
                       <Link to={item.to}>
                         <HugeiconsIcon icon={item.icon} />
                         <span>{item.label}</span>
@@ -137,13 +138,13 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setSettingsOpen(true)} tooltip="Settings">
+                  <SidebarMenuButton onClick={() => setSettingsOpen(true)}>
                     <HugeiconsIcon icon={Settings01Icon} />
                     <span>Settings</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith('/inbox')} tooltip="Inbox">
+                  <SidebarMenuButton asChild isActive={pathname.startsWith('/inbox')}>
                     <Link to="/inbox">
                       <span className="relative shrink-0">
                         <HugeiconsIcon icon={InboxIcon} className="size-4 shrink-0" />
@@ -175,6 +176,7 @@ export function AppSidebar() {
 
 function NavUser() {
   const user = useUser()
+  const { isMobile } = useSidebar()
   const { resolvedTheme, setTheme } = useTheme()
   const themeIcon = resolvedTheme === 'dark' ? Moon01Icon : Sun01Icon
 
@@ -196,12 +198,12 @@ function NavUser() {
                 <span className="truncate text-sm font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">{user.email}</span>
               </div>
-              <HugeiconsIcon icon={ArrowUpDownIcon} className="ml-auto size-4" />
+              <HugeiconsIcon icon={MoreVerticalIcon} className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side="top"
+            side={isMobile ? 'bottom' : 'right'}
             align="end"
             sideOffset={4}
           >

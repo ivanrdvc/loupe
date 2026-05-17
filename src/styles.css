@@ -10,17 +10,17 @@
 @theme {
   --font-sans: 'Pretendard Variable', Pretendard, ui-sans-serif, system-ui, sans-serif;
 
-  --color-accent-50: #fbf6fb;
-  --color-accent-100: #f6e9f6;
-  --color-accent-200: #eed4ee;
-  --color-accent-300: #e5bce5;
-  --color-accent-400: #d898d8;
-  --color-accent-500: #ca78ca;
-  --color-accent-600: #b75db7;
-  --color-accent-700: #974797;
-  --color-accent-800: #7c3e7c;
-  --color-accent-900: #663866;
-  --color-accent-950: #3f213f;
+  --color-agui-50: #fbf6fb;
+  --color-agui-100: #f6e9f6;
+  --color-agui-200: #eed4ee;
+  --color-agui-300: #e5bce5;
+  --color-agui-400: #d898d8;
+  --color-agui-500: #ca78ca;
+  --color-agui-600: #b75db7;
+  --color-agui-700: #974797;
+  --color-agui-800: #7c3e7c;
+  --color-agui-900: #663866;
+  --color-agui-950: #3f213f;
 }
 
 /* Maps shadcn css vars to Tailwind utilities. Generates bg-background,
@@ -43,6 +43,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -87,6 +91,10 @@
   --accent-foreground: oklch(0.216 0.006 56.043);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.595 0.155 162.4);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.71 0.165 70);
+  --warning-foreground: oklch(0.985 0 0);
   --border: oklch(0.923 0.003 48.717);
   --input: oklch(0.923 0.003 48.717);
   --ring: oklch(0.709 0.01 56.259);
@@ -145,6 +153,10 @@
   --accent-foreground: oklch(0.985 0.001 106.423);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.71 0.16 162);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.78 0.16 78);
+  --warning-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.553 0.013 58.071);
