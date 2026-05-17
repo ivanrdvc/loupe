@@ -1,7 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router'
 import { ThemeProvider } from 'next-themes'
-import { ApplicationLayout } from '../components/application-layout'
+import { AppSidebar } from '#/components/app-sidebar'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '#/components/ui/sidebar'
 import appCss from '../styles.css?url'
 
 interface MyRouterContext {
@@ -43,17 +44,21 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className="text-zinc-950 antialiased lg:bg-zinc-100 dark:bg-zinc-900 dark:text-white dark:lg:bg-zinc-950"
-      suppressHydrationWarning
-    >
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="font-sans">
+      <body className="bg-background font-sans text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
-          <ApplicationLayout>{children}</ApplicationLayout>
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset>
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3 md:hidden">
+                <SidebarTrigger />
+              </header>
+              {children}
+            </SidebarInset>
+          </SidebarProvider>
         </ThemeProvider>
         <Scripts />
       </body>

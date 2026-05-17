@@ -72,15 +72,19 @@ New deps the CLI added: `radix-ui` (umbrella), `cmdk`, `sonner`, lucide-react bu
 
 **Review checkpoint:** files present, theme variables apply, no consumers yet. `pnpm typecheck` + `pnpm check` + `pnpm build` clean.
 
-## Phase 3 — App shell swap (big visible change)
+## Phase 3 — App shell swap (big visible change) ✅
 
-Match dashboard example chrome literally:
-- New `src/components/app-sidebar.tsx` using shadcn Sidebar v2 (`SidebarProvider`, `Sidebar`, `SidebarContent`, `SidebarMenu`, `SidebarFooter`)
-- Mobile responsive via built-in Sheet behavior (no separate `MobileSidebar`)
-- Contents: brand block (logo + version), nav (Home/Sessions/Runs/MCP/Evals), Recent section, Settings + Inbox, account dropdown in footer
-- New root layout in `__root.tsx` wrapping with `SidebarProvider`
-- Delete `application-layout.tsx`, `sidebar-layout.tsx`, `components/ui/catalyst/sidebar.tsx`, `components/ui/catalyst/navbar.tsx`
-- All existing pages still render inside the new shell. Page internals still use Catalyst-from-catalyst-folder — they look the same internally, just live in shadcn chrome.
+- New `src/components/app-sidebar.tsx` using shadcn Sidebar v2 (`collapsible="none"`, mirrors prior always-visible desktop behavior; mobile sheet handled natively by the primitive)
+- Single file, no nav-main/nav-secondary/nav-user splits — our sidebar is denser than the dashboard example and easier to read as one component
+- Contents: brand block (logo + version), main nav (Home/Sessions/Runs/MCP/Evals) with route-prefix active state, Recent section (last 5 user sessions), Settings (opens dialog) + Inbox (with unread badge), account dropdown in footer (account/theme/sign-out)
+- Icons: switched to **lucide-react** for sidebar items (matches `iconLibrary: lucide` in `components.json` and shadcn defaults). Heroicons still used elsewhere — page-by-page swap in later phases.
+- `__root.tsx` wraps children with `SidebarProvider` + `AppSidebar` + `SidebarInset`. Mobile-only top header bar with `<SidebarTrigger />` for opening the drawer.
+- Theme toggle now uses `next-themes`' `useTheme` directly (kept the existing `useTheme` hook around for `settings-dialog.tsx` until Phase 4 rewrites it).
+- Deleted: `src/components/application-layout.tsx`, `src/components/ui/catalyst/sidebar.tsx`, `src/components/ui/catalyst/sidebar-layout.tsx`, `src/components/ui/catalyst/navbar.tsx`.
+- Removed the dead `data-accent="cursor"` html attribute (no rule matched).
+- Page internals still use Catalyst-from-catalyst-folder — pages look the same internally, just live inside the new shadcn chrome.
+
+**Known visual delta:** all pages now render flush inside `SidebarInset` (`bg-background` `<main>`) — the previous Catalyst `SidebarLayout` wrapped non-`flush` pages in a rounded white card. This is the "big visible change" the plan promised; we'll iterate per-page if any feel naked.
 
 **Review checkpoint:** new sidebar, default Zinc theme, dark mode toggle works, all routes reachable.
 
