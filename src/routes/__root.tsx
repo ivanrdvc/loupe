@@ -53,7 +53,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3 md:hidden">
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
                 <SidebarTrigger />
               </header>
               {children}

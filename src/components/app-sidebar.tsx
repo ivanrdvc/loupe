@@ -35,6 +35,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '#/components/ui/sidebar'
@@ -72,7 +73,7 @@ export function AppSidebar() {
   return (
     <>
       <SettingsDialog open={settingsOpen} onClose={setSettingsOpen} />
-      <Sidebar collapsible="none">
+      <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 px-2 py-1.5">
             <Logo className="size-5!" />
@@ -140,13 +141,9 @@ export function AppSidebar() {
                     <Link to="/inbox">
                       <InboxIcon />
                       <span>Inbox</span>
-                      {unreadCount > 0 && (
-                        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
                     </Link>
                   </SidebarMenuButton>
+                  {unreadCount > 0 && <SidebarMenuBadge>{unreadCount > 99 ? '99+' : unreadCount}</SidebarMenuBadge>}
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
