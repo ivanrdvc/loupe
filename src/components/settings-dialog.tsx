@@ -10,7 +10,7 @@ import { useUserId } from '#/hooks/use-user'
 import { providersQuery, setProviderFn } from '#/lib/providers-data'
 import { queryKeys } from '#/lib/query-keys'
 
-const APP_VERSION = 'v0.1.0'
+const APP_VERSION = `v${__APP_VERSION__}`
 
 type Section = 'general' | 'appearance' | 'account'
 

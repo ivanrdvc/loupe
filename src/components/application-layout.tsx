@@ -47,7 +47,7 @@ import { truncateId } from '#/lib/format'
 import { inboxUnreadCountQuery } from '#/routes/inbox/-data'
 import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 
-const APP_VERSION = 'v0.1.0'
+const APP_VERSION = `v${__APP_VERSION__}`
 
 function AccountDropdownMenu({ anchor }: { anchor: 'top start' | 'bottom end' }) {
   const { mode, toggle } = useTheme()
