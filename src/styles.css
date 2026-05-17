@@ -9,18 +9,6 @@
 
 @theme {
   --font-sans: 'Pretendard Variable', Pretendard, ui-sans-serif, system-ui, sans-serif;
-
-  --color-agui-50: #fbf6fb;
-  --color-agui-100: #f6e9f6;
-  --color-agui-200: #eed4ee;
-  --color-agui-300: #e5bce5;
-  --color-agui-400: #d898d8;
-  --color-agui-500: #ca78ca;
-  --color-agui-600: #b75db7;
-  --color-agui-700: #974797;
-  --color-agui-800: #7c3e7c;
-  --color-agui-900: #663866;
-  --color-agui-950: #3f213f;
 }
 
 /* Maps shadcn css vars to Tailwind utilities. Generates bg-background,

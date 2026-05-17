@@ -319,7 +319,9 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
     <div
       className={[
         'rounded-md border text-xs',
-        selected ? 'border-agui-500/60 dark:border-agui-400/60' : 'border-agui-500/30 dark:border-agui-400/30',
+        selected
+          ? 'border-emerald-500/60 dark:border-emerald-400/60'
+          : 'border-emerald-500/30 dark:border-emerald-400/30',
       ].join(' ')}
     >
       <button
@@ -328,9 +330,9 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
           onToggle()
           onSelect()
         }}
-        className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left hover:bg-agui-500/5 dark:hover:bg-agui-400/5"
+        className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left hover:bg-emerald-500/5 dark:hover:bg-emerald-400/5"
       >
-        <span className="rounded bg-agui-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-agui-700 dark:text-agui-300">
+        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
           agent
         </span>
         <span className="truncate font-medium text-foreground">{event.agentName}</span>
@@ -347,7 +349,7 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
       </button>
 
       {expanded && (
-        <div className="space-y-2 border-t border-agui-500/15 px-3 py-2 dark:border-agui-400/15">
+        <div className="space-y-2 border-t border-emerald-500/15 px-3 py-2 dark:border-emerald-400/15">
           <KeyValueBlock label="Input" value={event.input} />
           <KeyValueBlock label="Output" value={event.result} />
           {hasActions && (

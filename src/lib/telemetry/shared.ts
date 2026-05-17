@@ -1,7 +1,7 @@
 import { extractAgentInstanceId, extractAgentName, SESSION_ID_KEYS, SESSION_TITLE_KEYS } from '#/lib/classify-span'
 import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
-import type { LatencyRow, SessionSummary } from './types'
+import type { LatencyRow, SessionSummary, ToolErrorRow, ToolPayloadRow } from './types'
 
 export type IdentityFilter = { userId?: string; userName?: string }
 
@@ -25,6 +25,37 @@ export function mapLatencyRow(row: Record<string, unknown>): LatencyRow {
     p95Ms: toMs(row.p95_ms),
     p99Ms: toMs(row.p99_ms),
     count: Number(row.count ?? 0),
+  }
+}
+
+export function mapToolErrorRow(row: Record<string, unknown>): ToolErrorRow {
+  const errors = Number(row.errors ?? 0)
+  const total = Number(row.total ?? 0)
+  const last = row.last_error_trace_id
+  return {
+    name: String(row.name ?? row.operation_name ?? '?'),
+    errors,
+    total,
+    errorRate: total > 0 ? errors / total : 0,
+    lastErrorTraceId: typeof last === 'string' && last ? last : undefined,
+  }
+}
+
+export function mapToolPayloadRow(row: Record<string, unknown>): ToolPayloadRow {
+  // LENGTH() in DataFusion returns char count for string columns — same as bytes
+  // for ASCII, slightly off for multibyte. Close enough for context-budget framing.
+  const toChars = (v: unknown) => {
+    const n = Math.round(Number(v ?? 0))
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+  const sample = row.sample_trace_id
+  return {
+    name: String(row.name ?? row.operation_name ?? '?'),
+    avgChars: toChars(row.avg_chars),
+    p95Chars: toChars(row.p95_chars),
+    maxChars: toChars(row.max_chars),
+    count: Number(row.count ?? 0),
+    sampleTraceId: typeof sample === 'string' && sample ? sample : undefined,
   }
 }
 
@@ -220,7 +251,7 @@ function pickString(row: Record<string, unknown>, keys: string[]): string | unde
   return undefined
 }
 
-function num(v: unknown): number | undefined {
+export function num(v: unknown): number | undefined {
   if (v === null || v === undefined || v === '') return undefined
   const n = Number(v)
   return Number.isFinite(n) ? n : undefined

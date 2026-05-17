@@ -87,6 +87,54 @@ export interface LatencyOpts {
   limit?: number
 }
 
+export interface ToolErrorRow {
+  name: string
+  errors: number
+  total: number
+  errorRate: number
+  lastErrorTraceId?: string
+}
+
+export interface ToolPayloadRow {
+  name: string
+  avgChars: number
+  p95Chars: number
+  maxChars: number
+  count: number
+  sampleTraceId?: string
+}
+
+// 24-bucket time series for one tool, used to render an inline sparkline next
+// to the aggregate row. Buckets are aligned to the user's selected window;
+// missing buckets are zero-filled by the consumer.
+export interface ToolBucketPoint {
+  ts: number
+  value: number
+}
+
+export interface ToolSpark {
+  name: string
+  buckets: ToolBucketPoint[]
+}
+
+export interface TopOpts {
+  fromUs?: number
+  toUs?: number
+  limit?: number
+}
+
+export interface OverviewAggregate {
+  runs: number
+  erroredRuns: number
+  p95ChatMs: number
+  totalCostUsd: number
+}
+
+export interface OverviewOpts {
+  fromUs?: number
+  toUs?: number
+}
+
 export type SessionFetch =
   | {
       kind: 'found'
@@ -122,6 +170,22 @@ export interface TelemetryProvider {
   // Latency percentiles grouped by operation_name. `generation` filters to
   // LLM calls; `observation` is the full span set.
   listLatencyPercentiles?(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]>
+
+  // Tools with high error rate — grouped by execute_tool operation_name.
+  listToolErrorRates?(opts?: TopOpts): Promise<ToolErrorRow[]>
+
+  // Tools returning too much — grouped by execute_tool operation_name,
+  // percentiles over output payload char length.
+  listToolPayloadSizes?(opts?: TopOpts): Promise<ToolPayloadRow[]>
+
+  // Bucketed time series of errors-per-tool, for inline sparklines.
+  listToolErrorRatesBucketed?(opts?: TopOpts): Promise<ToolSpark[]>
+
+  // Bucketed time series of avg-output-size-per-tool, for inline sparklines.
+  listToolPayloadSizesBucketed?(opts?: TopOpts): Promise<ToolSpark[]>
+
+  // Single-shot KPIs for the home page hero. Single SQL/KQL when possible.
+  getOverview?(opts?: OverviewOpts): Promise<OverviewAggregate>
 
   // getLogs?(filter, opts?): Promise<LogEntry[]>
   // getMetric?(name, range): Promise<MetricSeries>

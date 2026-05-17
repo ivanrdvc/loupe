@@ -7,10 +7,8 @@ import {
 import { useMemo, useState } from 'react'
 import { contextWindowFor, formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
-import { Card } from '#/components/ui/card'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '#/components/ui/resizable'
 import { ScrollArea } from '#/components/ui/scroll-area'
-import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { useIsMobile } from '#/hooks/use-mobile'
 import {
@@ -26,22 +24,14 @@ import { ContextTools, collectFrontendTools, collectToolGroups } from './context
 import { displayFor, formatDuration } from './shared'
 import { DetailPanel, SpanTreeList } from './tree'
 
-type InspectorTab = 'details' | 'tools' | 'logs' | 'turns'
+type InspectorTab = 'details' | 'tools' | 'turns' | 'logs'
 
-type StatsVariant = 'dense' | 'cards' | 'header'
-type TurnsVariant = 'conditional' | 'tab' | 'drop' | 'slim'
-
-const BASE_INSPECTOR_TABS = [
-  { id: 'details' as const, label: 'Details', Icon: InformationCircleIcon },
-  { id: 'tools' as const, label: 'Tools', Icon: WrenchScrewdriverIcon },
-  { id: 'logs' as const, label: 'Logs', Icon: CommandLineIcon },
-]
-
-const TURNS_INSPECTOR_TAB = {
-  id: 'turns' as const,
-  label: 'Turns',
-  Icon: ArrowPathRoundedSquareIcon,
-}
+const INSPECTOR_TABS = [
+  { id: 'details', label: 'Details', Icon: InformationCircleIcon },
+  { id: 'tools', label: 'Tools', Icon: WrenchScrewdriverIcon },
+  { id: 'turns', label: 'Turns', Icon: ArrowPathRoundedSquareIcon },
+  { id: 'logs', label: 'Logs', Icon: CommandLineIcon },
+] as const
 
 export function SessionInspectLayout({
   spans,
@@ -86,7 +76,7 @@ export function SessionInspectLayout({
             <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground/70">Loading…</div>
           ) : (
             <ResizablePanelGroup orientation="vertical" className="flex h-full w-full">
-              <ResizablePanel id="overview" defaultSize="40%" minSize="15%">
+              <ResizablePanel id="overview" defaultSize="28%" minSize="15%">
                 <ScrollArea className="h-full">
                   <div className="min-w-0">
                     <SessionOverview spans={spans} />
@@ -94,9 +84,9 @@ export function SessionInspectLayout({
                 </ScrollArea>
               </ResizablePanel>
               <ResizableHandle />
-              <ResizablePanel id="details" defaultSize="60%" minSize="25%">
+              <ResizablePanel id="details" defaultSize="72%" minSize="25%">
                 <div className="flex h-full min-h-0 min-w-0 flex-col">
-                  <div className="flex shrink-0 items-center border-border border-b px-3 py-2">
+                  <div className="flex shrink-0 items-center border-border border-b bg-muted/30 px-3 py-2">
                     <IconTabs
                       tabs={INSPECTOR_TABS}
                       value={inspectorTab}
@@ -115,6 +105,8 @@ export function SessionInspectLayout({
                       )
                     ) : inspectorTab === 'tools' ? (
                       <SessionTools spans={spans} selectedSpan={selectedSpan} />
+                    ) : inspectorTab === 'turns' ? (
+                      <SessionTurnsPanel spans={spans} />
                     ) : (
                       <SessionLogs spans={spans} />
                     )}
@@ -273,6 +265,7 @@ function SessionOverview({ spans }: { spans: Span[] }) {
   const allTokens = inputTokens + outputTokens + subagent.tokens
   const cachePct = inputTokens > 0 ? Math.round((cachedTokens / inputTokens) * 100) : 0
   const totalCost = totals.cost + subagent.cost
+  const costStr = formatCost(totalCost) ?? ''
 
   const peakIn = peak?.inputTokens ?? 0
   const peakWindow = contextWindowFor(peak?.model)
@@ -287,7 +280,7 @@ function SessionOverview({ spans }: { spans: Span[] }) {
   }
 
   return (
-    <section className="flex max-h-[min(46vh,470px)] flex-col overflow-hidden">
+    <section className="flex flex-col overflow-hidden">
       <header className="shrink-0 px-4 pt-3 pb-2">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-foreground">{agent}</div>
@@ -295,23 +288,29 @@ function SessionOverview({ spans }: { spans: Span[] }) {
             {turns.length} turn{turns.length === 1 ? '' : 's'} · {formatDuration(totals.duration)}
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-          <SummaryMetric
-            label="Tokens"
-            value={allTokens ? formatTokens(allTokens) : '—'}
-            sub={allTokens ? `${formatTokens(inputTokens)} in · ${formatTokens(outputTokens)} out` : undefined}
-          />
-          <SummaryMetric
-            label="Cached"
-            value={cachedTokens ? `${formatTokens(cachedTokens)} · ${cachePct}%` : '—'}
-            tone={cachedTokens ? 'good' : undefined}
-          />
-          <SummaryMetric label="Cost" value={formatCost(totalCost) ? `$${formatCost(totalCost)}` : '—'} />
-          <SummaryMetric
-            label="Errors"
-            value={totals.errors ? totals.errors.toLocaleString() : '—'}
-            tone={totals.errors ? 'danger' : undefined}
-          />
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] tabular-nums">
+          <span className="text-foreground">
+            <span className="font-semibold">{allTokens ? formatTokens(allTokens) : '—'}</span>{' '}
+            <span className="text-muted-foreground">tok</span>
+            {allTokens > 0 && (
+              <span className="text-muted-foreground">
+                {' '}
+                ({formatTokens(inputTokens)} in · {formatTokens(outputTokens)} out)
+              </span>
+            )}
+          </span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className={cachedTokens > 0 ? 'text-success' : 'text-muted-foreground'}>
+            {cachedTokens > 0 ? `${formatTokens(cachedTokens)} cached (${cachePct}%)` : 'no cache'}
+          </span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className="text-foreground">
+            <span className="font-semibold">{costStr ? `$${costStr}` : '—'}</span>
+          </span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className={totals.errors > 0 ? 'text-destructive' : 'text-muted-foreground'}>
+            {totals.errors > 0 ? `${totals.errors} err` : '0 err'}
+          </span>
         </div>
       </header>
 
@@ -337,21 +336,40 @@ function SessionOverview({ spans }: { spans: Span[] }) {
           subagentTokens={subagent.tokens}
         />
       </div>
-
-      <ScrollArea className="min-h-0 border-border border-t">
-        <div className="px-4 py-2.5">
-          <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-            <span>Turns</span>
-            {totals.errors > 0 && <span className="tabular-nums text-destructive">{totals.errors} errors</span>}
-          </div>
-          <ol className="space-y-1.5">
-            {turns.map((turn, index) => (
-              <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} />
-            ))}
-          </ol>
-        </div>
-      </ScrollArea>
     </section>
+  )
+}
+
+function SessionTurnsPanel({ spans }: { spans: Span[] }) {
+  const orchestratorIds = useMemo(() => findOrchestratorIds(spans), [spans])
+  const turns = useMemo(() => extractTurns(spans, orchestratorIds), [spans, orchestratorIds])
+  const errorCount = useMemo(
+    () => turns.reduce((sum, turn) => sum + turn.actions.filter(spanHasError).length, 0),
+    [turns],
+  )
+
+  if (turns.length === 0) {
+    return (
+      <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
+        No turns in this session.
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 py-4">
+      <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+        <span>
+          {turns.length} turn{turns.length === 1 ? '' : 's'}
+        </span>
+        {errorCount > 0 && <span className="tabular-nums text-destructive">{errorCount} errors</span>}
+      </div>
+      <ol className="space-y-1.5">
+        {turns.map((turn, index) => (
+          <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} />
+        ))}
+      </ol>
+    </div>
   )
 }
 
@@ -440,29 +458,6 @@ function ContextBreakdown({
           </li>
         ))}
       </ul>
-    </div>
-  )
-}
-
-function SummaryMetric({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string
-  value: string
-  sub?: string
-  tone?: 'danger' | 'good'
-}) {
-  const valueClass = tone === 'danger' ? 'text-destructive' : tone === 'good' ? 'text-success' : 'text-foreground'
-  return (
-    <div className="min-w-0 rounded-lg bg-muted px-3 py-2 ring-1 ring-border">
-      <div className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        Total {label}
-      </div>
-      <div className={`mt-0.5 truncate text-base font-semibold tabular-nums ${valueClass}`}>{value}</div>
-      {sub && <div className="mt-0.5 truncate text-[10px] tabular-nums text-muted-foreground">{sub}</div>}
     </div>
   )
 }

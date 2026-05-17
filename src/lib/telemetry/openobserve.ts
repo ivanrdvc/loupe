@@ -7,7 +7,7 @@ import {
   USER_NAME_ATTR_KEYS,
 } from '#/lib/classify-span'
 import { normalizeTraceRoots, propagateSessionInTrace, type Span, type SpanKind } from '#/lib/spans'
-import { aggregateSessions, mapLatencyRow, pickIdentityValue } from './shared'
+import { aggregateSessions, mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num, pickIdentityValue } from './shared'
 import type {
   GetTraceOpts,
   InventoryDiscoveryKind,
@@ -16,10 +16,18 @@ import type {
   LatencyOpts,
   LatencyRow,
   ListTracesOpts,
+  OverviewAggregate,
+  OverviewOpts,
   SessionFetch,
   TelemetryProvider,
+  ToolErrorRow,
+  ToolPayloadRow,
+  ToolSpark,
+  TopOpts,
   TraceSummary,
 } from './types'
+
+const SPARK_BUCKETS = 24
 
 export interface OpenObserveConfig {
   baseUrl: string
@@ -45,8 +53,6 @@ const SESSION_ID_MAX_AS =
   SESSION_ID_KEYS.length === 1
     ? `MAX(${SESSION_ID_KEYS[0]})`
     : `COALESCE(${SESSION_ID_KEYS.map((k) => `MAX(${k})`).join(', ')})`
-// `tryWithFallback` keys off one missing column name today — fine while
-// SESSION_ID_KEYS has one entry. Generalize when a second key lands.
 const SESSION_ID_FALLBACK_KEY = SESSION_ID_KEYS[0]
 const SESSION_TITLE_SELECT = SESSION_TITLE_KEYS.join(', ')
 const SESSION_TITLE_FALLBACK_KEY = SESSION_TITLE_KEYS[0]
@@ -222,7 +228,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
       // Aggregate by trace_id. Tokens / cost from chat spans only — agent
       // spans roll up the same numbers, so summing all spans would double-count.
-      const buildSql = (withThread: boolean) => `
+      const buildSql = (skip: ReadonlySet<string>) => `
         SELECT
           trace_id,
           MIN(start_time) AS first_seen,
@@ -232,7 +238,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
           SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN llm_usage_cost_total   ELSE 0 END) AS total_cost,
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN operation_name END) AS sample_agent,
           MAX(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS has_error,
-          ${withThread ? `${SESSION_ID_MAX_AS} AS session_id,` : ''}
+          ${skip.has(SESSION_ID_FALLBACK_KEY) ? '' : `${SESSION_ID_MAX_AS} AS session_id,`}
           MAX(service_name)    AS service_name
         FROM "${cfg.stream}"
         WHERE gen_ai_operation_name IS NOT NULL
@@ -240,10 +246,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY first_seen DESC
         LIMIT ${limit}
       `
-      const data = await tryWithFallback(
-        () => search(buildSql(true), fromUs, toUs, limit),
-        () => search(buildSql(false), fromUs, toUs, limit),
-        SESSION_ID_FALLBACK_KEY,
+      const data = await searchDroppingMissing(
+        (skip) => search(buildSql(skip), fromUs, toUs, limit),
+        [SESSION_ID_FALLBACK_KEY],
       )
       const hits = (data.hits ?? []) as Array<Record<string, unknown>>
       return hits.map(hitToSummary)
@@ -269,6 +274,106 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       return hits.flatMap((hit) => hitToInventoryObservation(kind, hit))
     },
 
+    async listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]> {
+      const { fromUs, toUs } = window(opts)
+      const limit = opts?.limit ?? 5
+      const sql = `
+        SELECT
+          operation_name AS name,
+          SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS errors,
+          COUNT(*) AS total,
+          MAX(CASE WHEN span_status = 'ERROR' THEN trace_id END) AS last_error_trace_id
+        FROM "${cfg.stream}"
+        WHERE operation_name LIKE 'execute_tool %'
+        GROUP BY operation_name
+        HAVING errors > 0
+        ORDER BY (CAST(errors AS DOUBLE) / total) DESC
+        LIMIT ${limit}
+      `
+      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
+      return ((data.hits ?? []) as Array<Record<string, unknown>>).map(mapToolErrorRow)
+    },
+
+    async listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
+      const { fromUs, toUs } = window(opts)
+      const limit = opts?.limit ?? 5
+      const sql = `
+        SELECT
+          operation_name AS name,
+          AVG(LENGTH(gen_ai_tool_call_result)) AS avg_chars,
+          approx_percentile_cont(LENGTH(gen_ai_tool_call_result), 0.95) AS p95_chars,
+          MAX(LENGTH(gen_ai_tool_call_result)) AS max_chars,
+          COUNT(*) AS count,
+          MAX(trace_id) AS sample_trace_id
+        FROM "${cfg.stream}"
+        WHERE operation_name LIKE 'execute_tool %'
+          AND gen_ai_tool_call_result IS NOT NULL
+        GROUP BY operation_name
+        ORDER BY p95_chars DESC
+        LIMIT ${limit}
+      `
+      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
+      return ((data.hits ?? []) as Array<Record<string, unknown>>).map(mapToolPayloadRow)
+    },
+
+    async listToolErrorRatesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
+      const { fromUs, toUs } = window(opts)
+      const bucketSec = bucketSecondsFor(fromUs, toUs)
+      const sql = `
+        SELECT
+          operation_name AS name,
+          date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
+          SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS value
+        FROM "${cfg.stream}"
+        WHERE operation_name LIKE 'execute_tool %'
+        GROUP BY name, bucket
+        ORDER BY name, bucket
+      `
+      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, 5000))
+      return groupSparks((data.hits ?? []) as Array<Record<string, unknown>>, fromUs, toUs, bucketSec)
+    },
+
+    async listToolPayloadSizesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
+      const { fromUs, toUs } = window(opts)
+      const bucketSec = bucketSecondsFor(fromUs, toUs)
+      const sql = `
+        SELECT
+          operation_name AS name,
+          date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
+          AVG(LENGTH(gen_ai_tool_call_result)) AS value
+        FROM "${cfg.stream}"
+        WHERE operation_name LIKE 'execute_tool %'
+          AND gen_ai_tool_call_result IS NOT NULL
+        GROUP BY name, bucket
+        ORDER BY name, bucket
+      `
+      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, 5000))
+      return groupSparks((data.hits ?? []) as Array<Record<string, unknown>>, fromUs, toUs, bucketSec)
+    },
+
+    async getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {
+      const { fromUs, toUs } = window(opts)
+      const sql = `
+        SELECT
+          COUNT(DISTINCT trace_id) AS runs,
+          COUNT(DISTINCT CASE WHEN span_status = 'ERROR' THEN trace_id END) AS errored_runs,
+          approx_percentile_cont(CASE WHEN gen_ai_operation_name = 'chat' THEN duration END, 0.95) / 1000 AS p95_chat_ms,
+          SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN llm_usage_cost_total ELSE 0 END) AS total_cost
+        FROM "${cfg.stream}"
+        WHERE gen_ai_operation_name IS NOT NULL
+           OR operation_name LIKE 'execute_tool %'
+           OR operation_name LIKE 'invoke_agent %'
+      `
+      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, 1))
+      const row = ((data.hits ?? []) as Array<Record<string, unknown>>)[0] ?? {}
+      return {
+        runs: Number(row.runs ?? 0),
+        erroredRuns: Number(row.errored_runs ?? 0),
+        p95ChatMs: Math.round(Number(row.p95_chat_ms ?? 0)),
+        totalCostUsd: Number(row.total_cost ?? 0),
+      }
+    },
+
     async listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]> {
       const { fromUs, toUs } = window(opts)
       const limit = opts?.limit ?? 5
@@ -288,42 +393,25 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         ORDER BY p95_ms DESC
         LIMIT ${limit}
       `
-      try {
-        const data = await search(sql, fromUs, toUs, limit)
-        const hits = (data.hits ?? []) as Array<Record<string, unknown>>
-        return hits.map(mapLatencyRow)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        // No spans tagged with gen_ai_operation_name in this stream — return empty.
-        if (kind === 'generation' && msg.includes('"code":20004') && msg.includes('gen_ai_operation_name')) {
-          return []
-        }
-        throw e
-      }
+      const data = await searchOrEmpty(() => search(sql, fromUs, toUs, limit))
+      return ((data.hits ?? []) as Array<Record<string, unknown>>).map(mapLatencyRow)
     },
   }
 }
 
-async function tryWithFallback<T>(
-  primary: () => Promise<T>,
-  fallback: () => Promise<T>,
-  missingField: string | string[],
-): Promise<T> {
+// OO returns 20004 when the SQL references a column that doesn't exist yet
+// (fresh stream, no spans of that shape). Swallow → empty result.
+async function searchOrEmpty(run: () => Promise<{ hits?: unknown[] }>): Promise<{ hits?: unknown[] }> {
   try {
-    return await primary()
+    return await run()
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    const fields = Array.isArray(missingField) ? missingField : [missingField]
-    if (msg.includes('"code":20004') && fields.some((field) => msg.includes(`No field named ${field}`))) {
-      return await fallback()
-    }
+    if (e instanceof Error && e.message.includes('"code":20004')) return { hits: [] }
     throw e
   }
 }
 
-// Retry a query, dropping each missing optional field one at a time. Unlike
-// tryWithFallback's collapse-everything cascade, this preserves fields that
-// the schema *does* have — so if `ag_ui_thread_title` is missing but
+// Retry a query, dropping each missing optional field one at a time so the
+// schema gracefully degrades — if `ag_ui_thread_title` is missing but
 // `llm_input` exists, the second attempt keeps `llm_input`.
 async function searchDroppingMissing<T>(
   run: (skip: ReadonlySet<string>) => Promise<T>,
@@ -467,8 +555,69 @@ function kindFromNumber(raw: unknown): SpanKind {
   }
 }
 
-function num(v: unknown): number | undefined {
-  if (v === null || v === undefined || v === '') return undefined
-  const n = Number(v)
-  return Number.isFinite(n) ? n : undefined
+// Split the user's selected window into ~SPARK_BUCKETS even slices. 60s floor
+// avoids a sub-second INTERVAL on very short windows.
+function bucketSecondsFor(fromUs: number, toUs: number): number {
+  const spanSec = Math.max(60, Math.floor((toUs - fromUs) / 1_000_000))
+  return Math.max(60, Math.floor(spanSec / SPARK_BUCKETS))
+}
+
+// Roll OO bucket rows into per-tool series. Zero-fills missing buckets so the
+// sparkline width is stable across tools regardless of activity.
+function groupSparks(
+  hits: Array<Record<string, unknown>>,
+  fromUs: number,
+  toUs: number,
+  bucketSec: number,
+): ToolSpark[] {
+  const bucketMs = bucketSec * 1000
+  const startMs = Math.floor(fromUs / 1000)
+  const endMs = Math.floor(toUs / 1000)
+  const slots: number[] = []
+  for (let t = startMs; t < endMs && slots.length < SPARK_BUCKETS; t += bucketMs) slots.push(t)
+  if (slots.length === 0) return []
+  const byName = new Map<string, Map<number, number>>()
+  for (const h of hits) {
+    const name = String(h.name ?? '')
+    if (!name) continue
+    const ts = parseBucketMs(h.bucket)
+    if (ts === undefined) continue
+    const value = Number(h.value ?? 0)
+    let m = byName.get(name)
+    if (!m) {
+      m = new Map()
+      byName.set(name, m)
+    }
+    m.set(ts, value)
+  }
+  const out: ToolSpark[] = []
+  for (const [name, m] of byName) {
+    const buckets = slots.map((ts) => ({ ts, value: nearest(m, ts, bucketMs) }))
+    out.push({ name, buckets })
+  }
+  return out
+}
+
+// OO's date_bin returns either an ISO string ("2026-05-17T08:00:00") or an
+// already-epoch number depending on the column type. Handle both.
+function parseBucketMs(raw: unknown): number | undefined {
+  if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
+  if (typeof raw === 'string') {
+    const ms = Date.parse(raw.endsWith('Z') ? raw : `${raw}Z`)
+    return Number.isFinite(ms) ? ms : undefined
+  }
+  return undefined
+}
+
+// date_bin places hits on bucket starts that may not match our zero-fill grid
+// exactly (when fromUs isn't on a bucket boundary). Snap each hit to the
+// closest slot.
+function nearest(m: Map<number, number>, slot: number, bucketMs: number): number {
+  if (m.has(slot)) return m.get(slot) ?? 0
+  const lo = slot
+  const hi = slot + bucketMs - 1
+  for (const [ts, v] of m) {
+    if (ts >= lo && ts <= hi) return v
+  }
+  return 0
 }

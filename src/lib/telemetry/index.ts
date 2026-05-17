@@ -11,26 +11,18 @@ import type {
   LatencyRow,
   ListSessionsOpts,
   ListTracesOpts,
+  OverviewAggregate,
+  OverviewOpts,
   SessionSummary,
   TelemetryProvider,
+  ToolErrorRow,
+  ToolPayloadRow,
+  ToolSpark,
+  TopOpts,
   TraceSummary,
 } from './types'
 
-export type {
-  GetTraceOpts,
-  InventoryDiscoveryKind,
-  InventoryObservation,
-  LatencyKind,
-  LatencyOpts,
-  LatencyRow,
-  ListSessionsOpts,
-  ListTracesOpts,
-  SessionFetch,
-  SessionSummary,
-  TelemetryProvider,
-  TraceFetch,
-  TraceSummary,
-} from './types'
+export type * from './types'
 
 // Cookie wins over env so the settings UI works without a restart. Stale
 // cookies (provider whose env is no longer set) fall through to the next tier.
@@ -194,4 +186,34 @@ export async function listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOp
   const p = getActiveProvider()
   if (!p.listLatencyPercentiles) return []
   return await p.listLatencyPercentiles(kind, opts)
+}
+
+export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]> {
+  const p = getActiveProvider()
+  if (!p.listToolErrorRates) return []
+  return await p.listToolErrorRates(opts)
+}
+
+export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
+  const p = getActiveProvider()
+  if (!p.listToolPayloadSizes) return []
+  return await p.listToolPayloadSizes(opts)
+}
+
+export async function listToolErrorRatesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
+  const p = getActiveProvider()
+  if (!p.listToolErrorRatesBucketed) return []
+  return await p.listToolErrorRatesBucketed(opts)
+}
+
+export async function listToolPayloadSizesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
+  const p = getActiveProvider()
+  if (!p.listToolPayloadSizesBucketed) return []
+  return await p.listToolPayloadSizesBucketed(opts)
+}
+
+export async function getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {
+  const p = getActiveProvider()
+  if (!p.getOverview) return { runs: 0, erroredRuns: 0, p95ChatMs: 0, totalCostUsd: 0 }
+  return await p.getOverview(opts)
 }
