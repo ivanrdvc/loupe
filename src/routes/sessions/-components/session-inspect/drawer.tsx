@@ -7,7 +7,7 @@ import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-r
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { IconTabs } from '#/components/icon-tabs'
-import { Link } from '#/components/ui/link'
+import { Link } from '#/components/ui/catalyst/link'
 import type { Span } from '#/lib/spans'
 import type { TimeRangeDays } from '#/lib/time-range'
 import { SessionContextView } from './context'

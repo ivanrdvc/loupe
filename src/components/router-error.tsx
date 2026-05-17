@@ -1,5 +1,5 @@
 import { type ErrorComponentProps, useRouter } from '@tanstack/react-router'
-import { Button } from './ui/button'
+import { Button } from './ui/catalyst/button'
 
 export function RouterError({ error, reset }: ErrorComponentProps) {
   const router = useRouter()

@@ -1,13 +1,12 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router'
+import { ThemeProvider } from 'next-themes'
 import { ApplicationLayout } from '../components/application-layout'
 import appCss from '../styles.css?url'
 
 interface MyRouterContext {
   queryClient: QueryClient
 }
-
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark')?stored:'dark';var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(mode);root.style.colorScheme=mode;}catch(e){}})();`
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
@@ -46,17 +45,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
-      data-accent="cursor"
       className="text-zinc-950 antialiased lg:bg-zinc-100 dark:bg-zinc-900 dark:text-white dark:lg:bg-zinc-950"
       suppressHydrationWarning
     >
       <head>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: theme init must run before first paint to avoid FOUC */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body className="font-sans">
-        <ApplicationLayout>{children}</ApplicationLayout>
+        <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
+          <ApplicationLayout>{children}</ApplicationLayout>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

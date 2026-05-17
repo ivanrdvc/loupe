@@ -2,7 +2,7 @@ import { CubeTransparentIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { EmptyState } from '#/components/empty-state'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/catalyst/table'
 import { formatAgo } from '#/lib/format'
 import { mcpQuery } from './-data'
 

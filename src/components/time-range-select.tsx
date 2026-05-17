@@ -1,5 +1,5 @@
 import { CheckIcon, ChevronDownIcon } from '@heroicons/react/16/solid'
-import { Dropdown, DropdownButton, DropdownItem, DropdownLabel, DropdownMenu } from '#/components/ui/dropdown'
+import { Dropdown, DropdownButton, DropdownItem, DropdownLabel, DropdownMenu } from '#/components/ui/catalyst/dropdown'
 import { TIME_RANGE_DAYS, type TimeRangeDays, timeRangeLabel, timeRangeShortcut } from '#/lib/time-range'
 
 interface TimeRangeSelectProps {

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
-import { Link } from '#/components/ui/link'
+import { Link } from '#/components/ui/catalyst/link'
 import type { Span } from '#/lib/spans'
 import { RUN_SPANS, runSpansQuery } from './-data'
 

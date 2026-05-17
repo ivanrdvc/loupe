@@ -19,7 +19,7 @@ import { useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Logo } from '#/components/logo'
 import { SettingsDialog } from '#/components/settings-dialog'
-import { Avatar } from '#/components/ui/avatar'
+import { Avatar } from '#/components/ui/catalyst/avatar'
 import {
   Dropdown,
   DropdownButton,
@@ -27,8 +27,8 @@ import {
   DropdownItem,
   DropdownLabel,
   DropdownMenu,
-} from '#/components/ui/dropdown'
-import { Navbar, NavbarSection, NavbarSpacer } from '#/components/ui/navbar'
+} from '#/components/ui/catalyst/dropdown'
+import { Navbar, NavbarSection, NavbarSpacer } from '#/components/ui/catalyst/navbar'
 import {
   Sidebar,
   SidebarBody,
@@ -39,8 +39,8 @@ import {
   SidebarLabel,
   SidebarSection,
   SidebarSpacer,
-} from '#/components/ui/sidebar'
-import { SidebarLayout } from '#/components/ui/sidebar-layout'
+} from '#/components/ui/catalyst/sidebar'
+import { SidebarLayout } from '#/components/ui/catalyst/sidebar-layout'
 import { useTheme } from '#/hooks/use-theme'
 import { useUser, useUserId } from '#/hooks/use-user'
 import { truncateId } from '#/lib/format'

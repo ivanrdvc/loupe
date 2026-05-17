@@ -1,6 +1,6 @@
 import { CheckIcon, ChevronDownIcon } from '@heroicons/react/16/solid'
 import { ArrowPathIcon } from '@heroicons/react/20/solid'
-import { Dropdown, DropdownButton, DropdownItem, DropdownLabel, DropdownMenu } from '#/components/ui/dropdown'
+import { Dropdown, DropdownButton, DropdownItem, DropdownLabel, DropdownMenu } from '#/components/ui/catalyst/dropdown'
 
 export const AUTO_REFRESH_OPTIONS = [
   { value: 'off', label: 'Off', selectedLabel: 'Off' },
