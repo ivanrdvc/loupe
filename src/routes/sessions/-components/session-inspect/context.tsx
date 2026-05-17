@@ -14,6 +14,12 @@ export interface SystemBlock {
   tokens: number
 }
 
+// Group kinds drive layout: 'frontend' pins to the top, 'server' renders as a
+// named collapsible group, 'default' is the unnamed catch-all flat list.
+// Using a discriminator instead of comparing the display string avoids a
+// collision if a real MCP server is literally named 'frontend' or 'tools'.
+type ToolGroupKind = 'frontend' | 'server' | 'default'
+
 interface ToolDef {
   id: string
   name: string
@@ -25,6 +31,7 @@ interface ToolDef {
 
 interface ToolGroup {
   domain: string
+  kind: ToolGroupKind
   tools: ToolDef[]
   tokens: number
 }
@@ -112,24 +119,30 @@ function aguiLabelFor(content: string): string {
   return 'Directive'
 }
 
-const FRONTEND_DOMAIN = 'frontend'
-const DEFAULT_DOMAIN = 'tools'
+const FRONTEND_LABEL = 'frontend'
+const DEFAULT_LABEL = 'tools'
 
 export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): ToolGroup[] {
-  const byKey = new Map<string, ToolDef>()
+  const byKey = new Map<string, ToolDef & { kind: ToolGroupKind }>()
   for (const span of spans) {
     if (span.operation !== 'chat' || span.toolDefinitions == null) continue
     for (const raw of flattenToolDefinitions(span.toolDefinitions)) {
       const name = toolName(raw)
       const description = toolDescription(raw)
-      const domain = frontendNames?.has(name) ? FRONTEND_DOMAIN : toolDomain(raw)
+      const isFrontend = frontendNames?.has(name) ?? false
+      const explicit = toolDomain(raw)
+      const kind: ToolGroupKind = isFrontend ? 'frontend' : explicit ? 'server' : 'default'
+      const domain = isFrontend ? FRONTEND_LABEL : (explicit ?? DEFAULT_LABEL)
       const text = formatJson(raw)
-      const key = `${domain}:${name}:${description}`
+      // Key includes kind so a hypothetical server literally named 'frontend'
+      // can't merge into the pinned frontend group.
+      const key = `${kind}:${domain}:${name}:${description}`
       if (byKey.has(key)) continue
       byKey.set(key, {
         id: key,
         name,
         domain,
+        kind,
         description,
         tokens: estimateTokens(text),
         raw,
@@ -137,22 +150,23 @@ export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): T
     }
   }
 
-  const groups = new Map<string, ToolDef[]>()
+  const groups = new Map<string, { domain: string; kind: ToolGroupKind; tools: ToolDef[] }>()
   for (const tool of byKey.values()) {
-    const tools = groups.get(tool.domain) ?? []
-    tools.push(tool)
-    groups.set(tool.domain, tools)
+    const groupKey = `${tool.kind}:${tool.domain}`
+    const existing = groups.get(groupKey) ?? { domain: tool.domain, kind: tool.kind, tools: [] }
+    existing.tools.push(tool)
+    groups.set(groupKey, existing)
   }
-  return [...groups.entries()]
-    .map(([domain, tools]) => ({
-      domain,
-      tools: tools.sort((a, b) => a.name.localeCompare(b.name)),
-      tokens: tools.reduce((sum, tool) => sum + tool.tokens, 0),
+  return [...groups.values()]
+    .map((g) => ({
+      ...g,
+      tools: g.tools.sort((a, b) => a.name.localeCompare(b.name)),
+      tokens: g.tools.reduce((sum, tool) => sum + tool.tokens, 0),
     }))
     .sort((a, b) => {
-      // Frontend group pinned first; everything else by token weight, alpha tiebreak.
-      if (a.domain === FRONTEND_DOMAIN) return -1
-      if (b.domain === FRONTEND_DOMAIN) return 1
+      // Frontend pinned first; everything else by token weight, alpha tiebreak.
+      if (a.kind === 'frontend') return -1
+      if (b.kind === 'frontend') return 1
       return b.tokens - a.tokens || a.domain.localeCompare(b.domain)
     })
 }
@@ -162,11 +176,18 @@ export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): T
 // frontend-side (CopilotKit useFrontendTool / useHumanInTheLoop / etc.).
 // Tool definitions look identical on the wire whether they're backend or
 // frontend, so this differential is the only signal we have.
+//
+// Gate: requires at least one execute_tool span in the session. Some runtimes
+// (e.g. the .NET Microsoft Agent Framework on AIFunctionFactory tools) don't
+// emit execute_tool spans at all — without them, every called tool would
+// falsely look frontend. When backend instrumentation is dark, we'd rather
+// classify nothing than mislabel everything.
 export function collectFrontendTools(spans: Span[]): FrontendTool[] {
   const backendExecuted = new Set<string>()
   for (const span of spans) {
     if (span.operation === 'tool' && span.toolName) backendExecuted.add(span.toolName)
   }
+  if (backendExecuted.size === 0) return []
 
   const calledNames = new Set<string>()
   for (const span of spans) {
@@ -265,14 +286,16 @@ function toolDescription(value: JsonValue): string {
   return ''
 }
 
-function toolDomain(value: JsonValue): string {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    for (const key of ['domain', 'namespace', 'server', 'mcp_server', 'provider']) {
-      const candidate = value[key]
-      if (typeof candidate === 'string' && candidate) return candidate
-    }
+// Returns an explicit server/namespace string when the tool def carries one
+// (rare today — OpenAI-style payloads don't), or undefined otherwise. The
+// caller decides which catch-all the tool falls into.
+function toolDomain(value: JsonValue): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  for (const key of ['domain', 'namespace', 'server', 'mcp_server', 'provider']) {
+    const candidate = value[key]
+    if (typeof candidate === 'string' && candidate) return candidate
   }
-  return DEFAULT_DOMAIN
+  return undefined
 }
 
 function findAguiValues(value: JsonValue | undefined, path: string[] = []): { label: string; value: string }[] {
@@ -374,14 +397,14 @@ export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   if (groups.length === 0) return <ContextEmpty>No tool definitions found in chat span inputs.</ContextEmpty>
   // Wrapped: frontend + per-server (named, meaningful). Flat: the catch-all
   // bucket renders as bare rows — no fake group header.
-  const wrapped = groups.filter((g) => g.domain !== DEFAULT_DOMAIN)
-  const flat = groups.find((g) => g.domain === DEFAULT_DOMAIN)?.tools ?? []
+  const wrapped = groups.filter((g) => g.kind !== 'default')
+  const flat = groups.find((g) => g.kind === 'default')?.tools ?? []
   return (
     <div className="space-y-3">
       {wrapped.map((group) => (
         <details
-          key={group.domain}
-          open={group.domain === FRONTEND_DOMAIN}
+          key={`${group.kind}:${group.domain}`}
+          open={group.kind === 'frontend'}
           className="rounded-lg bg-zinc-950/[0.025] ring-1 ring-zinc-950/10 dark:bg-white/[0.03] dark:ring-white/10"
         >
           <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-zinc-900 dark:text-zinc-100">

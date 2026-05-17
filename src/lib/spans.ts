@@ -150,29 +150,47 @@ export function descendantSpans(spans: Span[], rootId: string): Span[] {
   return out
 }
 
-// A session can span multiple traces — each user turn typically lands on its
-// own root invoke_agent. Return the shallowest invoke_agent per trace so
-// downstream callers can aggregate turns across the whole session.
+// Every top-level invoke_agent in the session is a turn. "Top-level" = no
+// invoke_agent in its ancestor chain. A single trace can legitimately contain
+// multiple sibling top-level runs (e.g. the .NET runtime re-invokes the agent
+// once per step within a single HTTP request); previously we picked only the
+// shallowest per trace and the others were misclassified as subagents.
 export function findOrchestratorIds(spans: Span[]): string[] {
   const byId = new Map(spans.map((s) => [s.id, s]))
-  const memo = new Map<string, number>()
-  const depth = (id: string): number => {
-    const cached = memo.get(id)
-    if (cached !== undefined) return cached
-    const s = byId.get(id)
-    const d = !s || s.parentId === null ? 0 : 1 + depth(s.parentId)
-    memo.set(id, d)
-    return d
-  }
-  const perTrace = new Map<string, Span>()
+  const top: Span[] = []
   for (const s of spans) {
     if (s.operation !== 'invoke_agent') continue
-    const cur = perTrace.get(s.traceId)
-    if (!cur || depth(s.id) < depth(cur.id) || (depth(s.id) === depth(cur.id) && s.startMs < cur.startMs)) {
-      perTrace.set(s.traceId, s)
-    }
+    if (countAgentAncestors(s, byId) === 0) top.push(s)
   }
-  return [...perTrace.values()].sort((a, b) => a.startMs - b.startMs).map((s) => s.id)
+  return top.sort((a, b) => a.startMs - b.startMs).map((s) => s.id)
+}
+
+// "Non-orchestrator" chats: any chat that's nested under an agent but is NOT
+// a direct child of a top-level invoke_agent. Catches three shapes:
+//   1. invoke_agent → execute_tool → invoke_agent → chat  (canonical subagent)
+//   2. invoke_agent → execute_tool → chat                 (Pydantic AI old form
+//      attributes the wrapped LLM call directly to the tool span)
+//   3. invoke_agent → … → invoke_agent → chat             (any deeper nesting)
+// A chat with no invoke_agent in its ancestor chain (raw chat, no agent
+// framework) is excluded — there's no orchestrator to compare it against.
+export function subagentChatSpans(spans: Span[]): Span[] {
+  const byId = new Map(spans.map((s) => [s.id, s]))
+  const orchestratorIds = new Set(findOrchestratorIds(spans))
+  return spans.filter((s) => {
+    if (s.operation !== 'chat') return false
+    if (s.parentId && orchestratorIds.has(s.parentId)) return false
+    return countAgentAncestors(s, byId) >= 1
+  })
+}
+
+function countAgentAncestors(s: Span, byId: Map<string, Span>): number {
+  let cursor: Span | undefined = s.parentId ? byId.get(s.parentId) : undefined
+  let count = 0
+  while (cursor) {
+    if (cursor.operation === 'invoke_agent') count++
+    cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined
+  }
+  return count
 }
 
 export function findOrchestratorId(spans: Span[]): string | null {

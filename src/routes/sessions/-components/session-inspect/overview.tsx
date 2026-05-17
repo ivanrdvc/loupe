@@ -3,7 +3,14 @@ import { useMemo, useState } from 'react'
 import { contextWindowFor, formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
-import { descendantSpans, findOrchestratorIds, formatCost, type Span, spanHasError } from '#/lib/spans'
+import {
+  descendantSpans,
+  findOrchestratorIds,
+  formatCost,
+  type Span,
+  spanHasError,
+  subagentChatSpans,
+} from '#/lib/spans'
 import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
 import { ContextTools, collectFrontendTools, collectToolGroups } from './context'
 import { displayFor, formatDuration } from './shared'
@@ -206,21 +213,15 @@ function SessionOverview({ spans }: { spans: Span[] }) {
     return { input, output, cached, cost, errors, duration }
   }, [turns])
 
-  // Subagent tokens = all chat spans not in the orchestrator's turn list.
-  // Subagents have their own system/tools/messages, but those are nested and
-  // not broken out here — surfacing the lump sum makes it visible that the
-  // orchestrator handed work off, without double-counting the parent's prompt.
   const subagent = useMemo(() => {
-    const orchChatIds = new Set(chatSpans.map((c) => c.id))
     let tokens = 0
     let cost = 0
-    for (const span of spans) {
-      if (span.operation !== 'chat' || orchChatIds.has(span.id)) continue
+    for (const span of subagentChatSpans(spans)) {
       tokens += (span.inputTokens ?? 0) + (span.outputTokens ?? 0)
       cost += span.costUsd ?? 0
     }
     return { tokens, cost }
-  }, [spans, chatSpans])
+  }, [spans])
 
   const peak = useMemo(() => {
     let peakSpan: Span | null = null
