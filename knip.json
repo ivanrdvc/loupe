@@ -1,0 +1,7 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/router.tsx", "src/routes/**/*.{ts,tsx}", "src/server/**/*.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": ["src/components/ui/**"],
+  "ignoreDependencies": ["@tailwindcss/typography", "@testing-library/dom", "@tanstack/router-plugin", "tailwindcss"]
+}

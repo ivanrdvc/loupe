@@ -28,3 +28,4 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm knip --include files,dependencies
