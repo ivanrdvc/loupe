@@ -11,6 +11,12 @@ In-repo engineering docs for agentops.
 - **`plans/`** — forward-looking design proposals for unbuilt features.
   Distinct from `explanation/` (which is current-state) and from ADRs (which
   record decided choices). Each plan links back to the relevant subsystem.
+- **`_templates/`** — copy-paste starting points (`explanation.md`,
+  `guide.md`, `reference.md`). The `/docs` skill copies from here.
+
+Each folder has its own `README.md` index listing every file with its
+`summary:` line — that's the catalog. Open the index, decide which file
+to read, then open the file.
 
 Guides (`how to do X`) and decisions (ADRs) will get their own folders when
 the first one is written; premature to scaffold them now.

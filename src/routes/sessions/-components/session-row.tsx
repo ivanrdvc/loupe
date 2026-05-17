@@ -1,4 +1,3 @@
-import { TableCell, TableRow } from '#/components/ui/table'
 import { formatAgo, formatCost, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 
@@ -16,8 +15,8 @@ export function SessionRow({ session: s, onOpenSession }: SessionRowProps) {
   const hasError = !!s.hasError
 
   return (
-    <TableRow
-      className="cursor-pointer transition-colors duration-150 hover:bg-accent-500/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-500 dark:hover:bg-accent-400/8"
+    <tr
+      className="cursor-pointer border-b border-zinc-200 transition-colors last:border-b-0 hover:bg-zinc-100/70 focus-visible:bg-zinc-100/70 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-500 dark:border-zinc-800 dark:hover:bg-zinc-800/50 dark:focus-visible:bg-zinc-800/50"
       tabIndex={0}
       title={label}
       onClick={() => onOpenSession()}
@@ -28,11 +27,11 @@ export function SessionRow({ session: s, onOpenSession }: SessionRowProps) {
         }
       }}
     >
-      <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
-        <div className="flex items-center gap-1.5">
+      <td className="px-3 py-3 align-middle text-sm tabular-nums text-zinc-500 dark:text-zinc-400 lg:pl-4">
+        <div className="flex items-center gap-2">
           <span
             aria-hidden
-            className={`size-1.5 shrink-0 rounded-full ${hasError ? 'bg-rose-500' : 'bg-emerald-500/60 dark:bg-emerald-400/60'}`}
+            className={`size-1.5 shrink-0 rounded-full ${hasError ? 'bg-rose-500' : 'bg-emerald-500/70 dark:bg-emerald-400/70'}`}
             title={hasError ? 'Error' : 'OK'}
           />
           <time
@@ -43,8 +42,8 @@ export function SessionRow({ session: s, onOpenSession }: SessionRowProps) {
             {formatAgo(s.lastSeenMs)}
           </time>
         </div>
-      </TableCell>
-      <TableCell>
+      </td>
+      <td className="px-3 py-3 align-middle">
         <div className="flex min-w-0 items-center gap-x-1.5 text-sm">
           {sessionTitle ? (
             <>
@@ -67,8 +66,8 @@ export function SessionRow({ session: s, onOpenSession }: SessionRowProps) {
             </span>
           )}
         </div>
-      </TableCell>
-      <TableCell>
+      </td>
+      <td className="px-3 py-3 align-middle">
         {firstInput ? (
           <span className="block truncate text-sm text-zinc-700 dark:text-zinc-300" title={firstInput}>
             {firstInput}
@@ -76,8 +75,8 @@ export function SessionRow({ session: s, onOpenSession }: SessionRowProps) {
         ) : (
           <span className="text-sm text-zinc-400 dark:text-zinc-600">—</span>
         )}
-      </TableCell>
-      <TableCell>
+      </td>
+      <td className="px-3 py-3 align-middle">
         <div className="flex min-w-0 items-center gap-x-1.5 text-sm">
           <span className="min-w-0 flex-1 truncate text-zinc-950 dark:text-white">{user.primary}</span>
           {user.secondary ? (
@@ -86,15 +85,21 @@ export function SessionRow({ session: s, onOpenSession }: SessionRowProps) {
             </span>
           ) : null}
         </div>
-      </TableCell>
-      <TableCell className={`text-right font-medium tabular-nums ${metricTone('tokens', s.totalTokens)}`}>
+      </td>
+      <td
+        className={`px-3 py-3 text-right align-middle text-sm font-medium tabular-nums ${metricTone('tokens', s.totalTokens)}`}
+      >
         {formatTokens(s.totalTokens)}
-      </TableCell>
-      <TableCell className={`text-right font-medium tabular-nums ${metricTone('cost', s.totalCostUsd)}`}>
+      </td>
+      <td
+        className={`px-3 py-3 text-right align-middle text-sm font-medium tabular-nums ${metricTone('cost', s.totalCostUsd)}`}
+      >
         {formatCost(s.totalCostUsd ?? 0)}
-      </TableCell>
-      <TableCell className="text-right tabular-nums text-zinc-500 dark:text-zinc-400">{s.traceCount}</TableCell>
-    </TableRow>
+      </td>
+      <td className="px-3 py-3 text-right align-middle text-sm tabular-nums text-zinc-500 dark:text-zinc-400 lg:pr-4">
+        {s.traceCount}
+      </td>
+    </tr>
   )
 }
 
