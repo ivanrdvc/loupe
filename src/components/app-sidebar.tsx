@@ -35,7 +35,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '#/components/ui/sidebar'
@@ -73,15 +72,21 @@ export function AppSidebar() {
   return (
     <>
       <SettingsDialog open={settingsOpen} onClose={setSettingsOpen} />
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <Logo className="size-5!" />
-            <span className="text-sm font-semibold">agentops</span>
-            <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px]/4 font-medium text-muted-foreground">
-              {APP_VERSION}
-            </span>
-          </div>
+      <Sidebar collapsible="none" className="h-auto border-r">
+        <SidebarHeader className="border-b">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
+                <Link to="/">
+                  <Logo className="size-5!" />
+                  <span className="text-base font-semibold">agentops</span>
+                  <span className="ml-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px]/4 font-medium text-muted-foreground">
+                    {APP_VERSION}
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarHeader>
 
         <SidebarContent>
@@ -139,11 +144,20 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith('/inbox')} tooltip="Inbox">
                     <Link to="/inbox">
-                      <InboxIcon />
+                      <span className="relative shrink-0">
+                        <InboxIcon className="size-4 shrink-0" />
+                        {unreadCount > 0 && (
+                          <span className="pointer-events-none absolute -top-1 -right-1 flex">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
+                            <span className="relative inline-flex min-w-3.5 items-center justify-center rounded-full bg-rose-500 px-1 text-center text-[9px]/3.5 font-semibold text-white shadow-sm">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          </span>
+                        )}
+                      </span>
                       <span>Inbox</span>
                     </Link>
                   </SidebarMenuButton>
-                  {unreadCount > 0 && <SidebarMenuBadge>{unreadCount > 99 ? '99+' : unreadCount}</SidebarMenuBadge>}
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>

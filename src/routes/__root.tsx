@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router'
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '#/components/ui/sidebar'
+import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import appCss from '../styles.css?url'
 
 interface MyRouterContext {
@@ -52,12 +52,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
           <SidebarProvider>
             <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-                <SidebarTrigger />
-              </header>
-              {children}
-            </SidebarInset>
+            <SidebarInset className="md:m-2 md:ml-0 md:rounded-xl md:border md:shadow-sm">{children}</SidebarInset>
           </SidebarProvider>
         </ThemeProvider>
         <Scripts />

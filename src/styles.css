@@ -104,6 +104,16 @@
   --radius: 0.5rem;
 }
 
+/* shadcn's global border-color reset. Tailwind v4 defaults the bare `border`
+   utility to currentColor; this restores the expected `--color-border` token
+   so every primitive's `border-r`, `border-b`, etc. picks up our zinc border
+   instead of whatever the surrounding text color happens to be. */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}
+
 /* Native form controls, scrollbars, and UA surfaces follow the active theme. */
 .light {
   color-scheme: light;
