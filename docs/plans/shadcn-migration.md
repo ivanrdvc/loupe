@@ -55,18 +55,22 @@ Other components in the sessions route (drawer, filter selects, status select) a
 - Dead `[data-accent='violet']` / `[data-accent='indigo']` blocks removed from `styles.css` along with `data-accent="cursor"` attr. Phase 7 sweep should confirm no remaining `data-accent` references.
 - `--radius` kept at `0.5rem` (existing) rather than shadcn-default `0.625rem` — Streamdown's rounded corners would shift. Reconsider in Phase 3 when sidebar swap is the visible change.
 
-## Phase 2 — Core primitives (no visible change)
+## Phase 2 — Core primitives (no visible change) ✅
 
-Copy via `npx shadcn@latest add`:
+Added via `pnpm dlx shadcn@latest add ...` (all 22 primitives + `src/hooks/use-mobile.ts`):
 - Surfaces: `card`, `sheet`, `dialog`, `tabs`, `scroll-area`, `separator`, `popover`
 - Form: `button`, `input`, `label`, `select`, `checkbox`, `switch`
 - Data: `table`, `badge`, `avatar`, `skeleton`, `tooltip`
 - Menus: `dropdown-menu`, `command`, `sonner` (toast)
 - Sidebar: `sidebar` (v2 — includes `SidebarProvider`, `SidebarTrigger`, etc.)
 
-Lands in `src/components/ui/`. Nothing imports them yet.
+Lands in `src/components/ui/`. Nothing imports them yet (grep confirms zero consumers).
 
-**Review checkpoint:** files present, theme variables apply, no consumers yet.
+New deps the CLI added: `radix-ui` (umbrella), `cmdk`, `sonner`, lucide-react bumped to `^1.16.0`.
+
+`biome.json` `src/components/ui/**` override extended with `correctness.useExhaustiveDependencies: off` so upstream sidebar code stays byte-for-byte faithful. One residual warning (`noDocumentCookie` in upstream `sidebar.tsx` — shadcn's standard sidebar-state persistence; left as-is).
+
+**Review checkpoint:** files present, theme variables apply, no consumers yet. `pnpm typecheck` + `pnpm check` + `pnpm build` clean.
 
 ## Phase 3 — App shell swap (big visible change)
 
