@@ -1,9 +1,18 @@
-import { CommandLineIcon, InformationCircleIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowPathRoundedSquareIcon,
+  CommandLineIcon,
+  InformationCircleIcon,
+  WrenchScrewdriverIcon,
+} from '@heroicons/react/24/outline'
 import { useMemo, useState } from 'react'
 import { contextWindowFor, formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
+import { Card } from '#/components/ui/card'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '#/components/ui/resizable'
 import { ScrollArea } from '#/components/ui/scroll-area'
+import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
+import { useIsMobile } from '#/hooks/use-mobile'
 import {
   descendantSpans,
   findOrchestratorIds,
@@ -17,13 +26,22 @@ import { ContextTools, collectFrontendTools, collectToolGroups } from './context
 import { displayFor, formatDuration } from './shared'
 import { DetailPanel, SpanTreeList } from './tree'
 
-type InspectorTab = 'details' | 'tools' | 'logs'
+type InspectorTab = 'details' | 'tools' | 'logs' | 'turns'
 
-const INSPECTOR_TABS = [
-  { id: 'details', label: 'Details', Icon: InformationCircleIcon },
-  { id: 'tools', label: 'Tools', Icon: WrenchScrewdriverIcon },
-  { id: 'logs', label: 'Logs', Icon: CommandLineIcon },
-] as const
+type StatsVariant = 'dense' | 'cards' | 'header'
+type TurnsVariant = 'conditional' | 'tab' | 'drop' | 'slim'
+
+const BASE_INSPECTOR_TABS = [
+  { id: 'details' as const, label: 'Details', Icon: InformationCircleIcon },
+  { id: 'tools' as const, label: 'Tools', Icon: WrenchScrewdriverIcon },
+  { id: 'logs' as const, label: 'Logs', Icon: CommandLineIcon },
+]
+
+const TURNS_INSPECTOR_TAB = {
+  id: 'turns' as const,
+  label: 'Turns',
+  Icon: ArrowPathRoundedSquareIcon,
+}
 
 export function SessionInspectLayout({
   spans,
@@ -37,61 +55,77 @@ export function SessionInspectLayout({
   onSelect: (id: string) => void
 }) {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('details')
+  const isMobile = useIsMobile()
   const selectedSpan = useMemo(
     () => (selectedId ? spans.find((s) => s.id === selectedId) : undefined),
     [spans, selectedId],
   )
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col md:flex-row">
-      <section className="h-64 w-full shrink-0 border-border border-b md:h-full md:w-1/3 md:border-r md:border-b-0">
-        <ScrollArea className="h-full">
-          {loading && spans.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground/70">
-              Loading spans…
-            </div>
-          ) : (
-            <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} />
-          )}
-        </ScrollArea>
-      </section>
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {loading && spans.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground/70">Loading…</div>
-        ) : (
-          <>
-            <div className="min-w-0 shrink-0 border-border border-b">
-              <SessionOverview spans={spans} />
-            </div>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="flex shrink-0 items-center border-border border-b px-3 py-2">
-                <IconTabs
-                  tabs={INSPECTOR_TABS}
-                  value={inspectorTab}
-                  onChange={setInspectorTab}
-                  aria-label="Session inspector panel"
-                />
+    <ResizablePanelGroup
+      orientation={isMobile ? 'vertical' : 'horizontal'}
+      className="flex h-full min-h-0 min-w-0 flex-1"
+    >
+      <ResizablePanel id="tree" defaultSize="33%" minSize="20%" maxSize="60%">
+        <section className="h-full">
+          <ScrollArea className="h-full">
+            {loading && spans.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground/70">
+                Loading spans…
               </div>
-              <ScrollArea className="min-h-0 min-w-0 flex-1">
-                {inspectorTab === 'details' ? (
-                  selectedSpan ? (
-                    <DetailPanel span={selectedSpan} spans={spans} />
-                  ) : (
-                    <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
-                      Select a span in the tree for details
-                    </div>
-                  )
-                ) : inspectorTab === 'tools' ? (
-                  <SessionTools spans={spans} selectedSpan={selectedSpan} />
-                ) : (
-                  <SessionLogs spans={spans} />
-                )}
-              </ScrollArea>
-            </div>
-          </>
-        )}
-      </section>
-    </div>
+            ) : (
+              <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} />
+            )}
+          </ScrollArea>
+        </section>
+      </ResizablePanel>
+      <ResizableHandle />
+      <ResizablePanel id="inspector" defaultSize="67%" minSize="40%">
+        <section className="flex h-full min-h-0 min-w-0 flex-col">
+          {loading && spans.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground/70">Loading…</div>
+          ) : (
+            <ResizablePanelGroup orientation="vertical" className="flex h-full w-full">
+              <ResizablePanel id="overview" defaultSize="40%" minSize="15%">
+                <ScrollArea className="h-full">
+                  <div className="min-w-0">
+                    <SessionOverview spans={spans} />
+                  </div>
+                </ScrollArea>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel id="details" defaultSize="60%" minSize="25%">
+                <div className="flex h-full min-h-0 min-w-0 flex-col">
+                  <div className="flex shrink-0 items-center border-border border-b px-3 py-2">
+                    <IconTabs
+                      tabs={INSPECTOR_TABS}
+                      value={inspectorTab}
+                      onChange={setInspectorTab}
+                      aria-label="Session inspector panel"
+                    />
+                  </div>
+                  <ScrollArea className="min-h-0 min-w-0 flex-1">
+                    {inspectorTab === 'details' ? (
+                      selectedSpan ? (
+                        <DetailPanel span={selectedSpan} spans={spans} />
+                      ) : (
+                        <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
+                          Select a span in the tree for details
+                        </div>
+                      )
+                    ) : inspectorTab === 'tools' ? (
+                      <SessionTools spans={spans} selectedSpan={selectedSpan} />
+                    ) : (
+                      <SessionLogs spans={spans} />
+                    )}
+                  </ScrollArea>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          )}
+        </section>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   )
 }
 

@@ -1,4 +1,4 @@
-import { ComputerIcon, Moon01Icon, Sun01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { ComputerIcon, Moon01Icon, Sun01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
@@ -9,7 +9,6 @@ import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { ACCENTS, type ThemeAccent, useThemeAccent } from '#/hooks/use-theme-accent'
 import { useUserId } from '#/hooks/use-user'
 import { providersQuery, setProviderFn } from '#/lib/providers-data'
 import { queryKeys } from '#/lib/query-keys'
@@ -73,78 +72,33 @@ const MODES = [
   { value: 'system', label: 'System', icon: ComputerIcon },
 ] as const
 
-const ACCENT_SWATCH: Record<ThemeAccent, string> = {
-  default: 'oklch(0.525 0.223 3.958)',
-  blue: 'var(--color-blue-600)',
-  green: 'var(--color-lime-600)',
-  amber: 'var(--color-amber-600)',
-  rose: 'var(--color-rose-600)',
-  purple: 'var(--color-purple-600)',
-  orange: 'var(--color-orange-600)',
-  teal: 'var(--color-teal-600)',
-  red: 'var(--color-red-600)',
-  yellow: 'var(--color-yellow-400)',
-  violet: 'var(--color-violet-600)',
-}
-
 function AppearancePane() {
   const { theme, setTheme } = useTheme()
-  const { accent, setAccent } = useThemeAccent()
   const activeMode = theme ?? 'dark'
 
   return (
-    <div className="space-y-6">
-      <Field label="Theme" hint="Light, dark, or follow your system preference.">
-        <div className="grid grid-cols-3 gap-2">
-          {MODES.map(({ value, label, icon }) => {
-            const isActive = activeMode === value
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTheme(value)}
-                aria-pressed={isActive}
-                className={cn(
-                  'flex flex-col items-center gap-1.5 rounded-md border border-input bg-input/20 px-2 py-3 text-xs font-medium transition-colors hover:bg-input/40 dark:bg-input/30',
-                  isActive && 'border-ring bg-input/60 text-foreground ring-2 ring-ring/30 dark:bg-input/60',
-                )}
-              >
-                <HugeiconsIcon icon={icon} className="size-4" />
-                <span>{label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </Field>
-
-      <Field label="Accent" hint="Color of buttons, focus rings, and the active sidebar item.">
-        <div className="grid grid-cols-6 gap-2">
-          {ACCENTS.map((a) => {
-            const isActive = accent === a
-            return (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAccent(a)}
-                title={a}
-                aria-pressed={isActive}
-                className={cn(
-                  'group flex aspect-square items-center justify-center rounded-md border border-input bg-input/20 transition-all hover:scale-105 hover:bg-input/40 dark:bg-input/30',
-                  isActive && 'border-ring ring-2 ring-ring/40',
-                )}
-              >
-                <span
-                  className="flex size-5 items-center justify-center rounded-full"
-                  style={{ backgroundColor: ACCENT_SWATCH[a] }}
-                >
-                  {isActive ? <HugeiconsIcon icon={Tick02Icon} className="size-3 text-white" strokeWidth={3} /> : null}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </Field>
-    </div>
+    <Field label="Theme" hint="Light, dark, or follow your system preference.">
+      <div className="grid grid-cols-3 gap-2">
+        {MODES.map(({ value, label, icon }) => {
+          const isActive = activeMode === value
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTheme(value)}
+              aria-pressed={isActive}
+              className={cn(
+                'flex flex-col items-center gap-1.5 rounded-md border border-input bg-input/20 px-2 py-3 text-xs font-medium transition-colors hover:bg-input/40 dark:bg-input/30',
+                isActive && 'border-ring bg-input/60 text-foreground ring-2 ring-ring/30 dark:bg-input/60',
+              )}
+            >
+              <HugeiconsIcon icon={icon} className="size-4" />
+              <span>{label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </Field>
   )
 }
 

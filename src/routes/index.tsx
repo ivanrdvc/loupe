@@ -21,10 +21,11 @@ import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useEnv } from '#/hooks/use-env'
 import { formatAgo, formatDuration } from '#/lib/format'
 import type { LatencyRow } from '#/lib/telemetry'
-import { HOME_RANGE_DAYS, type HomeRangeDays, homeQuery, parseHomeRangeDays } from './-home-data'
+import { DEFAULT, parse, type TimeRange } from '#/lib/time-range'
+import { homeQuery } from './-home-data'
 
 interface HomeSearch {
-  days?: HomeRangeDays
+  range?: TimeRange
 }
 
 const PREVIEW_ROWS = 5
@@ -46,18 +47,18 @@ function isCategory(v: unknown): v is Category {
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): HomeSearch => ({
-    days: search.days == null ? undefined : parseHomeRangeDays(search.days),
+    range: search.range == null ? undefined : parse(search.range),
   }),
-  loaderDeps: ({ search }) => ({ days: search.days ?? 7 }),
-  loader: ({ context, deps }) => context.queryClient.ensureQueryData(homeQuery(deps.days)),
+  loaderDeps: ({ search }) => ({ range: search.range ?? DEFAULT }),
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(homeQuery(deps.range)),
   component: Home,
 })
 
 function Home() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const days = search.days ?? 7
-  const { data } = useQuery(homeQuery(days))
+  const range = search.range ?? DEFAULT
+  const { data } = useQuery(homeQuery(range))
   const newTools = data?.newTools ?? []
   const newAgents = data?.newAgents ?? []
   const generationLatency = data?.generationLatency ?? []
@@ -74,10 +75,10 @@ function Home() {
     window.localStorage.setItem(CATEGORY_STORAGE_KEY, next)
   }
 
-  const setDays = (days: HomeRangeDays) => {
+  const setRange = (next: TimeRange) => {
     navigate({
       replace: true,
-      search: (prev) => ({ ...prev, days: days === 7 ? undefined : days }),
+      search: (prev) => ({ ...prev, range: next === DEFAULT ? undefined : next }),
     })
   }
 
@@ -107,7 +108,7 @@ function Home() {
         </ToggleGroup>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <EnvSelect value={env} onChange={setEnv} />
-          <TimeRangeSelect value={days} onChange={setDays} options={HOME_RANGE_DAYS} />
+          <TimeRangeSelect value={range} onChange={setRange} />
         </div>
       </div>
 
@@ -343,7 +344,7 @@ function OpenLink({ traceId }: { traceId?: string | null }) {
     )
   }
   return (
-    <Link to="/sessions" search={{ days: 1 }} className={cls} aria-label="Open sessions">
+    <Link to="/sessions" className={cls} aria-label="Open sessions">
       <ArrowTopRightOnSquareIcon className="size-3.5" />
     </Link>
   )

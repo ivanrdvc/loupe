@@ -35,7 +35,7 @@ import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import type { SessionSummary } from '#/lib/telemetry'
-import type { TimeRangeDays } from '#/lib/time-range'
+import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 import { sessionColumns } from './columns'
 
@@ -51,8 +51,8 @@ interface DataTableProps {
   rowClassName?: (row: SessionSummary) => string | undefined
   env: Env
   onEnvChange: (env: Env) => void
-  days: TimeRangeDays
-  onDaysChange: (days: TimeRangeDays) => void
+  range: TimeRange
+  onRangeChange: (range: TimeRange) => void
   autoRefresh: AutoRefreshInterval
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
@@ -66,8 +66,8 @@ export function DataTable({
   rowClassName,
   env,
   onEnvChange,
-  days,
-  onDaysChange,
+  range,
+  onRangeChange,
   autoRefresh,
   onAutoRefreshChange,
   onRefresh,
@@ -127,7 +127,7 @@ export function DataTable({
             <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
           )}
           <EnvSelect value={env} onChange={onEnvChange} />
-          <TimeRangeSelect value={days} onChange={onDaysChange} />
+          <TimeRangeSelect value={range} onChange={onRangeChange} />
           <AutoRefreshSelect
             value={autoRefresh}
             onChange={onAutoRefreshChange}

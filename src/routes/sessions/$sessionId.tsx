@@ -16,7 +16,8 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
-import { parseTimeRangeDays, type TimeRangeDays } from '#/lib/time-range'
+import { truncateId } from '#/lib/format'
+import { parse, type TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './-components/session-inspect/context'
 import { SESSION_VIEW_TABS, type SessionInspectView } from './-components/session-inspect/drawer'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
@@ -24,17 +25,18 @@ import { sessionQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   validateSearch: (search: Record<string, unknown>): SessionSearch => ({
-    days: parseTimeRangeDays(search.days),
+    range: parse(search.range),
     view: parseSessionView(search.view) ?? 'conversation',
     span: parseSpanParam(search.span),
   }),
-  loaderDeps: ({ search }) => ({ days: search.days }),
-  loader: ({ context, params, deps }) => context.queryClient.ensureQueryData(sessionQuery(params.sessionId, deps.days)),
+  loaderDeps: ({ search }) => ({ range: search.range }),
+  loader: ({ context, params, deps }) =>
+    context.queryClient.ensureQueryData(sessionQuery(params.sessionId, deps.range)),
   component: SessionDetail,
 })
 
 interface SessionSearch {
-  days: TimeRangeDays
+  range: TimeRange
   view: SessionInspectView
   span?: string
 }
@@ -58,7 +60,7 @@ function SessionDetail() {
   const navigate = useNavigate({ from: Route.fullPath })
   const [autoRefresh, setAutoRefresh] = useState(DEFAULT_AUTO_REFRESH_INTERVAL)
   const { data, refetch, isFetching } = useQuery({
-    ...sessionQuery(sessionId, search.days),
+    ...sessionQuery(sessionId, search.range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const [selectedId, setSelectedId] = useState<string | null>(() =>
@@ -73,18 +75,19 @@ function SessionDetail() {
   const source = data?.source ?? null
   const provider = data?.provider
   const fingerprint = data?.fingerprint
+  const crumbLabel = data?.title?.trim() || truncateId(sessionId)
   const inspectView = search.view
   const setInspectView = (view: SessionInspectView) => {
     navigate({
       search: (prev) => {
         if (view === 'conversation') {
-          return { days: prev.days, view: 'conversation' }
+          return { range: prev.range, view: 'conversation' }
         }
         if (view === 'context') {
-          return { days: prev.days, view: 'context' }
+          return { range: prev.range, view: 'context' }
         }
         return {
-          days: prev.days,
+          range: prev.range,
           view: 'spans',
           ...(typeof prev.span === 'string' && prev.span.length > 0 ? { span: prev.span } : {}),
         }
@@ -102,14 +105,14 @@ function SessionDetail() {
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
-                    <Link to="/sessions" search={{ days: search.days }}>
-                      Sessions
-                    </Link>
+                    <Link to="/sessions">Sessions</Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Session</BreadcrumbPage>
+                  <BreadcrumbPage className={data?.title ? undefined : 'font-mono'} title={sessionId}>
+                    {crumbLabel}
+                  </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>

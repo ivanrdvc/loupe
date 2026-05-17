@@ -7,7 +7,7 @@ import {
 } from '#/components/auto-refresh-select'
 import { truncateId } from '#/lib/format'
 import type { Span } from '#/lib/spans'
-import type { TimeRangeDays } from '#/lib/time-range'
+import type { TimeRange } from '#/lib/time-range'
 import { sessionQuery } from '../-data'
 import { SessionInspectDrawer } from './session-inspect/drawer'
 
@@ -22,17 +22,17 @@ interface RetainedSessionPreview {
 
 interface SessionsDrawerHostProps {
   previewSessionId: string | null
-  days: TimeRangeDays
+  range: TimeRange
   onClose: () => void
 }
 
-export function SessionsDrawerHost({ previewSessionId, days, onClose }: SessionsDrawerHostProps) {
+export function SessionsDrawerHost({ previewSessionId, range, onClose }: SessionsDrawerHostProps) {
   const open = previewSessionId !== null
   const queryId = previewSessionId ?? SESSION_DRAWER_PLACEHOLDER
 
   const [autoRefresh, setAutoRefresh] = useState<AutoRefreshInterval>(DEFAULT_AUTO_REFRESH_INTERVAL)
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...sessionQuery(queryId, days),
+    ...sessionQuery(queryId, range),
     enabled: open,
     refetchInterval: open ? AUTO_REFRESH_MS[autoRefresh] : false,
   })
@@ -62,7 +62,7 @@ export function SessionsDrawerHost({ previewSessionId, days, onClose }: Sessions
       spans={displayPreview?.spans ?? []}
       loading={open ? isLoading : false}
       title={displayPreview ? truncateId(displayPreview.sessionId) : undefined}
-      expandSession={displayPreview ? { sessionId: displayPreview.sessionId, days } : undefined}
+      expandSession={displayPreview ? { sessionId: displayPreview.sessionId, range } : undefined}
       autoRefresh={autoRefresh}
       onAutoRefreshChange={setAutoRefresh}
       onRefresh={() => {

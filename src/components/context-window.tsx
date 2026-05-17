@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
+import { Progress } from '#/components/ui/progress'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import type { Span } from '#/lib/spans'
 import { formatCost } from '#/lib/spans'
@@ -83,11 +84,7 @@ export function ContextWindow({ spans }: ContextWindowProps) {
               {limit ? `${formatTokens(peakInput)} / ${formatTokens(limit)}` : `${formatTokens(peakInput)} peak`}
             </div>
           </div>
-          {limit && (
-            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-foreground" style={{ width: `${pct * 100}%` }} />
-            </div>
-          )}
+          {limit && <Progress value={pct * 100} className="mt-2" />}
           {model && <div className="mt-1.5 truncate text-[11px] text-muted-foreground">{model}</div>}
         </div>
 

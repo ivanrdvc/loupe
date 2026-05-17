@@ -41,7 +41,7 @@ import {
   useSidebar,
 } from '#/components/ui/sidebar'
 import { useUser } from '#/hooks/use-user'
-import { DEFAULT_TIME_RANGE_DAYS } from '#/lib/time-range'
+import { DEFAULT } from '#/lib/time-range'
 import { inboxUnreadCountQuery } from '#/routes/inbox/-data'
 
 const APP_VERSION = `v${__APP_VERSION__}`
@@ -120,7 +120,7 @@ export function AppSidebar() {
                       <Link
                         to="/sessions/$sessionId"
                         params={{ sessionId: session.sessionId }}
-                        search={{ days: DEFAULT_TIME_RANGE_DAYS, view: 'conversation' }}
+                        search={{ range: DEFAULT, view: 'conversation' }}
                       >
                         <span className="truncate">{session.title}</span>
                       </Link>

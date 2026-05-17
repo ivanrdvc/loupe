@@ -5,7 +5,7 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useEnv } from '#/hooks/use-env'
-import { useTimeRangeDays } from '#/hooks/use-time-range-days'
+import { useTimeRange } from '#/hooks/use-time-range'
 import { DataTable } from './-components/data-table'
 import { SessionsDrawerHost } from './-components/sessions-drawer-host'
 import { sessionsQuery } from './-data'
@@ -16,10 +16,10 @@ export const Route = createFileRoute('/sessions/')({
 
 function Sessions() {
   const [env, setEnv] = useEnv()
-  const [days, setDays] = useTimeRangeDays()
+  const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...sessionsQuery(days),
+    ...sessionsQuery(range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const sessions = data?.sessions ?? []
@@ -34,8 +34,8 @@ function Sessions() {
         rowClassName={(row) => (row.sessionId === previewSessionId ? 'bg-muted' : undefined)}
         env={env}
         onEnvChange={setEnv}
-        days={days}
-        onDaysChange={setDays}
+        range={range}
+        onRangeChange={setRange}
         autoRefresh={autoRefresh}
         onAutoRefreshChange={setAutoRefresh}
         onRefresh={() => {
@@ -43,7 +43,7 @@ function Sessions() {
         }}
         refreshing={isFetching}
       />
-      <SessionsDrawerHost previewSessionId={previewSessionId} days={days} onClose={() => setPreviewSessionId(null)} />
+      <SessionsDrawerHost previewSessionId={previewSessionId} range={range} onClose={() => setPreviewSessionId(null)} />
     </Page>
   )
 }

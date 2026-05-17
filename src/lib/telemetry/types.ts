@@ -88,7 +88,14 @@ export interface LatencyOpts {
 }
 
 export type SessionFetch =
-  | { kind: 'found'; sessionId: string; source: 'attribute' | 'agent-instance'; traceIds: string[]; spans: Span[] }
+  | {
+      kind: 'found'
+      sessionId: string
+      source: 'attribute' | 'agent-instance'
+      traceIds: string[]
+      spans: Span[]
+      title?: string
+    }
   | { kind: 'not_found' }
 
 export interface TelemetryProvider {

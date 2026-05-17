@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '#/components/ui/accordion'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { asMessages } from '#/lib/conversation'
 import { estimateTokens } from '#/lib/format'
@@ -376,51 +377,59 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
 export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
   if (blocks.length === 0) return <ContextEmpty>No system prompt found in chat span inputs.</ContextEmpty>
   return (
-    <div className="space-y-3">
-      {blocks.map((block, index) => (
-        <details key={block.id} open={index === 0} className="rounded-lg bg-muted ring-1 ring-border">
-          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">
-            <span>{block.title}</span>
-            <span className="ml-2 text-muted-foreground">{block.tokens.toLocaleString()} est. tokens</span>
-          </summary>
-          <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2 text-[11px] leading-relaxed text-foreground">
-            {block.content}
-          </pre>
-        </details>
+    <Accordion type="multiple" defaultValue={blocks.length > 0 ? [blocks[0].id] : []}>
+      {blocks.map((block) => (
+        <AccordionItem key={block.id} value={block.id}>
+          <AccordionTrigger>
+            <span className="min-w-0 flex-1 truncate">{block.title}</span>
+            <span className="text-muted-foreground">{block.tokens.toLocaleString()} est. tokens</span>
+          </AccordionTrigger>
+          <AccordionContent>
+            <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground">
+              {block.content}
+            </pre>
+          </AccordionContent>
+        </AccordionItem>
       ))}
-    </div>
+    </Accordion>
   )
 }
 
 export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   if (groups.length === 0) return <ContextEmpty>No tool definitions found in chat span inputs.</ContextEmpty>
   // Wrapped: frontend + per-server (named, meaningful). Flat: the catch-all
-  // bucket renders as bare rows — no fake group header.
+  // bucket — no fake group header since the parent tab is already "Tools",
+  // but shares the same muted-tint surface as an open Accordion item.
   const wrapped = groups.filter((g) => g.kind !== 'default')
   const flat = groups.find((g) => g.kind === 'default')?.tools ?? []
   return (
     <div className="space-y-3">
-      {wrapped.map((group) => (
-        <details
-          key={`${group.kind}:${group.domain}`}
-          open={group.kind === 'frontend'}
-          className="rounded-lg bg-muted ring-1 ring-border"
-        >
-          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">
-            <span>{group.domain}</span>
-            <span className="ml-2 text-muted-foreground">
-              {group.tools.length} tools · {group.tokens.toLocaleString()} est. tokens
-            </span>
-          </summary>
-          <div className="divide-y divide-border border-border border-t">
-            {group.tools.map((tool) => (
-              <ToolRow key={tool.id} tool={tool} />
-            ))}
-          </div>
-        </details>
-      ))}
+      {wrapped.length > 0 && (
+        <Accordion type="multiple">
+          {wrapped.map((group) => {
+            const value = `${group.kind}:${group.domain}`
+            return (
+              <AccordionItem key={value} value={value}>
+                <AccordionTrigger>
+                  <span className="min-w-0 flex-1 truncate">{group.domain}</span>
+                  <span className="text-muted-foreground">
+                    {group.tools.length} tools · {group.tokens.toLocaleString()} est. tokens
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="px-0">
+                  <div className="divide-y divide-border border-border border-t">
+                    {group.tools.map((tool) => (
+                      <ToolRow key={tool.id} tool={tool} />
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )
+          })}
+        </Accordion>
+      )}
       {flat.length > 0 && (
-        <div className="divide-y divide-border overflow-hidden rounded-lg ring-1 ring-border">
+        <div className="divide-y divide-border overflow-hidden rounded-md border bg-muted/50">
           {flat.map((tool) => (
             <ToolRow key={tool.id} tool={tool} />
           ))}
@@ -481,19 +490,21 @@ function ContextAgui({ items, frontendTools }: { items: AguiItem[]; frontendTool
       )}
 
       {payloads.length > 0 && (
-        <div className="space-y-2">
+        <Accordion type="multiple">
           {payloads.map((item) => (
-            <details key={item.id} className="rounded-lg bg-muted ring-1 ring-border">
-              <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-medium text-foreground">
-                <span>{item.label}</span>
-                <span className="ml-auto text-muted-foreground">{item.tokens.toLocaleString()} est. tokens</span>
-              </summary>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2 text-[11px] leading-snug text-foreground">
-                {item.value}
-              </pre>
-            </details>
+            <AccordionItem key={item.id} value={item.id}>
+              <AccordionTrigger>
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <span className="text-muted-foreground">{item.tokens.toLocaleString()} est. tokens</span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+                  {item.value}
+                </pre>
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </div>
+        </Accordion>
       )}
     </div>
   )

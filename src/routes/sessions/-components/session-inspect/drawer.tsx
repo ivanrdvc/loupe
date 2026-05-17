@@ -7,9 +7,9 @@ import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { IconTabs } from '#/components/icon-tabs'
 import { Button } from '#/components/ui/button'
-import { Sheet, SheetClose, SheetContent, SheetTitle } from '#/components/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import type { Span } from '#/lib/spans'
-import type { TimeRangeDays } from '#/lib/time-range'
+import type { TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './context'
 import { SessionInspectLayout } from './overview'
 
@@ -30,8 +30,8 @@ interface SessionInspectDrawerProps {
   spans: Span[]
   loading?: boolean
   title?: string
-  /** Builds in-app expand target: `/sessions/:id` with `view`, optional `span`, and `days`. */
-  expandSession?: { sessionId: string; days: TimeRangeDays }
+  /** Builds in-app expand target: `/sessions/:id` with `view`, optional `span`, and `range`. */
+  expandSession?: { sessionId: string; range: TimeRange }
   /** Stable id for the inspected session — resets picker state when it changes while `open`. */
   inspectSessionKey?: string | null
   autoRefresh?: AutoRefreshInterval
@@ -59,8 +59,8 @@ export function SessionInspectDrawer({
 
   const expandSearch = useMemo(() => {
     if (!expandSession) return undefined
-    const next: { days: TimeRangeDays; view: SessionInspectView; span?: string } = {
-      days: expandSession.days,
+    const next: { range: TimeRange; view: SessionInspectView; span?: string } = {
+      range: expandSession.range,
       view: drawerView,
     }
     if (drawerView === 'spans' && selectedId) next.span = selectedId
@@ -103,10 +103,27 @@ export function SessionInspectDrawer({
         side="right"
         showCloseButton={false}
         className="w-full gap-0 bg-background p-0 text-foreground data-[side=right]:sm:max-w-[70vw]"
+        onPointerDownOutside={(e) => {
+          // Radix's inside-the-dialog detection (isPointerInsideReactTreeRef via
+          // onPointerDownCapture) gets out of sync once react-resizable-panels
+          // remounts panel children during a drag, so it mis-flags subsequent
+          // in-drawer clicks as outside. Only dismiss for actual backdrop clicks.
+          if (!(e.target as HTMLElement | null)?.closest('[data-slot="sheet-overlay"]')) {
+            e.preventDefault()
+          }
+        }}
+        onInteractOutside={(e) => {
+          if (!(e.target as HTMLElement | null)?.closest('[data-slot="sheet-overlay"]')) {
+            e.preventDefault()
+          }
+        }}
       >
         <header className="flex items-center justify-between border-b px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
             <SheetTitle className="text-sm">Session</SheetTitle>
+            <SheetDescription className="sr-only">
+              Inspect spans, conversation, and context for the selected session.
+            </SheetDescription>
             {title && <span className="truncate font-mono text-xs text-muted-foreground">{title}</span>}
           </div>
           <div className="flex items-center gap-1">

@@ -13,7 +13,7 @@ interface EnvSelectProps {
 export function EnvSelect({ value, onChange, options = ENV_OPTIONS }: EnvSelectProps) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as Env)}>
-      <SelectTrigger size="sm">
+      <SelectTrigger size="sm" className="border-border bg-transparent">
         <span className="text-muted-foreground">Env</span>
         <Separator orientation="vertical" className="data-[orientation=vertical]:h-3.5" />
         <SelectValue />

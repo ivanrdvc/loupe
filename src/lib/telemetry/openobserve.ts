@@ -203,7 +203,18 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       const source: 'attribute' | 'agent-instance' = spans.some((s) => s.sessionSource === 'attribute')
         ? 'attribute'
         : 'agent-instance'
-      return { kind: 'found', sessionId, source, traceIds, spans }
+      let title: string | undefined
+      for (const h of spanHits) {
+        for (const k of SESSION_TITLE_KEYS) {
+          const v = h[k]
+          if (typeof v === 'string' && v.trim()) {
+            title = v.trim()
+            break
+          }
+        }
+        if (title) break
+      }
+      return { kind: 'found', sessionId, source, traceIds, spans, title }
     },
 
     async listTraces(opts) {

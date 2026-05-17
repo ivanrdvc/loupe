@@ -1,10 +1,10 @@
 export const queryKeys = {
   sessions: {
     all: () => ['sessions'] as const,
-    window: (days: number) => ['sessions', { days }] as const,
-    currentUserWindow: (days: number, userId: string) => ['sessions', 'current-user', userId, { days }] as const,
+    window: (range: string) => ['sessions', { range }] as const,
+    currentUserWindow: (range: string, userId: string) => ['sessions', 'current-user', userId, { range }] as const,
     detail: (id: string) => ['sessions', id] as const,
-    detailWindow: (id: string, days: number) => ['sessions', id, { days }] as const,
+    detailWindow: (id: string, range: string) => ['sessions', id, { range }] as const,
   },
   runs: {
     all: () => ['runs'] as const,
@@ -16,7 +16,7 @@ export const queryKeys = {
   },
   home: {
     all: () => ['home'] as const,
-    window: (days: number) => ['home', { days }] as const,
+    window: (range: string) => ['home', { range }] as const,
   },
   mcp: {
     all: () => ['mcp'] as const,

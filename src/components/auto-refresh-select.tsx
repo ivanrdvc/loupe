@@ -1,5 +1,6 @@
 import { Refresh01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Separator } from '#/components/ui/separator'
@@ -27,11 +28,22 @@ interface AutoRefreshSelectProps {
   value: AutoRefreshInterval
   onChange: (value: AutoRefreshInterval) => void
   onRefresh?: () => void
+  /** Disables the refresh button while a fetch is in flight (no animation). */
   loading?: boolean
 }
 
+const SPIN_MS = 700
+
 export function AutoRefreshSelect({ value, onChange, onRefresh, loading = false }: AutoRefreshSelectProps) {
   const selected = AUTO_REFRESH_OPTIONS.find((option) => option.value === value) ?? AUTO_REFRESH_OPTIONS[0]
+  // Animate the refresh icon only on manual click — silent for background polls.
+  const [spin, setSpin] = useState(false)
+  const handleClick = () => {
+    if (!onRefresh) return
+    setSpin(true)
+    onRefresh()
+    window.setTimeout(() => setSpin(false), SPIN_MS)
+  }
 
   return (
     <div className="inline-flex items-center gap-1">
@@ -41,17 +53,17 @@ export function AutoRefreshSelect({ value, onChange, onRefresh, loading = false 
           aria-label="Refresh now"
           variant="outline"
           size="icon-sm"
-          onClick={onRefresh}
+          onClick={handleClick}
           disabled={loading}
         >
           <HugeiconsIcon
             icon={Refresh01Icon}
-            className={cn(loading && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
+            className={cn(spin && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
           />
         </Button>
       )}
       <Select value={value} onValueChange={(v) => onChange(v as AutoRefreshInterval)}>
-        <SelectTrigger size="sm" aria-label="Auto refresh">
+        <SelectTrigger size="sm" aria-label="Auto refresh" className="border-border bg-transparent">
           <span className="text-muted-foreground">Auto</span>
           <Separator orientation="vertical" className="data-[orientation=vertical]:h-3.5" />
           <SelectValue>

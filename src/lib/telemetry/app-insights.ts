@@ -201,7 +201,19 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       const source: 'attribute' | 'agent-instance' = spans.some((s) => s.sessionSource === 'attribute')
         ? 'attribute'
         : 'agent-instance'
-      return { kind: 'found', sessionId, source, traceIds, spans }
+      let title: string | undefined
+      for (const r of spanRows) {
+        const cd = parseCustomDimensions(r.customDimensions)
+        for (const k of SESSION_TITLE_ATTR_KEYS) {
+          const v = cd[k]
+          if (typeof v === 'string' && v.trim()) {
+            title = v.trim()
+            break
+          }
+        }
+        if (title) break
+      }
+      return { kind: 'found', sessionId, source, traceIds, spans, title }
     },
 
     async discoverInventory(kind, opts): Promise<InventoryObservation[]> {

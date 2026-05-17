@@ -90,7 +90,7 @@ function OpenLink({ item }: { item: Pick<InboxRow, 'sessionId' | 'traceId'> }) {
       <Link
         to="/sessions/$sessionId"
         params={{ sessionId: item.sessionId }}
-        search={{ days: 1, view: 'conversation' }}
+        search={{ range: 1, view: 'conversation' }}
         className={linkClass}
         aria-label="Open session"
       >

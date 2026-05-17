@@ -164,6 +164,7 @@ export async function getSession(
   traceIds: string[]
   provider: string
   fingerprint: string
+  title?: string
 } | null> {
   const p = getActiveProvider()
   if (!p.getSession) return null
@@ -176,6 +177,7 @@ export async function getSession(
     traceIds: r.traceIds,
     provider: p.name,
     fingerprint: p.fingerprint,
+    title: r.title,
   }
 }
 

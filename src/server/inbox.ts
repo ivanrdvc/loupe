@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, lte, or } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull, lt, lte, or } from 'drizzle-orm'
 import { db } from '#/db'
 import { inboxItems, inventory } from '#/db/schema'
 
@@ -47,12 +47,22 @@ export async function snoozeInboxItem(id: number, until: Date): Promise<void> {
   await db.update(inboxItems).set({ snoozeUntil: until }).where(eq(inboxItems.id, id))
 }
 
-export async function listHomeInventory(days = 7): Promise<{ newTools: InventoryRow[]; newAgents: InventoryRow[] }> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+export async function listHomeInventory(
+  fromMs: number = Date.now() - 7 * 24 * 60 * 60 * 1000,
+  toMs: number = Date.now(),
+): Promise<{ newTools: InventoryRow[]; newAgents: InventoryRow[] }> {
+  const from = new Date(fromMs)
+  const to = new Date(toMs)
   const rows = await db
     .select()
     .from(inventory)
-    .where(and(gt(inventory.firstSeenAt, since), or(eq(inventory.kind, 'mcp_tool'), eq(inventory.kind, 'agent'))))
+    .where(
+      and(
+        gt(inventory.firstSeenAt, from),
+        lt(inventory.firstSeenAt, to),
+        or(eq(inventory.kind, 'mcp_tool'), eq(inventory.kind, 'agent')),
+      ),
+    )
     .orderBy(desc(inventory.firstSeenAt))
     .limit(20)
 
