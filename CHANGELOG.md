@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/ivanrdvc/agentops/compare/agentops-v0.1.0...agentops-v0.1.1) (2026-05-17)
+
+
+### Features
+
+* **session-inspect:** frontend tools, /docs skill, sessions table refactor ([#8](https://github.com/ivanrdvc/agentops/issues/8)) ([3715410](https://github.com/ivanrdvc/agentops/commit/37154109484d47a9c52aafffbed131d658d1a381))
+
 ## 0.1.0 (2026-05-17)
 
 
