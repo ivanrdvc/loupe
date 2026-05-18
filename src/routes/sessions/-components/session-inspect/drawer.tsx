@@ -1,5 +1,5 @@
 import { ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, QueueListIcon } from '@heroicons/react/24/outline'
-import { IconArrowsMaximize, IconX } from '@tabler/icons-react'
+import { IconArrowUpRight, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -130,7 +130,7 @@ export function SessionInspectDrawer({
             </SheetDescription>
             {title && <span className="truncate font-mono text-xs text-muted-foreground">{title}</span>}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-3">
             {expandSession && expandSearch && (
               <Button
                 asChild
@@ -145,7 +145,7 @@ export function SessionInspectDrawer({
                   search={expandSearch}
                   onClick={() => onClose()}
                 >
-                  <IconArrowsMaximize />
+                  <IconArrowUpRight />
                 </Link>
               </Button>
             )}

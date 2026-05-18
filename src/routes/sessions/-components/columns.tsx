@@ -1,7 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo, formatCost, formatTokens, truncateId } from '#/lib/format'
+import { formatAgo, formatCost, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 
 function userPrimary(s: SessionSummary): string {
@@ -18,15 +18,11 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
     accessorKey: 'status',
     accessorFn: (s) => (s.hasError ? 'error' : 'ok'),
     header: () => null,
-    cell: ({ row }) =>
-      row.original.hasError ? (
-        <Badge variant="outline" className="px-1.5 text-muted-foreground">
-          Error
-        </Badge>
-      ) : null,
+    cell: () => null,
     filterFn: (row, _id, value: string[]) =>
       Array.isArray(value) && value.includes(row.original.hasError ? 'error' : 'ok'),
     enableSorting: false,
+    enableHiding: false,
   },
   {
     accessorKey: 'lastSeenMs',
@@ -60,6 +56,11 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
           ) : (
             <span className="font-mono text-[11px] text-muted-foreground">{idLabel}</span>
           )}
+          {s.hasError ? (
+            <Badge variant="outline" className="shrink-0 px-1.5 text-muted-foreground">
+              Error
+            </Badge>
+          ) : null}
         </div>
       )
     },
@@ -125,9 +126,14 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
   {
     accessorKey: 'totalCostUsd',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" className="justify-end" />,
-    cell: ({ row }) => (
-      <div className="text-right tabular-nums text-muted-foreground">{formatCost(row.original.totalCostUsd ?? 0)}</div>
-    ),
+    cell: ({ row }) => {
+      const value = row.original.totalCostUsd ?? 0
+      return (
+        <div className={`text-right tabular-nums ${metricTone('cost', value, 'text-muted-foreground')}`}>
+          {formatCost(value)}
+        </div>
+      )
+    },
   },
   {
     accessorKey: 'traceCount',
