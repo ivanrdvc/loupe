@@ -87,6 +87,10 @@ export interface Span {
   // `gen_ai.output.type` — `text` by default; non-text values mark a
   // structured call so the UI doesn't render it as a chat reply.
   outputType?: string
+
+  // All provider attributes for the raw-fields inspector view. JsonValue so it
+  // survives the SSR serialization boundary.
+  rawAttributes?: Record<string, JsonValue>
 }
 
 // Treat a span as root when its declared parent is not present in the trace.

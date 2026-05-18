@@ -6,6 +6,7 @@ import {
   USER_ID_ATTR_KEYS,
   USER_NAME_ATTR_KEYS,
 } from '#/lib/classify-span'
+import type { JsonValue } from '#/lib/json'
 import {
   normalizeTraceRoots,
   propagateInheritedAttrs,
@@ -303,7 +304,22 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
     startMs,
     endMs,
     ...classifySpan(operationName, cd),
+    rawAttributes: buildAiRawAttributes(row, cd),
   }
+}
+
+// customDimensions wins on key collisions — those are the canonical OTel attrs.
+function buildAiRawAttributes(
+  row: Record<string, unknown>,
+  customDimensions: Record<string, unknown>,
+): Record<string, JsonValue> {
+  const out: Record<string, JsonValue> = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (k === 'customDimensions') continue
+    out[k] = v as JsonValue
+  }
+  for (const [k, v] of Object.entries(customDimensions)) out[k] = v as JsonValue
+  return out
 }
 
 function toOpenObserveShape(row: Record<string, unknown>): Record<string, unknown> {

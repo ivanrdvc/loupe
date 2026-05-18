@@ -1,14 +1,24 @@
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
 import {
   ArrowPathRoundedSquareIcon,
+  CheckIcon,
+  ClipboardIcon,
   CommandLineIcon,
   InformationCircleIcon,
+  MagnifyingGlassIcon,
+  TableCellsIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { contextWindowFor, formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '#/components/ui/input-group'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '#/components/ui/resizable'
 import { ScrollArea } from '#/components/ui/scroll-area'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { useIsMobile } from '#/hooks/use-mobile'
 import {
@@ -24,13 +34,14 @@ import { ContextTools, collectFrontendTools, collectToolGroups } from './context
 import { displayFor, formatDuration } from './shared'
 import { DetailPanel, SpanTreeList } from './tree'
 
-type InspectorTab = 'details' | 'tools' | 'turns' | 'logs'
+type InspectorTab = 'details' | 'tools' | 'turns' | 'logs' | 'attributes'
 
 const INSPECTOR_TABS = [
   { id: 'details', label: 'Details', Icon: InformationCircleIcon },
   { id: 'tools', label: 'Tools', Icon: WrenchScrewdriverIcon },
   { id: 'turns', label: 'Turns', Icon: ArrowPathRoundedSquareIcon },
   { id: 'logs', label: 'Logs', Icon: CommandLineIcon },
+  { id: 'attributes', label: 'Attributes', Icon: TableCellsIcon },
 ] as const
 
 export function SessionInspectLayout({
@@ -107,6 +118,8 @@ export function SessionInspectLayout({
                       <SessionTools spans={spans} selectedSpan={selectedSpan} />
                     ) : inspectorTab === 'turns' ? (
                       <SessionTurnsPanel spans={spans} />
+                    ) : inspectorTab === 'attributes' ? (
+                      <SpanAttributesPanel selectedSpan={selectedSpan} />
                     ) : (
                       <SessionLogs spans={spans} />
                     )}
@@ -340,6 +353,168 @@ function SessionOverview({ spans }: { spans: Span[] }) {
   )
 }
 
+function SpanAttributesPanel({ selectedSpan }: { selectedSpan: Span | undefined }) {
+  const [query, setQuery] = useState('')
+
+  const entries = selectedSpan?.rawAttributes
+    ? Object.entries(selectedSpan.rawAttributes)
+        .filter(([, v]) => v != null && v !== '')
+        .sort(([a], [b]) => a.localeCompare(b))
+    : []
+
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? entries.filter(([k, v]) => k.toLowerCase().includes(q) || formatAttrValue(v).toLowerCase().includes(q))
+    : entries
+
+  if (!selectedSpan) {
+    return (
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No span selected</EmptyTitle>
+          <EmptyDescription>Pick a span in the tree to inspect its raw attributes.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+  if (entries.length === 0) {
+    return (
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No attributes</EmptyTitle>
+          <EmptyDescription>The provider didn't return raw fields for this span.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 px-4 py-3">
+      <div className="flex items-center gap-2">
+        <InputGroup className="h-7 flex-1">
+          <InputGroupAddon>
+            <MagnifyingGlassIcon />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter attributes…"
+            className="text-xs"
+          />
+        </InputGroup>
+        <Badge variant="secondary" className="shrink-0 tabular-nums">
+          {filtered.length === entries.length ? entries.length : `${filtered.length} / ${entries.length}`}
+        </Badge>
+      </div>
+      {filtered.length === 0 ? (
+        <Empty className="border-0">
+          <EmptyHeader>
+            <EmptyTitle>No matches</EmptyTitle>
+            <EmptyDescription>No fields match “{query}”.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[14rem] font-mono text-[10px] uppercase tracking-wide">Key</TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-wide">Value</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(([k, v]) => (
+                <AttrRow key={k} attrKey={k} value={v} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ATTR_PREVIEW_LIMIT = 140
+
+function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
+  const formatted = formatAttrValue(value)
+  const isLong = formatted.length > ATTR_PREVIEW_LIMIT || formatted.includes('\n')
+  const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const t = window.setTimeout(() => setCopied(false), 1200)
+    return () => window.clearTimeout(t)
+  }, [copied])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(formatted)
+      setCopied(true)
+    } catch {}
+  }
+
+  return (
+    <TableRow className="group align-top">
+      <TableCell className="max-w-[14rem] truncate py-1.5 font-mono text-[11px] text-muted-foreground" title={attrKey}>
+        {attrKey}
+      </TableCell>
+      <TableCell className="py-1.5 font-mono text-[11px] text-foreground">
+        <div className="flex min-w-0 items-start gap-1.5">
+          <div className="min-w-0 flex-1">
+            {isLong ? (
+              expanded ? (
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 leading-snug">
+                  {formatted}
+                </pre>
+              ) : (
+                <span className="block truncate text-muted-foreground/90" title={formatted.slice(0, 400)}>
+                  {formatted.slice(0, ATTR_PREVIEW_LIMIT)}…
+                </span>
+              )
+            ) : (
+              <span className="block break-words">{formatted}</span>
+            )}
+            {isLong && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-1 h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                onClick={() => setExpanded((x) => !x)}
+              >
+                {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                {expanded ? 'Collapse' : `Show (${formatted.length.toLocaleString()} chars)`}
+              </Button>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label={copied ? 'Copied' : `Copy ${attrKey}`}
+            title={copied ? 'Copied' : 'Copy value'}
+            onClick={copy}
+          >
+            {copied ? <CheckIcon /> : <ClipboardIcon />}
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function formatAttrValue(v: unknown): string {
+  if (v == null) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  try {
+    return JSON.stringify(v, null, 2)
+  } catch {
+    return String(v)
+  }
+}
+
 function SessionTurnsPanel({ spans }: { spans: Span[] }) {
   const orchestratorIds = useMemo(() => findOrchestratorIds(spans), [spans])
   const turns = useMemo(() => extractTurns(spans, orchestratorIds), [spans, orchestratorIds])
@@ -350,25 +525,45 @@ function SessionTurnsPanel({ spans }: { spans: Span[] }) {
 
   if (turns.length === 0) {
     return (
-      <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
-        No turns in this session.
-      </div>
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No turns</EmptyTitle>
+          <EmptyDescription>This session didn't surface any orchestrator turns.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
   return (
-    <div className="px-4 py-4">
-      <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-        <span>
+    <div className="flex flex-col gap-3 px-4 py-3">
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="tabular-nums">
           {turns.length} turn{turns.length === 1 ? '' : 's'}
-        </span>
-        {errorCount > 0 && <span className="tabular-nums text-destructive">{errorCount} errors</span>}
+        </Badge>
+        {errorCount > 0 && (
+          <Badge variant="destructive" className="tabular-nums">
+            {errorCount} error{errorCount === 1 ? '' : 's'}
+          </Badge>
+        )}
       </div>
-      <ol className="space-y-1.5">
-        {turns.map((turn, index) => (
-          <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} />
-        ))}
-      </ol>
+      <div className="overflow-hidden rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[3rem] text-[10px] uppercase tracking-wide">Turn</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wide">Model</TableHead>
+              <TableHead className="w-[5rem] text-right text-[10px] uppercase tracking-wide">Calls</TableHead>
+              <TableHead className="w-[8rem] text-right text-[10px] uppercase tracking-wide">Tokens</TableHead>
+              <TableHead className="w-[6rem] text-right text-[10px] uppercase tracking-wide">Cost</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {turns.map((turn, index) => (
+              <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
@@ -470,25 +665,30 @@ function SessionTurnRow({ turn, index }: { turn: Turn; index: number }) {
   const cachePct = totals.inputTokens > 0 ? Math.round((totals.cachedTokens / totals.inputTokens) * 100) : 0
   const cost = formatCost(totals.costUsd)
   const modelLabel = totals.model ?? run.agentName ?? run.name
-  const callCount = chats.length
 
   return (
-    <li className="grid grid-cols-[2.75rem_1fr_auto] items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ring-1 ring-border">
-      <span className="font-medium text-muted-foreground">T{index}</span>
-      <span className="min-w-0 truncate text-foreground">
-        {modelLabel}
-        {callCount > 1 && <span className="ml-1.5 text-muted-foreground">· {callCount} calls</span>}
-      </span>
-      <span className="flex shrink-0 items-center gap-2 tabular-nums text-muted-foreground">
-        {errors ? <span className="text-destructive">{errors} err</span> : null}
-        <span>{tokenTotal ? formatTokens(tokenTotal) : '—'} tok</span>
+    <TableRow>
+      <TableCell className="py-1.5 font-medium text-muted-foreground">T{index}</TableCell>
+      <TableCell className="py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-foreground">{modelLabel}</span>
+          {errors > 0 && (
+            <Badge variant="destructive" className="shrink-0">
+              {errors} err
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="py-1.5 text-right tabular-nums text-muted-foreground">{chats.length}</TableCell>
+      <TableCell className="py-1.5 text-right tabular-nums">
+        <span className="text-foreground">{tokenTotal ? formatTokens(tokenTotal) : '—'}</span>
         {totals.cachedTokens > 0 && (
-          <span className="text-success">
-            {formatTokens(totals.cachedTokens)} cached ({cachePct}%)
+          <span className="ml-1 text-success">
+            · {formatTokens(totals.cachedTokens)} cached ({cachePct}%)
           </span>
         )}
-        <span>{cost ? `$${cost}` : '—'}</span>
-      </span>
-    </li>
+      </TableCell>
+      <TableCell className="py-1.5 text-right tabular-nums text-foreground">{cost ? `$${cost}` : '—'}</TableCell>
+    </TableRow>
   )
 }

@@ -1,4 +1,5 @@
 import { classifySpan, extractAgentName, USER_ID_ATTR_KEYS, USER_NAME_ATTR_KEYS } from '#/lib/classify-span'
+import type { JsonValue } from '#/lib/json'
 import { readFieldConfig } from './field-config'
 
 // Only one session id / title column is materialized in OO today. If a second
@@ -570,6 +571,7 @@ function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
     endMs: Math.floor(Number(h.end_time ?? 0) / 1_000_000),
     ...(h.span_status === 'ERROR' ? { hasError: true } : {}),
     ...classifySpan(operationName, h),
+    rawAttributes: h as Record<string, JsonValue>,
   }
 }
 

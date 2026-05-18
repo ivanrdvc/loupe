@@ -1,5 +1,7 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '#/components/ui/accordion'
+import { Badge } from '#/components/ui/badge'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { asMessages } from '#/lib/conversation'
 import { estimateTokens } from '#/lib/format'
@@ -375,14 +377,25 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
 }
 
 export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
-  if (blocks.length === 0) return <ContextEmpty>No system prompt found in chat span inputs.</ContextEmpty>
+  if (blocks.length === 0) {
+    return (
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No system prompt</EmptyTitle>
+          <EmptyDescription>None of the chat spans carry a system message.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
   return (
     <Accordion type="multiple" defaultValue={blocks.length > 0 ? [blocks[0].id] : []}>
       {blocks.map((block) => (
         <AccordionItem key={block.id} value={block.id}>
           <AccordionTrigger>
             <span className="min-w-0 flex-1 truncate">{block.title}</span>
-            <span className="text-muted-foreground">{block.tokens.toLocaleString()} est. tokens</span>
+            <Badge variant="secondary" className="tabular-nums">
+              {block.tokens.toLocaleString()} tok
+            </Badge>
           </AccordionTrigger>
           <AccordionContent>
             <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground">
@@ -396,10 +409,16 @@ export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
 }
 
 export function ContextTools({ groups }: { groups: ToolGroup[] }) {
-  if (groups.length === 0) return <ContextEmpty>No tool definitions found in chat span inputs.</ContextEmpty>
-  // Wrapped: frontend + per-server (named, meaningful). Flat: the catch-all
-  // bucket — no fake group header since the parent tab is already "Tools",
-  // but shares the same muted-tint surface as an open Accordion item.
+  if (groups.length === 0) {
+    return (
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No tool definitions</EmptyTitle>
+          <EmptyDescription>The chat spans didn't advertise any tools.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
   const wrapped = groups.filter((g) => g.kind !== 'default')
   const flat = groups.find((g) => g.kind === 'default')?.tools ?? []
   return (
@@ -412,9 +431,14 @@ export function ContextTools({ groups }: { groups: ToolGroup[] }) {
               <AccordionItem key={value} value={value}>
                 <AccordionTrigger>
                   <span className="min-w-0 flex-1 truncate">{group.domain}</span>
-                  <span className="text-muted-foreground">
-                    {group.tools.length} tools · {group.tokens.toLocaleString()} est. tokens
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Badge variant="secondary" className="tabular-nums">
+                      {group.tools.length} tool{group.tools.length === 1 ? '' : 's'}
+                    </Badge>
+                    <Badge variant="outline" className="tabular-nums">
+                      {group.tokens.toLocaleString()} tok
+                    </Badge>
+                  </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-0">
                   <div className="divide-y divide-border border-border border-t">
@@ -447,7 +471,9 @@ function ToolRow({ tool }: { tool: ToolDef }) {
           <span className="block truncate font-medium text-foreground">{tool.name}</span>
           {tool.description && <span className="mt-0.5 block truncate text-muted-foreground">{tool.description}</span>}
         </span>
-        <span className="tabular-nums text-muted-foreground">{tool.tokens.toLocaleString()} tok</span>
+        <Badge variant="outline" className="tabular-nums">
+          {tool.tokens.toLocaleString()} tok
+        </Badge>
       </summary>
       <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-[11px] leading-snug text-foreground">
         {formatJson(tool.raw)}
@@ -462,7 +488,14 @@ function isShortValue(value: string): boolean {
 
 function ContextAgui({ items, frontendTools }: { items: AguiItem[]; frontendTools: FrontendTool[] }) {
   if (items.length === 0 && frontendTools.length === 0) {
-    return <ContextEmpty>No AG-UI/runtime context detected in this session.</ContextEmpty>
+    return (
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No AG-UI context</EmptyTitle>
+          <EmptyDescription>Didn't detect runtime/state context in this session.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
   }
   const identifiers = items.filter((item) => isShortValue(item.value))
   const payloads = items.filter((item) => !isShortValue(item.value))
@@ -495,7 +528,9 @@ function ContextAgui({ items, frontendTools }: { items: AguiItem[]; frontendTool
             <AccordionItem key={item.id} value={item.id}>
               <AccordionTrigger>
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                <span className="text-muted-foreground">{item.tokens.toLocaleString()} est. tokens</span>
+                <Badge variant="secondary" className="tabular-nums">
+                  {item.tokens.toLocaleString()} tok
+                </Badge>
               </AccordionTrigger>
               <AccordionContent>
                 <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
@@ -540,13 +575,5 @@ function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
         ))}
       </div>
     </section>
-  )
-}
-
-function ContextEmpty({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-[12rem] items-center justify-center rounded-lg border border-dashed px-4 text-center text-xs text-muted-foreground/70">
-      {children}
-    </div>
   )
 }
