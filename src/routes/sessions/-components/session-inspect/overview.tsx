@@ -49,11 +49,13 @@ export function SessionInspectLayout({
   loading,
   selectedId,
   onSelect,
+  fullSpans,
 }: {
   spans: Span[]
   loading?: boolean
   selectedId: string | null
   onSelect: (id: string) => void
+  fullSpans?: boolean
 }) {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('details')
   const isMobile = useIsMobile()
@@ -75,7 +77,7 @@ export function SessionInspectLayout({
                 Loading spans…
               </div>
             ) : (
-              <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} />
+              <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} fullSpans={fullSpans} />
             )}
           </ScrollArea>
         </section>
@@ -169,7 +171,7 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
 
   return (
     <div className="px-4 py-4">
-      <header className="mb-3 flex items-baseline justify-between gap-2 text-[11px]">
+      <header className="mb-3 flex items-baseline justify-between gap-2 text-sm">
         <span className="truncate font-medium text-foreground">{scopeLabel}</span>
         <span className="shrink-0 tabular-nums text-muted-foreground">
           {totals.count} tool{totals.count === 1 ? '' : 's'} ·{' '}
@@ -296,12 +298,12 @@ function SessionOverview({ spans }: { spans: Span[] }) {
     <section className="flex flex-col overflow-hidden">
       <header className="shrink-0 px-4 pt-3 pb-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-foreground">{agent}</div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
+          <div className="truncate text-base font-semibold text-foreground">{agent}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
             {turns.length} turn{turns.length === 1 ? '' : 's'} · {formatDuration(totals.duration)}
           </div>
         </div>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] tabular-nums">
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs tabular-nums">
           <span className="text-foreground">
             <span className="font-semibold">{allTokens ? formatTokens(allTokens) : '—'}</span>{' '}
             <span className="text-muted-foreground">tok</span>
@@ -329,15 +331,15 @@ function SessionOverview({ spans }: { spans: Span[] }) {
 
       <div className="shrink-0 border-border border-t px-4 py-3">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="flex items-baseline gap-2 text-[11px]">
+          <div className="flex items-baseline gap-2 text-xs">
             <span className="font-medium text-foreground">Context breakdown</span>
             {peakWindow && <span className="tabular-nums text-muted-foreground">{(peakPct * 100).toFixed(0)}%</span>}
-            <span className={`text-[10px] text-muted-foreground ${ready ? 'opacity-0' : 'opacity-100'}`}>
+            <span className={`text-[11px] text-muted-foreground ${ready ? 'opacity-0' : 'opacity-100'}`}>
               counting…
             </span>
           </div>
           {peakWindow && (
-            <span className="text-[10px] tabular-nums text-muted-foreground">
+            <span className="text-[11px] tabular-nums text-muted-foreground">
               ~{formatTokens(peakIn)} / {formatTokens(peakWindow)} Tokens
             </span>
           )}
@@ -391,16 +393,11 @@ function SpanAttributesPanel({ selectedSpan }: { selectedSpan: Span | undefined 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
       <div className="flex items-center gap-2">
-        <InputGroup className="h-7 flex-1">
+        <InputGroup className="flex-1">
           <InputGroupAddon>
             <MagnifyingGlassIcon />
           </InputGroupAddon>
-          <InputGroupInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter attributes…"
-            className="text-xs"
-          />
+          <InputGroupInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter attributes…" />
         </InputGroup>
         <Badge variant="secondary" className="shrink-0 tabular-nums">
           {filtered.length === entries.length ? entries.length : `${filtered.length} / ${entries.length}`}
@@ -418,8 +415,8 @@ function SpanAttributesPanel({ selectedSpan }: { selectedSpan: Span | undefined 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[14rem] font-mono text-[10px] uppercase tracking-wide">Key</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wide">Value</TableHead>
+                <TableHead className="w-[14rem] font-mono text-[11px] uppercase tracking-wide">Key</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-wide">Value</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -457,10 +454,10 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
 
   return (
     <TableRow className="group align-top">
-      <TableCell className="max-w-[14rem] truncate py-1.5 font-mono text-[11px] text-muted-foreground" title={attrKey}>
+      <TableCell className="max-w-[14rem] truncate py-1.5 font-mono text-xs text-muted-foreground" title={attrKey}>
         {attrKey}
       </TableCell>
-      <TableCell className="py-1.5 font-mono text-[11px] text-foreground">
+      <TableCell className="py-1.5 font-mono text-xs text-foreground">
         <div className="flex min-w-0 items-start gap-1.5">
           <div className="min-w-0 flex-1">
             {isLong ? (
@@ -480,7 +477,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="mt-1 h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                className="mt-1 text-muted-foreground hover:text-foreground"
                 onClick={() => setExpanded((x) => !x)}
               >
                 {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
@@ -550,11 +547,11 @@ function SessionTurnsPanel({ spans }: { spans: Span[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[3rem] text-[10px] uppercase tracking-wide">Turn</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wide">Model</TableHead>
-              <TableHead className="w-[5rem] text-right text-[10px] uppercase tracking-wide">Calls</TableHead>
-              <TableHead className="w-[8rem] text-right text-[10px] uppercase tracking-wide">Tokens</TableHead>
-              <TableHead className="w-[6rem] text-right text-[10px] uppercase tracking-wide">Cost</TableHead>
+              <TableHead className="w-[3rem] text-[11px] uppercase tracking-wide">Turn</TableHead>
+              <TableHead className="text-[11px] uppercase tracking-wide">Model</TableHead>
+              <TableHead className="w-[5rem] text-right text-[11px] uppercase tracking-wide">Calls</TableHead>
+              <TableHead className="w-[8rem] text-right text-[11px] uppercase tracking-wide">Tokens</TableHead>
+              <TableHead className="w-[6rem] text-right text-[11px] uppercase tracking-wide">Cost</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -636,7 +633,7 @@ function ContextBreakdown({
           ) : null,
         )}
       </div>
-      <ul className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+      <ul className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         {segments.map((s) => (
           <li
             key={s.key}

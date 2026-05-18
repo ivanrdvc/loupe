@@ -69,7 +69,7 @@ export function ConversationView({ spans, onSelect }: ConversationViewProps) {
 
   if (events.length === 0) {
     return (
-      <div className="px-3 py-6 text-center text-xs text-muted-foreground/70">No conversation data in this run.</div>
+      <div className="px-3 py-6 text-center text-sm text-muted-foreground/70">No conversation data in this run.</div>
     )
   }
 
@@ -106,7 +106,7 @@ function ShowAllToggle({ showAll, onToggle }: { showAll: boolean; onToggle: () =
       type="button"
       onClick={onToggle}
       title={showAll ? 'Hide AG-UI scaffolding' : 'Show all messages including scaffolding'}
-      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border bg-background/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border bg-background/90 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
     >
       {showAll ? <EyeSlashIcon className="size-3" /> : <EyeIcon className="size-3" />}
       {showAll ? 'Hide scaffolding' : 'Show all'}
@@ -192,7 +192,7 @@ function MessageBubble({ event }: MessageBubbleProps) {
   if (isUser) {
     return (
       <div className="flex items-start justify-end">
-        <div className="max-w-[75%] rounded-2xl rounded-tr-sm bg-muted px-3 py-2 text-xs text-foreground">
+        <div className="max-w-[75%] rounded-2xl rounded-tr-sm bg-muted px-3 py-2 text-sm text-foreground">
           <Markdown>{event.content}</Markdown>
           <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
             <span>{formatTime(event.timestamp)}</span>
@@ -203,10 +203,10 @@ function MessageBubble({ event }: MessageBubbleProps) {
   }
 
   return (
-    <div className="group flex w-fit max-w-[85%] items-start gap-1.5 px-2 py-1 text-xs">
+    <div className="group flex w-fit max-w-[85%] items-start gap-1.5 px-2 py-1 text-sm">
       <div className="min-w-0">
         {event.role !== 'assistant' && (
-          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {event.role}
           </div>
         )}
@@ -252,7 +252,7 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
   const resultTokens = result ? estimateTokens(formatValue(result.result)) : undefined
 
   return (
-    <div className={['rounded-md border text-xs', selected ? 'border-primary' : 'border-border'].join(' ')}>
+    <div className={['rounded-md border text-sm', selected ? 'border-primary' : 'border-border'].join(' ')}>
       <button
         type="button"
         onClick={() => {
@@ -321,7 +321,7 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
   return (
     <div
       className={[
-        'rounded-md border text-xs',
+        'rounded-md border text-sm',
         selected
           ? 'border-emerald-500/60 dark:border-emerald-400/60'
           : 'border-emerald-500/30 dark:border-emerald-400/30',
@@ -357,7 +357,7 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
           <KeyValueBlock label="Output" value={event.result} />
           {hasActions && (
             <div className="space-y-2 border-t border-border pt-2">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</div>
               <div className="flex flex-col gap-2">{actions.map((c) => renderEvent(c, ctx))}</div>
             </div>
           )}
@@ -378,10 +378,10 @@ function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="group/kv relative">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
         <CopyButton value={formatted} className="opacity-0 transition-opacity group-hover/kv:opacity-100" />
       </div>
-      <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted px-2 py-1.5 font-mono text-[11px] text-foreground">
+      <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
         {formatted}
       </pre>
     </div>

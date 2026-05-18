@@ -60,7 +60,7 @@ function McpPage() {
                   <TableCell>
                     <div className="flex min-w-0 flex-col">
                       <span className="font-medium">{server.name}</span>
-                      <span className="truncate font-mono text-xs text-muted-foreground">
+                      <span className="truncate font-mono text-sm text-muted-foreground">
                         {server.endpoint ?? server.source}
                       </span>
                     </div>

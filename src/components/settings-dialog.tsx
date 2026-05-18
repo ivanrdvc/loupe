@@ -58,8 +58,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div className="grid gap-2">
       <div>
-        <Label className="text-xs font-medium text-foreground">{label}</Label>
-        {hint ? <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p> : null}
+        <Label className="font-medium text-foreground">{label}</Label>
+        {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
       </div>
       {children}
     </div>

@@ -1,5 +1,5 @@
 import { ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, QueueListIcon } from '@heroicons/react/24/outline'
-import { IconArrowUpRight, IconX } from '@tabler/icons-react'
+import { IconArrowUpRight, IconBraces, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -12,6 +12,8 @@ import { ConversationView } from '#/components/conversation-view'
 import { IconTabs } from '#/components/icon-tabs'
 import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
+import { Toggle } from '#/components/ui/toggle'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { Span } from '#/lib/spans'
 import type { TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './context'
@@ -60,6 +62,7 @@ export function SessionInspectDrawer({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerView, setDrawerView] = useState<DrawerView>('spans')
   const [contentReady, setContentReady] = useState(false)
+  const [fullSpans, setFullSpans] = useState(false)
 
   const expandSearch = useMemo(() => {
     if (!expandSession) return undefined
@@ -124,7 +127,7 @@ export function SessionInspectDrawer({
       >
         <header className="flex items-center justify-between border-b px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
-            <SheetTitle className="text-sm">Session</SheetTitle>
+            <SheetTitle>Session</SheetTitle>
             <SheetDescription className="sr-only">
               Inspect spans, conversation, and context for the selected session.
             </SheetDescription>
@@ -165,6 +168,16 @@ export function SessionInspectDrawer({
             aria-label="Session inspect view"
           />
           <div className="flex flex-wrap items-center gap-2">
+            {drawerView === 'spans' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Toggle size="sm" pressed={fullSpans} onPressedChange={setFullSpans} aria-label="Show raw spans">
+                    <IconBraces />
+                  </Toggle>
+                </TooltipTrigger>
+                <TooltipContent>{fullSpans ? 'Hide raw spans' : 'Show raw spans'}</TooltipContent>
+              </Tooltip>
+            )}
             {autoRefresh != null && onAutoRefreshChange != null && onRefresh != null ? (
               <AutoRefreshSelect
                 value={autoRefresh}
@@ -203,6 +216,7 @@ export function SessionInspectDrawer({
                 loading={showLoading}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                fullSpans={fullSpans}
               />
             </div>
           )}

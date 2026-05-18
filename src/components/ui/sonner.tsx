@@ -1,3 +1,5 @@
+'use client'
+
 import {
   Alert02Icon,
   CheckmarkCircle02Icon,

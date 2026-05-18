@@ -28,7 +28,7 @@ const NORMAL_FINISH = new Set(['stop', 'end_turn', 'complete', 'end', 'eos'])
 // All rails, elbow, and indicator share this single x-axis so nothing can drift.
 const railX = (depth: number) => depth * INDENT + INDENT / 2
 
-function buildRows(spans: Span[], collapsedIds: Set<string>): Row[] {
+function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean): Row[] {
   const byParent = new Map<string | null, Span[]>()
   for (const span of spans) {
     const siblings = byParent.get(span.parentId) ?? []
@@ -39,13 +39,13 @@ function buildRows(spans: Span[], collapsedIds: Set<string>): Row[] {
 
   // Hide spans classified as plain http — those are the SDK-level transport
   // calls (POST /v1/chat/completions etc.). Children re-parent up so the
-  // tree stays connected.
+  // tree stays connected. In full mode, render them as real nodes.
   const visibleChildren = new Map<string | null, Span[]>()
   const collect = (parentId: string | null): Span[] => {
     if (visibleChildren.has(parentId)) return visibleChildren.get(parentId) as Span[]
     const out: Span[] = []
     for (const span of byParent.get(parentId) ?? []) {
-      if (span.operation === 'http') out.push(...collect(span.id))
+      if (!fullSpans && span.operation === 'http') out.push(...collect(span.id))
       else out.push(span)
     }
     visibleChildren.set(parentId, out)
@@ -99,11 +99,12 @@ interface SpanTreeListProps {
   spans: Span[]
   selectedId: string | null
   onSelect: (id: string) => void
+  fullSpans?: boolean
 }
 
-export function SpanTreeList({ spans, selectedId, onSelect }: SpanTreeListProps) {
+export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }: SpanTreeListProps) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
-  const rows = useMemo(() => buildRows(spans, collapsedIds), [spans, collapsedIds])
+  const rows = useMemo(() => buildRows(spans, collapsedIds, fullSpans), [spans, collapsedIds, fullSpans])
 
   const toggleCollapsed = (id: string) => {
     setCollapsedIds((prev) => {
@@ -232,7 +233,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
         <button
           type="button"
           onClick={onSelect}
-          className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-1.5 pr-2 pl-1 text-left leading-tight focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/80"
+          className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-1 pr-2 pl-1 text-left leading-tight focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/80"
         >
           <div className="flex min-w-0 items-center gap-2">
             {display.tagLabel && (
@@ -283,7 +284,7 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
             {display.tagLabel}
           </span>
         )}
-        <span className="truncate text-sm font-semibold text-foreground">{display.name}</span>
+        <span className="truncate text-base font-semibold text-foreground">{display.name}</span>
       </div>
 
       <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
@@ -450,9 +451,7 @@ function MessagePartView({
 }) {
   if (part.kind === 'text') {
     if (structured) return <StructuredText content={part.content} />
-    return (
-      <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground">{part.content}</pre>
-    )
+    return <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{part.content}</pre>
   }
   if (part.kind === 'tool_call') {
     const resolved = callResolutions.get(part.id)
@@ -479,14 +478,14 @@ function MessagePartView({
           </span>
         </div>
         {part.arguments != null && (
-          <pre className="mt-1.5 max-h-60 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+          <pre className="mt-1.5 max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
             {formatJson(part.arguments)}
           </pre>
         )}
         {hasResult && (
           <div className="mt-1.5 border-border border-t pt-1.5">
-            <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Result</div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+            <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">Result</div>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
               {formatJson(resolved.result)}
             </pre>
           </div>
@@ -495,7 +494,7 @@ function MessagePartView({
     )
   }
   return (
-    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+    <pre className="whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
       {formatJson(part.response)}
     </pre>
   )
@@ -516,13 +515,13 @@ function StructuredText({ content }: { content: string }) {
       return (
         <div className="flex flex-wrap items-baseline gap-1.5">
           <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{key}</span>
-          <span className="text-[11px] leading-relaxed text-foreground">{value}</span>
+          <span className="text-xs leading-relaxed text-foreground">{value}</span>
         </div>
       )
     }
   }
   return (
-    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+    <pre className="whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
       {parsed !== undefined ? formatJson(parsed) : content}
     </pre>
   )
@@ -532,7 +531,7 @@ function RoleBlock({ content }: { content: string }) {
   return (
     <details open className="rounded-lg bg-muted ring-1 ring-border">
       <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">Role</summary>
-      <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2 text-[11px] leading-relaxed text-foreground">
+      <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2 text-xs leading-relaxed text-foreground">
         {content}
       </pre>
     </details>
@@ -568,8 +567,8 @@ function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?
     })()
   return (
     <div className="min-w-0 max-w-full">
-      <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <pre className="max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-[11px] leading-snug text-foreground ring-1 ring-border">
+      <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <pre className="max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-snug text-foreground ring-1 ring-border">
         {text}
       </pre>
     </div>

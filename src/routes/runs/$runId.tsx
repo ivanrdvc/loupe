@@ -52,7 +52,7 @@ function RunDetail() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               {spans[0]?.service ?? '—'} · {(total / 1000).toFixed(2)}s · {spans.length} spans
             </span>
             {provider === 'openobserve' ? (

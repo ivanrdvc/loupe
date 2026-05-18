@@ -338,7 +338,7 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-border border-b px-4 pt-2">
-        <div className="text-xs font-semibold text-foreground">Context</div>
+        <div className="text-sm font-semibold text-foreground">Context</div>
         <nav className="mt-1 flex gap-4" aria-label="Session context">
           {(
             [
@@ -351,7 +351,7 @@ export function SessionContextView({ spans }: { spans: Span[] }) {
               type="button"
               onClick={() => setTab(id)}
               className={[
-                'flex h-7 items-center border-b-2 px-0 text-xs font-medium transition-colors',
+                'flex h-8 items-center border-b-2 px-0 text-sm font-medium transition-colors',
                 tab === id
                   ? 'border-foreground text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -398,7 +398,7 @@ export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
             </Badge>
           </AccordionTrigger>
           <AccordionContent>
-            <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground">
+            <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
               {block.content}
             </pre>
           </AccordionContent>
@@ -475,7 +475,7 @@ function ToolRow({ tool }: { tool: ToolDef }) {
           {tool.tokens.toLocaleString()} tok
         </Badge>
       </summary>
-      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-[11px] leading-snug text-foreground">
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-xs leading-snug text-foreground">
         {formatJson(tool.raw)}
       </pre>
     </details>
@@ -533,7 +533,7 @@ function ContextAgui({ items, frontendTools }: { items: AguiItem[]; frontendTool
                 </Badge>
               </AccordionTrigger>
               <AccordionContent>
-                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
                   {item.value}
                 </pre>
               </AccordionContent>
@@ -548,7 +548,7 @@ function ContextAgui({ items, frontendTools }: { items: AguiItem[]; frontendTool
 function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
   return (
     <section>
-      <header className="mb-2 flex items-baseline justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <header className="mb-2 flex items-baseline justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span>Frontend tools</span>
         <span className="tabular-nums">{tools.length}</span>
       </header>
@@ -567,7 +567,7 @@ function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
               </span>
             </summary>
             {tool.raw != null && (
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-[11px] leading-snug text-foreground">
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-xs leading-snug text-foreground">
                 {formatJson(tool.raw)}
               </pre>
             )}
