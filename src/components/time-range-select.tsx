@@ -59,7 +59,7 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
           data-state={open ? 'open' : 'closed'}
           className={cn(
             // verbatim SelectTrigger classes (radix-mira preset):
-            "flex w-fit items-center justify-between gap-1.5 rounded-md border bg-input/20 px-2 py-1.5 text-xs/relaxed whitespace-nowrap transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-7 data-[size=sm]:h-6 dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+            "flex w-fit items-center justify-between gap-1.5 rounded-lg border bg-input/20 px-2.5 text-sm whitespace-nowrap transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
             // sibling overrides (match EnvSelect / AutoRefreshSelect):
             'border-border bg-transparent',
             // open state, matches focus-visible look:
@@ -91,7 +91,7 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
                   type="button"
                   onClick={() => handlePreset(days)}
                   className={cn(
-                    'flex h-7 items-center rounded-sm px-2 text-left text-xs/relaxed',
+                    'flex h-7 items-center rounded-md px-2 text-left text-sm',
                     isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
@@ -104,7 +104,7 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
               type="button"
               onClick={() => setView('custom')}
               className={cn(
-                'flex h-7 items-center rounded-sm px-2 text-left text-xs/relaxed',
+                'flex h-7 items-center rounded-md px-2 text-left text-sm',
                 isCustom ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground',
               )}
             >

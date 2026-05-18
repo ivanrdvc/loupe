@@ -13,6 +13,7 @@ interface IconTabsProps<T extends string> {
   onChange: (value: T) => void
   'aria-label': string
   className?: string
+  variant?: 'default' | 'line'
 }
 
 export function IconTabs<T extends string>({
@@ -21,10 +22,11 @@ export function IconTabs<T extends string>({
   onChange,
   'aria-label': ariaLabel,
   className,
+  variant = 'default',
 }: IconTabsProps<T>) {
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as T)} className={className}>
-      <TabsList aria-label={ariaLabel}>
+      <TabsList aria-label={ariaLabel} variant={variant}>
         {tabs.map(({ id, label, Icon }) => (
           <TabsTrigger key={id} value={id}>
             <Icon aria-hidden />

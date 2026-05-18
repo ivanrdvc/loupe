@@ -9,6 +9,7 @@ import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { type AppFont, type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
 import { useUserId } from '#/hooks/use-user'
 import { providersQuery, setProviderFn } from '#/lib/providers-data'
 import { queryKeys } from '#/lib/query-keys'
@@ -72,33 +73,93 @@ const MODES = [
   { value: 'system', label: 'System', icon: ComputerIcon },
 ] as const
 
+const COLORS: { value: ColorTheme; label: string; dot: string }[] = [
+  { value: 'pink-mauve', label: 'Pink Mauve', dot: 'oklch(0.525 0.223 3.958)' },
+  { value: 'violet', label: 'Violet', dot: 'oklch(0.4597 0.0629 289.5561)' },
+  { value: 'lavender', label: 'Lavender', dot: 'oklch(0.6104 0.0767 299.7335)' },
+]
+
+const FONTS: { value: AppFont; label: string; family: string }[] = [
+  { value: 'pretendard', label: 'Pretendard', family: "'Pretendard Variable', sans-serif" },
+  { value: 'inter', label: 'Inter', family: "'Inter Variable', sans-serif" },
+]
+
+const TILE_BASE =
+  'flex items-center gap-2 rounded-md border border-input bg-input/20 px-3 py-2 text-sm font-medium transition-colors hover:bg-input/40 dark:bg-input/30'
+const TILE_ACTIVE = 'border-ring bg-input/60 text-foreground ring-2 ring-ring/30 dark:bg-input/60'
+
 function AppearancePane() {
   const { theme, setTheme } = useTheme()
   const activeMode = theme ?? 'dark'
+  const { colorTheme, setColorTheme, font, setFont } = useAppTheme()
 
   return (
-    <Field label="Theme" hint="Light, dark, or follow your system preference.">
-      <div className="grid grid-cols-3 gap-2">
-        {MODES.map(({ value, label, icon }) => {
-          const isActive = activeMode === value
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTheme(value)}
-              aria-pressed={isActive}
-              className={cn(
-                'flex flex-col items-center gap-1.5 rounded-md border border-input bg-input/20 px-2 py-3 text-xs font-medium transition-colors hover:bg-input/40 dark:bg-input/30',
-                isActive && 'border-ring bg-input/60 text-foreground ring-2 ring-ring/30 dark:bg-input/60',
-              )}
-            >
-              <HugeiconsIcon icon={icon} className="size-4" />
-              <span>{label}</span>
-            </button>
-          )
-        })}
-      </div>
-    </Field>
+    <div className="space-y-6">
+      <Field label="Theme" hint="Light, dark, or follow your system preference.">
+        <div className="grid grid-cols-3 gap-2">
+          {MODES.map(({ value, label, icon }) => {
+            const isActive = activeMode === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTheme(value)}
+                aria-pressed={isActive}
+                className={cn(
+                  'flex flex-col items-center gap-1.5 rounded-md border border-input bg-input/20 px-2 py-3 text-xs font-medium transition-colors hover:bg-input/40 dark:bg-input/30',
+                  isActive && TILE_ACTIVE,
+                )}
+              >
+                <HugeiconsIcon icon={icon} className="size-4" />
+                <span>{label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
+      <Field label="Color" hint="Accent palette. Switches apply instantly and persist in this browser.">
+        <div className="grid grid-cols-2 gap-2">
+          {COLORS.map(({ value, label, dot }) => {
+            const isActive = colorTheme === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setColorTheme(value)}
+                aria-pressed={isActive}
+                className={cn(TILE_BASE, isActive && TILE_ACTIVE)}
+              >
+                <span className="size-3.5 shrink-0 rounded-full border border-border/40" style={{ background: dot }} />
+                <span>{label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
+      <Field label="Font">
+        <div className="grid grid-cols-2 gap-2">
+          {FONTS.map(({ value, label, family }) => {
+            const isActive = font === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFont(value)}
+                aria-pressed={isActive}
+                className={cn(TILE_BASE, 'justify-between', isActive && TILE_ACTIVE)}
+              >
+                <span>{label}</span>
+                <span className="text-base text-muted-foreground" style={{ fontFamily: family }}>
+                  Aa
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+    </div>
   )
 }
 

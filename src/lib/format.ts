@@ -14,7 +14,7 @@ export function formatCost(usd: number): string {
   return `$${usd.toFixed(4)}`
 }
 
-export type MetricKind = 'cost' | 'tokens'
+export type MetricKind = 'cost' | 'tokens' | 'duration'
 
 export function metricTone(
   kind: MetricKind,
@@ -29,6 +29,10 @@ export function metricTone(
   if (kind === 'tokens') {
     if (value >= 1_000_000) return 'text-rose-700 dark:text-rose-300'
     if (value >= 250_000) return 'text-amber-700 dark:text-amber-300'
+  }
+  if (kind === 'duration') {
+    if (value >= 3_600_000) return 'text-rose-700 dark:text-rose-300'
+    if (value >= 600_000) return 'text-amber-700 dark:text-amber-300'
   }
   return normal
 }
@@ -62,7 +66,12 @@ export function formatDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
   const s = ms / 1000
   if (s < 60) return `${s.toFixed(1)}s`
-  const m = Math.floor(s / 60)
-  const rs = Math.round(s % 60)
-  return rs === 0 ? `${m}m` : `${m}m ${rs}s`
+  const totalM = Math.floor(s / 60)
+  if (totalM < 60) {
+    const rs = Math.round(s % 60)
+    return rs === 0 ? `${totalM}m` : `${totalM}m ${rs}s`
+  }
+  const h = Math.floor(totalM / 60)
+  const rm = totalM % 60
+  return rm === 0 ? `${h}h` : `${h}h ${rm}m`
 }

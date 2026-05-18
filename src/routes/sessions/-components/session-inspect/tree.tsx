@@ -1,5 +1,14 @@
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '#/components/ui/command'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatJson, type JsonValue } from '#/lib/json'
 import { formatCost, resolveToolCalls, type Span, spanHasError, type ToolCallResolution } from '#/lib/spans'
@@ -100,9 +109,18 @@ interface SpanTreeListProps {
   selectedId: string | null
   onSelect: (id: string) => void
   fullSpans?: boolean
+  paletteOpen?: boolean
+  onPaletteOpenChange?: (open: boolean) => void
 }
 
-export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }: SpanTreeListProps) {
+export function SpanTreeList({
+  spans,
+  selectedId,
+  onSelect,
+  fullSpans = false,
+  paletteOpen = false,
+  onPaletteOpenChange,
+}: SpanTreeListProps) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
   const rows = useMemo(() => buildRows(spans, collapsedIds, fullSpans), [spans, collapsedIds, fullSpans])
 
@@ -115,26 +133,85 @@ export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }:
     })
   }
 
-  if (rows.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
-        No spans in this session.
-      </div>
-    )
-  }
+  const paletteItems = useMemo(() => {
+    const byId = new Map(spans.map((s) => [s.id, s]))
+    const visible = fullSpans ? spans : spans.filter((s) => s.operation !== 'http')
+    return visible.map((span) => {
+      const parent = span.parentId ? byId.get(span.parentId) : undefined
+      const display = displayFor(span)
+      const parentDisplay = parent ? displayFor(parent) : undefined
+      return { span, display, parentName: parentDisplay?.name }
+    })
+  }, [spans, fullSpans])
+
+  const handlePaletteSelect = useCallback(
+    (id: string) => {
+      const byId = new Map(spans.map((s) => [s.id, s]))
+      setCollapsedIds((prev) => {
+        const next = new Set(prev)
+        let cursor: Span | undefined = byId.get(id)
+        while (cursor?.parentId) {
+          next.delete(cursor.parentId)
+          cursor = byId.get(cursor.parentId)
+        }
+        return next
+      })
+      onSelect(id)
+      onPaletteOpenChange?.(false)
+      requestAnimationFrame(() => {
+        document.querySelector(`[data-span-id="${id}"]`)?.scrollIntoView({ block: 'center' })
+      })
+    },
+    [spans, onSelect, onPaletteOpenChange],
+  )
 
   return (
-    <ul className="py-1">
-      {rows.map((row) => (
-        <SpanTreeRow
-          key={row.span.id}
-          row={row}
-          selected={row.span.id === selectedId}
-          onSelect={() => onSelect(row.span.id)}
-          onToggleCollapse={() => toggleCollapsed(row.span.id)}
-        />
-      ))}
-    </ul>
+    <>
+      {rows.length === 0 ? (
+        <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
+          No spans in this session.
+        </div>
+      ) : (
+        <ul className="py-1">
+          {rows.map((row) => (
+            <SpanTreeRow
+              key={row.span.id}
+              row={row}
+              selected={row.span.id === selectedId}
+              onSelect={() => onSelect(row.span.id)}
+              onToggleCollapse={() => toggleCollapsed(row.span.id)}
+            />
+          ))}
+        </ul>
+      )}
+      <CommandDialog open={paletteOpen} onOpenChange={(o) => onPaletteOpenChange?.(o)} title="Jump to span">
+        <Command>
+          <CommandInput placeholder="Find a span by name, model, or tool…" />
+          <CommandList>
+            <CommandEmpty>No spans match.</CommandEmpty>
+            <CommandGroup>
+              {paletteItems.map(({ span, display, parentName }) => (
+                <CommandItem
+                  key={span.id}
+                  value={`${display.tagLabel} ${display.name} ${parentName ?? ''} ${span.model ?? ''} ${span.id}`}
+                  onSelect={() => handlePaletteSelect(span.id)}
+                >
+                  {display.tagLabel && (
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.tagCls}`}>
+                      {display.tagLabel}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{display.name}</span>
+                  {parentName && (
+                    <span className="ml-auto shrink-0 truncate text-[11px] text-muted-foreground">in {parentName}</span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </CommandDialog>
+    </>
   )
 }
 
@@ -167,7 +244,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
   const showCount = childCount > 1
 
   return (
-    <li>
+    <li data-span-id={span.id}>
       <div
         className={[
           'relative flex min-h-10 w-full cursor-pointer items-stretch pl-2 text-left text-xs',

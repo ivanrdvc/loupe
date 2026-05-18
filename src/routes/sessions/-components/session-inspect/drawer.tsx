@@ -1,32 +1,22 @@
-import { ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, QueueListIcon } from '@heroicons/react/24/outline'
-import { IconArrowUpRight, IconBraces, IconX } from '@tabler/icons-react'
+import { IconArrowUpRight, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
-import {
-  type AutoRefreshInterval,
-  AutoRefreshSelect,
-  DRAWER_AUTO_REFRESH_OPTIONS,
-} from '#/components/auto-refresh-select'
+import { type AutoRefreshInterval, DRAWER_AUTO_REFRESH_OPTIONS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
-import { IconTabs } from '#/components/icon-tabs'
+import { CopyButton } from '#/components/copy-button'
 import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
-import { Toggle } from '#/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { Span } from '#/lib/spans'
-import type { TimeRange } from '#/lib/time-range'
+import { serialize, type TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './context'
 import { SessionInspectLayout } from './overview'
+import { type SessionInspectView, SessionViewBar } from './view-bar'
 
-export type SessionInspectView = 'spans' | 'conversation' | 'context'
+export { SESSION_VIEW_TABS, type SessionInspectView } from './view-bar'
+
 type DrawerView = SessionInspectView
-
-export const SESSION_VIEW_TABS = [
-  { id: 'spans', label: 'Spans', Icon: QueueListIcon },
-  { id: 'conversation', label: 'Conversation', Icon: ChatBubbleLeftRightIcon },
-  { id: 'context', label: 'Context', Icon: ClipboardDocumentListIcon },
-] as const
 
 const DRAWER_TRANSITION_MS = 200
 
@@ -63,6 +53,7 @@ export function SessionInspectDrawer({
   const [drawerView, setDrawerView] = useState<DrawerView>('spans')
   const [contentReady, setContentReady] = useState(false)
   const [fullSpans, setFullSpans] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   const expandSearch = useMemo(() => {
     if (!expandSession) return undefined
@@ -74,11 +65,32 @@ export function SessionInspectDrawer({
     return next
   }, [expandSession, drawerView, selectedId])
 
+  const shareUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !expandSession || !expandSearch) return ''
+    const params = new URLSearchParams()
+    params.set('range', serialize(expandSearch.range))
+    params.set('view', expandSearch.view)
+    if (expandSearch.span) params.set('span', expandSearch.span)
+    return `${window.location.origin}/sessions/${encodeURIComponent(expandSession.sessionId)}?${params.toString()}`
+  }, [expandSession, expandSearch])
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed reset when the previewed session identity changes while the drawer stays mounted
   useEffect(() => {
     setSelectedId(null)
     setDrawerView('spans')
   }, [inspectSessionKey])
+
+  useEffect(() => {
+    if (!open || drawerView !== 'spans') return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, drawerView])
 
   useEffect(() => {
     let frame = 0
@@ -125,32 +137,37 @@ export function SessionInspectDrawer({
           }
         }}
       >
-        <header className="flex items-center justify-between border-b px-4 py-2.5">
+        <header className="flex items-center justify-between gap-3 border-b px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <SheetTitle>Session</SheetTitle>
+            <SheetTitle className="sr-only">Session</SheetTitle>
             <SheetDescription className="sr-only">
               Inspect spans, conversation, and context for the selected session.
             </SheetDescription>
-            {title && <span className="truncate font-mono text-xs text-muted-foreground">{title}</span>}
+            {title && (
+              <>
+                <span className="truncate font-mono text-xs text-muted-foreground">{title}</span>
+                <CopyButton value={title} label="Copy session id" />
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1">
+            {shareUrl && <ShareLinkButton url={shareUrl} />}
             {expandSession && expandSearch && (
-              <Button
-                asChild
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Expand to session page"
-                title="Expand to session page"
-              >
-                <Link
-                  to="/sessions/$sessionId"
-                  params={{ sessionId: expandSession.sessionId }}
-                  search={expandSearch}
-                  onClick={() => onClose()}
-                >
-                  <IconArrowUpRight />
-                </Link>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button asChild variant="ghost" size="icon-sm" aria-label="Open in full page">
+                    <Link
+                      to="/sessions/$sessionId"
+                      params={{ sessionId: expandSession.sessionId }}
+                      search={expandSearch}
+                      onClick={() => onClose()}
+                    >
+                      <IconArrowUpRight />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Open in full page</TooltipContent>
+              </Tooltip>
             )}
             <SheetClose asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Close">
@@ -160,36 +177,21 @@ export function SessionInspectDrawer({
           </div>
         </header>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-4 py-2">
-          <IconTabs
-            tabs={SESSION_VIEW_TABS}
-            value={drawerView}
-            onChange={setDrawerView}
-            aria-label="Session inspect view"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            {drawerView === 'spans' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Toggle size="sm" pressed={fullSpans} onPressedChange={setFullSpans} aria-label="Show raw spans">
-                    <IconBraces />
-                  </Toggle>
-                </TooltipTrigger>
-                <TooltipContent>{fullSpans ? 'Hide raw spans' : 'Show raw spans'}</TooltipContent>
-              </Tooltip>
-            )}
-            {autoRefresh != null && onAutoRefreshChange != null && onRefresh != null ? (
-              <AutoRefreshSelect
-                value={autoRefresh}
-                onChange={onAutoRefreshChange}
-                onRefresh={onRefresh}
-                loading={refreshing}
-                options={DRAWER_AUTO_REFRESH_OPTIONS}
-              />
-            ) : null}
-            {contentReady && drawerView === 'conversation' && spans.length > 0 && <ContextWindow spans={spans} />}
-          </div>
-        </div>
+        <SessionViewBar
+          view={drawerView}
+          onViewChange={setDrawerView}
+          fullSpans={fullSpans}
+          onFullSpansChange={setFullSpans}
+          onOpenPalette={() => setPaletteOpen(true)}
+          autoRefresh={autoRefresh}
+          onAutoRefreshChange={onAutoRefreshChange}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          autoRefreshOptions={DRAWER_AUTO_REFRESH_OPTIONS}
+          extras={
+            contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : null
+          }
+        />
 
         <div className="flex min-h-0 flex-1 flex-col">
           {drawerView === 'conversation' ? (
@@ -217,11 +219,42 @@ export function SessionInspectDrawer({
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 fullSpans={fullSpans}
+                paletteOpen={paletteOpen}
+                onPaletteOpenChange={setPaletteOpen}
               />
             </div>
           )}
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function ShareLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const t = window.setTimeout(() => setCopied(false), 1200)
+    return () => window.clearTimeout(t)
+  }, [copied])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+    } catch {}
+  }
+
+  return (
+    <Tooltip open={copied || undefined}>
+      <TooltipTrigger asChild>
+        <Button type="button" variant="outline" size="sm" onClick={copy}>
+          <IconShare2 />
+          Share Link
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{copied ? 'Copied' : 'Copy'}</TooltipContent>
+    </Tooltip>
   )
 }

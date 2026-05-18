@@ -1,7 +1,9 @@
+import { Clock01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo, formatCost, formatTokens, metricTone, truncateId } from '#/lib/format'
+import { formatAgo, formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 
 function userPrimary(s: SessionSummary): string {
@@ -112,6 +114,22 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
           {secondary ? (
             <span className="max-w-[160px] shrink-0 truncate text-xs text-muted-foreground">{secondary}</span>
           ) : null}
+        </div>
+      )
+    },
+  },
+  {
+    id: 'duration',
+    accessorFn: (s) => Math.max(0, s.lastSeenMs - s.startedAtMs),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Duration" className="justify-end" />,
+    cell: ({ row }) => {
+      const ms = Math.max(0, row.original.lastSeenMs - row.original.startedAtMs)
+      return (
+        <div
+          className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms, 'text-muted-foreground')}`}
+        >
+          <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 opacity-80" />
+          {formatDuration(ms)}
         </div>
       )
     },
