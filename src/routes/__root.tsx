@@ -53,6 +53,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: inline bootstrap; static literal, no untrusted input */}
         <script dangerouslySetInnerHTML={{ __html: APPLY_THEME_SCRIPT }} />
       </head>
       <body className="bg-sidebar font-sans text-foreground antialiased">

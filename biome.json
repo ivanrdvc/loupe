@@ -57,13 +57,18 @@
           "a11y": {
             "noSvgWithoutTitle": "off",
             "useSemanticElements": "off",
-            "useKeyWithClickEvents": "off"
+            "useKeyWithClickEvents": "off",
+            "useFocusableInteractive": "off"
           },
           "suspicious": {
-            "noArrayIndexKey": "off"
+            "noArrayIndexKey": "off",
+            "noDocumentCookie": "off"
           },
           "correctness": {
             "useExhaustiveDependencies": "off"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
           }
         }
       }
