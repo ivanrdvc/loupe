@@ -76,7 +76,7 @@ export interface Classification {
   responseId?: string
   systemFingerprint?: string
   sessionId?: string
-  sessionSource?: 'attribute' | 'agent-instance'
+  sessionSource?: 'attribute' | 'trace'
   // Present on chat spans that are part of a CopilotKit/AG-UI run. Absent on
   // utility LLM calls (title generation, summarization, etc.) that share the
   // same trace but are not part of the conversation flow.
@@ -182,12 +182,6 @@ export function classifySpan(name: string, attrs: Record<string, unknown>): Clas
   if (sessionAttr) {
     c.sessionId = sessionAttr
     c.sessionSource = 'attribute'
-  } else if (operation === 'invoke_agent') {
-    const hex = extractAgentInstanceId(name)
-    if (hex) {
-      c.sessionId = hex
-      c.sessionSource = 'agent-instance'
-    }
   }
 
   if (operation === 'tool') {
@@ -278,15 +272,6 @@ function pickToolName(name: string, attrs: Record<string, unknown>): string | un
 // summaries (built from a SQL roll-up of span names) need the same parser.
 export function extractAgentName(spanName: string): string | undefined {
   const m = spanName.match(/^invoke_agent\s+([^(\s]+)/)
-  return m?.[1]
-}
-
-// "invoke_agent ProverbsAgent(fc17225...)" -> "fc17225...". The hex is the
-// agent-runtime instance ID; some SDKs reuse it across turns of the same
-// session, making it a useful session-correlation fallback when no real
-// `session.id` attribute is set.
-export function extractAgentInstanceId(spanName: string): string | undefined {
-  const m = spanName.match(/^invoke_agent\s+[^(]+\(([^)]+)\)/)
   return m?.[1]
 }
 

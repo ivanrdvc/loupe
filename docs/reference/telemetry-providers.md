@@ -32,9 +32,9 @@ A provider returns `Span[]` with:
 - `startMs` / `endMs` — milliseconds since epoch.
 - `operation` — one of `chat`, `tool`, `invoke_agent`, `http` (from
   `classifySpan`).
-- `sessionId` / `sessionSource` — populated when derivable, either from a real
-  attribute (`ag_ui_thread_id` and friends) or from the agent-instance
-  heuristic.
+- `sessionId` / `sessionSource` — populated for every span. Source is
+  `attribute` when lifted from `ag_ui_thread_id` and friends, or `trace` when
+  no such attribute is present (the fallback is the OTel `trace_id`).
 - Token, cost, model, prompt/response payloads when present.
 
 Consumers rely on this. If a renderer has to special-case a backend, the bug
@@ -51,7 +51,8 @@ returning. They live in `src/lib/spans.ts` so every provider shares them.
   without this pass, the tree builder has nothing to walk from.
 - **`propagateSessionInTrace(spans)`** — finds the trace's resolved `sessionId`
   and stamps it on spans that didn't carry one themselves. A real
-  attribute-derived id wins over the agent-instance heuristic.
+  attribute-derived id wins; otherwise every span in the trace is stamped
+  with the trace id (source `trace`) so the trace appears as its own session.
 
 Single-trace fetches call both passes on the flat result. Multi-trace fetches
 (`getSession`) group by `traceId` first and run the passes per trace, because
@@ -117,11 +118,16 @@ trace-scope passes apply unchanged.
    this file under a new section. Don't push the workaround up into a
    renderer.
 
-## Session id heuristics
+## Session id fallback
 
-When a trace carries no real session-id attribute, providers fall back to the
-agent-instance hex in `invoke_agent <Name>(<hex>)` operation names
-(`findSessionKey` / `extractAgentInstanceId`). Traces with the same hex group
-under one session row, which means reusing an agent instance across distinct
-conversations merges them. The UI marks heuristic rows with a `heuristic`
-badge; the long-term fix is for callers to emit a real `ag_ui_thread_id`.
+When a trace carries no real session-id attribute (`ag_ui_thread_id`,
+`session.id`, `gen_ai.conversation.id`, …), `findSessionKey` falls back to the
+OTel `trace_id`. One trace = one session, and the UI marks the row with a
+`single trace` badge so it's clear multi-turn stitching is off.
+
+This replaced an `invoke_agent <Name>(<hex>)` hex heuristic. Verified against
+live App Insights data: the hex tracks `service.instance.id` (i.e. the
+process), not a conversation, so long-lived hosted agents collapsed every
+request through one process into a single row. The trace-id fallback splits
+real multi-turn conversations apart instead — both problems go away once the
+framework emits a real session attribute.

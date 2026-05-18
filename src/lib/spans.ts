@@ -75,12 +75,11 @@ export interface Span {
 
   // Session correlation. `attribute` = lifted from a real semconv key
   // (session.id / gen_ai.conversation.id / langfuse.session.id / ...).
-  // `agent-instance` = fallback derived from the agent-instance hex in
-  // `invoke_agent <Name>(<hex>)` span names when no attribute is present.
-  // UI discloses the source so heuristic-derived sessions don't masquerade
-  // as real ones.
+  // `trace` = fallback using the OTel trace_id when no session attribute
+  // is present. UI discloses the source so single-trace sessions don't
+  // masquerade as multi-turn conversations.
   sessionId?: string
-  sessionSource?: 'attribute' | 'agent-instance'
+  sessionSource?: 'attribute' | 'trace'
   agUiRunId?: string
   // Semantic purpose — e.g. "title_generation", "summarization". Set from
   // `teammate.llm.purpose` (app-scoped, OTel compliant). Not `.operation.name`.
@@ -102,25 +101,30 @@ export function normalizeTraceRoots(spans: Span[]): void {
 }
 
 // Stamp every span in a trace with the same sessionId. A real `attribute`
-// source wins over the `agent-instance` heuristic when both appear in the
-// same trace — so spans that didn't carry the attribute themselves get
-// stamped with it rather than with a fallback hex.
+// source wins; otherwise fall back to the trace_id (one trace = one session)
+// so the UI never invents cross-trace stitching that the data doesn't support.
 export function propagateSessionInTrace(spans: Span[]): void {
   let attrId: string | undefined
-  let heuristicId: string | undefined
   for (const s of spans) {
-    if (!s.sessionId) continue
-    if (s.sessionSource === 'attribute' && !attrId) attrId = s.sessionId
-    else if (s.sessionSource === 'agent-instance' && !heuristicId) heuristicId = s.sessionId
-  }
-  const id = attrId ?? heuristicId
-  if (!id) return
-  const source: 'attribute' | 'agent-instance' = attrId ? 'attribute' : 'agent-instance'
-  for (const s of spans) {
-    if (!s.sessionId) {
-      s.sessionId = id
-      s.sessionSource = source
+    if (s.sessionSource === 'attribute' && s.sessionId) {
+      attrId = s.sessionId
+      break
     }
+  }
+  if (attrId) {
+    for (const s of spans) {
+      if (!s.sessionId) {
+        s.sessionId = attrId
+        s.sessionSource = 'attribute'
+      }
+    }
+    return
+  }
+  const traceId = spans[0]?.traceId
+  if (!traceId) return
+  for (const s of spans) {
+    s.sessionId = traceId
+    s.sessionSource = 'trace'
   }
 }
 

@@ -213,17 +213,15 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     async getSession(sessionId, opts): Promise<SessionFetch> {
       // SQL-injection guard for the interpolated WHERE below.
       if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) return null
-      const isHex = /^[a-f0-9]+$/i.test(sessionId)
       const { fromUs, toUs } = window(opts)
       const buildTraceSql = (skip: ReadonlySet<string>) => {
-        // Heuristic (agent-instance) sessions use the trace_id as the session id —
-        // always try matching it directly so the drawer can resolve them.
+        // Fallback sessions are just the trace id, so always try matching it
+        // directly. Real session-attribute matches win when both are present.
         const clauses: string[] = [`trace_id = '${sessionId}'`]
         if (!skip.has(SESSION_ID_COL)) clauses.push(`${SESSION_ID_COL} = '${sessionId}'`)
         for (const k of sessionIdFields) {
           if (!skip.has(k)) clauses.push(`${k} = '${sessionId}'`)
         }
-        if (isHex) clauses.push(`operation_name LIKE 'invoke_agent %(${sessionId})%'`)
         const userPredicate = identityPredicate(opts, skip, customUserIdCols)
         return clauses.length === 0
           ? null
@@ -251,9 +249,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         propagateSessionInTrace(trSpans)
         propagateInheritedAttrs(trSpans)
       }
-      const source: 'attribute' | 'agent-instance' = spans.some((s) => s.sessionSource === 'attribute')
-        ? 'attribute'
-        : 'agent-instance'
+      const source: 'attribute' | 'trace' = spans.some((s) => s.sessionSource === 'attribute') ? 'attribute' : 'trace'
       let title: string | undefined
       for (const h of spanHits) {
         const v = h[SESSION_TITLE_COL]

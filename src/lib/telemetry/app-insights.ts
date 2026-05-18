@@ -170,13 +170,14 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
 
     async getSession(sessionId, opts): Promise<SessionFetch> {
       if (!isSafeId(sessionId)) return null
-      const isHex = /^[a-f0-9]+$/i.test(sessionId)
-      const hexClause = isHex ? `or name matches regex "^invoke_agent\\\\s+.*\\\\(${sessionId}\\\\)"` : ''
       const userFilter = kqlIdentityFilter(opts)
+      // Fallback sessions are just the trace id (operation_Id in AI), so match
+      // both that and any real session attribute. Real attributes win when
+      // both apply because the resulting trace set is the same anyway.
       const tracesQ = `
         union dependencies, requests
         | extend sess = ${SESSION_ID_COALESCE}
-        | where sess == "${sessionId}" ${hexClause}
+        | where sess == "${sessionId}" or operation_Id == "${sessionId}"
         ${userFilter ? `| where ${userFilter}` : ''}
         | distinct operation_Id
       `
@@ -200,9 +201,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
         propagateInheritedAttrs(trSpans)
       }
 
-      const source: 'attribute' | 'agent-instance' = spans.some((s) => s.sessionSource === 'attribute')
-        ? 'attribute'
-        : 'agent-instance'
+      const source: 'attribute' | 'trace' = spans.some((s) => s.sessionSource === 'attribute') ? 'attribute' : 'trace'
       let title: string | undefined
       for (const r of spanRows) {
         const cd = parseCustomDimensions(r.customDimensions)

@@ -151,7 +151,7 @@ export async function getSession(
   opts?: GetTraceOpts,
 ): Promise<{
   sessionId: string
-  source: 'attribute' | 'agent-instance'
+  source: 'attribute' | 'trace'
   spans: Span[]
   traceIds: string[]
   provider: string

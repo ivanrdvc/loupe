@@ -1,4 +1,4 @@
-import { extractAgentInstanceId, extractAgentName, SESSION_ID_KEYS, SESSION_TITLE_KEYS } from '#/lib/classify-span'
+import { extractAgentName, SESSION_ID_KEYS, SESSION_TITLE_KEYS } from '#/lib/classify-span'
 import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
 import type { LatencyRow, SessionSummary, ToolErrorRow, ToolPayloadRow } from './types'
@@ -75,9 +75,7 @@ export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: n
 
   const out: SessionSummary[] = []
   for (const [sessionId, traces] of tracesBySession) {
-    const source: 'attribute' | 'agent-instance' = traces.some((t) => t.source === 'attribute')
-      ? 'attribute'
-      : 'agent-instance'
+    const source: 'attribute' | 'trace' = traces.some((t) => t.source === 'attribute') ? 'attribute' : 'trace'
     const s: SessionSummary = {
       sessionId,
       title: pickLatest(traces, (t) => t.title),
@@ -108,30 +106,26 @@ export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: n
 
 export function findSessionKey(
   rows: Array<Record<string, unknown>>,
-): { id: string; source: 'attribute' | 'agent-instance' } | undefined {
+  fallbackTraceId?: string,
+): { id: string; source: 'attribute' | 'trace' } | undefined {
   for (const h of rows) {
     for (const k of SESSION_ID_KEYS) {
       const v = h[k]
       if (typeof v === 'string' && v) return { id: v, source: 'attribute' }
     }
   }
-  // Heuristic: hex of the earliest-starting invoke_agent. Parent starts
-  // before child, so the root agent is always first by start_time.
-  let root: Record<string, unknown> | undefined
-  for (const h of rows) {
-    const op = h.operation_name
-    if (typeof op !== 'string' || !op.startsWith('invoke_agent ')) continue
-    if (!root || Number(h.start_time ?? 0) < Number(root.start_time ?? 0)) root = h
-  }
-  if (!root) return undefined
-  const hex = extractAgentInstanceId(String(root.operation_name))
-  return hex ? { id: hex, source: 'agent-instance' } : undefined
+  // No session attribute on any span — fall back to the trace id so one trace
+  // counts as one session. We don't try to infer multi-trace sessions from
+  // span names; agent-instance ids identify the agent object, not a
+  // conversation, and collapse every run of a singleton agent into one row.
+  const traceId = fallbackTraceId ?? (typeof rows[0]?.trace_id === 'string' ? (rows[0].trace_id as string) : undefined)
+  return traceId ? { id: traceId, source: 'trace' } : undefined
 }
 
 type TraceSession = {
   traceId: string
   sessionId: string
-  source: 'attribute' | 'agent-instance'
+  source: 'attribute' | 'trace'
   startMs: number
   endMs: number
   agents: Set<string>
@@ -146,7 +140,7 @@ type TraceSession = {
 }
 
 function resolveTraceSession(traceId: string, rows: Array<Record<string, unknown>>): TraceSession | undefined {
-  const key = findSessionKey(rows)
+  const key = findSessionKey(rows, traceId)
   if (!key) return undefined
   return { traceId, sessionId: key.id, source: key.source, ...rollupTrace(rows) }
 }

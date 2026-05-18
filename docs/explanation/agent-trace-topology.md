@@ -98,7 +98,7 @@ trace B: POST → invoke_agent → chat        ← user message 2
 trace C: POST → invoke_agent → chat        ← user message 3
 ```
 
-Common when each user message is a fresh HTTP request. The session is the union of traces, correlated by `session.id` / `gen_ai.conversation.id` / `ag_ui.thread_id` (or the agent-instance hex heuristic, see below). Each trace is one turn.
+Common when each user message is a fresh HTTP request. The session is the union of traces, correlated by `session.id` / `gen_ai.conversation.id` / `ag_ui.thread_id`. When no such attribute is on the spans, we don't try to stitch — each trace shows as its own single-turn session and the UI marks it `single trace`.
 
 ### 5. Chats without an invoke_agent wrapper
 
@@ -140,7 +140,7 @@ A **heuristic** here means: "no formal signal in OTel exists, so we apply a patt
 
 | Heuristic | Where | What it does | Failure mode |
 |---|---|---|---|
-| **Agent-instance hex as session id** | `classify-span.ts` — `classifySpan` session correlation block | When no `session.id` / `ag_ui.thread_id` / `gen_ai.conversation.id` is present, extract the hex inside `invoke_agent <Name>(<hex>)` and use it as a session key. UI shows a yellow `heuristic id` pill. | Frameworks that emit a different name format produce no session id, so the session doesn't appear in the sessions list. Reachable directly by run id. |
+| **Trace id as session id (fallback)** | `shared.ts` — `findSessionKey`; `spans.ts` — `propagateSessionInTrace` | When no `session.id` / `ag_ui.thread_id` / `gen_ai.conversation.id` is present, the OTel `trace_id` becomes the session id. UI shows a yellow `single trace` pill. Replaces an earlier `invoke_agent <Name>(<hex>)` heuristic that turned out to be process-bound, not per-conversation. | Multi-turn conversations show as N separate sessions. The badge makes it clear the stitching is off. |
 | **Frontend tool detection** | `context.tsx` — `collectFrontendTools` | A tool is "frontend" if the LLM emitted a `tool_call` for it AND no `execute_tool` span ran it. **Gated** on at least one `execute_tool` span existing in the session — if backend instrumentation is dark, the function returns nothing rather than mislabel every backend tool. | Still misses frontend tools defined but never called this session. Also still misses backend tools called for the first time mid-session before any `execute_tool` lands — the in-flight call looks frontend until the matching span arrives. |
 | **Real tool vs. wrapped agent** | `spans.ts` — `findWrappedAgent` | An `execute_tool` span is treated as a sub-agent invocation iff it has an `invoke_agent` direct child. | Misses topology 3b where the wrapped invoke_agent is absent — the subagent chat rule catches it separately via the "not a direct child of top-level" branch. |
 | **Subagent chat rollup** | `spans.ts` — `subagentChatSpans` | A chat is "subagent" iff it has ≥1 `invoke_agent` ancestor AND is not a direct child of any top-level `invoke_agent`. | Counts chats nested under any `execute_tool` (regardless of whether it wraps a real sub-agent) as subagent. Acceptable — those tokens are work happening below the orchestrator either way, and surfacing them is the point of the rollup. |
@@ -151,6 +151,6 @@ The day OTel GenAI ships a topology attribute, most of these heuristics retire. 
 
 - **`openinference.span.kind`** — the Phoenix/Arize convention; the cheapest win. We could opportunistically read it today and treat it as authoritative when present, keeping the inference rules as fallback.
 - **`gen_ai.agent.parent_id`** — explicit "this invoke_agent is nested under that one." Would let us replace `countAgentAncestors` with an O(1) lookup.
-- **`gen_ai.conversation.id`** is already read (see `classify-span.ts`), but emitted inconsistently — when adoption widens enough that we never have to fall back, the agent-instance hex heuristic retires.
+- **`gen_ai.conversation.id`** is already read (see `classify-span.ts`), but emitted inconsistently — when adoption widens enough that we never fall back to `trace_id`, multi-turn stitching becomes the default and the `single trace` badge disappears.
 
 Until then, the ancestor-counting primitive is the cheapest correct stance: one rule, structural, testable, framework-agnostic.

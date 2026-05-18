@@ -49,41 +49,30 @@ function chat(opts: {
 
 describe('findSessionKey', () => {
   it('returns attribute id when ag_ui_thread_id is present', () => {
-    const rows: Row[] = [{ ag_ui_thread_id: 'thread-abc', operation_name: 'chat' }]
-    expect(findSessionKey(rows)).toEqual({ id: 'thread-abc', source: 'attribute' })
+    const rows: Row[] = [{ ag_ui_thread_id: 'thread-abc', operation_name: 'chat', trace_id: 't1' }]
+    expect(findSessionKey(rows, 't1')).toEqual({ id: 'thread-abc', source: 'attribute' })
   })
 
-  it('prefers attribute over heuristic when both apply', () => {
+  it('prefers attribute over trace fallback when both apply', () => {
     const rows: Row[] = [
       invokeAgent({ trace: 't1', span: 'a', agent: 'Bot', hex: 'deadbeef', startMs: 0 }),
-      { ag_ui_thread_id: 'thread-abc' },
+      { ag_ui_thread_id: 'thread-abc', trace_id: 't1' },
     ]
-    expect(findSessionKey(rows)).toEqual({ id: 'thread-abc', source: 'attribute' })
+    expect(findSessionKey(rows, 't1')).toEqual({ id: 'thread-abc', source: 'attribute' })
   })
 
-  it('picks the single invoke_agent hex when no attribute is set', () => {
+  it('falls back to the trace id when no session attribute is set', () => {
     const rows: Row[] = [invokeAgent({ trace: 't1', span: 'a', agent: 'Bot', hex: 'deadbeef', startMs: 0 })]
-    expect(findSessionKey(rows)).toEqual({ id: 'deadbeef', source: 'agent-instance' })
+    expect(findSessionKey(rows, 't1')).toEqual({ id: 't1', source: 'trace' })
   })
 
-  it('picks the parent agent (earliest start) when a sub-agent is nested', () => {
-    // Regression: rows arrive in DESC start_time order, and the execute_tool
-    // bridge between parent and sub-agent is not in the result set, so the
-    // sub-agent looks parentless. Earliest start wins.
-    const parent = invokeAgent({ trace: 't1', span: 'p', agent: 'Proverbs', hex: 'aaaa', startMs: 1000 })
-    const sub = invokeAgent({
-      trace: 't1',
-      span: 's',
-      parent: 'tool-bridge',
-      agent: 'Explorer',
-      hex: 'bbbb',
-      startMs: 1100,
-    })
-    expect(findSessionKey([sub, parent])).toEqual({ id: 'aaaa', source: 'agent-instance' })
+  it('uses rows[0].trace_id when no fallback is passed', () => {
+    const rows: Row[] = [chat({ trace: 't42', span: 'c', parent: 'x', startMs: 0 })]
+    expect(findSessionKey(rows)).toEqual({ id: 't42', source: 'trace' })
   })
 
-  it('returns undefined when no agent and no attribute', () => {
-    const rows: Row[] = [chat({ trace: 't1', span: 'c', parent: 'x', startMs: 0 })]
+  it('returns undefined when there is no trace id anywhere', () => {
+    const rows: Row[] = [{ operation_name: 'chat' }]
     expect(findSessionKey(rows)).toBeUndefined()
   })
 })
@@ -113,33 +102,40 @@ describe('aggregateSessions', () => {
     expect(out[0]).toMatchObject({ sessionId: 'thread-1', source: 'attribute', traceCount: 2, agents: ['Bot'] })
   })
 
-  it('rolls up tokens, cost, and error flag across traces in a session', () => {
+  it('rolls up tokens, cost, and error flag across traces sharing a session attribute', () => {
     const hits: Row[] = [
-      invokeAgent({ trace: 't1', span: 'a', agent: 'Bot', hex: 'aaaa', startMs: 1000 }),
-      chat({ trace: 't1', span: 'c1', parent: 'a', startMs: 1010, tokens: 100, cost: 0.001 }),
-      invokeAgent({ trace: 't2', span: 'b', agent: 'Bot', hex: 'aaaa', startMs: 2000 }),
-      chat({ trace: 't2', span: 'c2', parent: 'b', startMs: 2010, tokens: 50, cost: 0.0005, error: true }),
+      { ...invokeAgent({ trace: 't1', span: 'a', agent: 'Bot', hex: 'aaaa', startMs: 1000 }), ag_ui_thread_id: 'th-1' },
+      {
+        ...chat({ trace: 't1', span: 'c1', parent: 'a', startMs: 1010, tokens: 100, cost: 0.001 }),
+        ag_ui_thread_id: 'th-1',
+      },
+      { ...invokeAgent({ trace: 't2', span: 'b', agent: 'Bot', hex: 'aaaa', startMs: 2000 }), ag_ui_thread_id: 'th-1' },
+      {
+        ...chat({ trace: 't2', span: 'c2', parent: 'b', startMs: 2010, tokens: 50, cost: 0.0005, error: true }),
+        ag_ui_thread_id: 'th-1',
+      },
     ]
     const [session] = aggregateSessions(hits, 10)
-    expect(session.sessionId).toBe('aaaa')
+    expect(session.sessionId).toBe('th-1')
+    expect(session.source).toBe('attribute')
     expect(session.traceCount).toBe(2)
     expect(session.totalTokens).toBe(150)
     expect(session.totalCostUsd).toBeCloseTo(0.0015)
     expect(session.hasError).toBe(true)
   })
 
-  it('buckets a parent+sub-agent trace under the parent (not the sub-agent)', () => {
-    // The bug: this trace would split into two sessions before the fix.
+  it('without a session attribute, each trace becomes its own session', () => {
+    // Previously the agent-instance hex would have collapsed both traces into
+    // one session. The new fallback (trace_id) keeps them separate, because
+    // there is no real linkage in the data.
     const hits: Row[] = [
       invokeAgent({ trace: 't1', span: 'p', agent: 'Proverbs', hex: 'aaaa', startMs: 1000 }),
-      invokeAgent({ trace: 't1', span: 's', parent: 'tool', agent: 'Explorer', hex: 'bbbb', startMs: 1100 }),
       invokeAgent({ trace: 't2', span: 'p2', agent: 'Proverbs', hex: 'aaaa', startMs: 2000 }),
     ]
     const out = aggregateSessions(hits, 10)
-    expect(out).toHaveLength(1)
-    expect(out[0].sessionId).toBe('aaaa')
-    expect(out[0].traceCount).toBe(2)
-    expect(out[0].agents.sort()).toEqual(['Explorer', 'Proverbs'])
+    expect(out).toHaveLength(2)
+    expect(out.map((s) => s.sessionId).sort()).toEqual(['t1', 't2'])
+    expect(out.every((s) => s.source === 'trace')).toBe(true)
   })
 
   it('respects the limit', () => {

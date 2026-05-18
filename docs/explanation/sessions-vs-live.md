@@ -17,10 +17,10 @@ The internal unit stays a **`run`** (single trace slice). Completed work that sh
 | Job | Read what happened (multi-run thread) | Watch / inspect one execution |
 | Unit | A conversation (many runs) | One run |
 | Read-only? | Always | Currently — not by design |
-| Data origin (today) | Telemetry, joined by `session.id` / `gen_ai.conversation.id` / `ag_ui_thread_id` / agent-instance-hex fallback | Telemetry, one `trace_id` per page |
+| Data origin (today) | Telemetry, joined by `session.id` / `gen_ai.conversation.id` / `ag_ui_thread_id`; falls back to `trace_id` (one trace = one session) when no attribute is present | Telemetry, one `trace_id` per page |
 | Data origin (future) | + DB, external feeds | + live exporter stream, + direct invocation of an external agent |
 
-A run that doesn't resolve to a session id (no attribute, no `invoke_agent` hex to fall back on) currently has no listing surface. Reach it directly as `/runs/$runId` (legacy `/live/$runId` redirects) until a runs list lands.
+Every run resolves to a session id — the attribute one when present, otherwise its own `trace_id`. Fallback rows carry a `single trace` badge so the missing multi-turn stitching is visible.
 
 ## Session detail (`/sessions/$sessionId`)
 

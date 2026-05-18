@@ -108,12 +108,12 @@ function SessionDetail() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            {source === 'agent-instance' && (
+            {source === 'trace' && (
               <Badge
                 variant="warning"
-                title="Derived from the agent-instance hex in span names; no session.id attribute present."
+                title="No session.id attribute on the spans — this session is a single trace. Multi-turn stitching is off."
               >
-                heuristic id
+                single trace
               </Badge>
             )}
             {provider === 'openobserve' && (

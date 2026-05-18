@@ -36,15 +36,16 @@ export interface TraceSummary {
 
 // A session is the spine of a multi-turn conversation per
 // `docs/plans/sessions.md` — many runs share one sessionId. `source`
-// discloses whether the id came from a real attribute or the agent-instance
-// hex heuristic (used when no attribute is present).
+// discloses whether the id came from a real attribute (`attribute`) or
+// is just the trace id (`trace`), which means the data has no multi-turn
+// linkage and one trace == one session.
 export interface SessionSummary {
   sessionId: string
   title?: string
   userName?: string
   userId?: string
   host?: string
-  source: 'attribute' | 'agent-instance'
+  source: 'attribute' | 'trace'
   startedAtMs: number
   lastSeenMs: number
   traceCount: number
@@ -124,7 +125,7 @@ export type OverviewOpts = WindowOpts
 
 export type SessionFetch = {
   sessionId: string
-  source: 'attribute' | 'agent-instance'
+  source: 'attribute' | 'trace'
   traceIds: string[]
   spans: Span[]
   title?: string
