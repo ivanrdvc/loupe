@@ -6,23 +6,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#
 import { Separator } from '#/components/ui/separator'
 import { cn } from '#/lib/utils'
 
-export const AUTO_REFRESH_OPTIONS = [
-  { value: 'off', label: 'Off', selectedLabel: 'Off' },
-  { value: '30s', label: 'Every 30s', selectedLabel: '30s' },
-  { value: '1m', label: 'Every 1 min', selectedLabel: '1m' },
-  { value: '5m', label: 'Every 5 min', selectedLabel: '5m' },
-  { value: '15m', label: 'Every 15 min', selectedLabel: '15m' },
-] as const
+type IntervalDef = { label: string; selectedLabel: string; ms: false | number }
 
-export type AutoRefreshInterval = (typeof AUTO_REFRESH_OPTIONS)[number]['value']
+const AUTO_REFRESH_INTERVALS = {
+  off: { label: 'Off', selectedLabel: 'Off', ms: false },
+  '5s': { label: 'Every 5s', selectedLabel: '5s', ms: 5_000 },
+  '30s': { label: 'Every 30s', selectedLabel: '30s', ms: 30_000 },
+  '1m': { label: 'Every 1 min', selectedLabel: '1m', ms: 60_000 },
+  '5m': { label: 'Every 5 min', selectedLabel: '5m', ms: 5 * 60_000 },
+  '15m': { label: 'Every 15 min', selectedLabel: '15m', ms: 15 * 60_000 },
+} as const satisfies Record<string, IntervalDef>
+
+export type AutoRefreshInterval = keyof typeof AUTO_REFRESH_INTERVALS
+
+export const AUTO_REFRESH_MS = Object.fromEntries(
+  Object.entries(AUTO_REFRESH_INTERVALS).map(([key, def]) => [key, def.ms]),
+) as Record<AutoRefreshInterval, false | number>
+
+export const LIST_AUTO_REFRESH_OPTIONS = [
+  'off',
+  '30s',
+  '1m',
+  '5m',
+  '15m',
+] as const satisfies readonly AutoRefreshInterval[]
+
+export const DRAWER_AUTO_REFRESH_OPTIONS = [
+  'off',
+  '5s',
+  '30s',
+  '1m',
+  '5m',
+] as const satisfies readonly AutoRefreshInterval[]
+
 export const DEFAULT_AUTO_REFRESH_INTERVAL: AutoRefreshInterval = '30s'
-export const AUTO_REFRESH_MS: Record<AutoRefreshInterval, false | number> = {
-  off: false,
-  '30s': 30_000,
-  '1m': 60_000,
-  '5m': 5 * 60_000,
-  '15m': 15 * 60_000,
-}
+export const DRAWER_DEFAULT_AUTO_REFRESH_INTERVAL: AutoRefreshInterval = '5s'
 
 interface AutoRefreshSelectProps {
   value: AutoRefreshInterval
@@ -30,13 +48,21 @@ interface AutoRefreshSelectProps {
   onRefresh?: () => void
   /** Disables the refresh button while a fetch is in flight (no animation). */
   loading?: boolean
+  /** Available interval options. Defaults to the sessions-list set. */
+  options?: readonly AutoRefreshInterval[]
 }
 
 const SPIN_MS = 700
 
-export function AutoRefreshSelect({ value, onChange, onRefresh, loading = false }: AutoRefreshSelectProps) {
-  const selected = AUTO_REFRESH_OPTIONS.find((option) => option.value === value) ?? AUTO_REFRESH_OPTIONS[0]
-  // Animate the refresh icon only on manual click — silent for background polls.
+export function AutoRefreshSelect({
+  value,
+  onChange,
+  onRefresh,
+  loading = false,
+  options = LIST_AUTO_REFRESH_OPTIONS,
+}: AutoRefreshSelectProps) {
+  const selected = AUTO_REFRESH_INTERVALS[value]
+  // Animate the refresh icon only on manual click — background polls are surfaced via <RefreshingIndicator />.
   const [spin, setSpin] = useState(false)
   const handleClick = () => {
     if (!onRefresh) return
@@ -71,9 +97,9 @@ export function AutoRefreshSelect({ value, onChange, onRefresh, loading = false 
           </SelectValue>
         </SelectTrigger>
         <SelectContent position="popper" align="end">
-          {AUTO_REFRESH_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
+          {options.map((key) => (
+            <SelectItem key={key} value={key}>
+              {AUTO_REFRESH_INTERVALS[key].label}
             </SelectItem>
           ))}
         </SelectContent>

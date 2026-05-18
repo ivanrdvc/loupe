@@ -2,7 +2,11 @@ import { ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, QueueListIcon } fro
 import { IconArrowsMaximize, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
-import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
+import {
+  type AutoRefreshInterval,
+  AutoRefreshSelect,
+  DRAWER_AUTO_REFRESH_OPTIONS,
+} from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { IconTabs } from '#/components/icon-tabs'
@@ -167,6 +171,7 @@ export function SessionInspectDrawer({
                 onChange={onAutoRefreshChange}
                 onRefresh={onRefresh}
                 loading={refreshing}
+                options={DRAWER_AUTO_REFRESH_OPTIONS}
               />
             ) : null}
             {contentReady && drawerView === 'conversation' && spans.length > 0 && <ContextWindow spans={spans} />}

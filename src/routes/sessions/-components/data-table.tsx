@@ -23,6 +23,7 @@ import * as React from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { type Env, EnvSelect } from '#/components/env-select'
+import { RefreshingIndicator } from '#/components/refreshing-indicator'
 import { TimeRangeSelect } from '#/components/time-range-select'
 import { Button } from '#/components/ui/button'
 import {
@@ -121,6 +122,7 @@ export function DataTable({
               />
             </div>
           )}
+          <RefreshingIndicator active={!!refreshing} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {table.getColumn('status') && (

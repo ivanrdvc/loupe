@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
-  AUTO_REFRESH_OPTIONS,
   type AutoRefreshInterval,
   DEFAULT_AUTO_REFRESH_INTERVAL,
+  LIST_AUTO_REFRESH_OPTIONS,
 } from '#/components/auto-refresh-select'
 
 const STORAGE_KEY = 'sessions-auto-refresh'
 
 function isInterval(v: unknown): v is AutoRefreshInterval {
-  return typeof v === 'string' && AUTO_REFRESH_OPTIONS.some((o) => o.value === v)
+  return typeof v === 'string' && (LIST_AUTO_REFRESH_OPTIONS as readonly string[]).includes(v)
 }
 
 export function useAutoRefresh(): [AutoRefreshInterval, (next: AutoRefreshInterval) => void] {
