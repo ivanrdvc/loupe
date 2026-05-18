@@ -237,7 +237,9 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
     async listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]> {
       const limit = opts?.limit ?? 5
       const filter =
-        kind === 'generation' ? `| where tostring(customDimensions["gen_ai.operation.name"]) == "chat"` : ''
+        kind === 'generation'
+          ? `| where tostring(customDimensions["gen_ai.operation.name"]) == "chat"`
+          : `| where name startswith "invoke_agent " or tostring(customDimensions["gen_ai.operation.name"]) == "chat"`
       const q = `
         union dependencies, requests
         ${filter}

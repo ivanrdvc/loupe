@@ -416,7 +416,10 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     async listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]> {
       const { fromUs, toUs } = window(opts)
       const limit = opts?.limit ?? 5
-      const whereClause = kind === 'generation' ? `WHERE gen_ai_operation_name = 'chat'` : ''
+      const whereClause =
+        kind === 'generation'
+          ? `WHERE gen_ai_operation_name = 'chat'`
+          : `WHERE operation_name LIKE 'invoke_agent %' OR gen_ai_operation_name = 'chat'`
       // Duration is µs in OO; divide at query time so both providers return ms.
       const sql = `
         SELECT
