@@ -4,6 +4,7 @@
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": ["src/components/ui/**"],
   "ignoreDependencies": [
+    "@fontsource-variable/inter",
     "@tailwindcss/typography",
     "@testing-library/dom",
     "@tanstack/router-plugin",
