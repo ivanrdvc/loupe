@@ -6,7 +6,13 @@ import {
   USER_ID_ATTR_KEYS,
   USER_NAME_ATTR_KEYS,
 } from '#/lib/classify-span'
-import { normalizeTraceRoots, propagateSessionInTrace, type Span, type SpanKind } from '#/lib/spans'
+import {
+  normalizeTraceRoots,
+  propagateInheritedAttrs,
+  propagateSessionInTrace,
+  type Span,
+  type SpanKind,
+} from '#/lib/spans'
 import { aggregateSessions, groupBy, mapLatencyRow, pickIdentityValue } from './shared'
 import type {
   GetTraceOpts,
@@ -98,6 +104,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       const spans = rows.map((r) => normalizeAiRow(r, traceId))
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
+      propagateInheritedAttrs(spans)
       return { spans, truncated: rows.length >= SESSION_SCAN_LIMIT }
     },
 
@@ -190,6 +197,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       for (const trSpans of groupBy(spans, (s) => s.traceId).values()) {
         normalizeTraceRoots(trSpans)
         propagateSessionInTrace(trSpans)
+        propagateInheritedAttrs(trSpans)
       }
 
       const source: 'attribute' | 'agent-instance' = spans.some((s) => s.sessionSource === 'attribute')

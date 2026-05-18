@@ -40,9 +40,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '#/components/ui/sidebar'
-import { useUser } from '#/hooks/use-user'
+import { useUser, useUserId } from '#/hooks/use-user'
 import { DEFAULT } from '#/lib/time-range'
 import { inboxUnreadCountQuery } from '#/routes/inbox/-data'
+import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 
 const APP_VERSION = `v${__APP_VERSION__}`
 
@@ -61,16 +62,13 @@ const MAIN_NAV: NavItem[] = [
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals') },
 ]
 
-const MOCK_RECENT_SESSIONS: { sessionId: string; title: string }[] = [
-  { sessionId: 'demo-1', title: 'Triage spike in checkout latency' },
-  { sessionId: 'demo-2', title: 'Refactor auth middleware to JWT' },
-  { sessionId: 'demo-3', title: 'Add telemetry to onboarding flow' },
-]
-
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { data: unreadCount = 0 } = useQuery(inboxUnreadCountQuery())
+  const [userId] = useUserId()
+  const { data: recentData } = useQuery(currentUserSessionsQuery(DEFAULT, userId))
+  const recentSessions = recentData?.sessions ?? []
 
   return (
     <>
@@ -110,26 +108,28 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarGroup>
-            <SidebarGroupLabel>Recent</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {MOCK_RECENT_SESSIONS.map((session) => (
-                  <SidebarMenuItem key={session.sessionId}>
-                    <SidebarMenuButton asChild>
-                      <Link
-                        to="/sessions/$sessionId"
-                        params={{ sessionId: session.sessionId }}
-                        search={{ range: DEFAULT, view: 'conversation' }}
-                      >
-                        <span className="truncate">{session.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {recentSessions.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Recent</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {recentSessions.map((session) => (
+                    <SidebarMenuItem key={session.sessionId}>
+                      <SidebarMenuButton asChild>
+                        <Link
+                          to="/sessions/$sessionId"
+                          params={{ sessionId: session.sessionId }}
+                          search={{ range: DEFAULT, view: 'conversation' }}
+                        >
+                          <span className="truncate">{session.title ?? session.sessionId}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
           <SidebarGroup className="mt-auto">
             <SidebarGroupContent>

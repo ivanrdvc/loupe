@@ -5,7 +5,6 @@ import {
   type AutoRefreshInterval,
   DEFAULT_AUTO_REFRESH_INTERVAL,
 } from '#/components/auto-refresh-select'
-import { truncateId } from '#/lib/format'
 import type { Span } from '#/lib/spans'
 import type { TimeRange } from '#/lib/time-range'
 import { sessionQuery } from '../-data'
@@ -61,7 +60,7 @@ export function SessionsDrawerHost({ previewSessionId, range, onClose }: Session
       inspectSessionKey={displayPreview?.sessionId ?? null}
       spans={displayPreview?.spans ?? []}
       loading={open ? isLoading : false}
-      title={displayPreview ? truncateId(displayPreview.sessionId) : undefined}
+      title={displayPreview?.sessionId}
       expandSession={displayPreview ? { sessionId: displayPreview.sessionId, range } : undefined}
       autoRefresh={autoRefresh}
       onAutoRefreshChange={setAutoRefresh}

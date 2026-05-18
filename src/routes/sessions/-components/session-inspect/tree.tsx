@@ -311,7 +311,7 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
       {(span.llmInput != null || span.llmOutput != null) && (
-        <MessagesBlock input={span.llmInput} output={span.llmOutput} spans={spans} />
+        <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} spans={spans} />
       )}
 
       {(span.responseId || span.systemFingerprint) && (
@@ -329,12 +329,23 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
   )
 }
 
-function MessagesBlock({ input, output, spans }: { input?: JsonValue; output?: JsonValue; spans?: Span[] }) {
+function MessagesBlock({
+  input,
+  output,
+  outputType,
+  spans,
+}: {
+  input?: JsonValue
+  output?: JsonValue
+  outputType?: string
+  spans?: Span[]
+}) {
   const inputMsgs = asMessages(input)
   const outputMsgs = asMessages(output)
   // Tool results live on the sibling execute_tool span — asMessages drops
   // tool-role messages — so we splice them back in keyed by tool_call id.
   const callResolutions = useMemo(() => (spans ? resolveToolCalls(spans) : new Map()), [spans])
+  const structured = outputType && outputType !== 'text' ? outputType : undefined
 
   // If parser produced nothing usable, fall back to raw JSON so we don't hide data.
   if (inputMsgs.length === 0 && outputMsgs.length === 0) {
@@ -354,8 +365,14 @@ function MessagesBlock({ input, output, spans }: { input?: JsonValue; output?: J
           <MessageCard key={`in-${i}`} msg={msg} callResolutions={callResolutions} />
         ))}
         {outputMsgs.map((msg, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
-          <MessageCard key={`out-${i}`} msg={msg} response callResolutions={callResolutions} />
+          <MessageCard
+            // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
+            key={`out-${i}`}
+            msg={msg}
+            response
+            structured={structured}
+            callResolutions={callResolutions}
+          />
         ))}
       </div>
     </section>
@@ -384,23 +401,38 @@ const TOOL_CALL_TONES = {
 function MessageCard({
   msg,
   response,
+  structured,
   callResolutions,
 }: {
   msg: ChatMessage
   response?: boolean
+  structured?: string
   callResolutions: Map<string, ToolCallResolution>
 }) {
   const style = ROLE_STYLES[msg.role]
+  const isStructured = Boolean(response && structured)
+  const ring = isStructured ? 'ring-slate-500/30 dark:ring-slate-400/25' : style.ring
   return (
-    <div className={`min-w-0 rounded-md bg-card px-3 py-2 ring-1 ${style.ring}`}>
+    <div className={`min-w-0 rounded-md bg-card px-3 py-2 ring-1 ${ring}`}>
       <div className="mb-1.5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        <span>{style.label}</span>
-        {response && <span className="text-muted-foreground/70">· response</span>}
+        {isStructured ? (
+          <>
+            <span>Structured output</span>
+            <span className="rounded bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-medium text-slate-700 dark:text-slate-300">
+              {structured}
+            </span>
+          </>
+        ) : (
+          <>
+            <span>{style.label}</span>
+            {response && <span className="text-muted-foreground/70">· response</span>}
+          </>
+        )}
       </div>
       <div className="space-y-2">
         {msg.parts.map((part, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: part positions are stable for a frozen message
-          <MessagePartView key={i} part={part} callResolutions={callResolutions} />
+          <MessagePartView key={i} part={part} structured={isStructured} callResolutions={callResolutions} />
         ))}
       </div>
     </div>
@@ -409,12 +441,15 @@ function MessageCard({
 
 function MessagePartView({
   part,
+  structured,
   callResolutions,
 }: {
   part: MessagePart
+  structured?: boolean
   callResolutions: Map<string, ToolCallResolution>
 }) {
   if (part.kind === 'text') {
+    if (structured) return <StructuredText content={part.content} />
     return (
       <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground">{part.content}</pre>
     )
@@ -462,6 +497,33 @@ function MessagePartView({
   return (
     <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
       {formatJson(part.response)}
+    </pre>
+  )
+}
+
+function StructuredText({ content }: { content: string }) {
+  const parsed = (() => {
+    try {
+      return JSON.parse(content) as unknown
+    } catch {
+      return undefined
+    }
+  })()
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const entries = Object.entries(parsed as Record<string, unknown>)
+    if (entries.length === 1 && typeof entries[0][1] === 'string') {
+      const [key, value] = entries[0]
+      return (
+        <div className="flex flex-wrap items-baseline gap-1.5">
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{key}</span>
+          <span className="text-[11px] leading-relaxed text-foreground">{value}</span>
+        </div>
+      )
+    }
+  }
+  return (
+    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+      {parsed !== undefined ? formatJson(parsed) : content}
     </pre>
   )
 }

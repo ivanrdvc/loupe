@@ -81,6 +81,13 @@ export interface Span {
   // as real ones.
   sessionId?: string
   sessionSource?: 'attribute' | 'agent-instance'
+  agUiRunId?: string
+  // Semantic purpose — e.g. "title_generation", "summarization". Set from
+  // `teammate.llm.purpose` (app-scoped, OTel compliant). Not `.operation.name`.
+  operationName?: string
+  // `gen_ai.output.type` — `text` by default; non-text values mark a
+  // structured call so the UI doesn't render it as a chat reply.
+  outputType?: string
 }
 
 // Treat a span as root when its declared parent is not present in the trace.
@@ -115,6 +122,36 @@ export function propagateSessionInTrace(spans: Span[]): void {
       s.sessionSource = source
     }
   }
+}
+
+// SDKs set these attrs on a wrapping Activity (utility purpose, AG-UI run)
+// but don't re-stamp them on inner spans — inherit from the nearest ancestor.
+export function propagateInheritedAttrs(spans: Span[]): void {
+  const byId = new Map(spans.map((s) => [s.id, s]))
+  for (const s of spans) {
+    if (!s.parentId) continue
+    if (s.operationName && s.agUiRunId) continue
+    let cur: Span | undefined = byId.get(s.parentId)
+    while (cur && (!s.operationName || !s.agUiRunId)) {
+      if (!s.operationName && cur.operationName) s.operationName = cur.operationName
+      if (!s.agUiRunId && cur.agUiRunId) s.agUiRunId = cur.agUiRunId
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined
+    }
+  }
+}
+
+// Side-channel LLM calls (title gen, summarization). Explicit signal:
+// `teammate.llm.purpose`. Fallback: in an AG-UI trace, conversation chats
+// carry `ag_ui.run_id` and utility chats don't.
+export function findUtilityChatIds(spans: Span[]): Set<string> {
+  const traceHasAgUiRun = spans.some((s) => s.agUiRunId != null)
+  const out = new Set<string>()
+  for (const s of spans) {
+    if (s.operation !== 'chat') continue
+    if (s.operationName) out.add(s.id)
+    else if (traceHasAgUiRun && !s.agUiRunId) out.add(s.id)
+  }
+  return out
 }
 
 export const KIND_LETTER: Record<SpanKind, string> = {

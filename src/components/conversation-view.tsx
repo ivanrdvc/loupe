@@ -138,6 +138,7 @@ function renderEvent(event: ConversationEvent, ctx: EventContext) {
   if (event.kind === 'tool_result') return null
 
   if (event.kind === 'message') {
+    if (event.role === 'system') return null
     const key = `msg-${event.spanId ?? ''}-${event.seq}`
     return <MessageBubble key={key} event={event} />
   }
@@ -174,6 +175,8 @@ function renderEvent(event: ConversationEvent, ctx: EventContext) {
       />
     )
   }
+
+  if (event.kind === 'utility_chat') return null
 
   return null
 }

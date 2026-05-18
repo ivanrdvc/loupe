@@ -178,7 +178,9 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
     if (!userId) userId = pickString(h, ['user_id'])
     if (!host) host = pickString(h, ['host_name', 'service_name'])
     if (h.gen_ai_operation_name === 'chat') {
-      const t = num(h.llm_usage_tokens_total)
+      const inp = num(h.gen_ai_usage_input_tokens) ?? 0
+      const out = num(h.gen_ai_usage_output_tokens) ?? 0
+      const t = num(h.llm_usage_tokens_total) ?? (inp + out > 0 ? inp + out : undefined)
       if (t) tokens += t
       const c = num(h.llm_usage_cost_total)
       if (c) cost += c

@@ -1,10 +1,11 @@
 import { type JsonValue, parseJson } from './json'
-import { findWrappedAgent, type Span } from './spans'
+import { findUtilityChatIds, findWrappedAgent, type Span } from './spans'
 
 // Discriminated union for the conversation view. Each renderer pattern-
-// matches on `kind`; adding a new event type is one new arm. See
-// `Timeline Event.md` in the vault for the rationale (don't extend Span
-// with optional message/tool fields — every renderer ends up guarding).
+// matches on `kind`; adding a new event type is one new arm. We deliberately
+// don't extend Span with optional message/tool fields — every renderer ends
+// up guarding them, and the discriminant lets each event carry only what it
+// needs.
 //
 // `parentAgentSpanId` carries the spanId of the wrapping `execute_tool`
 // (= the agent_call event) when an event originates from inside a sub-
@@ -27,6 +28,15 @@ export type ConversationEvent =
       // messages echoed back through later turns' `llm_input`.
       inputTokens?: number
       outputTokens?: number
+    }
+  | {
+      kind: 'utility_chat'
+      timestamp: number
+      spanId: string
+      model?: string
+      inputTokens?: number
+      outputTokens?: number
+      label?: string
     }
   | {
       kind: 'tool_call'
@@ -99,10 +109,16 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
   const seen = new Set<string>()
   const sorted = [...spans].sort((a, b) => a.startMs - b.startMs)
 
+  const utilityChatIds = findUtilityChatIds(spans)
+
   for (const span of sorted) {
     const parentAgentSpanId = parentAgentBySpanId.get(span.id)
     if (span.operation === 'chat') {
-      emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
+      if (utilityChatIds.has(span.id)) {
+        emitUtilityChat(span, events)
+      } else {
+        emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
+      }
     } else if (span.operation === 'tool') {
       emitTool(span, spans, events, parentAgentSpanId)
     }
@@ -110,6 +126,21 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
 
   events.sort((a, b) => a.timestamp - b.timestamp)
   return events
+}
+
+function emitUtilityChat(span: Span, events: ConversationEvent[]): void {
+  const firstSystem = asMessages(span.llmInput).find((m) => m.role === 'system')
+  const labelPart = firstSystem?.parts.find((p): p is Extract<MessagePart, { kind: 'text' }> => p.kind === 'text')
+  const label = labelPart?.content.slice(0, 80).replace(/\n.*/s, '')
+  events.push({
+    kind: 'utility_chat',
+    timestamp: span.startMs,
+    spanId: span.id,
+    model: span.model,
+    inputTokens: span.inputTokens,
+    outputTokens: span.outputTokens,
+    label,
+  })
 }
 
 function emitChat(
@@ -316,9 +347,9 @@ function asParts(v: JsonValue | undefined): MessagePart[] {
   return out
 }
 
-// Per vault §3: tool failures don't set span_status=ERROR — the failure lives
-// in the result payload. Common shapes: { error: true, ... } or
-// { status: 'error', message: ... }.
+// Tool failures don't set span_status=ERROR — the failure lives in the
+// result payload. Common shapes: `{ error: true, ... }` or
+// `{ status: 'error', message: ... }`.
 function parseToolResultStatus(v: JsonValue | undefined): {
   success: boolean
   error?: { kind: string; message: string }
