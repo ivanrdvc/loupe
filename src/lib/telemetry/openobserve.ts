@@ -8,7 +8,7 @@ import {
   type Span,
   type SpanKind,
 } from '#/lib/spans'
-import { type CanonicalField, ooCoalesceAs, ooColumns } from './conventions'
+import { ooCoalesceAs, ooColumns } from './conventions'
 import { readFieldConfig } from './field-config'
 import {
   aggregateSessions,
@@ -65,11 +65,35 @@ const DEFAULT_WINDOW_US = 30 * 24 * 60 * 60 * 1_000_000
 const LLM_INPUT_EXTRAS = ['_o2_llm_input']
 const LLM_COST_EXTRAS = ['_o2_llm_cost_details_total']
 
+const SCHEMA_TTL_MS = 5 * 60 * 1000
+
 export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProvider {
   // sessionKind/llmPurpose are deployment-specific, not OTel — stay in field-config.
   const { sessionKindField, llmPurposeField } = readFieldConfig()
   const sessionKindCol = sessionKindField?.replace(/\./g, '_')
   const llmPurposeCol = llmPurposeField?.replace(/\./g, '_')
+  const auth = btoa(`${cfg.user}:${cfg.password}`)
+
+  let schemaCache: { cols: Set<string>; at: number } | undefined
+  const getKnownColumns = async (): Promise<Set<string>> => {
+    if (schemaCache && Date.now() - schemaCache.at < SCHEMA_TTL_MS) return schemaCache.cols
+    const resp = await fetch(`${cfg.baseUrl}/api/${cfg.org}/streams/${cfg.stream}/schema?type=traces`, {
+      headers: { Authorization: `Basic ${auth}` },
+    })
+    // Stream not ingested yet, or upstream error — cache empty so optional
+    // columns fall back to '' literals; queries that need real data still run.
+    const cols = new Set<string>()
+    if (resp.ok) {
+      const data = (await resp.json()) as { schema?: Array<{ name: string }> }
+      for (const c of data.schema ?? []) cols.add(c.name)
+    }
+    schemaCache = { cols, at: Date.now() }
+    return cols
+  }
+  const forgetSchema = () => {
+    schemaCache = undefined
+  }
+
   const search = async (
     sql: string,
     fromUs: number,
@@ -79,13 +103,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     const body = JSON.stringify({
       query: { sql, start_time: fromUs, end_time: toUs, from: 0, size },
     })
-    const auth = btoa(`${cfg.user}:${cfg.password}`)
     const resp = await fetch(`${cfg.baseUrl}/api/${cfg.org}/_search?type=traces`, {
       method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
       body,
     })
     if (!resp.ok) {
@@ -96,6 +116,19 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     }
     const json = (await resp.json()) as { hits?: unknown[] }
     return (json.hits ?? []) as Array<Record<string, unknown>>
+  }
+
+  // Build the SQL with a fresh column set; on 20004 (new column appeared after
+  // cache, or schema raced), drop the cache and retry exactly once.
+  const runWithSchema = async <T>(run: (known: ReadonlySet<string>) => Promise<T>): Promise<T> => {
+    try {
+      return await run(await getKnownColumns())
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!msg.includes('"code":20004')) throw e
+      forgetSchema()
+      return await run(await getKnownColumns())
+    }
   }
 
   return {
@@ -119,28 +152,28 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
       // Pull every row needed to (a) resolve a trace's session id and (b)
       // roll up its tokens/cost. Group by trace in TS, then by session.
-      const buildSql = (skip: ReadonlySet<string>) => {
-        const userPredicate = identityPredicate(opts, skip)
-        const sessionCols = ooColumns('sessionId', { skip })
+      const buildSql = (known: ReadonlySet<string>) => {
+        const userPredicate = identityPredicate(opts, known)
+        const sessionCols = ooColumns('sessionId', { known })
         return `
         SELECT
           trace_id,
           span_id,
           reference_parent_span_id,
           operation_name,
-          ${ooCoalesceAs('sessionId', 'ag_ui_thread_id', { skip })},
-          ${ooCoalesceAs('sessionTitle', 'ag_ui_thread_title', { skip })},
-          ${ooCoalesceAs('llmInput', 'llm_input', { skip, extras: LLM_INPUT_EXTRAS })},
-          ${ooCoalesceAs('userName', 'user_name', { skip })},
-          ${ooCoalesceAs('userId', 'user_id', { skip })},
-          ${ooCoalesceAs('host', 'host_name', { skip })},
+          ${ooCoalesceAs('sessionId', 'ag_ui_thread_id', { known })},
+          ${ooCoalesceAs('sessionTitle', 'ag_ui_thread_title', { known })},
+          ${ooCoalesceAs('llmInput', 'llm_input', { known, extras: LLM_INPUT_EXTRAS })},
+          ${ooCoalesceAs('userName', 'user_name', { known })},
+          ${ooCoalesceAs('userId', 'user_id', { known })},
+          ${ooCoalesceAs('host', 'host_name', { known })},
           start_time,
           end_time,
           gen_ai_operation_name,
-          ${ooCoalesceAs('totalTokens', 'llm_usage_tokens_total', { skip })},
-          ${ooCoalesceAs('costUsd', 'llm_usage_cost_total', { skip, extras: LLM_COST_EXTRAS })},
-          ${ooCoalesceAs('inputTokens', 'gen_ai_usage_input_tokens', { skip })},
-          ${ooCoalesceAs('outputTokens', 'gen_ai_usage_output_tokens', { skip })},
+          ${ooCoalesceAs('totalTokens', 'llm_usage_tokens_total', { known })},
+          ${ooCoalesceAs('costUsd', 'llm_usage_cost_total', { known, extras: LLM_COST_EXTRAS })},
+          ${ooCoalesceAs('inputTokens', 'gen_ai_usage_input_tokens', { known })},
+          ${ooCoalesceAs('outputTokens', 'gen_ai_usage_output_tokens', { known })},
           span_status,
           service_name
         FROM "${cfg.stream}"
@@ -154,24 +187,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         LIMIT ${SESSION_SCAN_LIMIT}
       `
       }
-      const hits = await searchDroppingMissing(
-        (skip) => search(buildSql(skip), fromUs, toUs, SESSION_SCAN_LIMIT),
-        allOptionalCols(
-          [
-            'sessionId',
-            'sessionTitle',
-            'llmInput',
-            'userName',
-            'userId',
-            'host',
-            'totalTokens',
-            'costUsd',
-            'inputTokens',
-            'outputTokens',
-          ],
-          { llmInput: LLM_INPUT_EXTRAS, costUsd: LLM_COST_EXTRAS },
-        ),
-      )
+      const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, SESSION_SCAN_LIMIT))
       const truncated = hits.length >= SESSION_SCAN_LIMIT
       return { sessions: aggregateSessions(hits, limit), truncated }
     },
@@ -179,21 +195,18 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
     async getSession(sessionId, opts): Promise<SessionFetch> {
       if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) return null
       const { fromUs, toUs } = window(opts)
-      const buildTraceSql = (skip: ReadonlySet<string>) => {
+      const buildTraceSql = (known: ReadonlySet<string>) => {
         // Fallback sessions are just the trace id — always include.
         const clauses: string[] = [`trace_id = '${sessionId}'`]
-        for (const col of ooColumns('sessionId', { skip })) {
+        for (const col of ooColumns('sessionId', { known })) {
           clauses.push(`${col} = '${sessionId}'`)
         }
-        const userPredicate = identityPredicate(opts, skip)
+        const userPredicate = identityPredicate(opts, known)
         return `SELECT DISTINCT trace_id FROM "${cfg.stream}" WHERE (${clauses.join(' OR ')}) ${
           userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''
         }`
       }
-      const trHits = await searchDroppingMissing(
-        (skip) => search(buildTraceSql(skip), fromUs, toUs),
-        allOptionalCols(['sessionId', 'userName', 'userId']),
-      )
+      const trHits = await runWithSchema((known) => search(buildTraceSql(known), fromUs, toUs))
       const traceIds = trHits.map((h) => String(h.trace_id)).filter(Boolean)
       if (traceIds.length === 0) return null
       const idList = traceIds.map((id) => `'${id}'`).join(',')
@@ -225,12 +238,13 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
       // Tokens / cost from chat spans only — agent spans roll up the same
       // numbers, so summing all spans would double-count.
-      const buildSql = (skip: ReadonlySet<string>) => {
-        const sessionCols = ooColumns('sessionId', { skip })
-        const tokenCols = ooColumns('totalTokens', { skip })
-        const costCols = ooColumns('costUsd', { skip, extras: LLM_COST_EXTRAS })
-        const uidCols = ooColumns('userId', { skip })
-        const unameCols = ooColumns('userName', { skip })
+      const buildSql = (known: ReadonlySet<string>) => {
+        const sessionCols = ooColumns('sessionId', { known })
+        const tokenCols = ooColumns('totalTokens', { known })
+        const costCols = ooColumns('costUsd', { known, extras: LLM_COST_EXTRAS })
+        const uidCols = ooColumns('userId', { known })
+        const unameCols = ooColumns('userName', { known })
+        const has = (c: string) => known.has(c)
         const maxOf = (cols: readonly string[]) =>
           cols.length === 0
             ? 'NULL'
@@ -260,8 +274,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
           SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN 1 ELSE 0 END) AS chat_count,
           ${sessionKindCol ? `MAX(${sessionKindCol}) AS session_kind,` : ''}
           ${llmPurposeCol ? `MAX(${llmPurposeCol}) AS llm_purpose,` : ''}
-          ${skip.has('session_trigger_type') ? '' : `MAX(session_trigger_type) AS trigger_type,`}
-          ${skip.has('session_execution') ? '' : `MAX(session_execution) AS execution,`}
+          ${has('session_trigger_type') ? `MAX(session_trigger_type) AS trigger_type,` : ''}
+          ${has('session_execution') ? `MAX(session_execution) AS execution,` : ''}
           MAX(CASE WHEN reference_parent_span_id IS NULL THEN operation_name END) AS root_operation,
           ${maxOf(uidCols)} AS trace_user_id,
           ${maxOf(unameCols)} AS trace_user_name
@@ -274,16 +288,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         LIMIT ${limit}
       `
       }
-      const hits = await searchDroppingMissing(
-        (skip) => search(buildSql(skip), fromUs, toUs, limit),
-        [
-          ...allOptionalCols(['sessionId', 'totalTokens', 'costUsd', 'userId', 'userName'], {
-            costUsd: LLM_COST_EXTRAS,
-          }),
-          'session_trigger_type',
-          'session_execution',
-        ],
-      )
+      const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, limit))
       return hits.map(hitToSummary)
     },
 
@@ -436,8 +441,10 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
   }
 }
 
-// OO returns 20004 when the SQL references a column that doesn't exist yet
-// (fresh stream, no spans of that shape). Swallow → empty result.
+// Swallow 20004 (column-not-found) → empty result. Used by the standalone
+// queries that don't go through runWithSchema (overview, latency, etc.) and
+// reference only fixed columns; if the stream is too fresh to have them, the
+// query just returns nothing.
 async function searchOrEmpty<T>(run: () => Promise<T[]>): Promise<T[]> {
   try {
     return await run()
@@ -445,30 +452,6 @@ async function searchOrEmpty<T>(run: () => Promise<T[]>): Promise<T[]> {
     if (e instanceof Error && e.message.includes('"code":20004')) return []
     throw e
   }
-}
-
-// Retry a query, dropping each missing optional field one at a time so the
-// schema gracefully degrades — if `ag_ui_thread_title` is missing but
-// `llm_input` exists, the second attempt keeps `llm_input`.
-async function searchDroppingMissing<T>(
-  run: (skip: ReadonlySet<string>) => Promise<T>,
-  optionalFields: readonly string[],
-  maxAttempts = optionalFields.length + 1,
-): Promise<T> {
-  const skip = new Set<string>()
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      return await run(skip)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (!msg.includes('"code":20004')) throw e
-      const newlyMissing = optionalFields.filter((f) => !skip.has(f) && msg.includes(`No field named ${f}`))
-      if (newlyMissing.length === 0) throw e
-      for (const f of newlyMissing) skip.add(f)
-    }
-  }
-  // Final attempt with all optional fields dropped.
-  return await run(new Set(optionalFields))
 }
 
 function window(opts: GetTraceOpts | ListTracesOpts | undefined): { fromUs: number; toUs: number } {
@@ -479,20 +462,12 @@ function window(opts: GetTraceOpts | ListTracesOpts | undefined): { fromUs: numb
 
 function identityPredicate(
   opts: { userId?: string; userName?: string } | undefined,
-  skip: ReadonlySet<string>,
+  known: ReadonlySet<string>,
 ): string | undefined {
   const id = pickIdentityValue(opts)
   if (!id) return undefined
-  const cols = ooColumns(id.kind === 'id' ? 'userId' : 'userName', { skip })
+  const cols = ooColumns(id.kind === 'id' ? 'userId' : 'userName', { known })
   return cols.map((k) => `${k} = ${sqlString(id.value)}`).join(' OR ') || undefined
-}
-
-// Flatten the per-field optional-column list for searchDroppingMissing.
-function allOptionalCols(
-  fields: readonly CanonicalField[],
-  extrasMap: Partial<Record<CanonicalField, readonly string[]>> = {},
-): string[] {
-  return fields.flatMap((f) => ooColumns(f, { extras: extrasMap[f] }))
 }
 
 function sqlString(value: string): string {

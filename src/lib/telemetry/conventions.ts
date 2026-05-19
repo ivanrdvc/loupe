@@ -92,13 +92,10 @@ export function pickCanonicalNumber(attrs: Record<string, unknown>, field: Canon
   return undefined
 }
 
-// `extras` carries OO-specific column quirks (e.g. `_o2_*` prefixes) that
-// aren't OTel attrs. `skip` is the retry-loop blacklist used today by
-// searchDroppingMissing; it'll be replaced by `known` once the schema probe
-// lands.
+// `extras` carries OO-specific column quirks (`_o2_*` prefixes that aren't
+// OTel attrs). `known` is the schema-probe result; if absent, no filtering.
 export interface OoColumnOpts {
   known?: ReadonlySet<string>
-  skip?: ReadonlySet<string>
   extras?: readonly string[]
 }
 
@@ -106,10 +103,8 @@ export function ooColumns(field: CanonicalField, opts?: OoColumnOpts): string[] 
   const base = ATTRS[field].map((k) => k.replaceAll('.', '_'))
   const extra = customExtras(field)
   const explicit = opts?.extras ?? EMPTY
-  let cols = [...new Set([...base, ...extra, ...explicit])]
-  if (opts?.skip) cols = cols.filter((c) => !opts.skip?.has(c))
-  if (opts?.known) cols = cols.filter((c) => opts.known?.has(c))
-  return cols
+  const cols = [...new Set([...base, ...extra, ...explicit])]
+  return opts?.known ? cols.filter((c) => opts.known?.has(c)) : cols
 }
 
 export function ooCoalesceAs(field: CanonicalField, alias: string, opts?: OoColumnOpts): string {
