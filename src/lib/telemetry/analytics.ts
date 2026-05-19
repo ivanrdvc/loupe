@@ -19,7 +19,6 @@ import type {
   TelemetryProvider,
   ToolErrorRow,
   ToolPayloadRow,
-  ToolSpark,
   TopOpts,
   WindowOpts,
 } from './types'
@@ -61,24 +60,6 @@ export async function fetchToolPayloadSizes(p: TelemetryProvider, opts?: TopOpts
       return oo.fetchToolPayloadSizes(p, opts)
     case 'app-insights':
       return ai.fetchToolPayloadSizes(p, opts)
-  }
-}
-
-export async function fetchToolErrorRatesBucketed(p: TelemetryProvider, opts?: TopOpts): Promise<ToolSpark[]> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchToolBucketed(p, 'errors', opts)
-    case 'app-insights':
-      return ai.fetchToolBucketed(p, 'errors', opts)
-  }
-}
-
-export async function fetchToolPayloadSizesBucketed(p: TelemetryProvider, opts?: TopOpts): Promise<ToolSpark[]> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchToolBucketed(p, 'payload_avg', opts)
-    case 'app-insights':
-      return ai.fetchToolBucketed(p, 'payload_avg', opts)
   }
 }
 

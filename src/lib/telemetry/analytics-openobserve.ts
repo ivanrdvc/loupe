@@ -15,7 +15,6 @@ import type {
   RunsPoint,
   ToolErrorRow,
   ToolPayloadRow,
-  ToolSpark,
   TopOpts,
   WindowOpts,
 } from './types'
@@ -119,35 +118,6 @@ export async function fetchToolPayloadSizes(p: OpenObserveProvider, opts?: TopOp
   `
   const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
   return hits.map(mapToolPayloadRow)
-}
-
-export type ToolBucketMetric = 'errors' | 'payload_avg'
-
-export async function fetchToolBucketed(
-  p: OpenObserveProvider,
-  metric: ToolBucketMetric,
-  opts?: TopOpts,
-): Promise<ToolSpark[]> {
-  const { expr, extraWhere } =
-    metric === 'errors'
-      ? { expr: "SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END)", extraWhere: '' }
-      : { expr: 'AVG(LENGTH(gen_ai_tool_call_result))', extraWhere: 'AND gen_ai_tool_call_result IS NOT NULL' }
-  const fromUs = opts?.fromUs ?? 0
-  const toUs = opts?.toUs ?? 0
-  const bucketSec = bucketSecondsFor(fromUs, toUs)
-  const sql = `
-    SELECT
-      operation_name AS name,
-      date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
-      ${expr} AS value
-    FROM "${p.stream}"
-    WHERE operation_name LIKE 'execute_tool %'
-      ${extraWhere}
-    GROUP BY name, bucket
-    ORDER BY name, bucket
-  `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
-  return groupSparks(hits, fromUs, toUs, bucketSec)
 }
 
 export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {
@@ -279,41 +249,6 @@ function bucketSecondsFor(fromUs: number, toUs: number): number {
   return Math.max(60, Math.floor(spanSec / SPARK_BUCKETS))
 }
 
-// Zero-fills missing buckets so every sparkline is the same width.
-function groupSparks(
-  hits: Array<Record<string, unknown>>,
-  fromUs: number,
-  toUs: number,
-  bucketSec: number,
-): ToolSpark[] {
-  const bucketMs = bucketSec * 1000
-  const startMs = Math.floor(fromUs / 1000)
-  const endMs = Math.floor(toUs / 1000)
-  const slots: number[] = []
-  for (let t = startMs; t < endMs && slots.length < SPARK_BUCKETS; t += bucketMs) slots.push(t)
-  if (slots.length === 0) return []
-  const byName = new Map<string, Map<number, number>>()
-  for (const h of hits) {
-    const name = String(h.name ?? '')
-    if (!name) continue
-    const ts = parseBucketMs(h.bucket)
-    if (ts === undefined) continue
-    const value = num(h.value) ?? 0
-    let m = byName.get(name)
-    if (!m) {
-      m = new Map()
-      byName.set(name, m)
-    }
-    m.set(ts, value)
-  }
-  const out: ToolSpark[] = []
-  for (const [name, m] of byName) {
-    const buckets = slots.map((ts) => ({ ts, value: nearest(m, ts, bucketMs) }))
-    out.push({ name, buckets })
-  }
-  return out
-}
-
 // date_bin returns ISO string or epoch number depending on column type.
 function parseBucketMs(raw: unknown): number | undefined {
   if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
@@ -324,9 +259,7 @@ function parseBucketMs(raw: unknown): number | undefined {
   return undefined
 }
 
-// Single-series version of groupSparks — same bucket math, but the value is a
-// caller-defined object so we can carry e.g. {ratio, inputTokens} per slot.
-export function zeroFillPoints<V>(
+function zeroFillPoints<V>(
   hits: Array<Record<string, unknown>>,
   fromUs: number,
   toUs: number,
@@ -354,16 +287,4 @@ export function zeroFillPoints<V>(
     }
     return { ts, value: mapValue({}) }
   })
-}
-
-// Hit bucket starts may not match our zero-fill grid when fromUs isn't on a
-// boundary; snap each hit to the nearest slot.
-function nearest(m: Map<number, number>, slot: number, bucketMs: number): number {
-  if (m.has(slot)) return m.get(slot) ?? 0
-  const lo = slot
-  const hi = slot + bucketMs - 1
-  for (const [ts, v] of m) {
-    if (ts >= lo && ts <= hi) return v
-  }
-  return 0
 }

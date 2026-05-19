@@ -115,19 +115,6 @@ export interface ToolPayloadRow {
   sampleTraceId?: string
 }
 
-// 24-bucket time series for one tool, used to render an inline sparkline next
-// to the aggregate row. Buckets are aligned to the user's selected window;
-// missing buckets are zero-filled by the consumer.
-export interface ToolBucketPoint {
-  ts: number
-  value: number
-}
-
-export interface ToolSpark {
-  name: string
-  buckets: ToolBucketPoint[]
-}
-
 export type TopOpts = ListOpts
 
 export interface LatencyPoint {

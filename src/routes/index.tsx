@@ -12,6 +12,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { EnvSelect } from '#/components/env-select'
 import { Page } from '#/components/page'
+import { RefreshingIndicator } from '#/components/refreshing-indicator'
 import { TimeRangeSelect } from '#/components/time-range-select'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useEnv } from '#/hooks/use-env'
@@ -63,7 +64,7 @@ function Home() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const range = search.range ?? DEFAULT
-  const { data } = useQuery(homeQuery(range))
+  const { data, isFetching } = useQuery(homeQuery(range))
   const newTools = data?.newTools ?? []
   const newAgents = data?.newAgents ?? []
   const chatLatency = data?.chatLatency ?? []
@@ -115,6 +116,7 @@ function Home() {
           ))}
         </ToggleGroup>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <RefreshingIndicator active={isFetching} />
           <EnvSelect value={env} onChange={setEnv} />
           <TimeRangeSelect value={range} onChange={setRange} />
         </div>
@@ -139,7 +141,7 @@ function Home() {
           <Section icon={ClockIcon} title="Agent latency">
             <LatencyTable rows={agentLatency} firstHeader="Agent" stripPrefixFrom="invoke_agent" />
           </Section>
-          <Section icon={SparklesIcon} title="p95 chat latency over time">
+          <Section icon={SparklesIcon} title="Chat latency over time — p50 / p95 + call volume" wide>
             <LatencyAreaChart data={chatLatencyOverTime} />
           </Section>
         </CategoryGroup>

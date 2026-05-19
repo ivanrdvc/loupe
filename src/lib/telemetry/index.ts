@@ -21,7 +21,6 @@ import type {
   TelemetryProvider,
   ToolErrorRow,
   ToolPayloadRow,
-  ToolSpark,
   TopOpts,
   TraceSummary,
   WindowOpts,
@@ -192,14 +191,6 @@ export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]
 
 export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
   return analytics.fetchToolPayloadSizes(getActiveProvider(), opts)
-}
-
-export async function listToolErrorRatesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
-  return analytics.fetchToolErrorRatesBucketed(getActiveProvider(), opts)
-}
-
-export async function listToolPayloadSizesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
-  return analytics.fetchToolPayloadSizesBucketed(getActiveProvider(), opts)
 }
 
 export async function getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {

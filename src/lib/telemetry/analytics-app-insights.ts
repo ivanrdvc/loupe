@@ -13,10 +13,8 @@ import type {
   OverviewAggregate,
   OverviewOpts,
   RunsPoint,
-  ToolBucketPoint,
   ToolErrorRow,
   ToolPayloadRow,
-  ToolSpark,
   TopOpts,
   WindowOpts,
 } from './types'
@@ -135,32 +133,6 @@ export async function fetchToolPayloadSizes(p: AppInsightsProvider, opts?: TopOp
   `
   const rows = await p.query(q, opts ?? {})
   return rows.map(mapToolPayloadRow)
-}
-
-export type ToolBucketMetric = 'errors' | 'payload_avg'
-
-export async function fetchToolBucketed(
-  p: AppInsightsProvider,
-  metric: ToolBucketMetric,
-  opts?: TopOpts,
-): Promise<ToolSpark[]> {
-  const fromUs = opts?.fromUs ?? 0
-  const toUs = opts?.toUs ?? 0
-  const bucketSec = bucketSecondsFor(fromUs, toUs)
-  const pipeline =
-    metric === 'errors'
-      ? '| summarize value = countif(success == false) by name, bucket = bin(timestamp, BUCKET)'
-      : `| extend result_len = strlen(tostring(customDimensions["gen_ai.tool.call.result"]))
-         | where isnotnull(result_len) and result_len > 0
-         | summarize value = avg(result_len) by name, bucket = bin(timestamp, BUCKET)`
-  const q = `
-    union dependencies, requests
-    | where name startswith "execute_tool "
-    ${pipeline.replaceAll('BUCKET', `${bucketSec}s`)}
-    | order by name asc, bucket asc
-  `
-  const rows = await p.query(q, opts ?? {})
-  return groupKqlSparks(rows, fromUs, toUs, bucketSec)
 }
 
 export async function fetchChatLatencyOverTime(p: AppInsightsProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {
@@ -284,47 +256,6 @@ function buildSlots(fromUs: number, toUs: number, bucketSec: number): number[] {
   const slots: number[] = []
   for (let t = startMs; t < endMs && slots.length < SPARK_BUCKETS; t += bucketMs) slots.push(t)
   return slots
-}
-
-function snapToSlot(m: Map<number, number>, slot: number, bucketMs: number): number {
-  if (m.has(slot)) return m.get(slot) ?? 0
-  const lo = slot
-  const hi = slot + bucketMs - 1
-  for (const [ts, v] of m) {
-    if (ts >= lo && ts <= hi) return v
-  }
-  return 0
-}
-
-function groupKqlSparks(
-  rows: Array<Record<string, unknown>>,
-  fromUs: number,
-  toUs: number,
-  bucketSec: number,
-): ToolSpark[] {
-  const bucketMs = bucketSec * 1000
-  const slots = buildSlots(fromUs, toUs, bucketSec)
-  if (slots.length === 0) return []
-  const byName = new Map<string, Map<number, number>>()
-  for (const r of rows) {
-    const name = String(r.name ?? '')
-    if (!name) continue
-    const ts = parseBucketMs(r.bucket)
-    if (ts === undefined) continue
-    const value = num(r.value) ?? 0
-    let m = byName.get(name)
-    if (!m) {
-      m = new Map()
-      byName.set(name, m)
-    }
-    m.set(ts, value)
-  }
-  const out: ToolSpark[] = []
-  for (const [name, m] of byName) {
-    const buckets: ToolBucketPoint[] = slots.map((ts) => ({ ts, value: snapToSlot(m, ts, bucketMs) }))
-    out.push({ name, buckets })
-  }
-  return out
 }
 
 function zeroFillSeries<V>(
