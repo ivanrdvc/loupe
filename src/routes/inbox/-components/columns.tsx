@@ -100,7 +100,7 @@ function OpenLink({ item }: { item: Pick<InboxRow, 'sessionId' | 'traceId'> }) {
   }
   if (item.traceId) {
     return (
-      <Link to="/runs/$runId" params={{ runId: item.traceId }} className={linkClass} aria-label="Open run">
+      <Link to="/traces/$traceId" params={{ traceId: item.traceId }} className={linkClass} aria-label="Open trace">
         <ArrowTopRightOnSquareIcon className="size-3.5" />
       </Link>
     )

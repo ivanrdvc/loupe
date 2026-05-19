@@ -87,7 +87,7 @@ export function OpenLink({ traceId }: { traceId?: string | null }) {
   const cls = 'inline-flex items-center text-muted-foreground hover:text-foreground'
   if (traceId) {
     return (
-      <Link to="/runs/$runId" params={{ runId: traceId }} className={cls} aria-label="Open run">
+      <Link to="/traces/$traceId" params={{ traceId }} className={cls} aria-label="Open trace">
         <ArrowTopRightOnSquareIcon className="size-3.5" />
       </Link>
     )

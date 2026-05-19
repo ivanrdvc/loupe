@@ -11,9 +11,16 @@ const fetchTraceSpans = createServerFn({ method: 'GET' })
   })
 
 const fetchTraces = createServerFn({ method: 'GET' })
-  .inputValidator((input: unknown) => parse(input))
+  .inputValidator((input: { range?: unknown; userId?: unknown }) => ({
+    range: parse(input.range),
+    userId: typeof input.userId === 'string' ? input.userId.trim() : '',
+  }))
   .handler(async ({ data }) => {
-    return await listRecentTraces({ limit: 200, ...windowUs(data) })
+    return await listRecentTraces({
+      limit: 200,
+      ...windowUs(data.range),
+      ...(data.userId ? { userId: data.userId } : {}),
+    })
   })
 
 export const traceSpansQuery = (traceId: string) =>
@@ -23,9 +30,9 @@ export const traceSpansQuery = (traceId: string) =>
     staleTime: STALE_LIVE_MS,
   })
 
-export const tracesQuery = (range: TimeRange) =>
+export const tracesQuery = (range: TimeRange, userId = '') =>
   queryOptions({
-    queryKey: queryKeys.traces.window(serialize(range)),
-    queryFn: () => fetchTraces({ data: range }),
+    queryKey: queryKeys.traces.window(serialize(range), userId),
+    queryFn: () => fetchTraces({ data: { range, userId } }),
     staleTime: STALE_LIVE_MS,
   })

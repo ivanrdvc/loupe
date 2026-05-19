@@ -61,7 +61,7 @@ const MAIN_NAV: NavItem[] = [
     to: '/traces',
     label: 'Traces',
     icon: PlayCircleIcon,
-    match: (p) => p.startsWith('/traces') || p.startsWith('/runs') || p.startsWith('/live'),
+    match: (p) => p.startsWith('/traces'),
   },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, match: (p) => p.startsWith('/mcp') },
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals') },

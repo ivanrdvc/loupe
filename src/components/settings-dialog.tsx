@@ -8,9 +8,10 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
+import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { type AppFont, type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
-import { useUserId } from '#/hooks/use-user'
+import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import { providersQuery, setProviderFn } from '#/lib/providers-data'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
@@ -166,6 +167,7 @@ function AppearancePane() {
 function AccountPane() {
   const [storedId, setStoredId] = useUserId()
   const [value, setValue] = useState(storedId)
+  const [scopeToMe, setScopeToMe] = useScopeToMe()
 
   useEffect(() => {
     setValue(storedId)
@@ -174,23 +176,43 @@ function AccountPane() {
   const dirty = value.trim() !== storedId
 
   return (
-    <Field
-      label="User ID"
-      hint="Matched against user.id / enduser.id / ag_ui.user.id on emitted spans. Stored in your browser."
-    >
-      <div className="flex items-center gap-2">
-        <Input
-          type="text"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="you@example.com"
-          className="flex-1"
-        />
-        <Button onClick={() => setStoredId(value)} disabled={!dirty}>
-          Save
-        </Button>
-      </div>
-    </Field>
+    <div className="space-y-6">
+      <Field
+        label="User ID"
+        hint="Matched against user.id / enduser.id / ag_ui.user.id on emitted spans. Stored in your browser."
+      >
+        <div className="flex items-center gap-2">
+          <Input
+            type="text"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="you@example.com"
+            className="flex-1"
+          />
+          <Button onClick={() => setStoredId(value)} disabled={!dirty}>
+            Save
+          </Button>
+        </div>
+      </Field>
+
+      <Field label="Scope to me" hint="Filter Traces and Sessions to your user id only. Off shows everything.">
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={scopeToMe}
+            onCheckedChange={setScopeToMe}
+            disabled={!storedId}
+            aria-label="Scope list views to my user id"
+          />
+          <span className="text-sm text-muted-foreground">
+            {!storedId
+              ? 'Set a user id above first.'
+              : scopeToMe
+                ? 'On — list views are filtered.'
+                : 'Off — showing everything.'}
+          </span>
+        </div>
+      </Field>
+    </div>
   )
 }
 
@@ -218,7 +240,7 @@ function ProviderRow() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: queryKeys.providers.all() }),
         qc.invalidateQueries({ queryKey: queryKeys.sessions.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.runs.all() }),
+        qc.invalidateQueries({ queryKey: queryKeys.traces.all() }),
         qc.invalidateQueries({ queryKey: queryKeys.home.all() }),
         qc.invalidateQueries({ queryKey: queryKeys.inbox.all() }),
       ])

@@ -6,6 +6,7 @@ import { Page } from '#/components/page'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useEnv } from '#/hooks/use-env'
 import { useTimeRange } from '#/hooks/use-time-range'
+import { useScopedUserId } from '#/hooks/use-user'
 import { DataTable } from './-components/data-table'
 import { SessionsDrawerHost } from './-components/sessions-drawer-host'
 import { sessionsQuery } from './-data'
@@ -18,8 +19,9 @@ function Sessions() {
   const [env, setEnv] = useEnv()
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
+  const scopedUserId = useScopedUserId()
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...sessionsQuery(range),
+    ...sessionsQuery(range, scopedUserId),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const sessions = data?.sessions ?? []

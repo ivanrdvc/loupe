@@ -4,6 +4,7 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
+import { useScopedUserId } from '#/hooks/use-user'
 import { tracesQuery } from './-data'
 import { TracesDataTable } from './-traces-data-table'
 
@@ -14,8 +15,9 @@ export const Route = createFileRoute('/traces/')({
 function TracesIndex() {
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
+  const scopedUserId = useScopedUserId()
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...tracesQuery(range),
+    ...tracesQuery(range, scopedUserId),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const traces = data?.traces ?? []

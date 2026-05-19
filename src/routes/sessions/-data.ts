@@ -5,11 +5,16 @@ import { getSession, listRecentSessions } from '#/lib/telemetry'
 import { DEFAULT, parse, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
 const fetchSessions = createServerFn({ method: 'GET' })
-  .inputValidator((input: unknown) => parse(input))
+  .inputValidator((input: { range?: unknown; userId?: unknown }) => ({
+    range: parse(input.range),
+    userId: typeof input.userId === 'string' ? input.userId.trim() : '',
+  }))
   .handler(async ({ data }) => {
-    // TODO: Remove userId filter once OTel conventions fix is validated.
-    // Temporarily scoped to Ivan's sessions to avoid noise from whole company.
-    return await listRecentSessions({ limit: 50, ...windowUs(data), userId: '700f72d7-e0d2-4b20-9ef4-a03265e1be29' })
+    return await listRecentSessions({
+      limit: 50,
+      ...windowUs(data.range),
+      ...(data.userId ? { userId: data.userId } : {}),
+    })
   })
 
 const fetchCurrentUserSessions = createServerFn({ method: 'GET' })
@@ -35,10 +40,10 @@ const fetchSession = createServerFn({ method: 'GET' })
     return await getSession(data.sessionId, windowUs(data.range))
   })
 
-export const sessionsQuery = (range: TimeRange = DEFAULT) =>
+export const sessionsQuery = (range: TimeRange = DEFAULT, userId = '') =>
   queryOptions({
-    queryKey: queryKeys.sessions.window(serialize(range)),
-    queryFn: () => fetchSessions({ data: range }),
+    queryKey: queryKeys.sessions.window(serialize(range), userId),
+    queryFn: () => fetchSessions({ data: { range, userId } }),
   })
 
 export const currentUserSessionsQuery = (range: TimeRange = DEFAULT, userId = '') =>
