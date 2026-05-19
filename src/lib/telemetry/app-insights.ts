@@ -1,13 +1,6 @@
 import { DefaultAzureCredential } from '@azure/identity'
 import { LogsQueryClient, type LogsQueryResult, LogsQueryResultStatus } from '@azure/monitor-query-logs'
-import {
-  classifySpan,
-  HOST_ATTR_KEYS,
-  SESSION_ATTR_KEYS,
-  SESSION_TITLE_ATTR_KEYS,
-  USER_ID_ATTR_KEYS,
-  USER_NAME_ATTR_KEYS,
-} from '#/lib/classify-span'
+import { classifySpan } from '#/lib/classify-span'
 import type { JsonValue } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import {
@@ -18,6 +11,7 @@ import {
   type Span,
   type SpanKind,
 } from '#/lib/spans'
+import { aiCoalesce, attrKeysFor } from './conventions'
 import { readFieldConfig } from './field-config'
 import { aggregateSessions, groupBy, mapLatencyRow, pickIdentityValue } from './shared'
 import { classifyTraceCategory } from './trace-category'
@@ -48,11 +42,13 @@ const DEFAULT_LIST_LIMIT = 50
 const SESSION_SCAN_LIMIT = 5000
 const DEFAULT_DURATION = 'P30D'
 
-const SESSION_ID_COALESCE = `coalesce(${SESSION_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
-const SESSION_TITLE_COALESCE = `coalesce(${SESSION_TITLE_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
-const USER_NAME_COALESCE = `coalesce(${USER_NAME_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
-const USER_ID_COALESCE = `coalesce(${USER_ID_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
-const HOST_COALESCE = `coalesce(${HOST_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')}, tostring(cloud_RoleName))`
+const SESSION_ID_COALESCE = aiCoalesce('sessionId')
+const SESSION_TITLE_COALESCE = aiCoalesce('sessionTitle')
+const USER_NAME_COALESCE = aiCoalesce('userName')
+const USER_ID_COALESCE = aiCoalesce('userId')
+// cloud_RoleName is an AppInsights-specific column, not a custom dimension —
+// stitched on as a final fallback.
+const HOST_COALESCE = `coalesce(${aiCoalesce('host')}, tostring(cloud_RoleName))`
 
 function resultToRows(result: LogsQueryResult): Array<Record<string, unknown>> {
   if (result.status === LogsQueryResultStatus.Success) {
@@ -311,7 +307,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       let title: string | undefined
       for (const r of spanRows) {
         const cd = parseCustomDimensions(r.customDimensions)
-        for (const k of SESSION_TITLE_ATTR_KEYS) {
+        for (const k of attrKeysFor('sessionTitle')) {
           const v = cd[k]
           if (typeof v === 'string' && v.trim()) {
             title = v.trim()
