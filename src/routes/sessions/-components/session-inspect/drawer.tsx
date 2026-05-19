@@ -1,6 +1,6 @@
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { IconArrowUpRight, IconShare2, IconX } from '@tabler/icons-react'
+import { IconMaximize, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { type AutoRefreshInterval, DRAWER_AUTO_REFRESH_OPTIONS } from '#/components/auto-refresh-select'
@@ -164,7 +164,7 @@ export function SessionInspectDrawer({
                       search={expandSearch}
                       onClick={() => onClose()}
                     >
-                      <IconArrowUpRight />
+                      <IconMaximize />
                     </Link>
                   </Button>
                 </TooltipTrigger>

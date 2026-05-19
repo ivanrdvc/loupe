@@ -1,7 +1,7 @@
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  IconChevronDown,
+  IconAdjustmentsHorizontal,
   IconChevronLeft,
   IconChevronRight,
   IconChevronsLeft,
@@ -37,7 +37,9 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
+import { Separator } from '#/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import type { SessionSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
@@ -114,8 +116,8 @@ export function DataTable({
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 md:gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
+    <div className="flex h-full w-full flex-col">
+      <div className="-mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b bg-muted/30 px-4 py-2 md:-mt-6 lg:px-6">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {searchColumn && (
             <div className="relative w-full min-w-0 sm:w-64">
@@ -124,13 +126,13 @@ export function DataTable({
                 placeholder="Search agents, users, ids…"
                 value={searchValue}
                 onChange={(e) => searchColumn.setFilterValue(e.target.value)}
-                className="w-full border-border bg-transparent pl-7 dark:bg-input/30"
+                className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
               />
             </div>
           )}
           <RefreshingIndicator active={!!refreshing} />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {table.getColumn('status') && (
             <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
           )}
@@ -142,14 +144,18 @@ export function DataTable({
             onRefresh={onRefresh}
             loading={refreshing}
           />
+          <Separator orientation="vertical" className="mx-1 h-5" />
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <span className="hidden lg:inline">Customize Columns</span>
-                <span className="lg:hidden">Columns</span>
-                <IconChevronDown />
-              </Button>
-            </DropdownMenuTrigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" aria-label="Customize columns">
+                    <IconAdjustmentsHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Customize columns</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-56">
               {table
                 .getAllColumns()
@@ -168,7 +174,7 @@ export function DataTable({
           </DropdownMenu>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col px-4 lg:px-6">
+      <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 md:pt-6 lg:px-6">
         <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">
