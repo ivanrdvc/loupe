@@ -1,4 +1,5 @@
 import {
+  Edit02Icon,
   Home01Icon,
   InboxIcon,
   Logout01Icon,
@@ -8,6 +9,7 @@ import {
   PlayCircleIcon,
   PuzzleIcon,
   Settings01Icon,
+  StickyNote01Icon,
   Sun01Icon,
   TestTubeIcon,
   UserCircleIcon,
@@ -48,13 +50,13 @@ import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 const APP_VERSION = `v${__APP_VERSION__}`
 
 type NavItem = {
-  to: '/' | '/sessions' | '/traces' | '/mcp' | '/evals'
+  to: '/' | '/sessions' | '/traces' | '/mcp' | '/evals' | '/notes' | '/prompts'
   label: string
   icon: typeof Home01Icon
   match: (path: string) => boolean
 }
 
-const MAIN_NAV: NavItem[] = [
+const OBSERVE_NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: Home01Icon, match: (p) => p === '/' },
   { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon, match: (p) => p.startsWith('/sessions') },
   {
@@ -64,6 +66,11 @@ const MAIN_NAV: NavItem[] = [
     match: (p) => p.startsWith('/traces'),
   },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, match: (p) => p.startsWith('/mcp') },
+]
+
+const WORKBENCH_NAV: NavItem[] = [
+  { to: '/notes', label: 'Notes', icon: StickyNote01Icon, match: (p) => p.startsWith('/notes') },
+  { to: '/prompts', label: 'Prompts', icon: Edit02Icon, match: (p) => p.startsWith('/prompts') },
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals') },
 ]
 
@@ -96,10 +103,28 @@ export function AppSidebar() {
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
+          <SidebarGroup className="mt-2">
             <SidebarGroupContent>
               <SidebarMenu>
-                {MAIN_NAV.map((item) => (
+                {OBSERVE_NAV.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton asChild isActive={item.match(pathname)}>
+                      <Link to={item.to}>
+                        <HugeiconsIcon icon={item.icon} />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Workbench</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {WORKBENCH_NAV.map((item) => (
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton asChild isActive={item.match(pathname)}>
                       <Link to={item.to}>

@@ -1,5 +1,11 @@
 import { ChevronDownIcon, ChevronRightIcon, ClockIcon } from '@heroicons/react/16/solid'
+import { Edit02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { Button } from '#/components/ui/button'
 import {
   Command,
   CommandDialog,
@@ -12,7 +18,10 @@ import {
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
+import { queryKeys } from '#/lib/query-keys'
 import { buildAgentLabels, resolveToolCalls, type Span, spanHasError, type ToolCallResolution } from '#/lib/spans'
+import { createPrompt } from '#/routes/prompts/-mock-data'
+import type { Message as PromptMessage } from '#/routes/prompts/-types'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 interface Row {
@@ -343,7 +352,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
               </span>
             )}
             {depth === 0 &&
-              (span.rawAttributes?.['session_trigger_type'] ?? span.rawAttributes?.['session.trigger_type']) ===
+              (span.rawAttributes?.session_trigger_type ?? span.rawAttributes?.['session.trigger_type']) ===
                 'scheduled' && (
                 <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:text-orange-300">
                   <ClockIcon className="size-3" />
@@ -374,10 +383,47 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
   )
 }
 
+function isLlmSpan(span: Span): boolean {
+  if (span.operation === 'chat') return true
+  if (span.llmInput != null || span.llmOutput != null) return true
+  if (span.model) return true
+  return false
+}
+
+function extractPromptMessages(span: Span): PromptMessage[] {
+  const out: PromptMessage[] = []
+  for (const msg of asMessages(span.llmInput)) {
+    const text = msg.parts.find((p): p is Extract<MessagePart, { kind: 'text' }> => p.kind === 'text')?.content
+    if (text) out.push({ role: msg.role, content: text })
+  }
+  return out
+}
+
 export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
   const duration = span.endMs - span.startMs
   const agentLabels = useMemo(() => (spans ? buildAgentLabels(spans) : undefined), [spans])
   const display = displayFor(span, agentLabels)
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const messages = extractPromptMessages(span)
+      const promptName = `imported-from-${span.id.slice(0, 8)}`
+      return createPrompt({
+        name: promptName,
+        description: `Imported from span ${span.id}`,
+        initialMessages: messages.length > 0 ? messages : undefined,
+        initialModel: span.model,
+      })
+    },
+    onSuccess: async (prompt) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
+      const extractedAny = extractPromptMessages(span).length > 0
+      toast.success(extractedAny ? 'Prompt created — opening editor' : 'Imported (no messages found in span)')
+      void navigate({ to: '/prompts/$promptId', params: { promptId: prompt.id } })
+    },
+  })
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-4 px-4 py-4">
@@ -422,6 +468,20 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
       {(span.llmInput != null || span.llmOutput != null) && (
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} spans={spans} />
+      )}
+
+      {isLlmSpan(span) && (
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending}
+          >
+            <HugeiconsIcon icon={Edit02Icon} data-icon="inline-start" strokeWidth={2} />
+            {importMutation.isPending ? 'Creating…' : 'Make a prompt from this span'}
+          </Button>
+        </div>
       )}
 
       {(span.responseId || span.systemFingerprint) && (

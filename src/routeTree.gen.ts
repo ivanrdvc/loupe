@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TracesIndexRouteImport } from './routes/traces/index'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
+import { Route as PromptsIndexRouteImport } from './routes/prompts/index'
+import { Route as NotesIndexRouteImport } from './routes/notes/index'
 import { Route as McpIndexRouteImport } from './routes/mcp/index'
 import { Route as InboxIndexRouteImport } from './routes/inbox/index'
 import { Route as EvalsIndexRouteImport } from './routes/evals/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
+import { Route as PromptsPromptIdRouteImport } from './routes/prompts/$promptId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -31,6 +34,16 @@ const TracesIndexRoute = TracesIndexRouteImport.update({
 const SessionsIndexRoute = SessionsIndexRouteImport.update({
   id: '/sessions/',
   path: '/sessions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsIndexRoute = PromptsIndexRouteImport.update({
+  id: '/prompts/',
+  path: '/prompts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotesIndexRoute = NotesIndexRouteImport.update({
+  id: '/notes/',
+  path: '/notes/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpIndexRoute = McpIndexRouteImport.update({
@@ -58,35 +71,49 @@ const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   path: '/sessions/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PromptsPromptIdRoute = PromptsPromptIdRouteImport.update({
+  id: '/prompts/$promptId',
+  path: '/prompts/$promptId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/mcp/': typeof McpIndexRoute
+  '/notes/': typeof NotesIndexRoute
+  '/prompts/': typeof PromptsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/traces/': typeof TracesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/evals': typeof EvalsIndexRoute
   '/inbox': typeof InboxIndexRoute
   '/mcp': typeof McpIndexRoute
+  '/notes': typeof NotesIndexRoute
+  '/prompts': typeof PromptsIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/traces': typeof TracesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/mcp/': typeof McpIndexRoute
+  '/notes/': typeof NotesIndexRoute
+  '/prompts/': typeof PromptsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/traces/': typeof TracesIndexRoute
 }
@@ -94,42 +121,54 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/traces/$traceId'
     | '/evals/'
     | '/inbox/'
     | '/mcp/'
+    | '/notes/'
+    | '/prompts/'
     | '/sessions/'
     | '/traces/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/traces/$traceId'
     | '/evals'
     | '/inbox'
     | '/mcp'
+    | '/notes'
+    | '/prompts'
     | '/sessions'
     | '/traces'
   id:
     | '__root__'
     | '/'
+    | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/traces/$traceId'
     | '/evals/'
     | '/inbox/'
     | '/mcp/'
+    | '/notes/'
+    | '/prompts/'
     | '/sessions/'
     | '/traces/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PromptsPromptIdRoute: typeof PromptsPromptIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
   EvalsIndexRoute: typeof EvalsIndexRoute
   InboxIndexRoute: typeof InboxIndexRoute
   McpIndexRoute: typeof McpIndexRoute
+  NotesIndexRoute: typeof NotesIndexRoute
+  PromptsIndexRoute: typeof PromptsIndexRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
   TracesIndexRoute: typeof TracesIndexRoute
 }
@@ -155,6 +194,20 @@ declare module '@tanstack/react-router' {
       path: '/sessions'
       fullPath: '/sessions/'
       preLoaderRoute: typeof SessionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/': {
+      id: '/prompts/'
+      path: '/prompts'
+      fullPath: '/prompts/'
+      preLoaderRoute: typeof PromptsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notes/': {
+      id: '/notes/'
+      path: '/notes'
+      fullPath: '/notes/'
+      preLoaderRoute: typeof NotesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp/': {
@@ -192,16 +245,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prompts/$promptId': {
+      id: '/prompts/$promptId'
+      path: '/prompts/$promptId'
+      fullPath: '/prompts/$promptId'
+      preLoaderRoute: typeof PromptsPromptIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PromptsPromptIdRoute: PromptsPromptIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,
   EvalsIndexRoute: EvalsIndexRoute,
   InboxIndexRoute: InboxIndexRoute,
   McpIndexRoute: McpIndexRoute,
+  NotesIndexRoute: NotesIndexRoute,
+  PromptsIndexRoute: PromptsIndexRoute,
   SessionsIndexRoute: SessionsIndexRoute,
   TracesIndexRoute: TracesIndexRoute,
 }

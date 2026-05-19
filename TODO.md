@@ -6,6 +6,13 @@
 - Compare two runs side-by-side — `docs/plans/compare-runs.md`
 - MCP — `docs/plans/mcp.md`
 - Notes (free-form human notes on session/trace/span) — `docs/plans/notes.md`
+- Prompt registry → trace linkage (revisit). Two paths discussed: span-attribute
+  convention (`agentops.prompt.name`, `agentops.prompt.version_hash` set by the
+  user's app, agentops links automatically on ingest) vs a C# SDK package that
+  injects them. Code-as-source-of-truth preferred — don't move prompts out of
+  `.cs` files. Park until after Playground + Notes ship. See
+  `PLAYGROUND_PROMPTS_RESEARCH.md` for the rejected detection-by-fuzzy-match
+  approach and why it's worse than no linkage during an incident.
 - Experiment tags — free-form string tag on spans (`agentops.tag` or reuse
   `service.namespace`) for ad-hoc grouping while testing prompt/agent changes.
   Promote the existing "env" filter to a "Tag" filter, pull values dynamically

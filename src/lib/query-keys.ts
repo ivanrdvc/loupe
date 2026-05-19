@@ -25,6 +25,13 @@ export const queryKeys = {
   providers: {
     all: () => ['providers'] as const,
   },
+  prompts: {
+    all: () => ['prompts'] as const,
+    list: () => ['prompts', 'list'] as const,
+    byId: (id: string) => ['prompts', 'detail', id] as const,
+    runs: (promptId: string) => ['prompts', 'runs', promptId] as const,
+    run: (runId: string) => ['prompts', 'run', runId] as const,
+  },
 }
 
 export const STALE_LIVE_MS = 15_000
