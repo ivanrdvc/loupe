@@ -1,5 +1,6 @@
 import { getCookie } from '@tanstack/react-start/server'
 import type { Span } from '#/lib/spans'
+import * as analytics from './analytics'
 import { createAppInsightsProvider } from './app-insights'
 import { createOpenObserveProvider } from './openobserve'
 import type {
@@ -174,43 +175,29 @@ export async function discoverInventory(
   kind: InventoryDiscoveryKind,
   opts?: { fromUs?: number; toUs?: number },
 ): Promise<InventoryObservation[]> {
-  const p = getActiveProvider()
-  if (!p.discoverInventory) return []
-  return await p.discoverInventory(kind, opts)
+  return analytics.fetchInventory(getActiveProvider(), kind, opts)
 }
 
 export async function listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]> {
-  const p = getActiveProvider()
-  if (!p.listLatencyPercentiles) return []
-  return await p.listLatencyPercentiles(kind, opts)
+  return analytics.fetchLatencyPercentiles(getActiveProvider(), kind, opts)
 }
 
 export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]> {
-  const p = getActiveProvider()
-  if (!p.listToolErrorRates) return []
-  return await p.listToolErrorRates(opts)
+  return analytics.fetchToolErrorRates(getActiveProvider(), opts)
 }
 
 export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
-  const p = getActiveProvider()
-  if (!p.listToolPayloadSizes) return []
-  return await p.listToolPayloadSizes(opts)
+  return analytics.fetchToolPayloadSizes(getActiveProvider(), opts)
 }
 
 export async function listToolErrorRatesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
-  const p = getActiveProvider()
-  if (!p.listToolErrorRatesBucketed) return []
-  return await p.listToolErrorRatesBucketed(opts)
+  return analytics.fetchToolErrorRatesBucketed(getActiveProvider(), opts)
 }
 
 export async function listToolPayloadSizesBucketed(opts?: TopOpts): Promise<ToolSpark[]> {
-  const p = getActiveProvider()
-  if (!p.listToolPayloadSizesBucketed) return []
-  return await p.listToolPayloadSizesBucketed(opts)
+  return analytics.fetchToolPayloadSizesBucketed(getActiveProvider(), opts)
 }
 
 export async function getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {
-  const p = getActiveProvider()
-  if (!p.getOverview) return { runs: 0, erroredRuns: 0, p95ChatMs: 0, totalCostUsd: 0 }
-  return await p.getOverview(opts)
+  return analytics.fetchOverview(getActiveProvider(), opts)
 }
