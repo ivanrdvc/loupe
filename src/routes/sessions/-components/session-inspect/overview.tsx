@@ -24,11 +24,11 @@ import { ScrollArea } from '#/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { useIsMobile } from '#/hooks/use-mobile'
+import { formatCost } from '#/lib/format'
 import {
   buildAgentLabels,
   descendantSpans,
   findOrchestratorIds,
-  formatCost,
   type Span,
   spanHasError,
   subagentChatSpans,
@@ -299,7 +299,6 @@ function SessionOverview({ spans }: { spans: Span[] }) {
   const allTokens = inputTokens + outputTokens + subagent.tokens
   const cachePct = inputTokens > 0 ? Math.round((cachedTokens / inputTokens) * 100) : 0
   const totalCost = totals.cost + subagent.cost
-  const costStr = formatCost(totalCost) ?? ''
 
   const peakIn = peak?.inputTokens ?? 0
   const peakWindow = contextWindowFor(peak?.model)
@@ -339,7 +338,7 @@ function SessionOverview({ spans }: { spans: Span[] }) {
           </span>
           <span className="text-muted-foreground/60">·</span>
           <span className="text-foreground">
-            <span className="font-semibold">{costStr ? `$${costStr}` : '—'}</span>
+            <span className="font-semibold">{formatCost(totalCost)}</span>
           </span>
           <span className="text-muted-foreground/60">·</span>
           <span className={totals.errors > 0 ? 'text-destructive' : 'text-muted-foreground'}>
@@ -696,7 +695,6 @@ function SessionTurnRow({
   const totals = turnTotals(turn)
   const tokenTotal = totals.inputTokens + totals.outputTokens
   const cachePct = totals.inputTokens > 0 ? Math.round((totals.cachedTokens / totals.inputTokens) * 100) : 0
-  const cost = formatCost(totals.costUsd)
   const modelLabel = totals.model ?? agentLabels?.get(run.id) ?? run.agentName ?? run.name
 
   return (
@@ -721,7 +719,7 @@ function SessionTurnRow({
           </span>
         )}
       </TableCell>
-      <TableCell className="py-1.5 text-right tabular-nums text-foreground">{cost ? `$${cost}` : '—'}</TableCell>
+      <TableCell className="py-1.5 text-right tabular-nums text-foreground">{formatCost(totals.costUsd)}</TableCell>
     </TableRow>
   )
 }

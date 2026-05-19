@@ -6,7 +6,7 @@ import { Command as CommandPrimitive } from 'cmdk'
 import type * as React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog.tsx'
 import { InputGroup, InputGroupAddon } from '#/components/ui/input-group.tsx'
-import { cn } from '#/lib/utils.ts'
+import { cn } from '#/lib/utils'
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (

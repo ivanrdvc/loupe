@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Progress } from '#/components/ui/progress'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
+import { formatCost } from '#/lib/format'
 import type { Span } from '#/lib/spans'
-import { formatCost } from '#/lib/spans'
 
 interface ContextWindowProps {
   spans: Span[]
@@ -97,9 +97,7 @@ export function ContextWindow({ spans }: ContextWindowProps) {
         {totalCost > 0 && (
           <div className="flex items-center justify-between border-t px-3 py-2">
             <span className="text-muted-foreground">Total cost</span>
-            <span className="font-medium tabular-nums text-foreground">
-              ${formatCost(totalCost) ?? totalCost.toFixed(4)}
-            </span>
+            <span className="font-medium tabular-nums text-foreground">{formatCost(totalCost)}</span>
           </div>
         )}
       </PopoverContent>

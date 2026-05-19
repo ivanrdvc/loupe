@@ -4,7 +4,7 @@ import { ArrowRight01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
 import type * as React from 'react'
-import { cn } from '#/lib/utils.ts'
+import { cn } from '#/lib/utils'
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />

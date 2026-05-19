@@ -5,7 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import * as React from 'react'
 import { type DayButton, DayPicker, getDefaultClassNames, type Locale } from 'react-day-picker'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
-import { cn } from '#/lib/utils.ts'
+import { cn } from '#/lib/utils'
 
 function Calendar({
   className,

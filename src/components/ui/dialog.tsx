@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import type * as React from 'react'
 import { Button } from '#/components/ui/button.tsx'
-import { cn } from '#/lib/utils.ts'
+import { cn } from '#/lib/utils'
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />

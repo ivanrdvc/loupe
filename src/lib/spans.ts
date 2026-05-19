@@ -281,9 +281,3 @@ export function findOrchestratorId(spans: Span[]): string | null {
 export function findWrappedAgent(spans: Span[], toolId: string): Span | undefined {
   return spans.find((s) => s.parentId === toolId && s.operation === 'invoke_agent')
 }
-
-export function formatCost(usd: number): string | null {
-  if (!usd) return null
-  if (usd < 0.0001) return '<0.0001'
-  return usd.toFixed(4)
-}

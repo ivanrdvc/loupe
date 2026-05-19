@@ -38,8 +38,3 @@ export function buildCurrentUser(id: string | null | undefined): CurrentUser {
     initials: initialsFor(trimmed),
   }
 }
-
-export function userTelemetryFilter(user: CurrentUser): { userId?: string } | undefined {
-  if (user.id) return { userId: user.id }
-  return undefined
-}

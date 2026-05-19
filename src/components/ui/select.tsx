@@ -4,7 +4,7 @@ import { ArrowDown01Icon, ArrowUp01Icon, Tick02Icon, UnfoldMoreIcon } from '@hug
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Select as SelectPrimitive } from 'radix-ui'
 import type * as React from 'react'
-import { cn } from '#/lib/utils.ts'
+import { cn } from '#/lib/utils'
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />

@@ -1,15 +1,11 @@
-import { createServerFn } from '@tanstack/react-start'
 import { asMessages, type ChatMessage } from './conversation'
 import type { JsonValue } from './json'
 import type { Span } from './spans'
 
-type SpanInput = Pick<Span, 'model' | 'llmInput' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'toolDefinitions'>
-
-export const fetchBreakdowns = createServerFn({ method: 'POST' })
-  .inputValidator((spans: SpanInput[]) => spans)
-  .handler(async ({ data }) => {
-    return Promise.all(data.map(breakdownChat))
-  })
+export type SpanInput = Pick<
+  Span,
+  'model' | 'llmInput' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'toolDefinitions'
+>
 
 export interface ChatBreakdown {
   systemTokens: number

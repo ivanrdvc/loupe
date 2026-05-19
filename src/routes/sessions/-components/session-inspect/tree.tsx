@@ -10,15 +10,9 @@ import {
   CommandList,
 } from '#/components/ui/command'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
+import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
-import {
-  buildAgentLabels,
-  formatCost,
-  resolveToolCalls,
-  type Span,
-  spanHasError,
-  type ToolCallResolution,
-} from '#/lib/spans'
+import { buildAgentLabels, resolveToolCalls, type Span, spanHasError, type ToolCallResolution } from '#/lib/spans'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 interface Row {
@@ -382,7 +376,6 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
 
 export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
   const duration = span.endMs - span.startMs
-  const cost = formatCost(span.costUsd ?? 0)
   const agentLabels = useMemo(() => (spans ? buildAgentLabels(spans) : undefined), [spans])
   const display = displayFor(span, agentLabels)
 
@@ -414,7 +407,7 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
           <Stat label="Reasoning" value={fmtNum(span.reasoningTokens)} />
         )}
         {span.tokens != null && <Stat label="Tokens" value={fmtNum(span.tokens)} />}
-        {cost && <Stat label="Cost" value={`$${cost}`} />}
+        {span.costUsd ? <Stat label="Cost" value={formatCost(span.costUsd)} /> : null}
         {span.model && <Stat label="Model" value={span.model} />}
         {span.provider && <Stat label="Provider" value={span.provider} />}
         {span.agentId && <Stat label="Agent id" value={span.agentId} />}
