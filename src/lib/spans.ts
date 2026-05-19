@@ -145,16 +145,18 @@ export function propagateSessionInTrace(spans: Span[]): void {
 // but don't re-stamp them on inner spans — inherit from the nearest ancestor.
 export function propagateInheritedAttrs(spans: Span[]): void {
   const byId = new Map(spans.map((s) => [s.id, s]))
-  for (const s of spans) {
-    if (!s.parentId) continue
-    if (s.operationName && s.agUiRunId) continue
-    let cur: Span | undefined = byId.get(s.parentId)
-    while (cur && (!s.operationName || !s.agUiRunId)) {
-      if (!s.operationName && cur.operationName) s.operationName = cur.operationName
-      if (!s.agUiRunId && cur.agUiRunId) s.agUiRunId = cur.agUiRunId
-      cur = cur.parentId ? byId.get(cur.parentId) : undefined
+  const resolved = new Set<string>()
+  const resolve = (s: Span) => {
+    if (resolved.has(s.id)) return
+    const parent = s.parentId ? byId.get(s.parentId) : undefined
+    if (parent) resolve(parent)
+    if (parent) {
+      if (!s.operationName && parent.operationName) s.operationName = parent.operationName
+      if (!s.agUiRunId && parent.agUiRunId) s.agUiRunId = parent.agUiRunId
     }
+    resolved.add(s.id)
   }
+  for (const s of spans) resolve(s)
 }
 
 // Returns label overrides for invoke_agent spans whose agentName collides

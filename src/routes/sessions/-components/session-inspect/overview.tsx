@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ClipboardIcon,
   CommandLineIcon,
+  ExclamationTriangleIcon,
   InformationCircleIcon,
   MagnifyingGlassIcon,
   TableCellsIcon,
@@ -33,6 +34,7 @@ import {
   subagentChatSpans,
 } from '#/lib/spans'
 import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
+import { cn } from '#/lib/utils'
 import { ContextTools, collectFrontendTools, collectToolGroups } from './context'
 import { displayFor, formatDuration } from './shared'
 import { DetailPanel, SpanTreeList } from './tree'
@@ -454,20 +456,24 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
   const formatted = formatAttrValue(value)
   const isLong = formatted.length > ATTR_PREVIEW_LIMIT || formatted.includes('\n')
   const [expanded, setExpanded] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
-    if (!copied) return
-    const t = window.setTimeout(() => setCopied(false), 1200)
+    if (copyState === 'idle') return
+    const t = window.setTimeout(() => setCopyState('idle'), 1200)
     return () => window.clearTimeout(t)
-  }, [copied])
+  }, [copyState])
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(formatted)
-      setCopied(true)
-    } catch {}
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
   }
+  const copied = copyState === 'copied'
+  const failed = copyState === 'failed'
 
   return (
     <TableRow className="group align-top">
@@ -505,12 +511,16 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-            aria-label={copied ? 'Copied' : `Copy ${attrKey}`}
-            title={copied ? 'Copied' : 'Copy value'}
+            className={cn(
+              'shrink-0 transition-opacity focus-visible:opacity-100',
+              copyState === 'idle' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100',
+              failed && 'text-destructive',
+            )}
+            aria-label={copied ? 'Copied' : failed ? 'Copy failed' : `Copy ${attrKey}`}
+            title={copied ? 'Copied' : failed ? 'Copy failed — clipboard unavailable' : 'Copy value'}
             onClick={copy}
           >
-            {copied ? <CheckIcon /> : <ClipboardIcon />}
+            {copied ? <CheckIcon /> : failed ? <ExclamationTriangleIcon /> : <ClipboardIcon />}
           </Button>
         </div>
       </TableCell>

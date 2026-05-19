@@ -7,11 +7,12 @@ import { formatAgo, formatCost, formatDuration, formatTokens, metricTone, trunca
 import type { SessionSummary } from '#/lib/telemetry'
 
 function userPrimary(s: SessionSummary): string {
-  return s.userId ?? '—'
+  return s.userName ?? s.userId ?? s.host ?? '—'
 }
 
 function userSecondary(s: SessionSummary): string | undefined {
-  if (s.userName && s.userId) return s.userName
+  if (s.userName) return s.userId ?? s.host
+  if (s.userId) return s.host
   return undefined
 }
 
