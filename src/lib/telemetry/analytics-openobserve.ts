@@ -1,18 +1,23 @@
 import { extractAgentName } from '#/lib/classify-span'
+import { ooColumns } from './conventions'
 import { mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import type {
+  CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyKind,
   LatencyOpts,
+  LatencyPoint,
   LatencyRow,
   OpenObserveProvider,
   OverviewAggregate,
   OverviewOpts,
+  RunsPoint,
   ToolErrorRow,
   ToolPayloadRow,
   ToolSpark,
   TopOpts,
+  WindowOpts,
 } from './types'
 
 const SPARK_BUCKETS = 24
@@ -56,9 +61,7 @@ export async function fetchLatencyPercentiles(
 ): Promise<LatencyRow[]> {
   const limit = opts?.limit ?? 5
   const whereClause =
-    kind === 'generation'
-      ? `WHERE gen_ai_operation_name = 'chat'`
-      : `WHERE operation_name LIKE 'invoke_agent %' OR gen_ai_operation_name = 'chat'`
+    kind === 'chat' ? `WHERE gen_ai_operation_name = 'chat'` : `WHERE operation_name LIKE 'invoke_agent %'`
   // Duration is µs in OO; convert to ms so the AI path returns the same units.
   const sql = `
     SELECT
@@ -118,7 +121,17 @@ export async function fetchToolPayloadSizes(p: OpenObserveProvider, opts?: TopOp
   return hits.map(mapToolPayloadRow)
 }
 
-export async function fetchToolErrorRatesBucketed(p: OpenObserveProvider, opts?: TopOpts): Promise<ToolSpark[]> {
+export type ToolBucketMetric = 'errors' | 'payload_avg'
+
+export async function fetchToolBucketed(
+  p: OpenObserveProvider,
+  metric: ToolBucketMetric,
+  opts?: TopOpts,
+): Promise<ToolSpark[]> {
+  const { expr, extraWhere } =
+    metric === 'errors'
+      ? { expr: "SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END)", extraWhere: '' }
+      : { expr: 'AVG(LENGTH(gen_ai_tool_call_result))', extraWhere: 'AND gen_ai_tool_call_result IS NOT NULL' }
   const fromUs = opts?.fromUs ?? 0
   const toUs = opts?.toUs ?? 0
   const bucketSec = bucketSecondsFor(fromUs, toUs)
@@ -126,9 +139,10 @@ export async function fetchToolErrorRatesBucketed(p: OpenObserveProvider, opts?:
     SELECT
       operation_name AS name,
       date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
-      SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS value
+      ${expr} AS value
     FROM "${p.stream}"
     WHERE operation_name LIKE 'execute_tool %'
+      ${extraWhere}
     GROUP BY name, bucket
     ORDER BY name, bucket
   `
@@ -136,23 +150,80 @@ export async function fetchToolErrorRatesBucketed(p: OpenObserveProvider, opts?:
   return groupSparks(hits, fromUs, toUs, bucketSec)
 }
 
-export async function fetchToolPayloadSizesBucketed(p: OpenObserveProvider, opts?: TopOpts): Promise<ToolSpark[]> {
+export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {
   const fromUs = opts?.fromUs ?? 0
   const toUs = opts?.toUs ?? 0
   const bucketSec = bucketSecondsFor(fromUs, toUs)
   const sql = `
     SELECT
-      operation_name AS name,
       date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
-      AVG(LENGTH(gen_ai_tool_call_result)) AS value
+      approx_percentile_cont(duration, 0.5) / 1000 AS p50_ms,
+      approx_percentile_cont(duration, 0.95) / 1000 AS p95_ms,
+      COUNT(*) AS count
     FROM "${p.stream}"
-    WHERE operation_name LIKE 'execute_tool %'
-      AND gen_ai_tool_call_result IS NOT NULL
-    GROUP BY name, bucket
-    ORDER BY name, bucket
+    WHERE gen_ai_operation_name = 'chat'
+    GROUP BY bucket
+    ORDER BY bucket
   `
   const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
-  return groupSparks(hits, fromUs, toUs, bucketSec)
+  return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => ({
+    p50Ms: Math.round(num(h.p50_ms) ?? 0),
+    p95Ms: Math.round(num(h.p95_ms) ?? 0),
+    count: Number(h.count ?? 0),
+  })).map((b) => ({ ts: b.ts, p50Ms: b.value.p50Ms, p95Ms: b.value.p95Ms, count: b.value.count }))
+}
+
+export async function fetchCacheHitRateOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<CacheHitPoint[]> {
+  const fromUs = opts?.fromUs ?? 0
+  const toUs = opts?.toUs ?? 0
+  const bucketSec = bucketSecondsFor(fromUs, toUs)
+  const known = await p.getKnownColumns()
+  const sumCols = (cols: readonly string[]) =>
+    cols.length === 0
+      ? '0'
+      : cols.length === 1
+        ? `SUM(COALESCE(${cols[0]}, 0))`
+        : `SUM(COALESCE(${cols.join(', ')}, 0))`
+  const cacheExpr = sumCols(ooColumns('cacheReadTokens', { known }))
+  const inputExpr = sumCols(ooColumns('inputTokens', { known }))
+  const sql = `
+    SELECT
+      date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
+      ${cacheExpr} AS cache_tokens,
+      ${inputExpr} AS input_tokens
+    FROM "${p.stream}"
+    WHERE gen_ai_operation_name = 'chat'
+    GROUP BY bucket
+    ORDER BY bucket
+  `
+  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
+  return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => {
+    const cache = num(h.cache_tokens) ?? 0
+    const input = num(h.input_tokens) ?? 0
+    return { ratio: input > 0 ? cache / input : 0, inputTokens: input }
+  }).map((b) => ({ ts: b.ts, ratio: b.value.ratio, inputTokens: b.value.inputTokens }))
+}
+
+export async function fetchRunsPerHour(p: OpenObserveProvider, opts?: WindowOpts): Promise<RunsPoint[]> {
+  const fromUs = opts?.fromUs ?? 0
+  const toUs = opts?.toUs ?? 0
+  const bucketSec = bucketSecondsFor(fromUs, toUs)
+  const sql = `
+    SELECT
+      date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
+      COUNT(DISTINCT trace_id) AS runs
+    FROM "${p.stream}"
+    WHERE gen_ai_operation_name IS NOT NULL
+       OR operation_name LIKE 'invoke_agent %'
+       OR operation_name LIKE 'execute_tool %'
+    GROUP BY bucket
+    ORDER BY bucket
+  `
+  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
+  return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => ({ runs: Number(h.runs ?? 0) })).map((b) => ({
+    ts: b.ts,
+    runs: b.value.runs,
+  }))
 }
 
 export async function fetchInventory(
@@ -251,6 +322,38 @@ function parseBucketMs(raw: unknown): number | undefined {
     return Number.isFinite(ms) ? ms : undefined
   }
   return undefined
+}
+
+// Single-series version of groupSparks — same bucket math, but the value is a
+// caller-defined object so we can carry e.g. {ratio, inputTokens} per slot.
+export function zeroFillPoints<V>(
+  hits: Array<Record<string, unknown>>,
+  fromUs: number,
+  toUs: number,
+  bucketSec: number,
+  mapValue: (h: Record<string, unknown>) => V,
+): Array<{ ts: number; value: V }> {
+  const bucketMs = bucketSec * 1000
+  const startMs = Math.floor(fromUs / 1000)
+  const endMs = Math.floor(toUs / 1000)
+  const slots: number[] = []
+  for (let t = startMs; t < endMs && slots.length < SPARK_BUCKETS; t += bucketMs) slots.push(t)
+  if (slots.length === 0) return []
+  const byTs = new Map<number, V>()
+  for (const h of hits) {
+    const ts = parseBucketMs(h.bucket)
+    if (ts === undefined) continue
+    byTs.set(ts, mapValue(h))
+  }
+  return slots.map((ts) => {
+    if (byTs.has(ts)) return { ts, value: byTs.get(ts) as V }
+    const lo = ts
+    const hi = ts + bucketMs - 1
+    for (const [k, v] of byTs) {
+      if (k >= lo && k <= hi) return { ts, value: v }
+    }
+    return { ts, value: mapValue({}) }
+  })
 }
 
 // Hit bucket starts may not match our zero-fill grid when fromUs isn't on a

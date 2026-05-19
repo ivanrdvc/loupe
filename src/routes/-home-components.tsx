@@ -1,13 +1,12 @@
 import { ArrowTopRightOnSquareIcon, ChevronDownIcon } from '@heroicons/react/20/solid'
 import { Link } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
-import { MiniBarChart } from '#/components/mini-bar-chart'
+import { useState } from 'react'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { formatAgo, formatDuration, formatTokens } from '#/lib/format'
-import type { LatencyRow, ToolBucketPoint, ToolErrorRow, ToolPayloadRow, ToolSpark } from '#/lib/telemetry'
+import type { LatencyRow, ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import type { InventoryRow } from '#/server/inbox'
 
 const PREVIEW_ROWS = 5
@@ -35,13 +34,15 @@ export function Section({
   icon: Icon,
   title,
   children,
+  wide,
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
   children: React.ReactNode
+  wide?: boolean
 }) {
   return (
-    <Card className="gap-3 py-3">
+    <Card className={`gap-3 py-3 ${wide ? 'xl:col-span-2' : ''}`}>
       <CardHeader className="flex flex-row items-center gap-2 px-3 [.border-b]:pb-3">
         <Icon className="size-4 fill-primary" />
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
@@ -99,25 +100,21 @@ export function OpenLink({ traceId }: { traceId?: string | null }) {
   )
 }
 
-function CharsTokens({ chars }: { chars: number }) {
+function Chars({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
-  // ~4 chars per token (OpenAI rule-of-thumb).
-  const tokens = Math.ceil(chars / 4)
   return (
     <span title={`${chars.toLocaleString()} chars`}>
-      ~{formatTokens(tokens)}
-      <span className="text-muted-foreground"> tok</span>
+      {formatTokens(chars)}
+      <span className="text-muted-foreground"> ch</span>
     </span>
   )
 }
 
-function useSparkLookup(sparks: ToolSpark[]): (name: string) => ToolBucketPoint[] {
-  const map = useMemo(() => new Map(sparks.map((s) => [s.name, s.buckets])), [sparks])
-  return (name: string) => map.get(name) ?? []
+function stripPrefix(name: string, prefix: string): string {
+  return name.startsWith(`${prefix} `) ? name.slice(prefix.length + 1) : name
 }
 
-export function ToolErrorTable({ rows, sparks = [] }: { rows: ToolErrorRow[]; sparks?: ToolSpark[] }) {
-  const sparkFor = useSparkLookup(sparks)
+export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No errored tool calls" description="Nothing failed in this window." />
   }
@@ -130,7 +127,6 @@ export function ToolErrorTable({ rows, sparks = [] }: { rows: ToolErrorRow[]; sp
               <TableHead>Tool</TableHead>
               <TableHead className="w-20 text-right tabular-nums">Errors</TableHead>
               <TableHead className="w-20 text-right tabular-nums">Calls</TableHead>
-              <TableHead className="w-24">Trend</TableHead>
               <TableHead className="w-20 text-right tabular-nums">Rate ▼</TableHead>
               <TableHead className="w-8" />
             </TableRow>
@@ -139,13 +135,10 @@ export function ToolErrorTable({ rows, sparks = [] }: { rows: ToolErrorRow[]; sp
             {visible.map((row) => (
               <TableRow key={row.name}>
                 <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
-                  {row.name}
+                  {stripPrefix(row.name, 'execute_tool')}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{row.errors}</TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">{row.total}</TableCell>
-                <TableCell>
-                  <MiniBarChart data={sparkFor(row.name)} tone="destructive" />
-                </TableCell>
                 <TableCell className="text-right">
                   <Badge variant="destructive">{(row.errorRate * 100).toFixed(1)}%</Badge>
                 </TableCell>
@@ -161,8 +154,7 @@ export function ToolErrorTable({ rows, sparks = [] }: { rows: ToolErrorRow[]; sp
   )
 }
 
-export function ToolPayloadTable({ rows, sparks = [] }: { rows: ToolPayloadRow[]; sparks?: ToolSpark[] }) {
-  const sparkFor = useSparkLookup(sparks)
+export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No tool-call payloads" description="No execute_tool spans in this window." />
   }
@@ -176,7 +168,6 @@ export function ToolPayloadTable({ rows, sparks = [] }: { rows: ToolPayloadRow[]
               <TableHead className="w-20 text-right tabular-nums">Avg</TableHead>
               <TableHead className="w-20 text-right tabular-nums">p95 ▼</TableHead>
               <TableHead className="w-20 text-right tabular-nums">Max</TableHead>
-              <TableHead className="w-24">Trend</TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -184,19 +175,16 @@ export function ToolPayloadTable({ rows, sparks = [] }: { rows: ToolPayloadRow[]
             {visible.map((row) => (
               <TableRow key={row.name}>
                 <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
-                  {row.name}
+                  {stripPrefix(row.name, 'execute_tool')}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  <CharsTokens chars={row.avgChars} />
+                  <Chars chars={row.avgChars} />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  <CharsTokens chars={row.p95Chars} />
+                  <Chars chars={row.p95Chars} />
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  <CharsTokens chars={row.maxChars} />
-                </TableCell>
-                <TableCell>
-                  <MiniBarChart data={sparkFor(row.name)} tone="warning" />
+                  <Chars chars={row.maxChars} />
                 </TableCell>
                 <TableCell>
                   <OpenLink traceId={row.sampleTraceId} />
@@ -210,7 +198,15 @@ export function ToolPayloadTable({ rows, sparks = [] }: { rows: ToolPayloadRow[]
   )
 }
 
-export function LatencyTable({ rows, firstHeader }: { rows: LatencyRow[]; firstHeader: string }) {
+export function LatencyTable({
+  rows,
+  firstHeader,
+  stripPrefixFrom,
+}: {
+  rows: LatencyRow[]
+  firstHeader: string
+  stripPrefixFrom?: string
+}) {
   if (rows.length === 0) {
     return <SectionEmpty title="No spans" description="No matching spans in this window." />
   }
@@ -231,7 +227,7 @@ export function LatencyTable({ rows, firstHeader }: { rows: LatencyRow[]; firstH
             {visible.map((row) => (
               <TableRow key={row.name}>
                 <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
-                  {row.name}
+                  {stripPrefixFrom ? stripPrefix(row.name, stripPrefixFrom) : row.name}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
                   {formatDuration(row.p50Ms)}

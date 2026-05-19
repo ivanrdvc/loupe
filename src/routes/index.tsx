@@ -1,5 +1,6 @@
 import {
   BoltIcon,
+  ChartBarIcon,
   ClockIcon,
   CubeTransparentIcon,
   ExclamationTriangleIcon,
@@ -15,6 +16,9 @@ import { TimeRangeSelect } from '#/components/time-range-select'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useEnv } from '#/hooks/use-env'
 import { DEFAULT, parse, type TimeRange } from '#/lib/time-range'
+import { CacheAreaChart } from './-home-charts/cache-area'
+import { LatencyAreaChart } from './-home-charts/latency-area'
+import { ThroughputAreaChart } from './-home-charts/throughput-area'
 import {
   CategoryGroup,
   LatencyTable,
@@ -30,12 +34,13 @@ interface HomeSearch {
   range?: TimeRange
 }
 
-const CATEGORIES = ['all', 'signals', 'performance', 'inventory'] as const
+const CATEGORIES = ['all', 'signals', 'performance', 'activity', 'inventory'] as const
 type Category = (typeof CATEGORIES)[number]
 const CATEGORY_LABEL: Record<Category, string> = {
   all: 'All',
   signals: 'Signals',
   performance: 'Performance',
+  activity: 'Activity',
   inventory: 'Inventory',
 }
 const CATEGORY_STORAGE_KEY = 'home-category'
@@ -61,12 +66,13 @@ function Home() {
   const { data } = useQuery(homeQuery(range))
   const newTools = data?.newTools ?? []
   const newAgents = data?.newAgents ?? []
-  const generationLatency = data?.generationLatency ?? []
-  const observationLatency = data?.observationLatency ?? []
+  const chatLatency = data?.chatLatency ?? []
+  const agentLatency = data?.agentLatency ?? []
   const toolErrors = data?.toolErrors ?? []
   const toolPayloads = data?.toolPayloads ?? []
-  const toolErrorsSpark = data?.toolErrorsSpark ?? []
-  const toolPayloadsSpark = data?.toolPayloadsSpark ?? []
+  const chatLatencyOverTime = data?.chatLatencyOverTime ?? []
+  const cacheHitRateOverTime = data?.cacheHitRateOverTime ?? []
+  const runsPerHour = data?.runsPerHour ?? []
 
   const [env, setEnv] = useEnv()
   const [category, setCategoryState] = useState<Category>(DEFAULT_CATEGORY)
@@ -89,6 +95,7 @@ function Home() {
   const showAll = category === 'all'
   const signals = showAll || category === 'signals'
   const performance = showAll || category === 'performance'
+  const activity = showAll || category === 'activity'
   const inventory = showAll || category === 'inventory'
 
   return (
@@ -116,21 +123,35 @@ function Home() {
       {signals && (
         <CategoryGroup label="Signals" showLabel={showAll}>
           <Section icon={InboxArrowDownIcon} title="Tools returning too much">
-            <ToolPayloadTable rows={toolPayloads} sparks={toolPayloadsSpark} />
+            <ToolPayloadTable rows={toolPayloads} />
           </Section>
           <Section icon={ExclamationTriangleIcon} title="Tools with high error rate">
-            <ToolErrorTable rows={toolErrors} sparks={toolErrorsSpark} />
+            <ToolErrorTable rows={toolErrors} />
           </Section>
         </CategoryGroup>
       )}
 
       {performance && (
         <CategoryGroup label="Performance" showLabel={showAll}>
-          <Section icon={SparklesIcon} title="Generation latency percentiles">
-            <LatencyTable rows={generationLatency} firstHeader="Generation" />
+          <Section icon={SparklesIcon} title="Chat latency">
+            <LatencyTable rows={chatLatency} firstHeader="Chat" />
           </Section>
-          <Section icon={ClockIcon} title="Observation latency percentiles">
-            <LatencyTable rows={observationLatency} firstHeader="Observation" />
+          <Section icon={ClockIcon} title="Agent latency">
+            <LatencyTable rows={agentLatency} firstHeader="Agent" stripPrefixFrom="invoke_agent" />
+          </Section>
+          <Section icon={SparklesIcon} title="p95 chat latency over time">
+            <LatencyAreaChart data={chatLatencyOverTime} />
+          </Section>
+        </CategoryGroup>
+      )}
+
+      {activity && (
+        <CategoryGroup label="Activity" showLabel={showAll}>
+          <Section icon={ChartBarIcon} title="Cache-hit rate over time">
+            <CacheAreaChart data={cacheHitRateOverTime} />
+          </Section>
+          <Section icon={ChartBarIcon} title="Runs over time">
+            <ThroughputAreaChart data={runsPerHour} />
           </Section>
         </CategoryGroup>
       )}

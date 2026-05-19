@@ -112,6 +112,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     query: (q, opts) =>
       search(q, opts.fromUs ?? Date.now() * 1000 - DEFAULT_WINDOW_US, opts.toUs ?? Date.now() * 1000, opts.size),
 
+    getKnownColumns,
+
     async getTrace(traceId, opts) {
       const { fromUs, toUs } = window(opts)
       const sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${traceId}'`

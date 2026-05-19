@@ -6,13 +6,16 @@
 import * as ai from './analytics-app-insights'
 import * as oo from './analytics-openobserve'
 import type {
+  CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyKind,
   LatencyOpts,
+  LatencyPoint,
   LatencyRow,
   OverviewAggregate,
   OverviewOpts,
+  RunsPoint,
   TelemetryProvider,
   ToolErrorRow,
   ToolPayloadRow,
@@ -26,7 +29,7 @@ export async function fetchOverview(p: TelemetryProvider, opts?: OverviewOpts): 
     case 'openobserve':
       return oo.fetchOverview(p, opts)
     case 'app-insights':
-      return { runs: 0, erroredRuns: 0, p95ChatMs: 0, totalCostUsd: 0 }
+      return ai.fetchOverview(p, opts)
   }
 }
 
@@ -48,7 +51,7 @@ export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts):
     case 'openobserve':
       return oo.fetchToolErrorRates(p, opts)
     case 'app-insights':
-      return []
+      return ai.fetchToolErrorRates(p, opts)
   }
 }
 
@@ -57,25 +60,52 @@ export async function fetchToolPayloadSizes(p: TelemetryProvider, opts?: TopOpts
     case 'openobserve':
       return oo.fetchToolPayloadSizes(p, opts)
     case 'app-insights':
-      return []
+      return ai.fetchToolPayloadSizes(p, opts)
   }
 }
 
 export async function fetchToolErrorRatesBucketed(p: TelemetryProvider, opts?: TopOpts): Promise<ToolSpark[]> {
   switch (p.name) {
     case 'openobserve':
-      return oo.fetchToolErrorRatesBucketed(p, opts)
+      return oo.fetchToolBucketed(p, 'errors', opts)
     case 'app-insights':
-      return []
+      return ai.fetchToolBucketed(p, 'errors', opts)
   }
 }
 
 export async function fetchToolPayloadSizesBucketed(p: TelemetryProvider, opts?: TopOpts): Promise<ToolSpark[]> {
   switch (p.name) {
     case 'openobserve':
-      return oo.fetchToolPayloadSizesBucketed(p, opts)
+      return oo.fetchToolBucketed(p, 'payload_avg', opts)
     case 'app-insights':
-      return []
+      return ai.fetchToolBucketed(p, 'payload_avg', opts)
+  }
+}
+
+export async function fetchChatLatencyOverTime(p: TelemetryProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchChatLatencyOverTime(p, opts)
+    case 'app-insights':
+      return ai.fetchChatLatencyOverTime(p, opts)
+  }
+}
+
+export async function fetchCacheHitRateOverTime(p: TelemetryProvider, opts?: WindowOpts): Promise<CacheHitPoint[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchCacheHitRateOverTime(p, opts)
+    case 'app-insights':
+      return ai.fetchCacheHitRateOverTime(p, opts)
+  }
+}
+
+export async function fetchRunsPerHour(p: TelemetryProvider, opts?: WindowOpts): Promise<RunsPoint[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchRunsPerHour(p, opts)
+    case 'app-insights':
+      return ai.fetchRunsPerHour(p, opts)
   }
 }
 

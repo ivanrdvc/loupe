@@ -21,8 +21,12 @@ export function classifyTraceCategory(input: TraceClassificationInput): TraceCat
       if (input.execution === 'background') return 'background'
       break
   }
-  if (input.hasSessionAttribute) return 'chat'
+  // Producer-stamped purpose wins over the session attribute: title gen and
+  // similar utility LLM calls live inside the same session as the chat that
+  // spawned them, but should bucket as utility — the purpose stamp is what
+  // distinguishes them.
   if (input.llmPurpose) return 'utility'
+  if (input.hasSessionAttribute) return 'chat'
   if (input.chatCount > 0 && input.invokeAgentCount === 0) return 'utility'
   return 'orphan'
 }

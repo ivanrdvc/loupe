@@ -85,7 +85,7 @@ export interface InventoryObservation {
   traceId?: string
 }
 
-export type LatencyKind = 'generation' | 'observation'
+export type LatencyKind = 'chat' | 'agent'
 
 export interface LatencyRow {
   name: string
@@ -130,6 +130,24 @@ export interface ToolSpark {
 
 export type TopOpts = ListOpts
 
+export interface LatencyPoint {
+  ts: number
+  p50Ms: number
+  p95Ms: number
+  count: number
+}
+
+export interface CacheHitPoint {
+  ts: number
+  ratio: number
+  inputTokens: number
+}
+
+export interface RunsPoint {
+  ts: number
+  runs: number
+}
+
 export interface OverviewAggregate {
   runs: number
   erroredRuns: number
@@ -164,6 +182,7 @@ interface BaseProvider {
 export interface OpenObserveProvider extends BaseProvider {
   name: 'openobserve'
   stream: string
+  getKnownColumns(): Promise<ReadonlySet<string>>
 }
 
 export interface AppInsightsProvider extends BaseProvider {

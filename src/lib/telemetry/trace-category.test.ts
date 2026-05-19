@@ -63,6 +63,17 @@ describe('classifyTraceCategory', () => {
     expect(cat).toBe('utility')
   })
 
+  it('llmPurpose wins over a bare session attribute (title-gen inside a session)', () => {
+    const cat = classifyTraceCategory({
+      hasSessionAttribute: true,
+      hasRootExecuteTool: false,
+      invokeAgentCount: 0,
+      chatCount: 1,
+      llmPurpose: 'title_generation',
+    })
+    expect(cat).toBe('utility')
+  })
+
   it('returns utility when chats exist but no agents and no session', () => {
     const cat = classifyTraceCategory({
       hasSessionAttribute: false,

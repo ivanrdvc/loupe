@@ -4,16 +4,19 @@ import * as analytics from './analytics'
 import { createAppInsightsProvider } from './app-insights'
 import { createOpenObserveProvider } from './openobserve'
 import type {
+  CacheHitPoint,
   GetTraceOpts,
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyKind,
   LatencyOpts,
+  LatencyPoint,
   LatencyRow,
   ListSessionsOpts,
   ListTracesOpts,
   OverviewAggregate,
   OverviewOpts,
+  RunsPoint,
   SessionSummary,
   TelemetryProvider,
   ToolErrorRow,
@@ -21,6 +24,7 @@ import type {
   ToolSpark,
   TopOpts,
   TraceSummary,
+  WindowOpts,
 } from './types'
 
 export type * from './types'
@@ -200,4 +204,16 @@ export async function listToolPayloadSizesBucketed(opts?: TopOpts): Promise<Tool
 
 export async function getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {
   return analytics.fetchOverview(getActiveProvider(), opts)
+}
+
+export async function listChatLatencyOverTime(opts?: WindowOpts): Promise<LatencyPoint[]> {
+  return analytics.fetchChatLatencyOverTime(getActiveProvider(), opts)
+}
+
+export async function listCacheHitRateOverTime(opts?: WindowOpts): Promise<CacheHitPoint[]> {
+  return analytics.fetchCacheHitRateOverTime(getActiveProvider(), opts)
+}
+
+export async function listRunsPerHour(opts?: WindowOpts): Promise<RunsPoint[]> {
+  return analytics.fetchRunsPerHour(getActiveProvider(), opts)
 }

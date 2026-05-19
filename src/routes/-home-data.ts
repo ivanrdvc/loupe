@@ -2,11 +2,12 @@ import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
+  listCacheHitRateOverTime,
+  listChatLatencyOverTime,
   listLatencyPercentiles,
+  listRunsPerHour,
   listToolErrorRates,
-  listToolErrorRatesBucketed,
   listToolPayloadSizes,
-  listToolPayloadSizesBucketed,
 } from '#/lib/telemetry'
 import { DEFAULT, parse, serialize, type TimeRange, windowMs, windowUs } from '#/lib/time-range'
 import { runDetection } from '#/server/detection'
@@ -27,29 +28,32 @@ const fetchHome = createServerFn({ method: 'GET' })
     ])
     const [
       inventory,
-      generationLatency,
-      observationLatency,
+      chatLatency,
+      agentLatency,
       toolErrors,
       toolPayloads,
-      toolErrorsSpark,
-      toolPayloadsSpark,
+      chatLatencyOverTime,
+      cacheHitRateOverTime,
+      runsPerHour,
     ] = await Promise.all([
       listHomeInventory(from, to),
-      listLatencyPercentiles('generation', { fromUs, toUs, limit: 10 }).catch(() => []),
-      listLatencyPercentiles('observation', { fromUs, toUs, limit: 10 }).catch(() => []),
+      listLatencyPercentiles('chat', { fromUs, toUs, limit: 10 }).catch(() => []),
+      listLatencyPercentiles('agent', { fromUs, toUs, limit: 10 }).catch(() => []),
       listToolErrorRates({ fromUs, toUs, limit: 5 }).catch(() => []),
       listToolPayloadSizes({ fromUs, toUs, limit: 5 }).catch(() => []),
-      listToolErrorRatesBucketed({ fromUs, toUs }).catch(() => []),
-      listToolPayloadSizesBucketed({ fromUs, toUs }).catch(() => []),
+      listChatLatencyOverTime({ fromUs, toUs }).catch(() => []),
+      listCacheHitRateOverTime({ fromUs, toUs }).catch(() => []),
+      listRunsPerHour({ fromUs, toUs }).catch(() => []),
     ])
     return {
       ...inventory,
-      generationLatency,
-      observationLatency,
+      chatLatency,
+      agentLatency,
       toolErrors,
       toolPayloads,
-      toolErrorsSpark,
-      toolPayloadsSpark,
+      chatLatencyOverTime,
+      cacheHitRateOverTime,
+      runsPerHour,
     }
   })
 
