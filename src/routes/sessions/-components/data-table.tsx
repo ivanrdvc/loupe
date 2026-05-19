@@ -8,6 +8,7 @@ import {
   IconChevronsRight,
   IconSearch,
 } from '@tabler/icons-react'
+import { Link } from '@tanstack/react-router'
 import {
   type ColumnFiltersState,
   flexRender,
@@ -37,6 +38,7 @@ import {
 import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import type { SessionSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
@@ -76,6 +78,8 @@ export function DataTable({
   onRefresh,
   refreshing,
 }: DataTableProps) {
+  const [userId] = useUserId()
+  const [scopeToMe] = useScopeToMe()
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({ status: false })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -192,21 +196,38 @@ export function DataTable({
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell colSpan={sessionColumns.length} className="h-24 text-center text-muted-foreground">
-                    {isLoading ? (
-                      <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="mx-auto size-4 animate-spin" />
-                    ) : (
-                      <div className="mx-auto max-w-md space-y-1">
-                        <div>No sessions in this window.</div>
-                        <div className="text-xs">
-                          Set <code className="rounded bg-muted px-1 py-0.5 font-mono">ag_ui.thread_id</code> (or your
-                          configured{' '}
-                          <code className="rounded bg-muted px-1 py-0.5 font-mono">CUSTOM_SESSION_ID_FIELDS</code>) on
-                          the producer to enable session grouping. Individual traces appear on the Runs page.
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={sessionColumns.length} className="h-48">
+                    <div className="flex h-full items-center justify-center">
+                      {isLoading ? (
+                        <HugeiconsIcon
+                          icon={Loading03Icon}
+                          strokeWidth={2}
+                          className="size-4 animate-spin text-muted-foreground"
+                        />
+                      ) : scopeToMe && userId ? (
+                        <div className="max-w-md space-y-1 text-center text-muted-foreground">
+                          <div>
+                            No sessions for <span className="font-mono text-foreground">{userId}</span>.
+                          </div>
+                          <div className="text-xs">Turn off scope-to-me in Settings → Account to see all sessions.</div>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="max-w-md space-y-1 text-center text-muted-foreground">
+                          <div>No sessions in this window.</div>
+                          <div className="text-xs">
+                            Set <code className="rounded bg-muted px-1 py-0.5 font-mono">ag_ui.thread_id</code> (or your
+                            configured{' '}
+                            <code className="rounded bg-muted px-1 py-0.5 font-mono">CUSTOM_SESSION_ID_FIELDS</code>) on
+                            the producer to enable session grouping. Individual traces appear on{' '}
+                            <Link to="/traces" className="underline">
+                              /traces
+                            </Link>
+                            .
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

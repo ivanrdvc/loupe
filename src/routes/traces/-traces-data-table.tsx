@@ -36,6 +36,7 @@ import {
 import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import type { TraceSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
@@ -79,6 +80,8 @@ export function TracesDataTable({
   onRefresh,
   refreshing,
 }: TracesDataTableProps) {
+  const [userId] = useUserId()
+  const [scopeToMe] = useScopeToMe()
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     status: false,
     category: false,
@@ -202,80 +205,95 @@ export function TracesDataTable({
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell colSpan={traceColumns.length} className="h-24 text-center text-muted-foreground">
-                    {isLoading ? (
-                      <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="mx-auto size-4 animate-spin" />
-                    ) : (
-                      'No traces found.'
-                    )}
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={traceColumns.length} className="h-48">
+                    <div className="flex h-full items-center justify-center">
+                      {isLoading ? (
+                        <HugeiconsIcon
+                          icon={Loading03Icon}
+                          strokeWidth={2}
+                          className="size-4 animate-spin text-muted-foreground"
+                        />
+                      ) : scopeToMe && userId ? (
+                        <div className="max-w-md space-y-1 text-center text-muted-foreground">
+                          <div>
+                            No traces for <span className="font-mono text-foreground">{userId}</span>.
+                          </div>
+                          <div className="text-xs">Turn off scope-to-me in Settings → Account to see all traces.</div>
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground">No traces in this window.</div>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-        {/* Pagination */}
-        <div className="flex items-center justify-between gap-4 py-4">
-          <div className="text-xs text-muted-foreground">{table.getFilteredRowModel().rows.length} trace(s) total</div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground">Rows per page</span>
+      </div>
+      <div className="-mx-0 -mb-4 shrink-0 border-t bg-background md:-mb-6">
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 lg:px-6">
+          <div className="flex items-center gap-4 lg:gap-6">
+            <div className="hidden items-center gap-2 lg:flex">
+              <p className="text-xs font-medium">Rows per page</p>
               <Select
-                value={String(pagination.pageSize)}
-                onValueChange={(v) => setPagination({ pageIndex: 0, pageSize: Number(v) })}
+                value={`${table.getState().pagination.pageSize}`}
+                onValueChange={(value) => table.setPageSize(Number(value))}
               >
-                <SelectTrigger className="h-8 w-16">
-                  <SelectValue />
+                <SelectTrigger size="sm" className="w-[68px]" id="rows-per-page">
+                  <SelectValue placeholder={table.getState().pagination.pageSize} />
                 </SelectTrigger>
-                <SelectContent>
-                  {[25, 50, 100].map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
+                <SelectContent side="top">
+                  {[25, 50, 100, 200].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <span className="text-xs text-muted-foreground">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
-            </span>
+            <div className="flex w-[96px] items-center justify-center text-xs font-medium">
+              Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+            </div>
             <div className="flex items-center gap-1">
               <Button
                 variant="outline"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
+                className="hidden lg:flex"
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
-                <IconChevronsLeft className="size-4" />
+                <span className="sr-only">First page</span>
+                <IconChevronsLeft />
               </Button>
               <Button
                 variant="outline"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
-                <IconChevronLeft className="size-4" />
+                <span className="sr-only">Previous page</span>
+                <IconChevronLeft />
               </Button>
               <Button
                 variant="outline"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
-                <IconChevronRight className="size-4" />
+                <span className="sr-only">Next page</span>
+                <IconChevronRight />
               </Button>
               <Button
                 variant="outline"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
+                className="hidden lg:flex"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
-                <IconChevronsRight className="size-4" />
+                <span className="sr-only">Last page</span>
+                <IconChevronsRight />
               </Button>
             </div>
           </div>

@@ -132,13 +132,13 @@ export const traceColumns: ColumnDef<TraceSummary>[] = [
     enableSorting: false,
   },
   {
-    accessorKey: 'rootOperation',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Root operation" />,
+    accessorKey: 'agent',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Agent" />,
     cell: ({ row }) => {
-      const op = row.original.rootOperation ?? row.original.agent
-      return op ? (
-        <span className="block max-w-[240px] truncate text-foreground/80" title={op}>
-          {op}
+      const agent = row.original.agent
+      return agent ? (
+        <span className="block max-w-[240px] truncate text-muted-foreground" title={agent}>
+          {agent}
         </span>
       ) : (
         <span className="text-muted-foreground/60">—</span>
@@ -196,7 +196,7 @@ export const traceColumns: ColumnDef<TraceSummary>[] = [
       const secondary = s.userName && s.userId ? s.userName : undefined
       return (
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 max-w-[140px] truncate text-foreground">{primary}</span>
+          <span className="min-w-0 max-w-[140px] truncate text-muted-foreground">{primary}</span>
           {secondary && (
             <span className="max-w-[120px] shrink-0 truncate text-xs text-muted-foreground">{secondary}</span>
           )}
