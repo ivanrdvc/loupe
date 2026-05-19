@@ -7,7 +7,9 @@ import { DEFAULT, parse, serialize, type TimeRange, windowUs } from '#/lib/time-
 const fetchSessions = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))
   .handler(async ({ data }) => {
-    return await listRecentSessions({ limit: 50, ...windowUs(data) })
+    // TODO: Remove userId filter once OTel conventions fix is validated.
+    // Temporarily scoped to Ivan's sessions to avoid noise from whole company.
+    return await listRecentSessions({ limit: 50, ...windowUs(data), userId: '700f72d7-e0d2-4b20-9ef4-a03265e1be29' })
   })
 
 const fetchCurrentUserSessions = createServerFn({ method: 'GET' })

@@ -1,3 +1,5 @@
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { IconChevronLeft, IconChevronRight, IconSearch } from '@tabler/icons-react'
 import {
   type ColumnFiltersState,
@@ -96,7 +98,11 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  {isLoading ? 'Loading…' : 'Inbox is clear.'}
+                  {isLoading ? (
+                    <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="mx-auto size-4 animate-spin" />
+                  ) : (
+                    'Inbox is clear.'
+                  )}
                 </TableCell>
               </TableRow>
             )}

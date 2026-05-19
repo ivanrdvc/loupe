@@ -1,6 +1,7 @@
 import { classifySpan, extractAgentName, USER_ID_ATTR_KEYS, USER_NAME_ATTR_KEYS } from '#/lib/classify-span'
 import type { JsonValue } from '#/lib/json'
 import { readFieldConfig } from './field-config'
+import { classifyTraceCategory } from './trace-category'
 
 // Only one session id / title column is materialized in OO today. If a second
 // lands, swap these for COALESCE expressions.
@@ -8,6 +9,7 @@ const SESSION_ID_COL = 'ag_ui_thread_id'
 const SESSION_TITLE_COL = 'ag_ui_thread_title'
 
 import {
+  dedupeById,
   normalizeTraceRoots,
   propagateInheritedAttrs,
   propagateSessionInTrace,
@@ -69,8 +71,9 @@ const LLM_COST_COL = 'llm_usage_cost_total'
 const LLM_COST_O2_COL = '_o2_llm_cost_details_total'
 const GEN_AI_INPUT_TOKENS_COL = 'gen_ai_usage_input_tokens'
 const GEN_AI_OUTPUT_TOKENS_COL = 'gen_ai_usage_output_tokens'
-const USER_ID_KEYS = USER_ID_ATTR_KEYS.map(sqlColumnKey)
-const USER_NAME_KEYS = USER_NAME_ATTR_KEYS.map(sqlColumnKey)
+// Dotted and underscore variants of the same attribute collapse to one OO column.
+const USER_ID_KEYS = [...new Set(USER_ID_ATTR_KEYS.map(sqlColumnKey))]
+const USER_NAME_KEYS = [...new Set(USER_NAME_ATTR_KEYS.map(sqlColumnKey))]
 const HOST_KEYS = ['host_name']
 
 // Remap deployment-specific fields (from CUSTOM_SESSION_ID_FIELDS /
@@ -93,8 +96,11 @@ function remapCustomFields(
 }
 
 export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProvider {
-  const { sessionIdFields, userIdFields } = readFieldConfig()
+  const { sessionIdFields, userIdFields, sessionKindField, llmPurposeField } = readFieldConfig()
   const customUserIdCols = userIdFields.filter((k) => !USER_ID_KEYS.includes(k))
+  // OO flattens dots to underscores at ingest
+  const sessionKindCol = sessionKindField?.replace(/\./g, '_')
+  const llmPurposeCol = llmPurposeField?.replace(/\./g, '_')
   const search = async (
     sql: string,
     fromUs: number,
@@ -132,7 +138,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       const sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${traceId}'`
       const hits = await search(sql, fromUs, toUs)
       if (hits.length === 0) return null
-      const spans = hits.map((h) => remapCustomFields(h, sessionIdFields, userIdFields)).map(normalizeOpenObserveHit)
+      const spans = dedupeById(
+        hits.map((h) => remapCustomFields(h, sessionIdFields, userIdFields)).map(normalizeOpenObserveHit),
+      )
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
@@ -176,10 +184,10 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
         WHERE (
           operation_name LIKE 'invoke_agent %'
           OR gen_ai_operation_name = 'chat'
-          ${has(SESSION_ID_COL) ? `OR ${SESSION_ID_COL} IS NOT NULL` : ''}
+          ${has(SESSION_ID_COL) ? `OR ${SESSION_ID_COL} != ''` : ''}
           ${sessionIdFields
             .filter((k) => has(k))
-            .map((k) => `OR ${k} IS NOT NULL`)
+            .map((k) => `OR ${k} != ''`)
             .join('\n          ')}
         )
         ${userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''}
@@ -241,9 +249,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
       if (traceIds.length === 0) return null
       const idList = traceIds.map((id) => `'${id}'`).join(',')
       const spanHits = await search(`SELECT * FROM "${cfg.stream}" WHERE trace_id IN (${idList})`, fromUs, toUs)
-      const spans = spanHits
-        .map((h) => remapCustomFields(h, sessionIdFields, userIdFields))
-        .map(normalizeOpenObserveHit)
+      const spans = dedupeById(
+        spanHits.map((h) => remapCustomFields(h, sessionIdFields, userIdFields)).map(normalizeOpenObserveHit),
+      )
       // Propagate sessionId per-trace — each trace has its own root invoke_agent.
       for (const trSpans of groupBy(spans, (s) => s.traceId).values()) {
         normalizeTraceRoots(trSpans)
@@ -278,16 +286,36 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): TelemetryProv
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN operation_name END) AS sample_agent,
           MAX(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS has_error,
           ${skip.has(SESSION_ID_COL) ? '' : `MAX(${SESSION_ID_COL}) AS session_id,`}
-          MAX(service_name)    AS service_name
+          MAX(service_name)    AS service_name,
+          MAX(CASE WHEN operation_name LIKE 'execute_tool %' AND reference_parent_span_id IS NULL THEN 1 ELSE 0 END) AS has_root_execute_tool,
+          SUM(CASE WHEN operation_name LIKE 'invoke_agent %' THEN 1 ELSE 0 END) AS invoke_agent_count,
+          SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN 1 ELSE 0 END) AS chat_count,
+          ${sessionKindCol ? `MAX(${sessionKindCol}) AS session_kind,` : ''}
+          ${llmPurposeCol ? `MAX(${llmPurposeCol}) AS llm_purpose,` : ''}
+          ${skip.has('session_trigger_type') ? '' : `MAX(session_trigger_type) AS trigger_type,`}
+          ${skip.has('session_execution') ? '' : `MAX(session_execution) AS execution,`}
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN operation_name END) AS root_operation,
+          ${skip.has(USER_ID_KEYS[0]) ? 'NULL' : `MAX(${USER_ID_KEYS[0]})`} AS trace_user_id,
+          ${skip.has(USER_NAME_KEYS[0]) ? 'NULL' : `MAX(${USER_NAME_KEYS[0]})`} AS trace_user_name
         FROM "${cfg.stream}"
         WHERE gen_ai_operation_name IS NOT NULL
+           OR operation_name LIKE 'invoke_agent %'
+           OR operation_name LIKE 'execute_tool %'
         GROUP BY trace_id
         ORDER BY first_seen DESC
         LIMIT ${limit}
       `
       const hits = await searchDroppingMissing(
         (skip) => search(buildSql(skip), fromUs, toUs, limit),
-        [SESSION_ID_COL, LLM_TOKENS_COL, LLM_COST_COL],
+        [
+          SESSION_ID_COL,
+          LLM_TOKENS_COL,
+          LLM_COST_COL,
+          USER_ID_KEYS[0],
+          USER_NAME_KEYS[0],
+          'session_trigger_type',
+          'session_execution',
+        ],
       )
       return hits.map(hitToSummary)
     },
@@ -483,7 +511,8 @@ function window(opts: GetTraceOpts | ListTracesOpts | undefined): { fromUs: numb
 }
 
 function sqlColumnKey(attrKey: string): string {
-  return attrKey.replaceAll('.', '_')
+  // OO lowercases columns at ingest — match that so error-message substrings line up.
+  return attrKey.replaceAll('.', '_').toLowerCase()
 }
 
 function coalesceAs(keys: readonly string[], alias: string, skip: ReadonlySet<string>): string {
@@ -512,12 +541,14 @@ function sqlString(value: string): string {
 function hitToSummary(h: Record<string, unknown>): TraceSummary {
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? 0)
+  const hasSession = typeof h.session_id === 'string' && h.session_id.length > 0
   const summary: TraceSummary = {
     id: String(h.trace_id),
     startedAtMs: Math.floor(firstSeenNs / 1_000_000),
     durationMs: Math.max(0, Math.floor((lastSeenNs - firstSeenNs) / 1_000_000)),
     spanCount: Number(h.span_count ?? 0),
     hasError: Number(h.has_error ?? 0) === 1,
+    hasSessionAttribute: hasSession,
   }
   const tokens = num(h.total_tokens)
   if (tokens) summary.totalTokens = tokens
@@ -525,11 +556,36 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   if (cost) summary.totalCostUsd = cost
   const agent = extractAgentName(String(h.sample_agent ?? ''))
   if (agent) summary.agent = agent
-  const session = h.session_id
-  if (typeof session === 'string' && session) summary.sessionId = session
+  if (hasSession) summary.sessionId = String(h.session_id)
   const service = h.service_name
   if (typeof service === 'string' && service) summary.serviceName = service
+  const rootOp = h.root_operation
+  if (typeof rootOp === 'string' && rootOp) summary.rootOperation = rootOp
+  const userId = h.trace_user_id
+  if (typeof userId === 'string' && userId) summary.userId = userId
+  const userName = h.trace_user_name
+  if (typeof userName === 'string' && userName) summary.userName = userName
+
+  const triggerType = pickStringField(h.trigger_type)
+  if (triggerType) summary.triggerType = triggerType
+  const execution = pickStringField(h.execution)
+  if (execution) summary.execution = execution
+  const llmPurpose = pickStringField(h.llm_purpose)
+  if (llmPurpose) summary.llmPurpose = llmPurpose
+  summary.category = classifyTraceCategory({
+    hasSessionAttribute: hasSession,
+    hasRootExecuteTool: Number(h.has_root_execute_tool) > 0,
+    invokeAgentCount: Number(h.invoke_agent_count ?? 0),
+    chatCount: Number(h.chat_count ?? 0),
+    triggerType,
+    execution,
+    llmPurpose,
+  })
   return summary
+}
+
+function pickStringField(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined
 }
 
 function hitToInventoryObservation(
@@ -561,6 +617,9 @@ function extractToolName(spanName: string): string | undefined {
 // reads whatever Record we hand it, so we pass the whole hit.
 function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
   const operationName = String(h.operation_name ?? '?')
+  // OpenObserve stores start_time/end_time in nanoseconds. Normalize to ms.
+  const startMs = Math.floor(Number(h.start_time ?? 0) / 1_000_000)
+  const endMs = Math.floor(Number(h.end_time ?? 0) / 1_000_000)
   return {
     id: String(h.span_id),
     traceId: String(h.trace_id ?? ''),
@@ -568,12 +627,10 @@ function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
     service: String(h.service_name ?? 'unknown'),
     kind: kindFromNumber(h.span_kind),
     name: operationName,
-    // OpenObserve stores start_time/end_time in nanoseconds, duration in microseconds.
-    // We normalize to ms throughout the app.
-    startMs: Math.floor(Number(h.start_time ?? 0) / 1_000_000),
-    endMs: Math.floor(Number(h.end_time ?? 0) / 1_000_000),
+    startMs,
+    endMs,
     ...(h.span_status === 'ERROR' ? { hasError: true } : {}),
-    ...classifySpan(operationName, h),
+    ...classifySpan(operationName, h, startMs),
     rawAttributes: h as Record<string, JsonValue>,
   }
 }

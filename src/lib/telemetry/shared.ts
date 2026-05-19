@@ -1,6 +1,7 @@
 import { extractAgentName, SESSION_ID_KEYS, SESSION_TITLE_KEYS } from '#/lib/classify-span'
 import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
+import { estimateCostUsd } from '#/lib/llm-pricing'
 import type { LatencyRow, SessionSummary, ToolErrorRow, ToolPayloadRow } from './types'
 
 export type IdentityFilter = { userId?: string; userName?: string }
@@ -85,6 +86,7 @@ export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: n
       source,
       startedAtMs: Math.min(...traces.map((t) => t.startMs)),
       lastSeenMs: Math.max(...traces.map((t) => t.endMs)),
+      activeDurationMs: traces.reduce((acc, t) => acc + Math.max(0, t.endMs - t.startMs), 0),
       traceCount: traces.length,
       agents: [...new Set(traces.flatMap((t) => [...t.agents]))],
       firstInput: traces
@@ -97,6 +99,9 @@ export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: n
     const totalCost = traces.reduce((acc, t) => acc + t.cost, 0)
     if (totalCost > 0) s.totalCostUsd = totalCost
     if (traces.some((t) => t.hasError)) s.hasError = true
+    // A session is a producer-declared conversation grouping. Traces without
+    // a session attribute belong on the Runs page, not here.
+    if (s.source !== 'attribute') continue
     out.push(s)
   }
 
@@ -176,7 +181,16 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
       const out = num(h.gen_ai_usage_output_tokens) ?? 0
       const t = num(h.llm_usage_tokens_total) ?? (inp + out > 0 ? inp + out : undefined)
       if (t) tokens += t
-      const c = num(h.llm_usage_cost_total)
+      const c =
+        num(h.llm_usage_cost_total) ??
+        estimateCostUsd({
+          model: pickString(h, ['gen_ai_request_model', 'gen_ai_response_model']),
+          inputTokens: inp,
+          outputTokens: out,
+          cachedInputTokens: num(h.gen_ai_usage_cache_read_input_tokens),
+          provider: pickString(h, ['gen_ai_provider_name']),
+          spanStartMs: s,
+        })
       if (c) cost += c
       const startNs = Number(h.start_time ?? 0)
       if (startNs && startNs < firstInputAtNs) {

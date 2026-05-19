@@ -2,7 +2,7 @@ import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { AUTO_REFRESH_MS, DEFAULT_AUTO_REFRESH_INTERVAL } from '#/components/auto-refresh-select'
+import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
@@ -17,6 +17,7 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
+import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { parse, type TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './-components/session-inspect/context'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
@@ -58,7 +59,7 @@ function SessionDetail() {
   const { sessionId } = Route.useParams()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const [autoRefresh, setAutoRefresh] = useState(DEFAULT_AUTO_REFRESH_INTERVAL)
+  const [autoRefresh, setAutoRefresh] = useAutoRefresh()
   const { data, refetch, isFetching } = useQuery({
     ...sessionQuery(sessionId, search.range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],

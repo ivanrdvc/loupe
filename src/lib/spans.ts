@@ -48,6 +48,7 @@ export interface Span {
   outputTokens?: number
   costUsd?: number
   agentName?: string
+  agentId?: string
   agentDescription?: string
   toolName?: string
   inputParams?: string
@@ -91,6 +92,14 @@ export interface Span {
   // All provider attributes for the raw-fields inspector view. JsonValue so it
   // survives the SSR serialization boundary.
   rawAttributes?: Record<string, JsonValue>
+}
+
+// Defend against producer-side exporter retries that ingest the same span_id
+// multiple times. First occurrence wins.
+export function dedupeById(spans: Span[]): Span[] {
+  const seen = new Map<string, Span>()
+  for (const s of spans) if (!seen.has(s.id)) seen.set(s.id, s)
+  return seen.size === spans.length ? spans : [...seen.values()]
 }
 
 // Treat a span as root when its declared parent is not present in the trace.
@@ -146,6 +155,28 @@ export function propagateInheritedAttrs(spans: Span[]): void {
       cur = cur.parentId ? byId.get(cur.parentId) : undefined
     }
   }
+}
+
+// Returns label overrides for invoke_agent spans whose agentName collides
+// with another agentId in the same session. Empty when no collisions.
+export function buildAgentLabels(spans: Span[]): Map<string, string> {
+  const idsByName = new Map<string, Set<string>>()
+  for (const s of spans) {
+    if (s.operation !== 'invoke_agent' || !s.agentName || !s.agentId) continue
+    let ids = idsByName.get(s.agentName)
+    if (!ids) {
+      ids = new Set()
+      idsByName.set(s.agentName, ids)
+    }
+    ids.add(s.agentId)
+  }
+  const out = new Map<string, string>()
+  for (const s of spans) {
+    if (s.operation !== 'invoke_agent' || !s.agentName || !s.agentId) continue
+    if ((idsByName.get(s.agentName)?.size ?? 0) <= 1) continue
+    out.set(s.id, `${s.agentName} · ${s.agentId.slice(0, 8)}`)
+  }
+  return out
 }
 
 // Side-channel LLM calls (title gen, summarization). Explicit signal:

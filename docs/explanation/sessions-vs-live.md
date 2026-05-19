@@ -12,21 +12,22 @@ One OTLP trace at a time (URL param `$runId` is typically the backend `trace_id`
 
 The internal unit stays a **`run`** (single trace slice). Completed work that shares a **`session`** id rolls up under **Sessions** instead of a universal “all runs” list today.
 
-| | Sessions | Runs |
-|---|---|---|
-| Job | Read what happened (multi-run thread) | Watch / inspect one execution |
-| Unit | A conversation (many runs) | One run |
-| Read-only? | Always | Currently — not by design |
-| Data origin (today) | Telemetry, joined by `session.id` / `gen_ai.conversation.id` / `ag_ui_thread_id`; falls back to `trace_id` (one trace = one session) when no attribute is present | Telemetry, one `trace_id` per page |
-| Data origin (future) | + DB, external feeds | + live exporter stream, + direct invocation of an external agent |
+|                      | Sessions                                                                                                                                                                                             | Runs                                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Job                  | Read what happened (multi-run thread)                                                                                                                                                                | Browse / inspect individual traces                                                               |
+| Unit                 | A conversation (many runs)                                                                                                                                                                           | One run (one trace_id)                                                                           |
+| Read-only?           | Always                                                                                                                                                                                               | Currently — not by design                                                                        |
+| Data origin (today)  | Telemetry, joined by `session.id` / `gen_ai.conversation.id` / `ag_ui_thread_id` / configured `CUSTOM_SESSION_ID_FIELDS`. Traces without a session attribute don't appear here — they belong on Runs | Telemetry via `listTraces()` — paginated table of all recent traces with category classification |
+| Data origin (future) | + DB, external feeds                                                                                                                                                                                 | + live exporter stream, + direct invocation of an external agent                                 |
 
-Every run resolves to a session id — the attribute one when present, otherwise its own `trace_id`. Fallback rows carry a `single trace` badge so the missing multi-turn stitching is visible.
+A session is a producer-declared conversation grouping. The session-detail page (`/sessions/$sessionId`) still accepts a bare `trace_id` in the URL (the provider's `getSession` falls back to `operation_Id` matching) so individual traces remain inspectable by direct link — they just don't clutter the list.
 
 ## Session detail (`/sessions/$sessionId`)
 
 Default tabs: **`Conversation`** vs **`Spans`**. Search params use `view=spans`; legacy `view=trace` is still parsed as spans.
 
 **Conversation tab (default).** Two-column.
+
 - **Left** — `TurnsView` (`src/components/turns-view.tsx`): token-usage table (`# · Time · In · Out · Errs · Turn · Σ · Dur` + Total), the breakdown panel below (`System prompts · Tool definitions · Messages · Prompt cache · Total`) computed by `useBreakdowns` (`src/hooks/use-breakdowns.ts`) on top of `breakdownChat` in `src/lib/tokens.ts`, then one card per turn with status / cost / duration.
 - **Right** — `ConversationView` (`src/components/conversation-view.tsx`): chat bubbles, paired tool cards, agent cards. Renders `ConversationEvent[]` from `src/lib/conversation.ts`.
 
@@ -37,6 +38,7 @@ Default tabs: **`Conversation`** vs **`Spans`**. Search params use `view=spans`;
 Just the conversation, full width — `ConversationView` and nothing else. One run is one assistant turn; the aggregate-per-turn panel has nothing to chew on at this scale.
 
 What's coming next here:
+
 - **Live tail.** Spans appear in the conversation as they flush from the exporter — granularity is one span, not tokens.
 - **Direct ingest.** An app POSTs events to us instead of going through OTel. Same render.
 - **Initiate a run.** Send a prompt from the UI to a configured agent endpoint; the conversation that comes back is just another run.
@@ -45,7 +47,7 @@ The Spans/waterfall view can come back behind an opt-in if needed — not the de
 
 ## List pages
 
-Only `/sessions` is a list today. Toolbar pieces (`SearchInput`, `StatusPills`) plus `formatAgo` / `formatCost` / `truncateId` in `src/lib/format.ts` should be reused when `/runs` gains an active-queue / history list.
+`/sessions` lists multi-turn conversations grouped by session attribute. `/runs` lists individual traces (one row per `trace_id`) with a category facet filter (conversation, sub-agent, backend_job, utility, orphan). Default filter hides "utility" traces. Toolbar pieces (`SearchInput`, `DataTableFacetedFilter`, `TimeRangeSelect`) plus `formatAgo` / `formatCost` / `truncateId` in `src/lib/format.ts` are shared across both.
 
 ## Data fetching
 
@@ -53,11 +55,11 @@ Route loaders call `context.queryClient.ensureQueryData(...)` and routes read vi
 
 ## Where to extend
 
-| You want to… | Edit |
-|---|---|
-| Show a new per-span field | `Span` in `src/lib/spans.ts`, then lift in `src/lib/classify-span.ts` (both dotted and underscore-flattened forms) |
-| Add a new event kind in the chat (eval result, feedback, etc.) | New arm on `ConversationEvent` in `src/lib/conversation.ts`, render in `ConversationView` |
-| Add a format helper | `src/lib/format.ts` — don't reinvent |
-| Support a new tokenizer family | Extend `resolveFamily` in `src/lib/tokens.ts`. Lazy-load the encoder data |
-| Add a new data source for Sessions (DB, external) | The session detail loader in `src/routes/sessions/$sessionId.tsx`. Page only consumes `Span[]`, so anything that yields spans works |
-| Add live tail / direct ingest | `src/routes/runs/$runId.tsx`: replace the one-shot `runSpansQuery` fetch with a subscription that pushes spans into `ConversationView`. Lists can reuse `runSpansQuery` keys from `runs/-data.ts` or `listRecentTraces()` in telemetry |
+| You want to…                                                   | Edit                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Show a new per-span field                                      | `Span` in `src/lib/spans.ts`, then lift in `src/lib/classify-span.ts` (both dotted and underscore-flattened forms)                                                                                                                     |
+| Add a new event kind in the chat (eval result, feedback, etc.) | New arm on `ConversationEvent` in `src/lib/conversation.ts`, render in `ConversationView`                                                                                                                                              |
+| Add a format helper                                            | `src/lib/format.ts` — don't reinvent                                                                                                                                                                                                   |
+| Support a new tokenizer family                                 | Extend `resolveFamily` in `src/lib/tokens.ts`. Lazy-load the encoder data                                                                                                                                                              |
+| Add a new data source for Sessions (DB, external)              | The session detail loader in `src/routes/sessions/$sessionId.tsx`. Page only consumes `Span[]`, so anything that yields spans works                                                                                                    |
+| Add live tail / direct ingest                                  | `src/routes/runs/$runId.tsx`: replace the one-shot `runSpansQuery` fetch with a subscription that pushes spans into `ConversationView`. Lists can reuse `runSpansQuery` keys from `runs/-data.ts` or `listRecentTraces()` in telemetry |

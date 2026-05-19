@@ -2,8 +2,8 @@
 title: Agent trace topology
 type: explanation
 summary: Why we infer agent topology from span trees, the shapes runtimes
-         actually emit, the one primitive that handles all of them, and
-         which rules are guesses we'd rather replace with real signals.
+  actually emit, the one primitive that handles all of them, and
+  which rules are guesses we'd rather replace with real signals.
 status: stable
 owner: "@ivan"
 audience: agentops-devs
@@ -13,7 +13,7 @@ tags: [ingest, span-classification, agents]
 
 # Agent trace topology
 
-This doc exists because the same question — "is this chat span part of the orchestrator turn or a subagent run?" — keeps coming back in different shapes as we wire up new runtimes. The answers live in the code, but the *why* keeps slipping. This is the why.
+This doc exists because the same question — "is this chat span part of the orchestrator turn or a subagent run?" — keeps coming back in different shapes as we wire up new runtimes. The answers live in the code, but the _why_ keeps slipping. This is the why.
 
 ## Why we infer
 
@@ -63,7 +63,7 @@ POST /
 
 The Microsoft Agent Framework (.NET) re-invokes the agent for each internal step within one HTTP request. Both invoke_agents are top-level — neither is nested inside the other. They are **not** orchestrator-vs-subagent; they're two independent runs of the same agent.
 
-This is what bit us: the old `findOrchestratorIds` picked the shallowest invoke_agent per trace and treated the rest as subagents. With this topology, *every* sibling top-level run after the first was misclassified.
+This is what bit us: the old `findOrchestratorIds` picked the shallowest invoke_agent per trace and treated the rest as subagents. With this topology, _every_ sibling top-level run after the first was misclassified.
 
 ### 3. Agent-as-tool (true subagent)
 
@@ -98,7 +98,7 @@ trace B: POST → invoke_agent → chat        ← user message 2
 trace C: POST → invoke_agent → chat        ← user message 3
 ```
 
-Common when each user message is a fresh HTTP request. The session is the union of traces, correlated by `session.id` / `gen_ai.conversation.id` / `ag_ui.thread_id`. When no such attribute is on the spans, we don't try to stitch — each trace shows as its own single-turn session and the UI marks it `single trace`.
+Common when each user message is a fresh HTTP request. The session is the union of traces, correlated by `session.id` / `gen_ai.conversation.id` / `ag_ui.thread_id`. When no such attribute is on the spans, we don't try to stitch — those traces are individual runs and don't appear on the Sessions list at all.
 
 ### 5. Chats without an invoke_agent wrapper
 
@@ -117,12 +117,12 @@ One count grounds every rule:
 
 The rules in `src/lib/spans.ts`:
 
-| Question | Rule |
-|---|---|
-| Is this invoke_agent top-level (an orchestrator turn)? | chain has zero `invoke_agent` ancestors |
-| Is this invoke_agent a subagent? | chain has ≥1 `invoke_agent` ancestor |
+| Question                                                     | Rule                                                                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Is this invoke_agent top-level (an orchestrator turn)?       | chain has zero `invoke_agent` ancestors                                                     |
+| Is this invoke_agent a subagent?                             | chain has ≥1 `invoke_agent` ancestor                                                        |
 | Is this chat a subagent chat (for "Subagents" token rollup)? | chat has ≥1 `invoke_agent` ancestor AND is not a direct child of a top-level `invoke_agent` |
-| Is this execute_tool actually wrapping an agent? | it has an `invoke_agent` direct child (`findWrappedAgent`) |
+| Is this execute_tool actually wrapping an agent?             | it has an `invoke_agent` direct child (`findWrappedAgent`)                                  |
 
 The subagent rule deliberately phrases the chat case in two parts — the ancestor-count check covers topologies 3 and deeper nesting; the "not a direct child of top-level" check covers topology 3b where the wrapped invoke_agent is absent. Topologies 1 and 2 have all chats as direct children of top-level runs, so nothing is a subagent. Topology 5 (no agent at all) is excluded by the ancestor-count guard — raw chats are never "subagent."
 
@@ -138,12 +138,12 @@ If a new topology appears in the wild, add a tested example to `src/lib/turns.te
 
 A **heuristic** here means: "no formal signal in OTel exists, so we apply a pattern we observed to work in real runtimes. It's right most of the time; sometimes it's wrong; the UI labels the result so users know it's a guess."
 
-| Heuristic | Where | What it does | Failure mode |
-|---|---|---|---|
-| **Trace id as session id (fallback)** | `shared.ts` — `findSessionKey`; `spans.ts` — `propagateSessionInTrace` | When no `session.id` / `ag_ui.thread_id` / `gen_ai.conversation.id` is present, the OTel `trace_id` becomes the session id. UI shows a yellow `single trace` pill. Replaces an earlier `invoke_agent <Name>(<hex>)` heuristic that turned out to be process-bound, not per-conversation. | Multi-turn conversations show as N separate sessions. The badge makes it clear the stitching is off. |
-| **Frontend tool detection** | `context.tsx` — `collectFrontendTools` | A tool is "frontend" if the LLM emitted a `tool_call` for it AND no `execute_tool` span ran it. **Gated** on at least one `execute_tool` span existing in the session — if backend instrumentation is dark, the function returns nothing rather than mislabel every backend tool. | Still misses frontend tools defined but never called this session. Also still misses backend tools called for the first time mid-session before any `execute_tool` lands — the in-flight call looks frontend until the matching span arrives. |
-| **Real tool vs. wrapped agent** | `spans.ts` — `findWrappedAgent` | An `execute_tool` span is treated as a sub-agent invocation iff it has an `invoke_agent` direct child. | Misses topology 3b where the wrapped invoke_agent is absent — the subagent chat rule catches it separately via the "not a direct child of top-level" branch. |
-| **Subagent chat rollup** | `spans.ts` — `subagentChatSpans` | A chat is "subagent" iff it has ≥1 `invoke_agent` ancestor AND is not a direct child of any top-level `invoke_agent`. | Counts chats nested under any `execute_tool` (regardless of whether it wraps a real sub-agent) as subagent. Acceptable — those tokens are work happening below the orchestrator either way, and surfacing them is the point of the rollup. |
+| Heuristic                             | Where                                                                  | What it does                                                                                                                                                                                                                                                                                                                                                                                 | Failure mode                                                                                                                                                                                                                                  |
+| ------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Trace id as session id (fallback)** | `shared.ts` — `findSessionKey`; `spans.ts` — `propagateSessionInTrace` | When no `session.id` / `ag_ui.thread_id` / `gen_ai.conversation.id` is present, the OTel `trace_id` becomes the session id so the detail page (`/sessions/$traceId`) still resolves. `aggregateSessions` drops these from the sessions list — they're individual runs. Replaces an earlier `invoke_agent <Name>(<hex>)` heuristic that turned out to be process-bound, not per-conversation. | Producers without a session attribute don't appear in the sessions list — they're reachable only by direct URL until they start emitting one.                                                                                                 |
+| **Frontend tool detection**           | `context.tsx` — `collectFrontendTools`                                 | A tool is "frontend" if the LLM emitted a `tool_call` for it AND no `execute_tool` span ran it. **Gated** on at least one `execute_tool` span existing in the session — if backend instrumentation is dark, the function returns nothing rather than mislabel every backend tool.                                                                                                            | Still misses frontend tools defined but never called this session. Also still misses backend tools called for the first time mid-session before any `execute_tool` lands — the in-flight call looks frontend until the matching span arrives. |
+| **Real tool vs. wrapped agent**       | `spans.ts` — `findWrappedAgent`                                        | An `execute_tool` span is treated as a sub-agent invocation iff it has an `invoke_agent` direct child.                                                                                                                                                                                                                                                                                       | Misses topology 3b where the wrapped invoke_agent is absent — the subagent chat rule catches it separately via the "not a direct child of top-level" branch.                                                                                  |
+| **Subagent chat rollup**              | `spans.ts` — `subagentChatSpans`                                       | A chat is "subagent" iff it has ≥1 `invoke_agent` ancestor AND is not a direct child of any top-level `invoke_agent`.                                                                                                                                                                                                                                                                        | Counts chats nested under any `execute_tool` (regardless of whether it wraps a real sub-agent) as subagent. Acceptable — those tokens are work happening below the orchestrator either way, and surfacing them is the point of the rollup.    |
 
 ## Future: what we'd want runtimes to emit
 
@@ -151,6 +151,26 @@ The day OTel GenAI ships a topology attribute, most of these heuristics retire. 
 
 - **`openinference.span.kind`** — the Phoenix/Arize convention; the cheapest win. We could opportunistically read it today and treat it as authoritative when present, keeping the inference rules as fallback.
 - **`gen_ai.agent.parent_id`** — explicit "this invoke_agent is nested under that one." Would let us replace `countAgentAncestors` with an O(1) lookup.
-- **`gen_ai.conversation.id`** is already read (see `classify-span.ts`), but emitted inconsistently — when adoption widens enough that we never fall back to `trace_id`, multi-turn stitching becomes the default and the `single trace` badge disappears.
+- **`gen_ai.conversation.id`** is already read (see `classify-span.ts`), but emitted inconsistently — when adoption widens enough that every producer emits one, the trace-id fallback path stops being load-bearing.
 
 Until then, the ancestor-counting primitive is the cheapest correct stance: one rule, structural, testable, framework-agnostic.
+
+## Trace categories (Runs page)
+
+When browsing all recent traces (not grouped into sessions), each trace is classified into one category. The `/runs` index uses this for faceted filtering. Classification happens in the provider (`listTraces`) using aggregated signals — no need to fetch full span trees.
+
+Implementation: `src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`.
+
+| Category    | Signal (priority order, first match wins)                                                            | Cross-link         |
+| ----------- | ---------------------------------------------------------------------------------------------------- | ------------------ |
+| `sub-agent` | Root span is `execute_tool` (no parent in the trace) AND the trace has `invoke_agent` descendants    | —                  |
+| `scheduled` | Producer set `session.trigger_type = "scheduled"` (cron/timer-fired)                                 | —                  |
+| `webhook`   | Producer set `session.trigger_type = "webhook"` (event-driven)                                       | —                  |
+| `background`| Producer set `session.trigger_type = "user"` AND `session.execution = "background"` (queued async)   | —                  |
+| `utility`   | Producer set `CUSTOM_LLM_PURPOSE_FIELD` (title gen, summarization, ...) OR chat-only with no agent   | —                  |
+| `chat`      | Trace has a session attribute (`ag_ui.thread_id`, `gen_ai.conversation.id`, ...)                     | → `/sessions/<id>` |
+| `orphan`    | Anything left — typically single invoke_agent runs without a session attribute                       | —                  |
+
+Default filter: show everything except `utility` (noise for most debugging).
+
+Categories are derived consumer-side from raw producer attributes — the producer doesn't need to know about agentops's classification vocabulary, just emit `session.trigger_type` / `session.execution` per OTel-style custom attributes.

@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
+import { ChevronDownIcon, ChevronRightIcon, ClockIcon } from '@heroicons/react/16/solid'
 import { useCallback, useMemo, useState } from 'react'
 import {
   Command,
@@ -11,7 +11,14 @@ import {
 } from '#/components/ui/command'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatJson, type JsonValue } from '#/lib/json'
-import { formatCost, resolveToolCalls, type Span, spanHasError, type ToolCallResolution } from '#/lib/spans'
+import {
+  buildAgentLabels,
+  formatCost,
+  resolveToolCalls,
+  type Span,
+  spanHasError,
+  type ToolCallResolution,
+} from '#/lib/spans'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 interface Row {
@@ -123,6 +130,7 @@ export function SpanTreeList({
 }: SpanTreeListProps) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
   const rows = useMemo(() => buildRows(spans, collapsedIds, fullSpans), [spans, collapsedIds, fullSpans])
+  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
 
   const toggleCollapsed = (id: string) => {
     setCollapsedIds((prev) => {
@@ -138,11 +146,11 @@ export function SpanTreeList({
     const visible = fullSpans ? spans : spans.filter((s) => s.operation !== 'http')
     return visible.map((span) => {
       const parent = span.parentId ? byId.get(span.parentId) : undefined
-      const display = displayFor(span)
-      const parentDisplay = parent ? displayFor(parent) : undefined
+      const display = displayFor(span, agentLabels)
+      const parentDisplay = parent ? displayFor(parent, agentLabels) : undefined
       return { span, display, parentName: parentDisplay?.name }
     })
-  }, [spans, fullSpans])
+  }, [spans, fullSpans, agentLabels])
 
   const handlePaletteSelect = useCallback(
     (id: string) => {
@@ -180,6 +188,7 @@ export function SpanTreeList({
               selected={row.span.id === selectedId}
               onSelect={() => onSelect(row.span.id)}
               onToggleCollapse={() => toggleCollapsed(row.span.id)}
+              agentLabels={agentLabels}
             />
           ))}
         </ul>
@@ -193,7 +202,7 @@ export function SpanTreeList({
               {paletteItems.map(({ span, display, parentName }) => (
                 <CommandItem
                   key={span.id}
-                  value={`${display.tagLabel} ${display.name} ${parentName ?? ''} ${span.model ?? ''} ${span.id}`}
+                  value={`${display.tagLabel} ${display.name} ${display.purposeLabel ?? ''} ${parentName ?? ''} ${span.model ?? ''} ${span.id}`}
                   onSelect={() => handlePaletteSelect(span.id)}
                 >
                   {display.tagLabel && (
@@ -202,6 +211,11 @@ export function SpanTreeList({
                     </span>
                   )}
                   <span className="min-w-0 flex-1 truncate">{display.name}</span>
+                  {display.purposeLabel && (
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
+                      {display.purposeLabel}
+                    </span>
+                  )}
                   {parentName && (
                     <span className="ml-auto shrink-0 truncate text-[11px] text-muted-foreground">in {parentName}</span>
                   )}
@@ -220,15 +234,15 @@ interface SpanTreeRowProps {
   selected: boolean
   onSelect: () => void
   onToggleCollapse: () => void
+  agentLabels?: Map<string, string>
 }
 
-function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowProps) {
+function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }: SpanTreeRowProps) {
   const { span, depth, railHasNext, isLastChild, childCount, isCollapsed, subtreeTokens } = row
   // Column ends right at chevron's right edge — no trailing whitespace inside the indent area.
   const indentWidth = railX(depth) + HANDLE / 2
   // All three indicator-axis decorations (below-circle vertical, handle button, leaf dot) anchor here.
   const indicatorAnchor = { left: railX(depth), top: '50%' as const }
-  const display = displayFor(span)
   const durationMs = span.endMs - span.startMs
   const isAgent = span.operation === 'invoke_agent'
   const isTool = span.operation === 'tool'
@@ -242,6 +256,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
   const errored = spanHasError(span)
   const HandleIcon = isCollapsed ? ChevronRightIcon : ChevronDownIcon
   const showCount = childCount > 1
+  const display = displayFor(span, agentLabels)
 
   return (
     <li data-span-id={span.id}>
@@ -266,7 +281,11 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
             <>
               <div
                 className={`absolute w-px ${TREE_LINE}`}
-                style={{ left: railX(depth - 1), top: 0, bottom: isLastChild ? '50%' : 0 }}
+                style={{
+                  left: railX(depth - 1),
+                  top: 0,
+                  bottom: isLastChild ? '50%' : 0,
+                }}
               />
               <div
                 className={`absolute h-px ${TREE_LINE}`}
@@ -319,11 +338,24 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
               </span>
             )}
             <span className="truncate font-medium text-foreground">{display.name}</span>
+            {display.purposeLabel && (
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
+                {display.purposeLabel}
+              </span>
+            )}
             {errored && (
               <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
                 error
               </span>
             )}
+            {depth === 0 &&
+              (span.rawAttributes?.['session_trigger_type'] ?? span.rawAttributes?.['session.trigger_type']) ===
+                'scheduled' && (
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:text-orange-300">
+                  <ClockIcon className="size-3" />
+                  scheduled
+                </span>
+              )}
           </div>
           {!isAgent && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums text-[11px] text-muted-foreground">
@@ -351,7 +383,8 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse }: SpanTreeRowP
 export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
   const duration = span.endMs - span.startMs
   const cost = formatCost(span.costUsd ?? 0)
-  const display = displayFor(span)
+  const agentLabels = useMemo(() => (spans ? buildAgentLabels(spans) : undefined), [spans])
+  const display = displayFor(span, agentLabels)
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-4 px-4 py-4">
@@ -362,6 +395,11 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
           </span>
         )}
         <span className="truncate text-base font-semibold text-foreground">{display.name}</span>
+        {display.purposeLabel && (
+          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
+            {display.purposeLabel}
+          </span>
+        )}
       </div>
 
       <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
@@ -379,6 +417,7 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
         {cost && <Stat label="Cost" value={`$${cost}`} />}
         {span.model && <Stat label="Model" value={span.model} />}
         {span.provider && <Stat label="Provider" value={span.provider} />}
+        {span.agentId && <Stat label="Agent id" value={span.agentId} />}
         {span.finishReasons && span.finishReasons.length > 0 && (
           <Stat label="Finish" value={span.finishReasons.join(', ')} />
         )}
@@ -460,7 +499,10 @@ function MessagesBlock({
 const ROLE_STYLES: Record<MessageRole, { label: string; ring: string }> = {
   system: { label: 'System', ring: 'ring-border' },
   user: { label: 'User', ring: 'ring-border' },
-  assistant: { label: 'Assistant', ring: 'ring-violet-500/30 dark:ring-violet-400/25' },
+  assistant: {
+    label: 'Assistant',
+    ring: 'ring-violet-500/30 dark:ring-violet-400/25',
+  },
 }
 
 const TOOL_CALL_TONES = {

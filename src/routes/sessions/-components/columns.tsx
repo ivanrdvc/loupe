@@ -120,10 +120,10 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
   },
   {
     id: 'duration',
-    accessorFn: (s) => Math.max(0, s.lastSeenMs - s.startedAtMs),
+    accessorFn: (s) => s.activeDurationMs,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Duration" className="justify-end" />,
     cell: ({ row }) => {
-      const ms = Math.max(0, row.original.lastSeenMs - row.original.startedAtMs)
+      const ms = row.original.activeDurationMs
       return (
         <div
           className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms, 'text-muted-foreground')}`}

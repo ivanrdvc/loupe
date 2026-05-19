@@ -49,11 +49,15 @@ function buildProvider(id: ProviderId): TelemetryProvider {
       password: process.env.OO_PASS ?? 'Complexpass#123',
     })
   }
-  // app-insights
+  // app-insights — prefer resource ID (SDK + Azure AD), fall back to API key
+  const resourceId = process.env.APPLICATIONINSIGHTS_RESOURCE_ID
+  if (resourceId) return createAppInsightsProvider({ resourceId })
   const appId = process.env.APPLICATIONINSIGHTS_APP_ID ?? process.env.AI_APP_ID
   const apiKey = process.env.APPLICATIONINSIGHTS_API_KEY ?? process.env.AI_API_KEY
   if (!appId || !apiKey) {
-    throw new Error('app-insights provider requires APPLICATIONINSIGHTS_APP_ID and APPLICATIONINSIGHTS_API_KEY')
+    throw new Error(
+      'app-insights provider requires APPLICATIONINSIGHTS_RESOURCE_ID or both APPLICATIONINSIGHTS_APP_ID + APPLICATIONINSIGHTS_API_KEY',
+    )
   }
   return createAppInsightsProvider({ appId, apiKey })
 }
@@ -70,12 +74,13 @@ function getProvider(id: ProviderId): TelemetryProvider {
 export function listProviderStatus(): ProviderStatus[] {
   const oo: ProviderStatus = { id: 'openobserve', label: 'OpenObserve', configured: true }
   const ai: ProviderStatus = { id: 'app-insights', label: 'Application Insights', configured: true }
-  const missing: string[] = []
-  if (!(process.env.APPLICATIONINSIGHTS_APP_ID ?? process.env.AI_APP_ID)) missing.push('APPLICATIONINSIGHTS_APP_ID')
-  if (!(process.env.APPLICATIONINSIGHTS_API_KEY ?? process.env.AI_API_KEY)) missing.push('APPLICATIONINSIGHTS_API_KEY')
-  if (missing.length) {
+  const hasResourceId = !!process.env.APPLICATIONINSIGHTS_RESOURCE_ID
+  const hasApiKey =
+    !!(process.env.APPLICATIONINSIGHTS_APP_ID ?? process.env.AI_APP_ID) &&
+    !!(process.env.APPLICATIONINSIGHTS_API_KEY ?? process.env.AI_API_KEY)
+  if (!hasResourceId && !hasApiKey) {
     ai.configured = false
-    ai.missing = missing
+    ai.missing = ['APPLICATIONINSIGHTS_RESOURCE_ID or APPLICATIONINSIGHTS_APP_ID+API_KEY']
   }
   return [oo, ai]
 }

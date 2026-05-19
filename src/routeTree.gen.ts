@@ -10,12 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TracesIndexRouteImport } from './routes/traces/index'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as RunsIndexRouteImport } from './routes/runs/index'
 import { Route as McpIndexRouteImport } from './routes/mcp/index'
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as InboxIndexRouteImport } from './routes/inbox/index'
 import { Route as EvalsIndexRouteImport } from './routes/evals/index'
+import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
 import { Route as LiveRunIdRouteImport } from './routes/live/$runId'
@@ -23,6 +25,11 @@ import { Route as LiveRunIdRouteImport } from './routes/live/$runId'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TracesIndexRoute = TracesIndexRouteImport.update({
+  id: '/traces/',
+  path: '/traces/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessionsIndexRoute = SessionsIndexRouteImport.update({
@@ -55,6 +62,11 @@ const EvalsIndexRoute = EvalsIndexRouteImport.update({
   path: '/evals/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TracesTraceIdRoute = TracesTraceIdRouteImport.update({
+  id: '/traces/$traceId',
+  path: '/traces/$traceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   id: '/sessions/$sessionId',
   path: '/sessions/$sessionId',
@@ -76,24 +88,28 @@ export interface FileRoutesByFullPath {
   '/live/$runId': typeof LiveRunIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/traces/$traceId': typeof TracesTraceIdRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/live/': typeof LiveIndexRoute
   '/mcp/': typeof McpIndexRoute
   '/runs/': typeof RunsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
+  '/traces/': typeof TracesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/live/$runId': typeof LiveRunIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/traces/$traceId': typeof TracesTraceIdRoute
   '/evals': typeof EvalsIndexRoute
   '/inbox': typeof InboxIndexRoute
   '/live': typeof LiveIndexRoute
   '/mcp': typeof McpIndexRoute
   '/runs': typeof RunsIndexRoute
   '/sessions': typeof SessionsIndexRoute
+  '/traces': typeof TracesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -101,12 +117,14 @@ export interface FileRoutesById {
   '/live/$runId': typeof LiveRunIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/traces/$traceId': typeof TracesTraceIdRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/live/': typeof LiveIndexRoute
   '/mcp/': typeof McpIndexRoute
   '/runs/': typeof RunsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
+  '/traces/': typeof TracesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,36 +133,42 @@ export interface FileRouteTypes {
     | '/live/$runId'
     | '/runs/$runId'
     | '/sessions/$sessionId'
+    | '/traces/$traceId'
     | '/evals/'
     | '/inbox/'
     | '/live/'
     | '/mcp/'
     | '/runs/'
     | '/sessions/'
+    | '/traces/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/live/$runId'
     | '/runs/$runId'
     | '/sessions/$sessionId'
+    | '/traces/$traceId'
     | '/evals'
     | '/inbox'
     | '/live'
     | '/mcp'
     | '/runs'
     | '/sessions'
+    | '/traces'
   id:
     | '__root__'
     | '/'
     | '/live/$runId'
     | '/runs/$runId'
     | '/sessions/$sessionId'
+    | '/traces/$traceId'
     | '/evals/'
     | '/inbox/'
     | '/live/'
     | '/mcp/'
     | '/runs/'
     | '/sessions/'
+    | '/traces/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,12 +176,14 @@ export interface RootRouteChildren {
   LiveRunIdRoute: typeof LiveRunIdRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
+  TracesTraceIdRoute: typeof TracesTraceIdRoute
   EvalsIndexRoute: typeof EvalsIndexRoute
   InboxIndexRoute: typeof InboxIndexRoute
   LiveIndexRoute: typeof LiveIndexRoute
   McpIndexRoute: typeof McpIndexRoute
   RunsIndexRoute: typeof RunsIndexRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
+  TracesIndexRoute: typeof TracesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -167,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/traces/': {
+      id: '/traces/'
+      path: '/traces'
+      fullPath: '/traces/'
+      preLoaderRoute: typeof TracesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sessions/': {
@@ -211,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvalsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/traces/$traceId': {
+      id: '/traces/$traceId'
+      path: '/traces/$traceId'
+      fullPath: '/traces/$traceId'
+      preLoaderRoute: typeof TracesTraceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sessions/$sessionId': {
       id: '/sessions/$sessionId'
       path: '/sessions/$sessionId'
@@ -240,12 +280,14 @@ const rootRouteChildren: RootRouteChildren = {
   LiveRunIdRoute: LiveRunIdRoute,
   RunsRunIdRoute: RunsRunIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
+  TracesTraceIdRoute: TracesTraceIdRoute,
   EvalsIndexRoute: EvalsIndexRoute,
   InboxIndexRoute: InboxIndexRoute,
   LiveIndexRoute: LiveIndexRoute,
   McpIndexRoute: McpIndexRoute,
   RunsIndexRoute: RunsIndexRoute,
   SessionsIndexRoute: SessionsIndexRoute,
+  TracesIndexRoute: TracesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,3 +1,5 @@
+import { DefaultAzureCredential } from '@azure/identity'
+import { LogsQueryClient, type LogsQueryResult, LogsQueryResultStatus } from '@azure/monitor-query-logs'
 import {
   classifySpan,
   HOST_ATTR_KEYS,
@@ -7,14 +9,18 @@ import {
   USER_NAME_ATTR_KEYS,
 } from '#/lib/classify-span'
 import type { JsonValue } from '#/lib/json'
+import { estimateCostUsd } from '#/lib/llm-pricing'
 import {
+  dedupeById,
   normalizeTraceRoots,
   propagateInheritedAttrs,
   propagateSessionInTrace,
   type Span,
   type SpanKind,
 } from '#/lib/spans'
+import { readFieldConfig } from './field-config'
 import { aggregateSessions, groupBy, mapLatencyRow, pickIdentityValue } from './shared'
+import { classifyTraceCategory } from './trace-category'
 import type {
   GetTraceOpts,
   InventoryDiscoveryKind,
@@ -35,16 +41,12 @@ import type {
 // reads them directly. Roll-up logic is shared with the OpenObserve provider
 // — AI rows are reshaped to OO column names before aggregateSessions runs.
 
-export interface AppInsightsConfig {
-  appId: string
-  apiKey: string
-  baseUrl?: string
-}
+export type AppInsightsConfig = { resourceId: string } | { appId: string; apiKey: string; baseUrl?: string }
 
 const DEFAULT_BASE = 'https://api.applicationinsights.io'
 const DEFAULT_LIST_LIMIT = 50
 const SESSION_SCAN_LIMIT = 5000
-const DEFAULT_TIMESPAN = 'P30D'
+const DEFAULT_DURATION = 'P30D'
 
 const SESSION_ID_COALESCE = `coalesce(${SESSION_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
 const SESSION_TITLE_COALESCE = `coalesce(${SESSION_TITLE_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
@@ -52,44 +54,84 @@ const USER_NAME_COALESCE = `coalesce(${USER_NAME_ATTR_KEYS.map((k) => `tostring(
 const USER_ID_COALESCE = `coalesce(${USER_ID_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
 const HOST_COALESCE = `coalesce(${HOST_ATTR_KEYS.map((k) => `tostring(customDimensions["${k}"])`).join(', ')}, tostring(cloud_RoleName))`
 
-interface AiQueryResponse {
-  tables?: Array<{
-    name: string
-    columns: { name: string; type: string }[]
-    rows: unknown[][]
-  }>
-  error?: { code: string; message: string }
-}
-
-export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProvider {
-  const base = cfg.baseUrl ?? DEFAULT_BASE
-  const queryUrl = `${base}/v1/apps/${encodeURIComponent(cfg.appId)}/query`
-
-  const kql = async (query: string, timespan = DEFAULT_TIMESPAN): Promise<Array<Record<string, unknown>>> => {
-    const resp = await fetch(queryUrl, {
-      method: 'POST',
-      headers: { 'x-api-key': cfg.apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, timespan }),
-    })
-    if (!resp.ok) {
-      throw new Error(`App Insights ${resp.status}: ${await resp.text()}`)
-    }
-    const data = (await resp.json()) as AiQueryResponse
-    if (data.error) throw new Error(`App Insights ${data.error.code}: ${data.error.message}`)
-    const table = data.tables?.find((t) => t.name === 'PrimaryResult') ?? data.tables?.[0]
+function resultToRows(result: LogsQueryResult): Array<Record<string, unknown>> {
+  if (result.status === LogsQueryResultStatus.Success) {
+    const table = result.tables[0]
     if (!table) return []
     return table.rows.map((row) => {
       const out: Record<string, unknown> = {}
-      table.columns.forEach((c, i) => {
-        out[c.name] = row[i]
+      table.columnDescriptors.forEach((c, i) => {
+        out[c.name] = (row as unknown[])[i]
       })
       return out
     })
   }
+  if (result.status === LogsQueryResultStatus.PartialFailure) {
+    const table = result.partialTables[0]
+    if (!table) return []
+    return table.rows.map((row) => {
+      const out: Record<string, unknown> = {}
+      table.columnDescriptors.forEach((c, i) => {
+        out[c.name] = (row as unknown[])[i]
+      })
+      return out
+    })
+  }
+  return []
+}
+
+export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProvider {
+  const { sessionKindField, llmPurposeField } = readFieldConfig()
+  type Timespan = { startTime: Date; endTime: Date } | undefined
+
+  let kql: (query: string, timespan?: Timespan) => Promise<Array<Record<string, unknown>>>
+  let fingerprint: string
+
+  if ('resourceId' in cfg) {
+    // SDK path — uses DefaultAzureCredential, works with Private Link
+    const credential = new DefaultAzureCredential()
+    const client = new LogsQueryClient(credential)
+    fingerprint = cfg.resourceId
+    kql = async (query, timespan) => {
+      const ts = timespan ?? { duration: DEFAULT_DURATION }
+      const result = await client.queryResource(cfg.resourceId, query, ts, {
+        serverTimeoutInSeconds: 120,
+      })
+      return resultToRows(result)
+    }
+  } else {
+    // API key path — direct REST, works on public networks
+    const base = cfg.baseUrl ?? DEFAULT_BASE
+    const queryUrl = `${base}/v1/apps/${encodeURIComponent(cfg.appId)}/query`
+    fingerprint = `${base}/${cfg.appId}`
+    kql = async (query, timespan) => {
+      const ts = timespan ? `${timespan.startTime.toISOString()}/${timespan.endTime.toISOString()}` : DEFAULT_DURATION
+      const resp = await fetch(queryUrl, {
+        method: 'POST',
+        headers: { 'x-api-key': cfg.apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, timespan: ts }),
+      })
+      if (!resp.ok) throw new Error(`App Insights ${resp.status}: ${await resp.text()}`)
+      const data = (await resp.json()) as {
+        tables?: Array<{ name: string; columns: { name: string }[]; rows: unknown[][] }>
+        error?: { code: string; message: string }
+      }
+      if (data.error) throw new Error(`App Insights ${data.error.code}: ${data.error.message}`)
+      const table = data.tables?.find((t) => t.name === 'PrimaryResult') ?? data.tables?.[0]
+      if (!table) return []
+      return table.rows.map((row) => {
+        const out: Record<string, unknown> = {}
+        table.columns.forEach((c, i) => {
+          out[c.name] = row[i]
+        })
+        return out
+      })
+    }
+  }
 
   return {
     name: 'app-insights',
-    fingerprint: `${base}/${cfg.appId}`,
+    fingerprint,
 
     async getTrace(traceId, opts): Promise<TraceFetch> {
       if (!isSafeId(traceId)) return null
@@ -102,7 +144,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
       `
       const rows = await kql(q, timespanFromOpts(opts))
       if (rows.length === 0) return null
-      const spans = rows.map((r) => normalizeAiRow(r, traceId))
+      const spans = dedupeById(rows.map((r) => normalizeAiRow(r, traceId)))
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
@@ -111,15 +153,30 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
 
     async listTraces(opts): Promise<TraceSummary[]> {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
+      const userFilter = kqlIdentityFilter(opts)
+      const sessionKindExtend = sessionKindField
+        ? `session_kind = tostring(customDimensions["${sessionKindField}"]),`
+        : ''
+      const llmPurposeExtend = llmPurposeField ? `llm_purpose = tostring(customDimensions["${llmPurposeField}"]),` : ''
+      const purposeAttr = llmPurposeField ?? 'teammate.llm.purpose'
       const q = `
+        ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-        | where isnotempty(gen_op)
+        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"]))
+        ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
             out_tok = toint(customDimensions["gen_ai.usage.output_tokens"]),
             sess = ${SESSION_ID_COALESCE},
-            end_ts = datetime_add('millisecond', toint(duration), timestamp)
+            end_ts = datetime_add('millisecond', toint(duration), timestamp),
+            is_root = isempty(operation_ParentId),
+            trigger_type = tostring(customDimensions["session.trigger_type"]),
+            execution = tostring(customDimensions["session.execution"]),
+            ${sessionKindExtend}
+            ${llmPurposeExtend}
+            u_id = ${USER_ID_COALESCE},
+            u_name = ${USER_NAME_COALESCE}
         | summarize
             first_seen = min(timestamp),
             last_seen  = max(end_ts),
@@ -128,21 +185,61 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
             agent_names = make_set_if(name, name startswith "invoke_agent ", 5),
             has_error   = countif(success == false) > 0,
             session_id  = take_any(sess),
-            service_name = take_any(cloud_RoleName)
+            service_name = take_any(cloud_RoleName),
+            has_root_execute_tool = countif(is_root and name startswith "execute_tool ") > 0,
+            invoke_agent_count = countif(name startswith "invoke_agent "),
+            chat_count = countif(gen_op == "chat"),
+            trigger_type = take_any(trigger_type),
+            execution = take_any(execution),
+            ${sessionKindField ? 'session_kind = take_any(session_kind),' : ''}
+            ${llmPurposeField ? 'llm_purpose = take_any(llm_purpose),' : ''}
+            root_operation = take_anyif(name, is_root),
+            trace_user_id = take_any(u_id),
+            trace_user_name = take_any(u_name)
           by operation_Id
         | top ${limit} by first_seen desc
       `
-      const rows = await kql(q, timespanFromOpts(opts))
-      return rows.map(rowToTraceSummary)
+      // Cost is computed per (trace, model) chat span and summed in TS — same
+      // pattern Langfuse uses (per-observation cost in their DB, SUM in queries).
+      // KQL can't price models, so we keep the math here and just ship the
+      // grouped tokens. Two parallel queries: smaller payload than a packed bag.
+      const costQ = `
+        ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
+        union dependencies, requests
+        | where tostring(customDimensions["gen_ai.operation.name"]) == "chat"
+        ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
+        | extend
+            in_tok    = toint(customDimensions["gen_ai.usage.input_tokens"]),
+            out_tok   = toint(customDimensions["gen_ai.usage.output_tokens"]),
+            cache_tok = toint(customDimensions["gen_ai.usage.cache_read.input_tokens"]),
+            model_id  = tostring(customDimensions["gen_ai.request.model"]),
+            provider  = tostring(customDimensions["gen_ai.provider.name"]),
+            ts_ms     = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
+        | summarize
+            in_tok    = sum(in_tok),
+            out_tok   = sum(out_tok),
+            cache_tok = sum(cache_tok),
+            ts_ms     = min(ts_ms)
+          by operation_Id, model_id, provider
+      `
+      const [rows, costRows] = await Promise.all([kql(q, timespanFromOpts(opts)), kql(costQ, timespanFromOpts(opts))])
+      const costByTrace = sumCostByTrace(costRows)
+      return rows.map((r) => {
+        const summary = rowToTraceSummary(r)
+        const cost = costByTrace.get(summary.id)
+        if (cost && cost > 0) summary.totalCostUsd = cost
+        return summary
+      })
     },
 
     async listSessions(opts) {
       const userFilter = kqlIdentityFilter(opts)
       const q = `
+        ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
         | where isnotempty(gen_op) or name startswith "invoke_agent "
-        ${userFilter ? `| where ${userFilter}` : ''}
+        ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
         | project
             trace_id = operation_Id,
             span_id = id,
@@ -151,9 +248,17 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
             start_time_iso = timestamp,
             duration_ms = duration,
             gen_ai_operation_name = gen_op,
+            gen_ai_request_model = tostring(customDimensions["gen_ai.request.model"]),
+            gen_ai_provider_name = tostring(customDimensions["gen_ai.provider.name"]),
+            gen_ai_usage_input_tokens = toint(customDimensions["gen_ai.usage.input_tokens"]),
+            gen_ai_usage_output_tokens = toint(customDimensions["gen_ai.usage.output_tokens"]),
+            gen_ai_usage_cache_read_input_tokens = toint(customDimensions["gen_ai.usage.cache_read.input_tokens"]),
             llm_usage_tokens_total = toint(customDimensions["gen_ai.usage.input_tokens"])
                                    + toint(customDimensions["gen_ai.usage.output_tokens"]),
-            llm_usage_cost_total = todouble(customDimensions["llm.usage.cost_total"]),
+            llm_usage_cost_total = coalesce(todouble(customDimensions["llm.usage.cost_total"]),
+                                            todouble(customDimensions["gen_ai.usage.cost_total"])),
+            llm_input = coalesce(tostring(customDimensions["gen_ai.input.messages"]),
+                                 tostring(customDimensions["llm.input"])),
             span_status = iff(success == false, "ERROR", "OK"),
             ag_ui_thread_id = ${SESSION_ID_COALESCE},
             ag_ui_thread_title = ${SESSION_TITLE_COALESCE},
@@ -194,7 +299,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): TelemetryProv
                   cloud_RoleName, success, type, customDimensions
       `
       const spanRows = await kql(spansQ, timespanFromOpts(opts))
-      const spans = spanRows.map((r) => normalizeAiRow(r, String(r.operation_Id ?? '')))
+      const spans = dedupeById(spanRows.map((r) => normalizeAiRow(r, String(r.operation_Id ?? ''))))
 
       for (const trSpans of groupBy(spans, (s) => s.traceId).values()) {
         normalizeTraceRoots(trSpans)
@@ -305,7 +410,7 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
     name: operationName,
     startMs,
     endMs,
-    ...classifySpan(operationName, cd),
+    ...classifySpan(operationName, cd, startMs),
     rawAttributes: buildAiRawAttributes(row, cd),
   }
 }
@@ -334,15 +439,36 @@ function toOpenObserveShape(row: Record<string, unknown>): Record<string, unknow
   }
 }
 
+function sumCostByTrace(rows: Array<Record<string, unknown>>): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const r of rows) {
+    const id = typeof r.operation_Id === 'string' ? r.operation_Id : null
+    if (!id) continue
+    const cost = estimateCostUsd({
+      model: typeof r.model_id === 'string' ? r.model_id : undefined,
+      inputTokens: num(r.in_tok),
+      outputTokens: num(r.out_tok),
+      cachedInputTokens: num(r.cache_tok),
+      provider: typeof r.provider === 'string' ? r.provider : undefined,
+      spanStartMs: num(r.ts_ms),
+    })
+    if (!cost) continue
+    out.set(id, (out.get(id) ?? 0) + cost)
+  }
+  return out
+}
+
 function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : 0
+  const hasSession = typeof row.session_id === 'string' && row.session_id.length > 0
   const summary: TraceSummary = {
     id: String(row.operation_Id ?? ''),
     startedAtMs: firstSeen,
     durationMs: Math.max(0, lastSeen - firstSeen),
     spanCount: Number(row.span_count ?? 0),
     hasError: Boolean(row.has_error),
+    hasSessionAttribute: hasSession,
   }
   const tokens = num(row.total_tokens)
   if (tokens) summary.totalTokens = tokens
@@ -352,9 +478,35 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
     const m = first?.match(/^invoke_agent\s+([^(\s]+)/)
     if (m) summary.agent = m[1]
   }
-  if (typeof row.session_id === 'string' && row.session_id) summary.sessionId = row.session_id
+  if (hasSession) summary.sessionId = String(row.session_id)
   if (typeof row.service_name === 'string' && row.service_name) summary.serviceName = row.service_name
+  const rootOp = row.root_operation
+  if (typeof rootOp === 'string' && rootOp) summary.rootOperation = rootOp
+  const userId = row.trace_user_id
+  if (typeof userId === 'string' && userId) summary.userId = userId
+  const userName = row.trace_user_name
+  if (typeof userName === 'string' && userName) summary.userName = userName
+
+  const triggerType = pickRowString(row.trigger_type)
+  if (triggerType) summary.triggerType = triggerType
+  const execution = pickRowString(row.execution)
+  if (execution) summary.execution = execution
+  const llmPurpose = pickRowString(row.llm_purpose)
+  if (llmPurpose) summary.llmPurpose = llmPurpose
+  summary.category = classifyTraceCategory({
+    hasSessionAttribute: hasSession,
+    hasRootExecuteTool: Boolean(row.has_root_execute_tool),
+    invokeAgentCount: Number(row.invoke_agent_count ?? 0),
+    chatCount: Number(row.chat_count ?? 0),
+    triggerType,
+    execution,
+    llmPurpose,
+  })
   return summary
+}
+
+function pickRowString(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined
 }
 
 function rowToInventoryObservation(
@@ -379,7 +531,7 @@ function rowToInventoryObservation(
   }
 }
 
-function kqlIdentityFilter(opts: GetTraceOpts | ListSessionsOpts | undefined): string | undefined {
+function kqlIdentityFilter(opts: GetTraceOpts | ListSessionsOpts | ListTracesOpts | undefined): string | undefined {
   const id = pickIdentityValue(opts)
   if (!id) return undefined
   const coalesce = id.kind === 'id' ? USER_ID_COALESCE : USER_NAME_COALESCE
@@ -396,7 +548,9 @@ function num(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-function timespanFromOpts(opts: GetTraceOpts | ListTracesOpts | ListSessionsOpts | undefined): string {
-  if (!opts?.fromUs || !opts.toUs) return DEFAULT_TIMESPAN
-  return `${new Date(opts.fromUs / 1000).toISOString()}/${new Date(opts.toUs / 1000).toISOString()}`
+function timespanFromOpts(
+  opts: GetTraceOpts | ListTracesOpts | ListSessionsOpts | undefined,
+): { startTime: Date; endTime: Date } | undefined {
+  if (!opts?.fromUs || !opts.toUs) return undefined
+  return { startTime: new Date(opts.fromUs / 1000), endTime: new Date(opts.toUs / 1000) }
 }

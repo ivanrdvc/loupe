@@ -8,7 +8,7 @@ import { Badge } from '#/components/ui/badge'
 import { groupScaffolding } from '#/lib/agui-scaffolding'
 import { buildConversation, type ConversationEvent } from '#/lib/conversation'
 import { estimateTokens, formatTime, formatTokens, metricTone } from '#/lib/format'
-import type { Span } from '#/lib/spans'
+import { buildAgentLabels, type Span } from '#/lib/spans'
 
 interface ConversationViewProps {
   spans: Span[]
@@ -20,12 +20,14 @@ interface EventContext {
   expanded: Set<string>
   resultByCallId: Map<string, Extract<ConversationEvent, { kind: 'tool_result' }>>
   childrenByParent: Map<string, ConversationEvent[]>
+  agentLabels: Map<string, string>
   selectEvent: (key: string, spanId: string | undefined) => void
   toggle: (id: string) => void
 }
 
 export function ConversationView({ spans, onSelect }: ConversationViewProps) {
   const events = useMemo(() => buildConversation(spans), [spans])
+  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
 
   const { topLevel, childrenByParent, resultByCallId } = useMemo(() => {
     const top: ConversationEvent[] = []
@@ -73,7 +75,15 @@ export function ConversationView({ spans, onSelect }: ConversationViewProps) {
     )
   }
 
-  const ctx: EventContext = { selectedKey, expanded, resultByCallId, childrenByParent, selectEvent, toggle }
+  const ctx: EventContext = {
+    selectedKey,
+    expanded,
+    resultByCallId,
+    childrenByParent,
+    agentLabels,
+    selectEvent,
+    toggle,
+  }
 
   return (
     <StickToBottom className="relative h-full overflow-hidden" resize="smooth" initial="instant">
@@ -338,7 +348,9 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
         <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
           agent
         </span>
-        <span className="truncate font-medium text-foreground">{event.agentName}</span>
+        <span className="truncate font-medium text-foreground">
+          {ctx.agentLabels.get(event.spanId) ?? event.agentName}
+        </span>
         {hasActions && (
           <span className="text-[10px] text-muted-foreground">
             ({actions.length} action{actions.length === 1 ? '' : 's'})

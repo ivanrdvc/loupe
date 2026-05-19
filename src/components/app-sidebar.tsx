@@ -48,7 +48,7 @@ import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 const APP_VERSION = `v${__APP_VERSION__}`
 
 type NavItem = {
-  to: '/' | '/sessions' | '/runs' | '/mcp' | '/evals'
+  to: '/' | '/sessions' | '/traces' | '/mcp' | '/evals'
   label: string
   icon: typeof Home01Icon
   match: (path: string) => boolean
@@ -57,7 +57,12 @@ type NavItem = {
 const MAIN_NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: Home01Icon, match: (p) => p === '/' },
   { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon, match: (p) => p.startsWith('/sessions') },
-  { to: '/runs', label: 'Runs', icon: PlayCircleIcon, match: (p) => p.startsWith('/runs') || p.startsWith('/live') },
+  {
+    to: '/traces',
+    label: 'Traces',
+    icon: PlayCircleIcon,
+    match: (p) => p.startsWith('/traces') || p.startsWith('/runs') || p.startsWith('/live'),
+  },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, match: (p) => p.startsWith('/mcp') },
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals') },
 ]

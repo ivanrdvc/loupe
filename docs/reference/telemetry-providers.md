@@ -2,8 +2,8 @@
 title: Telemetry providers
 type: reference
 summary: How agentops reads spans from each backend (OpenObserve, Application
-         Insights, ...), the row → Span mapping, and the trace-scope
-         post-processing every provider runs before returning data.
+  Insights, ...), the row → Span mapping, and the trace-scope
+  post-processing every provider runs before returning data.
 status: stable
 owner: "@ivan"
 audience: anyone touching src/lib/telemetry/*
@@ -34,7 +34,8 @@ A provider returns `Span[]` with:
   `classifySpan`).
 - `sessionId` / `sessionSource` — populated for every span. Source is
   `attribute` when lifted from `ag_ui_thread_id` and friends, or `trace` when
-  no such attribute is present (the fallback is the OTel `trace_id`).
+  no such attribute is present. Only `attribute`-sourced sessions appear in
+  the sessions list; `trace`-sourced ones are reachable only via direct URL.
 - Token, cost, model, prompt/response payloads when present.
 
 Consumers rely on this. If a renderer has to special-case a backend, the bug
@@ -118,16 +119,65 @@ trace-scope passes apply unchanged.
    this file under a new section. Don't push the workaround up into a
    renderer.
 
-## Session id fallback
+## Session id resolution
 
-When a trace carries no real session-id attribute (`ag_ui_thread_id`,
-`session.id`, `gen_ai.conversation.id`, …), `findSessionKey` falls back to the
-OTel `trace_id`. One trace = one session, and the UI marks the row with a
-`single trace` badge so it's clear multi-turn stitching is off.
+A session is a producer-declared conversation grouping. `findSessionKey` reads
+a real session-id attribute (`ag_ui_thread_id`, `session.id`,
+`gen_ai.conversation.id`, configured `CUSTOM_SESSION_ID_FIELDS`, …); if none
+is present it returns `{ source: 'trace', id: trace_id }`.
+
+`aggregateSessions` drops every `source: 'trace'` row — those are individual
+runs, not sessions, and belong on Runs. The session-detail page still resolves
+a bare `trace_id` URL because `getSession` falls back to `operation_Id`
+matching, so direct links to a trace remain valid; they just don't appear in
+the list.
 
 This replaced an `invoke_agent <Name>(<hex>)` hex heuristic. Verified against
-live App Insights data: the hex tracks `service.instance.id` (i.e. the
-process), not a conversation, so long-lived hosted agents collapsed every
-request through one process into a single row. The trace-id fallback splits
-real multi-turn conversations apart instead — both problems go away once the
-framework emits a real session attribute.
+live App Insights data: the hex tracks `service.instance.id` (the process),
+not a conversation, so long-lived hosted agents collapsed every request
+through one process into a single row.
+
+## TraceSummary and trace categories
+
+`listTraces()` returns `TraceSummary[]` — one row per `trace_id`. Fields:
+
+| Field                          | Type           | Description                          |
+| ------------------------------ | -------------- | ------------------------------------ |
+| `id`                           | string         | The trace id                         |
+| `startedAtMs` / `durationMs`   | number         | Timing bounds                        |
+| `spanCount`                    | number         | Total spans in the trace             |
+| `agent`                        | string?        | First `invoke_agent` name            |
+| `serviceName`                  | string?        | OTel `service.name`                  |
+| `sessionId`                    | string?        | Session attribute if present         |
+| `totalTokens` / `totalCostUsd` | number?        | Aggregated from chat spans           |
+| `hasError`                     | boolean?       | Any span errored                     |
+| `category`                     | TraceCategory? | Derived classification (see below)   |
+| `hasSessionAttribute`          | boolean?       | Whether a real session key was found |
+| `rootOperation`                | string?        | Name of the trace's root span        |
+| `userId` / `userName`          | string?        | User identity from spans             |
+
+### Category classification
+
+`src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`. Reads producer-emitted `session.trigger_type` / `session.execution` / `teammate.llm.purpose` (or the configured `CUSTOM_LLM_PURPOSE_FIELD`); no producer-side classifier remapping.
+
+Priority order (first match wins):
+
+1. **sub-agent** — root span is `execute_tool` + trace has `invoke_agent` descendants
+2. **scheduled** — `session.trigger_type = "scheduled"`
+3. **webhook** — `session.trigger_type = "webhook"`
+4. **background** — `session.trigger_type = "user"` AND `session.execution = "background"`
+5. **utility** — explicit `llm.purpose` marker OR chat-only with no invoke_agent
+6. **chat** — has session attribute
+7. **orphan** — anything else
+
+### Consumer-specific attribute keys
+
+These are configured via env vars in `src/lib/telemetry/field-config.ts`:
+
+| Env var                    | Purpose                                                |
+| -------------------------- | ------------------------------------------------------ |
+| `CUSTOM_LLM_PURPOSE_FIELD` | Attribute key whose presence flips category to utility |
+| `CUSTOM_SESSION_ID_FIELDS` | Additional session-id attribute keys (comma-separated) |
+| `CUSTOM_USER_ID_FIELDS`    | Additional user-id attribute keys (comma-separated)    |
+
+Both providers (OO and AI) read these at startup and incorporate them into their list queries.

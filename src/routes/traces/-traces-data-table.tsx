@@ -24,7 +24,6 @@ import {
 import * as React from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
-import { type Env, EnvSelect } from '#/components/env-select'
 import { RefreshingIndicator } from '#/components/refreshing-indicator'
 import { TimeRangeSelect } from '#/components/time-range-select'
 import { Button } from '#/components/ui/button'
@@ -37,23 +36,30 @@ import {
 import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import type { SessionSummary } from '#/lib/telemetry'
+import type { TraceSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { sessionColumns } from './columns'
+import { traceColumns } from './-columns'
 
 const STATUS_OPTIONS = [
   { label: 'OK', value: 'ok' },
   { label: 'Error', value: 'error' },
 ]
 
-interface DataTableProps {
-  data: SessionSummary[]
+const CATEGORY_OPTIONS = [
+  { label: 'Chat', value: 'chat' },
+  { label: 'Sub-agent', value: 'sub-agent' },
+  { label: 'Scheduled', value: 'scheduled' },
+  { label: 'Webhook', value: 'webhook' },
+  { label: 'Background', value: 'background' },
+  { label: 'Utility', value: 'utility' },
+  { label: 'Orphan', value: 'orphan' },
+]
+
+interface TracesDataTableProps {
+  data: TraceSummary[]
   isLoading?: boolean
-  onRowClick?: (row: SessionSummary) => void
-  rowClassName?: (row: SessionSummary) => string | undefined
-  env: Env
-  onEnvChange: (env: Env) => void
+  onRowClick?: (row: TraceSummary) => void
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
   autoRefresh: AutoRefreshInterval
@@ -62,22 +68,24 @@ interface DataTableProps {
   refreshing?: boolean
 }
 
-export function DataTable({
+export function TracesDataTable({
   data,
   isLoading,
   onRowClick,
-  rowClassName,
-  env,
-  onEnvChange,
   range,
   onRangeChange,
   autoRefresh,
   onAutoRefreshChange,
   onRefresh,
   refreshing,
-}: DataTableProps) {
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({ status: false })
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+}: TracesDataTableProps) {
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    status: false,
+    category: false,
+  })
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
+    { id: 'category', value: ['chat', 'sub-agent', 'scheduled', 'webhook', 'background', 'utility', 'orphan'] },
+  ])
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
@@ -86,14 +94,14 @@ export function DataTable({
 
   const table = useReactTable({
     data,
-    columns: sessionColumns,
+    columns: traceColumns,
     state: {
       sorting,
       columnVisibility,
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row.sessionId,
+    getRowId: (row) => row.id,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -106,7 +114,7 @@ export function DataTable({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
-  const searchColumn = table.getColumn('sessionId')
+  const searchColumn = table.getColumn('id')
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
 
   return (
@@ -117,7 +125,7 @@ export function DataTable({
             <div className="relative w-full min-w-0 sm:w-64">
               <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search agents, users, ids…"
+                placeholder="Search traces, agents, users…"
                 value={searchValue}
                 onChange={(e) => searchColumn.setFilterValue(e.target.value)}
                 className="w-full border-border bg-transparent pl-7 dark:bg-input/30"
@@ -127,10 +135,12 @@ export function DataTable({
           <RefreshingIndicator active={!!refreshing} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {table.getColumn('category') && (
+            <DataTableFacetedFilter column={table.getColumn('category')} title="Category" options={CATEGORY_OPTIONS} />
+          )}
           {table.getColumn('status') && (
             <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
           )}
-          <EnvSelect value={env} onChange={onEnvChange} />
           <TimeRangeSelect value={range} onChange={onRangeChange} />
           <AutoRefreshSelect
             value={autoRefresh}
@@ -183,7 +193,7 @@ export function DataTable({
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className={cn('h-12', onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
+                    className={cn('h-12', onRowClick && 'cursor-pointer')}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -193,19 +203,11 @@ export function DataTable({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={sessionColumns.length} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={traceColumns.length} className="h-24 text-center text-muted-foreground">
                     {isLoading ? (
                       <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="mx-auto size-4 animate-spin" />
                     ) : (
-                      <div className="mx-auto max-w-md space-y-1">
-                        <div>No sessions in this window.</div>
-                        <div className="text-xs">
-                          Set <code className="rounded bg-muted px-1 py-0.5 font-mono">ag_ui.thread_id</code> (or your
-                          configured{' '}
-                          <code className="rounded bg-muted px-1 py-0.5 font-mono">CUSTOM_SESSION_ID_FIELDS</code>) on
-                          the producer to enable session grouping. Individual traces appear on the Runs page.
-                        </div>
-                      </div>
+                      'No traces found.'
                     )}
                   </TableCell>
                 </TableRow>
@@ -213,69 +215,67 @@ export function DataTable({
             </TableBody>
           </Table>
         </div>
-      </div>
-      <div className="-mx-0 -mb-4 shrink-0 border-t bg-background md:-mb-6">
-        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-4 lg:gap-6">
-            <div className="hidden items-center gap-2 lg:flex">
-              <p className="text-xs font-medium">Rows per page</p>
+        {/* Pagination */}
+        <div className="flex items-center justify-between gap-4 py-4">
+          <div className="text-xs text-muted-foreground">{table.getFilteredRowModel().rows.length} trace(s) total</div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Rows per page</span>
               <Select
-                value={`${table.getState().pagination.pageSize}`}
-                onValueChange={(value) => table.setPageSize(Number(value))}
+                value={String(pagination.pageSize)}
+                onValueChange={(v) => setPagination({ pageIndex: 0, pageSize: Number(v) })}
               >
-                <SelectTrigger size="sm" className="w-[68px]" id="rows-per-page">
-                  <SelectValue placeholder={table.getState().pagination.pageSize} />
+                <SelectTrigger className="h-8 w-16">
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent side="top">
-                  {[25, 50, 100, 200].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
+                <SelectContent>
+                  {[25, 50, 100].map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-[96px] items-center justify-center text-xs font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-            </div>
+            <span className="text-xs text-muted-foreground">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
+            </span>
             <div className="flex items-center gap-1">
               <Button
                 variant="outline"
-                size="icon-sm"
-                className="hidden lg:flex"
+                size="icon"
+                className="size-8"
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
-                <span className="sr-only">First page</span>
-                <IconChevronsLeft />
+                <IconChevronsLeft className="size-4" />
               </Button>
               <Button
                 variant="outline"
-                size="icon-sm"
+                size="icon"
+                className="size-8"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
-                <span className="sr-only">Previous page</span>
-                <IconChevronLeft />
+                <IconChevronLeft className="size-4" />
               </Button>
               <Button
                 variant="outline"
-                size="icon-sm"
+                size="icon"
+                className="size-8"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
-                <span className="sr-only">Next page</span>
-                <IconChevronRight />
+                <IconChevronRight className="size-4" />
               </Button>
               <Button
                 variant="outline"
-                size="icon-sm"
-                className="hidden lg:flex"
+                size="icon"
+                className="size-8"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
-                <span className="sr-only">Last page</span>
-                <IconChevronsRight />
+                <IconChevronsRight className="size-4" />
               </Button>
             </div>
           </div>

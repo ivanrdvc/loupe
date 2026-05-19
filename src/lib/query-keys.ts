@@ -8,7 +8,13 @@ export const queryKeys = {
   },
   runs: {
     all: () => ['runs'] as const,
+    window: (range: string) => ['runs', { range }] as const,
     detail: (id: string) => ['runs', id] as const,
+  },
+  traces: {
+    all: () => ['traces'] as const,
+    window: (range: string) => ['traces', { range }] as const,
+    detail: (id: string) => ['traces', id] as const,
   },
   inbox: {
     all: () => ['inbox'] as const,

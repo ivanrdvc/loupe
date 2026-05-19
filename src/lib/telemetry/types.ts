@@ -17,7 +17,9 @@ export interface ListOpts extends WindowOpts {
 export type TraceFetch = { spans: Span[]; truncated?: boolean } | null
 
 export type GetTraceOpts = WindowOpts & IdentityFilter
-export type ListTracesOpts = ListOpts
+export type ListTracesOpts = ListOpts & IdentityFilter
+
+export type TraceCategory = 'chat' | 'sub-agent' | 'scheduled' | 'webhook' | 'background' | 'utility' | 'orphan'
 
 export interface TraceSummary {
   id: string
@@ -32,6 +34,18 @@ export interface TraceSummary {
   totalTokens?: number
   totalCostUsd?: number
   hasError?: boolean
+  category?: TraceCategory
+  // Raw producer attributes, kept so the UI can show a secondary chip
+  // (e.g. llm_purpose=title_generation under category=utility).
+  triggerType?: string
+  execution?: string
+  llmPurpose?: string
+  hasSessionAttribute?: boolean
+  // Root operation name (first non-http span or fallback to first span name).
+  rootOperation?: string
+  // User identity if present on the trace (lifted from user.id / user.name attrs).
+  userId?: string
+  userName?: string
 }
 
 // A session is the spine of a multi-turn conversation per
@@ -48,6 +62,8 @@ export interface SessionSummary {
   source: 'attribute' | 'trace'
   startedAtMs: number
   lastSeenMs: number
+  /** Sum of per-trace durations (actual compute time, not wall-clock gap between first and last span). */
+  activeDurationMs: number
   traceCount: number
   agents: string[]
   firstInput?: string

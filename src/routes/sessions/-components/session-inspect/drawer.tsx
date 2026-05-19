@@ -1,3 +1,5 @@
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { IconArrowUpRight, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
@@ -197,7 +199,9 @@ export function SessionInspectDrawer({
           {drawerView === 'conversation' ? (
             <section className="min-h-0 flex-1 overflow-hidden">
               {!contentReady || (loading && spans.length === 0) ? (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Loading…</div>
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+                </div>
               ) : (
                 <ConversationView spans={spans} onSelect={setSelectedId} />
               )}
@@ -205,7 +209,9 @@ export function SessionInspectDrawer({
           ) : drawerView === 'context' ? (
             <section className="min-h-0 flex-1 overflow-hidden">
               {!contentReady || (loading && spans.length === 0) ? (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Loading…</div>
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+                </div>
               ) : (
                 <SessionContextView spans={spans} />
               )}

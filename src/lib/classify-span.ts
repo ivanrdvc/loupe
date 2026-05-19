@@ -1,4 +1,5 @@
 import { type JsonValue, parseJson } from './json'
+import { estimateCostUsd } from './llm-pricing'
 import type { Operation } from './spans'
 
 // Session-id attribute keys in priority order — first hit wins. Both dotted
@@ -56,6 +57,7 @@ export interface Classification {
   operation: Operation
   model?: string
   agentName?: string
+  agentId?: string
   agentDescription?: string
   toolName?: string
   toolCallId?: string
@@ -93,7 +95,7 @@ export interface Classification {
   outputType?: string
 }
 
-export function classifySpan(name: string, attrs: Record<string, unknown>): Classification {
+export function classifySpan(name: string, attrs: Record<string, unknown>, spanStartMs?: number): Classification {
   const operation = pickOperation(name, attrs)
   const c: Classification = { operation }
 
@@ -152,6 +154,8 @@ export function classifySpan(name: string, attrs: Record<string, unknown>): Clas
   if (operation === 'invoke_agent') {
     const agentName = pickAgentName(name, attrs)
     if (agentName) c.agentName = agentName
+    const agentId = pickAgentId(name, attrs)
+    if (agentId) c.agentId = agentId
     const description = pickString(attrs, ['gen_ai.agent.description', 'gen_ai_agent_description'])
     if (description) c.agentDescription = description
   }
@@ -241,10 +245,27 @@ export function classifySpan(name: string, attrs: Record<string, unknown>): Clas
     if (fingerprint) c.systemFingerprint = fingerprint
   }
 
+  // Fallback when the provider didn't enrich (App Insights & friends).
+  // OpenObserve does this at ingest; @pydantic/genai-prices does it here.
+  c.costUsd ??= estimateCostUsd({
+    model: c.model,
+    inputTokens: c.inputTokens,
+    outputTokens: c.outputTokens,
+    cachedInputTokens: c.cachedTokens,
+    provider: c.provider,
+    spanStartMs,
+  })
+
   return c
 }
 
 function pickOperation(name: string, attrs: Record<string, unknown>): Operation {
+  // OpenInference span kind is an explicit producer signal; trust it over inference.
+  const oiKind = pickString(attrs, ['openinference.span.kind', 'openinference_span_kind'])
+  if (oiKind === 'LLM') return 'chat'
+  if (oiKind === 'AGENT') return 'invoke_agent'
+  if (oiKind === 'TOOL') return 'tool'
+
   const op = pickString(attrs, ['gen_ai.operation.name', 'gen_ai_operation_name'])
   if (op === 'chat' || op === 'text_completion' || op === 'generate_content') return 'chat'
   if (op === 'invoke_agent' || op === 'create_agent') return 'invoke_agent'
@@ -273,6 +294,12 @@ function pickToolName(name: string, attrs: Record<string, unknown>): string | un
 export function extractAgentName(spanName: string): string | undefined {
   const m = spanName.match(/^invoke_agent\s+([^(\s]+)/)
   return m?.[1]
+}
+
+function pickAgentId(name: string, attrs: Record<string, unknown>): string | undefined {
+  const fromAttr = pickString(attrs, ['gen_ai.agent.id', 'gen_ai_agent_id'])
+  if (fromAttr) return fromAttr
+  return name.match(/^invoke_agent\s+[^(\s]+\(([^)]+)\)/)?.[1]
 }
 
 function pickString(attrs: Record<string, unknown>, keys: readonly string[]): string | undefined {

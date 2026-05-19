@@ -31,6 +31,8 @@ export function ingestSpans(raw: RawSpan[]): Span[] {
 }
 
 function normalize(r: RawSpan): Span {
+  const startMs = Math.floor(r.start_time / 1_000_000)
+  const endMs = Math.floor(r.end_time / 1_000_000)
   return {
     id: r.span_id,
     traceId: r.trace_id,
@@ -38,9 +40,9 @@ function normalize(r: RawSpan): Span {
     service: r.service_name ?? 'unknown',
     kind: KIND_BY_NUMBER[r.span_kind ?? 1] ?? 'internal',
     name: r.name,
-    startMs: Math.floor(r.start_time / 1_000_000),
-    endMs: Math.floor(r.end_time / 1_000_000),
+    startMs,
+    endMs,
     ...(r.span_status === 'ERROR' ? { hasError: true } : {}),
-    ...classifySpan(r.name, r.attributes ?? {}),
+    ...classifySpan(r.name, r.attributes ?? {}, startMs),
   }
 }

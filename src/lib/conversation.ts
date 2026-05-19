@@ -314,7 +314,10 @@ export function asMessages(v: JsonValue | undefined): ChatMessage[] {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue
     const role = item.role
     if (role !== 'user' && role !== 'assistant' && role !== 'system') continue
-    const parts = asParts(item.parts)
+    // Logfire format: { role, parts: [...] }
+    let parts = asParts(item.parts)
+    // OpenAI / OpenLLMetry format: { role, content: "..." | [...] }
+    if (parts.length === 0) parts = contentToParts(item.content)
     if (parts.length === 0) continue
     out.push({ role, parts })
   }
@@ -342,6 +345,22 @@ function asParts(v: JsonValue | undefined): MessagePart[] {
         id: item.id,
         response: item.response ?? null,
       })
+    }
+  }
+  return out
+}
+
+// Handle OpenAI / semconv message format where content is on the message
+// directly — either a plain string or an array of content-part objects
+// like { type: 'text', text: '...' }.
+function contentToParts(v: JsonValue | undefined): MessagePart[] {
+  if (typeof v === 'string' && v) return [{ kind: 'text', content: v }]
+  if (!Array.isArray(v)) return []
+  const out: MessagePart[] = []
+  for (const item of v) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    if (item.type === 'text' && typeof item.text === 'string' && item.text) {
+      out.push({ kind: 'text', content: item.text })
     }
   }
   return out
