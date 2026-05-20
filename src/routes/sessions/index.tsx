@@ -12,14 +12,20 @@ import { SessionsDrawerHost } from './-components/sessions-drawer-host'
 import { sessionsQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/')({
+  validateSearch: (search: Record<string, unknown>): { userId?: string } => {
+    const raw = typeof search.userId === 'string' ? search.userId.trim() : ''
+    return raw ? { userId: raw } : {}
+  },
   component: Sessions,
 })
 
 function Sessions() {
+  const { userId: overrideUserId } = Route.useSearch()
   const [env, setEnv] = useEnv()
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
-  const scopedUserId = useScopedUserId()
+  const globalScopedUserId = useScopedUserId()
+  const scopedUserId = overrideUserId ?? globalScopedUserId
   const { data, isLoading, isFetching, refetch } = useQuery({
     ...sessionsQuery(range, scopedUserId),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],

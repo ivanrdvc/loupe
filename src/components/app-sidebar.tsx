@@ -5,6 +5,7 @@ import {
   Logout01Icon,
   MessageMultiple01Icon,
   Moon01Icon,
+  MoreHorizontalCircle01Icon,
   MoreVerticalIcon,
   PlayCircleIcon,
   PuzzleIcon,
@@ -151,11 +152,19 @@ export function AppSidebar() {
                           params={{ sessionId: session.sessionId }}
                           search={{ range: DEFAULT, view: 'conversation' }}
                         >
-                          <span className="truncate">{session.title ?? session.sessionId}</span>
+                          <span className="truncate">{session.title ?? session.firstInput ?? session.sessionId}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild className="text-sidebar-foreground/70">
+                      <Link to="/sessions" search={{ userId: userId || undefined }}>
+                        <HugeiconsIcon icon={MoreHorizontalCircle01Icon} />
+                        <span>More</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

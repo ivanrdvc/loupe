@@ -106,7 +106,7 @@ function OpenLink({ item }: { item: Pick<InboxRow, 'sessionId' | 'traceId'> }) {
     )
   }
   return (
-    <Link to="/sessions" search={{ days: 1 }} className={linkClass} aria-label="Open sessions">
+    <Link to="/sessions" className={linkClass} aria-label="Open sessions">
       <ArrowTopRightOnSquareIcon className="size-3.5" />
     </Link>
   )
