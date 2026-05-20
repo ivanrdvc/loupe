@@ -1,15 +1,12 @@
 import { extractAgentName, extractToolName } from '#/lib/classify-span'
 import { ooColumns } from './conventions'
-import { mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num } from './shared'
+import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import { bucketSecondsFor, zeroFillBucketed } from './time-series'
 import type {
   CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
-  LatencyKind,
-  LatencyOpts,
   LatencyPoint,
-  LatencyRow,
   OpenObserveProvider,
   OverviewAggregate,
   OverviewOpts,
@@ -50,33 +47,6 @@ export async function fetchOverview(p: OpenObserveProvider, opts?: OverviewOpts)
     p95ChatMs: Math.round(Number(row.p95_chat_ms ?? 0)),
     totalCostUsd: Number(row.total_cost ?? 0),
   }
-}
-
-export async function fetchLatencyPercentiles(
-  p: OpenObserveProvider,
-  kind: LatencyKind,
-  opts?: LatencyOpts,
-): Promise<LatencyRow[]> {
-  const limit = opts?.limit ?? 5
-  const whereClause =
-    kind === 'chat' ? `WHERE gen_ai_operation_name = 'chat'` : `WHERE operation_name LIKE 'invoke_agent %'`
-  // Duration is µs in OO; convert to ms so the AI path returns the same units.
-  const sql = `
-    SELECT
-      operation_name AS name,
-      approx_percentile_cont(duration, 0.5) / 1000 AS p50_ms,
-      approx_percentile_cont(duration, 0.9) / 1000 AS p90_ms,
-      approx_percentile_cont(duration, 0.95) / 1000 AS p95_ms,
-      approx_percentile_cont(duration, 0.99) / 1000 AS p99_ms,
-      COUNT(*) AS count
-    FROM "${p.stream}"
-    ${whereClause}
-    GROUP BY operation_name
-    ORDER BY p95_ms DESC
-    LIMIT ${limit}
-  `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
-  return hits.map(mapLatencyRow)
 }
 
 export async function fetchToolErrorRates(p: OpenObserveProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {

@@ -6,10 +6,8 @@ import {
   type CacheHitPoint,
   getActiveProviderId,
   type LatencyPoint,
-  type LatencyRow,
   listCacheHitRateOverTime,
   listChatLatencyOverTime,
-  listLatencyPercentiles,
   listRunsPerHour,
   listToolErrorRates,
   listToolPayloadSizes,
@@ -26,8 +24,6 @@ export type HomeData = {
   newTools: InventoryRow[]
   newAgents: InventoryRow[]
 } & {
-  chatLatency: LatencyRow[]
-  agentLatency: LatencyRow[]
   toolErrors: ToolErrorRow[]
   toolPayloads: ToolPayloadRow[]
   chatLatencyOverTime: LatencyPoint[]
@@ -61,29 +57,17 @@ const fetchHome = createServerFn({ method: 'GET' })
       runToolErrorRateDetection({ fromUs, toUs }),
       runToolPayloadDetection({ fromUs, toUs }),
     ])
-    const [
-      inventory,
-      chatLatency,
-      agentLatency,
-      toolErrors,
-      toolPayloads,
-      chatLatencyOverTime,
-      cacheHitRateOverTime,
-      runsPerHour,
-    ] = await Promise.all([
-      listHomeInventory(from, to),
-      listLatencyPercentiles('chat', { fromUs, toUs, limit: 10 }).catch(() => []),
-      listLatencyPercentiles('agent', { fromUs, toUs, limit: 10 }).catch(() => []),
-      listToolErrorRates({ fromUs, toUs, limit: 5 }).catch(() => []),
-      listToolPayloadSizes({ fromUs, toUs, limit: 5 }).catch(() => []),
-      listChatLatencyOverTime({ fromUs, toUs }).catch(() => []),
-      listCacheHitRateOverTime({ fromUs, toUs }).catch(() => []),
-      listRunsPerHour({ fromUs, toUs }).catch(() => []),
-    ])
+    const [inventory, toolErrors, toolPayloads, chatLatencyOverTime, cacheHitRateOverTime, runsPerHour] =
+      await Promise.all([
+        listHomeInventory(from, to),
+        listToolErrorRates({ fromUs, toUs, limit: 5 }).catch(() => []),
+        listToolPayloadSizes({ fromUs, toUs, limit: 5 }).catch(() => []),
+        listChatLatencyOverTime({ fromUs, toUs }).catch(() => []),
+        listCacheHitRateOverTime({ fromUs, toUs }).catch(() => []),
+        listRunsPerHour({ fromUs, toUs }).catch(() => []),
+      ])
     const result: HomeData = {
       ...inventory,
-      chatLatency,
-      agentLatency,
       toolErrors,
       toolPayloads,
       chatLatencyOverTime,

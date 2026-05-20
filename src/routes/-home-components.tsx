@@ -5,30 +5,11 @@ import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { formatAgo, formatDuration, formatTokens } from '#/lib/format'
-import type { LatencyRow, ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
+import { formatAgo, formatTokens } from '#/lib/format'
+import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import type { InventoryRow } from '#/server/inbox'
 
 const PREVIEW_ROWS = 5
-
-export function CategoryGroup({
-  label,
-  showLabel,
-  children,
-}: {
-  label: string
-  showLabel: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-2 px-4 lg:px-6">
-      {showLabel && (
-        <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</h2>
-      )}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">{children}</div>
-    </div>
-  )
-}
 
 export function Section({
   icon: Icon,
@@ -188,58 +169,6 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
                 </TableCell>
                 <TableCell>
                   <OpenLink traceId={row.sampleTraceId} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Expandable>
-  )
-}
-
-export function LatencyTable({
-  rows,
-  firstHeader,
-  stripPrefixFrom,
-}: {
-  rows: LatencyRow[]
-  firstHeader: string
-  stripPrefixFrom?: string
-}) {
-  if (rows.length === 0) {
-    return <SectionEmpty title="No spans" description="No matching spans in this window." />
-  }
-  return (
-    <Expandable rows={rows}>
-      {(visible) => (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{firstHeader}</TableHead>
-              <TableHead className="w-16 text-right tabular-nums">p50</TableHead>
-              <TableHead className="w-16 text-right tabular-nums">p90</TableHead>
-              <TableHead className="w-16 text-right tabular-nums">p95 ▼</TableHead>
-              <TableHead className="w-16 text-right tabular-nums">p99</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((row) => (
-              <TableRow key={row.name}>
-                <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
-                  {stripPrefixFrom ? stripPrefix(row.name, stripPrefixFrom) : row.name}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {formatDuration(row.p50Ms)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {formatDuration(row.p90Ms)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {formatDuration(row.p95Ms)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {formatDuration(row.p99Ms)}
                 </TableCell>
               </TableRow>
             ))}

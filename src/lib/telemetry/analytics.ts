@@ -9,10 +9,7 @@ import type {
   CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
-  LatencyKind,
-  LatencyOpts,
   LatencyPoint,
-  LatencyRow,
   OverviewAggregate,
   OverviewOpts,
   RunsPoint,
@@ -29,19 +26,6 @@ export async function fetchOverview(p: TelemetryProvider, opts?: OverviewOpts): 
       return oo.fetchOverview(p, opts)
     case 'app-insights':
       return ai.fetchOverview(p, opts)
-  }
-}
-
-export async function fetchLatencyPercentiles(
-  p: TelemetryProvider,
-  kind: LatencyKind,
-  opts?: LatencyOpts,
-): Promise<LatencyRow[]> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchLatencyPercentiles(p, kind, opts)
-    case 'app-insights':
-      return ai.fetchLatencyPercentiles(p, kind, opts)
   }
 }
 

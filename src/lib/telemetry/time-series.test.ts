@@ -60,7 +60,7 @@ describe('zeroFillBucketed', () => {
       toUs,
       bucketSec,
       (r) => r.bucket,
-      (r) => ({ count: Number(r.count ?? 0) }),
+      () => ({ count: 0 }),
     )
     expect(out.every((p) => p.value.count === 0)).toBe(true)
   })

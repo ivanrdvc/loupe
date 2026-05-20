@@ -3,7 +3,7 @@ import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
-import type { LatencyRow, SessionSummary, ToolErrorRow, ToolPayloadRow } from './types'
+import type { SessionSummary, ToolErrorRow, ToolPayloadRow } from './types'
 
 export type IdentityFilter = { userId?: string; userName?: string }
 
@@ -13,21 +13,6 @@ export function pickIdentityValue(
   if (opts?.userId) return { kind: 'id', value: opts.userId }
   if (opts?.userName) return { kind: 'name', value: opts.userName }
   return undefined
-}
-
-export function mapLatencyRow(row: Record<string, unknown>): LatencyRow {
-  const toMs = (v: unknown) => {
-    const n = Math.round(Number(v ?? 0))
-    return Number.isFinite(n) && n > 0 ? n : 0
-  }
-  return {
-    name: String(row.name ?? row.operation_name ?? '?'),
-    p50Ms: toMs(row.p50_ms),
-    p90Ms: toMs(row.p90_ms),
-    p95Ms: toMs(row.p95_ms),
-    p99Ms: toMs(row.p99_ms),
-    count: Number(row.count ?? 0),
-  }
 }
 
 export function mapToolErrorRow(row: Record<string, unknown>): ToolErrorRow {

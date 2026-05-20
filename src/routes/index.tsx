@@ -1,7 +1,6 @@
 import {
   BoltIcon,
   ChartBarIcon,
-  ClockIcon,
   CubeTransparentIcon,
   ExclamationTriangleIcon,
   InboxArrowDownIcon,
@@ -9,46 +8,20 @@ import {
 } from '@heroicons/react/20/solid'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import { EnvSelect } from '#/components/env-select'
 import { Page } from '#/components/page'
 import { RefreshingIndicator } from '#/components/refreshing-indicator'
 import { TimeRangeSelect } from '#/components/time-range-select'
-import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { useEnv } from '#/hooks/use-env'
 import { DEFAULT, parse, type TimeRange } from '#/lib/time-range'
 import { CacheAreaChart } from './-home-charts/cache-area'
 import { LatencyAreaChart } from './-home-charts/latency-area'
 import { ThroughputAreaChart } from './-home-charts/throughput-area'
-import {
-  CategoryGroup,
-  LatencyTable,
-  NewAgentsTable,
-  NewToolsTable,
-  Section,
-  ToolErrorTable,
-  ToolPayloadTable,
-} from './-home-components'
+import { NewAgentsTable, NewToolsTable, Section, ToolErrorTable, ToolPayloadTable } from './-home-components'
 import { homeQuery } from './-home-data'
 
 interface HomeSearch {
   range?: TimeRange
-}
-
-const CATEGORIES = ['all', 'signals', 'performance', 'activity', 'inventory'] as const
-type Category = (typeof CATEGORIES)[number]
-const CATEGORY_LABEL: Record<Category, string> = {
-  all: 'All',
-  signals: 'Signals',
-  performance: 'Performance',
-  activity: 'Activity',
-  inventory: 'Inventory',
-}
-const CATEGORY_STORAGE_KEY = 'home-category'
-const DEFAULT_CATEGORY: Category = 'signals'
-
-function isCategory(v: unknown): v is Category {
-  return typeof v === 'string' && (CATEGORIES as readonly string[]).includes(v)
 }
 
 export const Route = createFileRoute('/')({
@@ -67,8 +40,6 @@ function Home() {
   const { data, isFetching } = useQuery(homeQuery(range))
   const newTools = data?.newTools ?? []
   const newAgents = data?.newAgents ?? []
-  const chatLatency = data?.chatLatency ?? []
-  const agentLatency = data?.agentLatency ?? []
   const toolErrors = data?.toolErrors ?? []
   const toolPayloads = data?.toolPayloads ?? []
   const chatLatencyOverTime = data?.chatLatencyOverTime ?? []
@@ -76,15 +47,6 @@ function Home() {
   const runsPerHour = data?.runsPerHour ?? []
 
   const [env, setEnv] = useEnv()
-  const [category, setCategoryState] = useState<Category>(DEFAULT_CATEGORY)
-  useEffect(() => {
-    const stored = window.localStorage.getItem(CATEGORY_STORAGE_KEY)
-    if (isCategory(stored)) setCategoryState(stored)
-  }, [])
-  const setCategory = (next: Category) => {
-    setCategoryState(next)
-    window.localStorage.setItem(CATEGORY_STORAGE_KEY, next)
-  }
 
   const setRange = (next: TimeRange) => {
     navigate({
@@ -93,28 +55,9 @@ function Home() {
     })
   }
 
-  const showAll = category === 'all'
-  const signals = showAll || category === 'signals'
-  const performance = showAll || category === 'performance'
-  const activity = showAll || category === 'activity'
-  const inventory = showAll || category === 'inventory'
-
   return (
     <Page title="Home">
       <div className="flex flex-wrap items-center gap-2 px-4 lg:px-6">
-        <ToggleGroup
-          type="single"
-          value={category}
-          onValueChange={(v) => v && isCategory(v) && setCategory(v)}
-          variant="outline"
-          size="sm"
-        >
-          {CATEGORIES.map((c) => (
-            <ToggleGroupItem key={c} value={c}>
-              {CATEGORY_LABEL[c]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <RefreshingIndicator active={isFetching} />
           <EnvSelect value={env} onChange={setEnv} />
@@ -122,52 +65,29 @@ function Home() {
         </div>
       </div>
 
-      {signals && (
-        <CategoryGroup label="Signals" showLabel={showAll}>
-          <Section icon={InboxArrowDownIcon} title="Tools returning too much">
-            <ToolPayloadTable rows={toolPayloads} />
-          </Section>
-          <Section icon={ExclamationTriangleIcon} title="Tools with high error rate">
-            <ToolErrorTable rows={toolErrors} />
-          </Section>
-        </CategoryGroup>
-      )}
-
-      {performance && (
-        <CategoryGroup label="Performance" showLabel={showAll}>
-          <Section icon={SparklesIcon} title="Chat latency">
-            <LatencyTable rows={chatLatency} firstHeader="Chat" />
-          </Section>
-          <Section icon={ClockIcon} title="Agent latency">
-            <LatencyTable rows={agentLatency} firstHeader="Agent" stripPrefixFrom="invoke_agent" />
-          </Section>
-          <Section icon={SparklesIcon} title="Chat latency over time — p50 / p95 + call volume" wide>
-            <LatencyAreaChart data={chatLatencyOverTime} />
-          </Section>
-        </CategoryGroup>
-      )}
-
-      {activity && (
-        <CategoryGroup label="Activity" showLabel={showAll}>
-          <Section icon={ChartBarIcon} title="Cache-hit rate over time">
-            <CacheAreaChart data={cacheHitRateOverTime} />
-          </Section>
-          <Section icon={ChartBarIcon} title="Runs over time">
-            <ThroughputAreaChart data={runsPerHour} />
-          </Section>
-        </CategoryGroup>
-      )}
-
-      {inventory && (
-        <CategoryGroup label="Inventory" showLabel={showAll}>
-          <Section icon={CubeTransparentIcon} title="New MCP tools">
-            <NewToolsTable rows={newTools} />
-          </Section>
-          <Section icon={BoltIcon} title="New agents">
-            <NewAgentsTable rows={newAgents} />
-          </Section>
-        </CategoryGroup>
-      )}
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 xl:grid-cols-2">
+        <Section icon={InboxArrowDownIcon} title="Tools returning too much">
+          <ToolPayloadTable rows={toolPayloads} />
+        </Section>
+        <Section icon={ExclamationTriangleIcon} title="Tools with high error rate">
+          <ToolErrorTable rows={toolErrors} />
+        </Section>
+        <Section icon={SparklesIcon} title="Chat latency over time — p50 / p95 + call volume" wide>
+          <LatencyAreaChart data={chatLatencyOverTime} />
+        </Section>
+        <Section icon={ChartBarIcon} title="Cache-hit rate over time">
+          <CacheAreaChart data={cacheHitRateOverTime} />
+        </Section>
+        <Section icon={ChartBarIcon} title="Runs over time">
+          <ThroughputAreaChart data={runsPerHour} />
+        </Section>
+        <Section icon={CubeTransparentIcon} title="New MCP tools">
+          <NewToolsTable rows={newTools} />
+        </Section>
+        <Section icon={BoltIcon} title="New agents">
+          <NewAgentsTable rows={newAgents} />
+        </Section>
+      </div>
     </Page>
   )
 }

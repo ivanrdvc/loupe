@@ -1,17 +1,14 @@
 import { extractAgentName, extractToolName } from '#/lib/classify-span'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import { aiCoalesce } from './conventions'
-import { mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num } from './shared'
+import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import { bucketSecondsFor, zeroFillBucketed } from './time-series'
 import type {
   AppInsightsProvider,
   CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
-  LatencyKind,
-  LatencyOpts,
   LatencyPoint,
-  LatencyRow,
   OverviewAggregate,
   OverviewOpts,
   RunsPoint,
@@ -69,32 +66,6 @@ export async function fetchOverview(p: AppInsightsProvider, opts?: OverviewOpts)
     p95ChatMs: Math.round(num(agg.p95_chat_ms) ?? 0),
     totalCostUsd: totalCost,
   }
-}
-
-export async function fetchLatencyPercentiles(
-  p: AppInsightsProvider,
-  kind: LatencyKind,
-  opts?: LatencyOpts,
-): Promise<LatencyRow[]> {
-  const limit = opts?.limit ?? 5
-  const filter =
-    kind === 'chat'
-      ? `| where tostring(customDimensions["gen_ai.operation.name"]) == "chat"`
-      : `| where name startswith "invoke_agent "`
-  const q = `
-    union dependencies, requests
-    ${filter}
-    | summarize
-        p50_ms = percentile(duration, 50),
-        p90_ms = percentile(duration, 90),
-        p95_ms = percentile(duration, 95),
-        p99_ms = percentile(duration, 99),
-        count = count()
-      by name
-    | top ${limit} by p95_ms desc
-  `
-  const rows = await p.query(q, opts ?? {})
-  return rows.map(mapLatencyRow)
 }
 
 export async function fetchToolErrorRates(p: AppInsightsProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {

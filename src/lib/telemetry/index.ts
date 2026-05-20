@@ -8,10 +8,7 @@ import type {
   GetTraceOpts,
   InventoryDiscoveryKind,
   InventoryObservation,
-  LatencyKind,
-  LatencyOpts,
   LatencyPoint,
-  LatencyRow,
   ListSessionsOpts,
   ListTracesOpts,
   OverviewAggregate,
@@ -131,7 +128,13 @@ export async function getTrace(traceId: string): Promise<{
   const p = getActiveProvider()
   const r = await p.getTrace(traceId)
   if (!r) return null
-  return { spans: r.spans, truncated: !!r.truncated, provider: p.name, fingerprint: p.fingerprint, focusSpanId: r.focusSpanId }
+  return {
+    spans: r.spans,
+    truncated: !!r.truncated,
+    provider: p.name,
+    fingerprint: p.fingerprint,
+    focusSpanId: r.focusSpanId,
+  }
 }
 
 export async function listRecentTraces(opts?: ListTracesOpts): Promise<{
@@ -180,10 +183,6 @@ export async function discoverInventory(
   opts?: { fromUs?: number; toUs?: number },
 ): Promise<InventoryObservation[]> {
   return analytics.fetchInventory(getActiveProvider(), kind, opts)
-}
-
-export async function listLatencyPercentiles(kind: LatencyKind, opts?: LatencyOpts): Promise<LatencyRow[]> {
-  return analytics.fetchLatencyPercentiles(getActiveProvider(), kind, opts)
 }
 
 export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]> {

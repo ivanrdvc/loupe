@@ -85,19 +85,6 @@ export interface InventoryObservation {
   traceId?: string
 }
 
-export type LatencyKind = 'chat' | 'agent'
-
-export interface LatencyRow {
-  name: string
-  p50Ms: number
-  p90Ms: number
-  p95Ms: number
-  p99Ms: number
-  count: number
-}
-
-export type LatencyOpts = ListOpts
-
 export interface ToolErrorRow {
   name: string
   errors: number

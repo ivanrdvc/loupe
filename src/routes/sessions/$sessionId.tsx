@@ -20,6 +20,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
+import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import { SessionContextView } from './-components/session-inspect/context'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
 import { type SessionInspectView, SessionViewBar } from './-components/session-inspect/view-bar'
@@ -161,6 +162,7 @@ function SessionDetail() {
             )}
           </div>
         }
+        actions={<NoteSheetButton targetKind="session" targetId={sessionId} />}
       />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

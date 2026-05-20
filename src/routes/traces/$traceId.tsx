@@ -15,7 +15,7 @@ import {
 } from '#/components/ui/breadcrumb'
 import type { Span } from '#/lib/spans'
 
-import { NoteEditor } from '#/routes/notes/-components/note-editor'
+import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import { SessionContextView } from '#/routes/sessions/-components/session-inspect/context'
 import { SessionInspectLayout } from '#/routes/sessions/-components/session-inspect/overview'
 import { type SessionInspectView, SessionViewBar } from '#/routes/sessions/-components/session-inspect/view-bar'
@@ -100,6 +100,7 @@ function TraceDetail() {
             {truncated && <Badge variant="destructive">truncated</Badge>}
           </div>
         }
+        actions={<NoteSheetButton targetKind="trace" targetId={traceId} />}
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SessionViewBar
@@ -132,12 +133,6 @@ function TraceDetail() {
           )}
         </div>
       </div>
-      <section className="shrink-0 border-border border-t px-4 py-4 lg:px-6">
-        <div className="flex max-w-3xl flex-col gap-2">
-          <h3 className="text-sm font-medium">Notes</h3>
-          <NoteEditor targetKind="trace" targetId={traceId} />
-        </div>
-      </section>
     </div>
   )
 }
