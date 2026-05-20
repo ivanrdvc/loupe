@@ -1,10 +1,14 @@
-import { Clock01Icon } from '@hugeicons/core-free-icons'
+import { Clock01Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { Badge } from '#/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { formatAgo, formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
+import { queryKeys } from '#/lib/query-keys'
 import type { SessionSummary } from '#/lib/telemetry'
+import { getNoteFlagsForKind } from '#/server/notes'
 
 function userPrimary(s: SessionSummary): string {
   return s.userName ?? s.userId ?? '—'
@@ -13,6 +17,45 @@ function userPrimary(s: SessionSummary): string {
 function userSecondary(s: SessionSummary): string | undefined {
   if (s.userName) return s.userId
   return undefined
+}
+
+function SessionIdCell({ session }: { session: SessionSummary }) {
+  const title = session.title?.trim()
+  const idLabel = truncateId(session.sessionId)
+  const { data: flags } = useQuery({
+    queryKey: queryKeys.notes.flagsForKind('session'),
+    queryFn: () => getNoteFlagsForKind({ data: 'session' }),
+  })
+  const hasNote = Boolean(flags?.[session.sessionId])
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      {title ? (
+        <>
+          <span className="min-w-0 max-w-[240px] truncate font-medium text-foreground" title={title}>
+            {title}
+          </span>
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{idLabel}</span>
+        </>
+      ) : (
+        <span className="font-mono text-[11px] text-muted-foreground">{idLabel}</span>
+      )}
+      {hasNote ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex shrink-0 items-center text-muted-foreground">
+              <HugeiconsIcon icon={StickyNote01Icon} strokeWidth={2} className="size-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Has a note.</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {session.hasError ? (
+        <Badge variant="destructive" className="shrink-0 px-1.5">
+          Error
+        </Badge>
+      ) : null}
+    </div>
+  )
 }
 
 export const sessionColumns: ColumnDef<SessionSummary>[] = [
@@ -42,30 +85,7 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
   {
     accessorKey: 'sessionId',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Session" />,
-    cell: ({ row }) => {
-      const s = row.original
-      const title = s.title?.trim()
-      const idLabel = truncateId(s.sessionId)
-      return (
-        <div className="flex min-w-0 items-center gap-1.5">
-          {title ? (
-            <>
-              <span className="min-w-0 max-w-[240px] truncate font-medium text-foreground" title={title}>
-                {title}
-              </span>
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{idLabel}</span>
-            </>
-          ) : (
-            <span className="font-mono text-[11px] text-muted-foreground">{idLabel}</span>
-          )}
-          {s.hasError ? (
-            <Badge variant="destructive" className="shrink-0 px-1.5">
-              Error
-            </Badge>
-          ) : null}
-        </div>
-      )
-    },
+    cell: ({ row }) => <SessionIdCell session={row.original} />,
     filterFn: (row, _id, value) => {
       const q = String(value ?? '')
         .trim()

@@ -26,13 +26,15 @@ Spec: <https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/>
 | `gen_ai.operation.name` | string | `chat`, `create_agent`, `embeddings`, `execute_tool`, `generate_content`, `invoke_agent`, `invoke_workflow`, `retrieval`, `text_completion`                                |
 | `gen_ai.provider.name`  | string | `anthropic`, `aws.bedrock`, `azure.ai.openai`, `cohere`, `deepseek`, `gcp.gemini`, `gcp.vertex_ai`, `groq`, `ibm.watsonx.ai`, `mistral_ai`, `openai`, `perplexity`, `x_ai` |
 
-### Utility LLM purpose (app-scoped)
+### Utility LLM purpose
 
-| Attribute              | Type   | Values                                                                       |
-| ---------------------- | ------ | ---------------------------------------------------------------------------- |
-| `teammate.llm.purpose` | string | `title_generation`, `summarization`, `artifact_resolution` (or any freeform) |
+| Attribute                   | Type   | Values                                                                       |
+| --------------------------- | ------ | ---------------------------------------------------------------------------- |
+| `gen_ai.operation.purpose`  | string | `title_generation`, `summarization`, `artifact_resolution` (or any freeform) |
 
-Per [OTel naming spec](https://opentelemetry.io/docs/specs/semconv/general/attribute-naming/), application-specific attributes should **not** reuse the `gen_ai.*` namespace. Use `teammate.llm.purpose` to tag utility side-calls (title gen, artifact resolution, etc.). The span tree renders its value as a badge after the span name.
+Tag side-channel LLM calls (title gen, summarization, etc.) so the trace classifier buckets them as `utility` instead of `chat`. The span tree renders the value as a badge after the span name.
+
+Not a published OTel semconv attribute — `gen_ai.*` is OTel's GenAI namespace but only `gen_ai.operation.name` is standardized. `gen_ai.operation.purpose` is a vendor-neutral extension we picked because (a) it sits in the right namespace and (b) it's the canonical key agentops reads. Deployments that already emit a different key set `CUSTOM_LLM_PURPOSE_FIELD=<their.key>` and agentops picks it up alongside.
 
 `gen_ai.operation.name` is set by the SDK instrumentation (e.g. MEAI's `OpenTelemetryChatClient`) and drives span classification — do **not** override it.
 

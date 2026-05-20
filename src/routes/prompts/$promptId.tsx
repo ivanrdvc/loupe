@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { Button } from '#/components/ui/button'
+import { Card, CardContent } from '#/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { queryKeys } from '#/lib/query-keys'
+import { NoteEditor } from '../notes/-components/note-editor'
 import { ModelParamsPanel } from './-components/model-params-panel'
 import { PromptDetailHeader } from './-components/prompt-detail-header'
 import { PromptEditor } from './-components/prompt-editor'
@@ -198,6 +200,14 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
           saving={saveMutation.isPending}
           onSave={() => saveMutation.mutate()}
         />
+
+        <div className="px-4 lg:px-6">
+          <Card size="sm">
+            <CardContent>
+              <NoteEditor targetKind="prompt" targetId={prompt.id} compact variant="inline" />
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="px-4 lg:px-6">
           <Tabs defaultValue="editor">

@@ -7,6 +7,7 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   MagnifyingGlassIcon,
+  PencilSquareIcon,
   TableCellsIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
@@ -35,11 +36,12 @@ import {
 } from '#/lib/spans'
 import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
 import { cn } from '#/lib/utils'
+import { NoteEditor } from '#/routes/notes/-components/note-editor'
 import { ContextTools, collectFrontendTools, collectToolGroups } from './context'
 import { displayFor, formatDuration } from './shared'
 import { DetailPanel, SpanTreeList } from './tree'
 
-type InspectorTab = 'details' | 'tools' | 'turns' | 'logs' | 'attributes'
+type InspectorTab = 'details' | 'tools' | 'turns' | 'logs' | 'attributes' | 'notes'
 
 const INSPECTOR_TABS = [
   { id: 'details', label: 'Details', Icon: InformationCircleIcon },
@@ -47,6 +49,7 @@ const INSPECTOR_TABS = [
   { id: 'turns', label: 'Turns', Icon: ArrowPathRoundedSquareIcon },
   { id: 'logs', label: 'Logs', Icon: CommandLineIcon },
   { id: 'attributes', label: 'Attributes', Icon: TableCellsIcon },
+  { id: 'notes', label: 'Notes', Icon: PencilSquareIcon },
 ] as const
 
 export function SessionInspectLayout({
@@ -140,6 +143,8 @@ export function SessionInspectLayout({
                       <SessionTurnsPanel spans={spans} />
                     ) : inspectorTab === 'attributes' ? (
                       <SpanAttributesPanel selectedSpan={selectedSpan} />
+                    ) : inspectorTab === 'notes' ? (
+                      <SessionNotesPanel spans={spans} />
                     ) : (
                       <SessionLogs spans={spans} />
                     )}
@@ -195,6 +200,25 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
         </span>
       </header>
       <ContextTools groups={groups} />
+    </div>
+  )
+}
+
+function SessionNotesPanel({ spans }: { spans: Span[] }) {
+  const sessionId = spans[0]?.sessionId ?? spans[0]?.traceId
+  if (!sessionId) {
+    return (
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No session id</EmptyTitle>
+          <EmptyDescription>This trace isn't associated with a session yet.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+  return (
+    <div className="px-4 py-4">
+      <NoteEditor targetKind="session" targetId={sessionId} />
     </div>
   )
 }

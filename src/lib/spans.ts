@@ -83,7 +83,8 @@ export interface Span {
   sessionSource?: 'attribute' | 'trace'
   agUiRunId?: string
   // Semantic purpose — e.g. "title_generation", "summarization". Set from
-  // `teammate.llm.purpose` (app-scoped, OTel compliant). Not `.operation.name`.
+  // `gen_ai.operation.purpose` (or the deployment's CUSTOM_LLM_PURPOSE_FIELD).
+  // Not `.operation.name`.
   operationName?: string
   // `gen_ai.output.type` — `text` by default; non-text values mark a
   // structured call so the UI doesn't render it as a chat reply.
@@ -182,8 +183,9 @@ export function buildAgentLabels(spans: Span[]): Map<string, string> {
 }
 
 // Side-channel LLM calls (title gen, summarization). Explicit signal:
-// `teammate.llm.purpose`. Fallback: in an AG-UI trace, conversation chats
-// carry `ag_ui.run_id` and utility chats don't.
+// `gen_ai.operation.purpose` (or the deployment's CUSTOM_LLM_PURPOSE_FIELD).
+// Fallback: in an AG-UI trace, conversation chats carry `ag_ui.run_id` and
+// utility chats don't.
 export function findUtilityChatIds(spans: Span[]): Set<string> {
   const traceHasAgUiRun = spans.some((s) => s.agUiRunId != null)
   const out = new Set<string>()

@@ -42,6 +42,13 @@ const ATTRS = {
     'llm.usage.cache_read_tokens',
   ],
   llmInput: ['gen_ai.input.messages', 'llm.input'],
+  // Not a published OTel semconv — the GenAI spec defines `gen_ai.operation.name`
+  // (chat/invoke_agent/execute_tool/...) but no `purpose`. We treat it as a
+  // gen_ai-namespaced extension that lets producers tag utility LLM calls
+  // (title generation, summarization, etc.) so the trace classifier can
+  // bucket them out of the main chat traffic. App-scoped purpose keys (e.g.
+  // a producer's own naming convention) plug in via CUSTOM_LLM_PURPOSE_FIELD.
+  llmPurpose: ['gen_ai.operation.purpose'],
 } as const
 
 export type CanonicalField = keyof typeof ATTRS
@@ -52,6 +59,7 @@ function customExtras(field: CanonicalField): readonly string[] {
   const cfg = readFieldConfig()
   if (field === 'sessionId') return cfg.sessionIdFields
   if (field === 'userId') return cfg.userIdFields
+  if (field === 'llmPurpose' && cfg.llmPurposeField) return [cfg.llmPurposeField]
   return EMPTY
 }
 

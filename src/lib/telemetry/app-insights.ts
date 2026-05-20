@@ -151,12 +151,12 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         ? `session_kind = tostring(customDimensions["${sessionKindField}"]),`
         : ''
       const llmPurposeExtend = llmPurposeField ? `llm_purpose = tostring(customDimensions["${llmPurposeField}"]),` : ''
-      const purposeAttr = llmPurposeField ?? 'teammate.llm.purpose'
+      const purposeAttr = llmPurposeField ?? 'gen_ai.operation.purpose'
       const q = `
         ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"]))
+        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"])) or isnotempty(tostring(customDimensions["session.trigger_type"]))
         ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),

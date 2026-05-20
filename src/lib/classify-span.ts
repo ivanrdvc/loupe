@@ -38,11 +38,11 @@ export interface Classification {
   // same trace but are not part of the conversation flow.
   agUiRunId?: string
   // Semantic purpose of the LLM call when it's not a user-facing conversation
-  // turn — e.g. "title_generation", "summarization". Emitted by the
-  // instrumented SDK via `teammate.llm.purpose` (app-scoped per OTel naming
-  // spec). Falls back to `gen_ai.operation.purpose` for generic producers.
-  // Distinct from `gen_ai.operation.name` which MEAI uses for span
-  // classification (chat, execute_tool, etc.) and must not be overridden.
+  // turn — e.g. "title_generation", "summarization". Producers emit on
+  // `gen_ai.operation.purpose` (gen_ai-namespaced extension, not a published
+  // OTel attribute). Custom per-deployment keys plug in via
+  // CUSTOM_LLM_PURPOSE_FIELD. Distinct from `gen_ai.operation.name` which
+  // MEAI uses for span classification (chat, execute_tool, etc.).
   operationName?: string
   // `gen_ai.output.type` — `text` by default; `json`/`json_schema`/`image`
   // signal a structured call (title gen, classification, etc.).
@@ -108,12 +108,7 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
   const agUiRunId = pickString(attrs, ['ag_ui.run_id', 'ag_ui_run_id'])
   if (agUiRunId) c.agUiRunId = agUiRunId
 
-  const operationName = pickString(attrs, [
-    'teammate.llm.purpose',
-    'teammate_llm_purpose',
-    'gen_ai.operation.purpose',
-    'gen_ai_operation_purpose',
-  ])
+  const operationName = pickCanonical(attrs, 'llmPurpose')
   if (operationName) c.operationName = operationName
 
   const outputType = pickString(attrs, ['gen_ai.output.type', 'gen_ai_output_type'])

@@ -27,7 +27,7 @@ Default mode (no `--draft`): write the doc as a finished artifact at the level o
 - `/docs the chatmessagestore page is out of date — Cosmos shipped` → default mode, prose with implicit update target
 - `/docs document what I just changed` → resolve via `git diff` / recent commits
 - `/docs https://github.com/.../pull/147` → fetch the PR, document what it added
-- `/docs src/Teammate.Service/Agents/SubAgents/UiAgent.cs` → read the file, document its purpose
+- `/docs src/lib/telemetry/openobserve.ts` → read the file, document its purpose
 - `/docs` → no args, ask the user what to record
 
 ## First, read `/docs/README.md`

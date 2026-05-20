@@ -49,3 +49,20 @@ export const discoveryCursors = sqliteTable('discovery_cursor', {
   kind: text({ enum: ['new_tool', 'new_agent'] }).primaryKey(),
   lastScannedAt: integer('last_scanned_at', { mode: 'timestamp_ms' }).notNull(),
 })
+
+export const notes = sqliteTable(
+  'note',
+  {
+    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+    targetKind: text('target_kind', { enum: ['session', 'trace', 'span', 'prompt', 'experiment'] }).notNull(),
+    targetId: text('target_id').notNull(),
+    body: text().notNull(),
+    author: text().notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('note_target_unique').on(table.targetKind, table.targetId),
+    index('note_updated_idx').on(table.updatedAt),
+  ],
+)

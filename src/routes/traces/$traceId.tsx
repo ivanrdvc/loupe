@@ -13,6 +13,7 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import type { Span } from '#/lib/spans'
+import { NoteEditor } from '#/routes/notes/-components/note-editor'
 import { traceSpansQuery } from './-data'
 
 export const Route = createFileRoute('/traces/$traceId')({
@@ -75,6 +76,12 @@ function TraceDetail() {
             No spans found for this trace.
           </div>
         )}
+      </section>
+      <section className="shrink-0 border-border border-t px-4 py-4 lg:px-6">
+        <div className="flex max-w-3xl flex-col gap-2">
+          <h3 className="text-sm font-medium">Notes</h3>
+          <NoteEditor targetKind="trace" targetId={traceId} />
+        </div>
       </section>
     </div>
   )

@@ -158,7 +158,7 @@ through one process into a single row.
 
 ### Category classification
 
-`src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`. Reads producer-emitted `session.trigger_type` / `session.execution` / `teammate.llm.purpose` (or the configured `CUSTOM_LLM_PURPOSE_FIELD`); no producer-side classifier remapping.
+`src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`. Reads producer-emitted `session.trigger_type` / `session.execution` / `gen_ai.operation.purpose` (or the deployment's `CUSTOM_LLM_PURPOSE_FIELD`); no producer-side classifier remapping.
 
 Priority order (first match wins):
 

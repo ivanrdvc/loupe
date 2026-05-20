@@ -15,11 +15,13 @@ import {
   CommandItem,
   CommandList,
 } from '#/components/ui/command'
+import { Separator } from '#/components/ui/separator'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import { buildAgentLabels, resolveToolCalls, type Span, spanHasError, type ToolCallResolution } from '#/lib/spans'
+import { NoteEditor } from '#/routes/notes/-components/note-editor'
 import { createPrompt } from '#/routes/prompts/-mock-data'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
 import { displayFor, fmtNum, formatDuration } from './shared'
@@ -495,6 +497,12 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
           </dl>
         </details>
       )}
+
+      <Separator />
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-medium">Notes</h3>
+        <NoteEditor targetKind="span" targetId={span.id} compact />
+      </div>
     </div>
   )
 }

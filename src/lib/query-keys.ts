@@ -32,6 +32,12 @@ export const queryKeys = {
     runs: (promptId: string) => ['prompts', 'runs', promptId] as const,
     run: (runId: string) => ['prompts', 'run', runId] as const,
   },
+  notes: {
+    all: () => ['notes'] as const,
+    list: () => ['notes', 'list'] as const,
+    byTarget: (kind: string, id: string) => ['notes', 'target', kind, id] as const,
+    flagsForKind: (kind: string) => ['notes', 'flags', kind] as const,
+  },
 }
 
 export const STALE_LIVE_MS = 15_000

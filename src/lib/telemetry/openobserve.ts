@@ -262,6 +262,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         WHERE gen_ai_operation_name IS NOT NULL
            OR operation_name LIKE 'invoke_agent %'
            OR operation_name LIKE 'execute_tool %'
+           OR session_trigger_type IS NOT NULL
         GROUP BY trace_id
         ORDER BY first_seen DESC
         LIMIT ${limit}
