@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.1.1...agentops-v0.2.0) (2026-05-20)
+
+
+### Features
+
+* **shadcn:** migrate UI from Catalyst to shadcn ([#13](https://github.com/ivanrdvc/agentops/issues/13)) ([7716c1f](https://github.com/ivanrdvc/agentops/commit/7716c1f9540edae9ce16cb232d04cc7dfa00048d))
+* **traces:** traces view + home charts ([#18](https://github.com/ivanrdvc/agentops/issues/18)) ([4a740ba](https://github.com/ivanrdvc/agentops/commit/4a740ba16c18038962e1e7f22ab53477366aff18))
+* utility LLM classification, custom fields, session inspect polish ([#16](https://github.com/ivanrdvc/agentops/issues/16)) ([cb421e2](https://github.com/ivanrdvc/agentops/commit/cb421e214e20f53ccb7f64fa06cb278691e6136b))
+* workbench scaffolding (prompts + notes) ([#20](https://github.com/ivanrdvc/agentops/issues/20)) ([de54f0d](https://github.com/ivanrdvc/agentops/commit/de54f0d2ccfc3eb15d4c8aac2b39e65304a09674))
+* **workbench:** notes overhaul + inspect drawer redesign ([#22](https://github.com/ivanrdvc/agentops/issues/22)) ([eab3fb0](https://github.com/ivanrdvc/agentops/commit/eab3fb0dfc53a06710b205ddb4e74fa53e9fe159))
+
 ## [0.1.1](https://github.com/ivanrdvc/agentops/compare/agentops-v0.1.0...agentops-v0.1.1) (2026-05-17)
 
 
