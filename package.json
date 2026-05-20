@@ -89,9 +89,11 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "better-sqlite3",
       "esbuild",
+      "lefthook",
       "lightningcss",
-      "better-sqlite3"
+      "msw"
     ]
   }
 }

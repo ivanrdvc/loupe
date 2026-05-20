@@ -1,32 +1,45 @@
+import type { Span } from '../spans'
 import type { TraceCategory } from './types'
 
+// Trigger and purpose come from the root span only; structural markers (counts → booleans)
+// describe shape. A nested utility LLM never flips the whole trace's category.
 export interface TraceClassificationInput {
-  hasSessionAttribute: boolean
+  hasInvokeAgent: boolean
+  hasChat: boolean
   hasRootExecuteTool: boolean
-  invokeAgentCount: number
-  chatCount: number
-  triggerType?: string
-  execution?: string
-  llmPurpose?: string
+  hasSessionAttribute: boolean
+  rootTriggerType?: string
+  rootExecution?: string
+  rootLlmPurpose?: string
 }
 
 export function classifyTraceCategory(input: TraceClassificationInput): TraceCategory {
-  if (input.hasRootExecuteTool && input.invokeAgentCount > 0) return 'sub-agent'
-  switch (input.triggerType) {
+  switch (input.rootTriggerType) {
     case 'scheduled':
       return 'scheduled'
     case 'webhook':
       return 'webhook'
     case 'user':
-      if (input.execution === 'background') return 'background'
+      if (input.rootExecution === 'background') return 'background'
       break
   }
-  // Producer-stamped purpose wins over the session attribute: title gen and
-  // similar utility LLM calls live inside the same session as the chat that
-  // spawned them, but should bucket as utility — the purpose stamp is what
-  // distinguishes them.
-  if (input.llmPurpose) return 'utility'
+  if (input.hasRootExecuteTool && input.hasInvokeAgent) return 'sub-agent'
+  if (input.hasInvokeAgent) return 'chat'
+  if (input.rootLlmPurpose) return 'utility'
   if (input.hasSessionAttribute) return 'chat'
-  if (input.chatCount > 0 && input.invokeAgentCount === 0) return 'utility'
+  if (input.hasChat) return 'utility'
   return 'orphan'
+}
+
+/** Derive the trace category from an already-loaded span array (client-side). */
+export function categorizeFromSpans(spans: Span[]): TraceCategory {
+  const root = spans.find((s) => s.parentId === null)
+  return classifyTraceCategory({
+    hasInvokeAgent: spans.some((s) => s.operation === 'invoke_agent'),
+    hasChat: spans.some((s) => s.operation === 'chat'),
+    hasRootExecuteTool: root?.operation === 'tool',
+    hasSessionAttribute: spans.some((s) => s.sessionSource === 'attribute'),
+    // TODO: verify operationName only set from purpose attr
+    rootLlmPurpose: root?.operationName,
+  })
 }

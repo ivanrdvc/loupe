@@ -47,7 +47,28 @@ The Spans/waterfall view can come back behind an opt-in if needed — not the de
 
 ## List pages
 
-`/sessions` lists multi-turn conversations grouped by session attribute. `/runs` lists individual traces (one row per `trace_id`) with a category facet filter (conversation, sub-agent, backend_job, utility, orphan). Default filter hides "utility" traces. Toolbar pieces (`SearchInput`, `DataTableFacetedFilter`, `TimeRangeSelect`) plus `formatAgo` / `formatCost` / `truncateId` in `src/lib/format.ts` are shared across both.
+`/sessions` lists multi-turn conversations grouped by session attribute. `/traces` lists individual traces (one row per `trace_id`) with a category facet filter (Chat, Sub-agent, Scheduled, Webhook, Background, Utility, Orphan).
+
+**Default visibility on `/traces`:**
+
+- **Session-bound chat traces are hidden by default.** Traces with a session attribute (`ag_ui.thread_id` etc.) belong on `/sessions` — showing them on both pages is redundant. A "Session traces hidden" toggle in the toolbar reveals them when needed.
+- **Utility purpose-spans always show.** Spans with `gen_ai.operation.purpose` set (e.g. `title_generation`, `summarize`) are elevated to their own rows on `/traces` with Category: Utility — even if they live inside a session-bound trace. This makes auxiliary LLM work visible without navigating into the session drawer.
+
+**How purpose-span surfacing works:**
+
+The `listTraces` provider method runs a parallel query that fetches individual spans with `gen_ai.operation.purpose` set (non-root spans only — root purpose-spans are already captured at the trace level). These are merged into the trace list as virtual "utility" rows, sorted by time alongside real traces. Deduplication ensures a trace already classified as `utility` at the trace level doesn't also spawn per-span rows.
+
+**What shows where:**
+
+| Trace type                               | `/sessions`                    | `/traces`                          |
+| ---------------------------------------- | ------------------------------ | ---------------------------------- |
+| Chat trace with session attr             | ✓ (grouped into session)       | Hidden by default (toggle to show) |
+| Scheduled / webhook / background         | Only if it has a session attr  | ✓                                  |
+| Utility (root-level purpose)             | Only if it has a session attr  | ✓                                  |
+| Purpose-span inside a session trace      | Visible in session's span tree | ✓ (elevated as own row)            |
+| Orphan (no session, no category signals) | ✗                              | ✓                                  |
+
+Toolbar pieces (`SearchInput`, `DataTableFacetedFilter`, `TimeRangeSelect`) plus `formatAgo` / `formatCost` / `truncateId` in `src/lib/format.ts` are shared across both.
 
 ## Data fetching
 

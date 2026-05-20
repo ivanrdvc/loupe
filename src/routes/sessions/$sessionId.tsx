@@ -1,7 +1,7 @@
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
@@ -18,6 +18,7 @@ import {
 } from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
+import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './-components/session-inspect/context'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
@@ -92,6 +93,27 @@ function SessionDetail() {
   const provider = data?.provider
   const fingerprint = data?.fingerprint
   const crumbLabel = data?.title?.trim() || sessionId
+
+  const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
+  const isUtility = category === 'utility'
+  const hiddenTabs = useMemo<SessionInspectView[] | undefined>(
+    () => (isUtility ? ['conversation'] : undefined),
+    [isUtility],
+  )
+
+  // Redirect utility traces to Spans view when no explicit ?view= was provided by the user.
+  const [hasRedirected, setHasRedirected] = useState(false)
+  useEffect(() => {
+    if (isUtility && search.view === 'conversation' && !hasRedirected) {
+      setHasRedirected(true)
+      const chatSpan = spans.find((s) => s.operation === 'chat')
+      navigate({
+        search: (prev) => ({ range: prev.range, view: 'spans' as const, ...(chatSpan ? { span: chatSpan.id } : {}) }),
+        replace: true,
+      })
+    }
+  }, [isUtility, search.view, hasRedirected, spans, navigate])
+
   const setInspectView = (view: SessionInspectView) => {
     navigate({
       search: (prev) => ({
@@ -154,6 +176,7 @@ function SessionDetail() {
             void refetch()
           }}
           refreshing={isFetching}
+          hiddenTabs={hiddenTabs}
           extras={inspectView === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : null}
         />
         <div className="min-h-0 flex-1 overflow-hidden bg-background">

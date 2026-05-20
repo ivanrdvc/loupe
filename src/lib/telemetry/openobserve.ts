@@ -115,15 +115,27 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     getKnownColumns,
 
     async getTrace(traceId, opts) {
+      if (!/^[A-Za-z0-9_-]+$/.test(traceId)) return null
       const { fromUs, toUs } = window(opts)
-      const sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${traceId}'`
-      const hits = await search(sql, fromUs, toUs)
+      let sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${traceId}'`
+      let hits = await search(sql, fromUs, toUs)
+      // If no results, the id might be a span_id (from sub-agent or purpose-span rows).
+      if (hits.length === 0) {
+        const lookupSql = `SELECT trace_id FROM "${cfg.stream}" WHERE span_id='${traceId}' LIMIT 1`
+        const lookupHits = await search(lookupSql, fromUs, toUs)
+        const resolved = lookupHits[0]?.trace_id as string | undefined
+        if (resolved) {
+          sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${resolved}'`
+          hits = await search(sql, fromUs, toUs)
+        }
+      }
       if (hits.length === 0) return null
+      const realTraceId = (hits[0]?.trace_id as string) ?? traceId
       const spans = dedupeById(hits.map(normalizeOpenObserveHit))
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
-      return { spans, truncated: hits.length >= DEFAULT_SIZE }
+      return { spans, truncated: hits.length >= DEFAULT_SIZE, focusSpanId: traceId !== realTraceId ? traceId : undefined }
     },
 
     async listSessions(opts) {
@@ -245,16 +257,16 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${sumChatOf(tokenCols)} AS total_tokens,
           ${sumChatOf(costCols)} AS total_cost,
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN operation_name END) AS sample_agent,
-          MAX(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS has_error,
+          MAX(CASE WHEN span_status = 'ERROR' AND (gen_ai_operation_name IS NOT NULL OR operation_name LIKE 'invoke_agent %' OR operation_name LIKE 'execute_tool %') THEN 1 ELSE 0 END) AS has_error,
           ${maxOf(sessionCols)} AS session_id,
           MAX(service_name)    AS service_name,
           MAX(CASE WHEN operation_name LIKE 'execute_tool %' AND reference_parent_span_id IS NULL THEN 1 ELSE 0 END) AS has_root_execute_tool,
-          SUM(CASE WHEN operation_name LIKE 'invoke_agent %' THEN 1 ELSE 0 END) AS invoke_agent_count,
-          SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN 1 ELSE 0 END) AS chat_count,
+          MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN 1 ELSE 0 END) AS has_invoke_agent,
+          MAX(CASE WHEN gen_ai_operation_name = 'chat' THEN 1 ELSE 0 END) AS has_chat,
           ${sessionKindCol ? `MAX(${sessionKindCol}) AS session_kind,` : ''}
-          ${llmPurposeCol ? `MAX(${llmPurposeCol}) AS llm_purpose,` : ''}
-          ${has('session_trigger_type') ? `MAX(session_trigger_type) AS trigger_type,` : ''}
-          ${has('session_execution') ? `MAX(session_execution) AS execution,` : ''}
+          ${llmPurposeCol ? `MAX(CASE WHEN reference_parent_span_id IS NULL THEN ${llmPurposeCol} END) AS root_llm_purpose,` : ''}
+          ${has('session_trigger_type') ? `MAX(CASE WHEN reference_parent_span_id IS NULL THEN session_trigger_type END) AS root_trigger_type,` : ''}
+          ${has('session_execution') ? `MAX(CASE WHEN reference_parent_span_id IS NULL THEN session_execution END) AS root_execution,` : ''}
           MAX(CASE WHEN reference_parent_span_id IS NULL THEN operation_name END) AS root_operation,
           ${maxOf(uidCols)} AS trace_user_id,
           ${maxOf(unameCols)} AS trace_user_name
@@ -322,20 +334,20 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   const userName = h.trace_user_name
   if (typeof userName === 'string' && userName) summary.userName = userName
 
-  const triggerType = pickStringField(h.trigger_type)
-  if (triggerType) summary.triggerType = triggerType
-  const execution = pickStringField(h.execution)
-  if (execution) summary.execution = execution
-  const llmPurpose = pickStringField(h.llm_purpose)
-  if (llmPurpose) summary.llmPurpose = llmPurpose
+  const rootTriggerType = pickStringField(h.root_trigger_type)
+  if (rootTriggerType) summary.triggerType = rootTriggerType
+  const rootExecution = pickStringField(h.root_execution)
+  if (rootExecution) summary.execution = rootExecution
+  const rootLlmPurpose = pickStringField(h.root_llm_purpose)
+  if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
   summary.category = classifyTraceCategory({
     hasSessionAttribute: hasSession,
     hasRootExecuteTool: Number(h.has_root_execute_tool) > 0,
-    invokeAgentCount: Number(h.invoke_agent_count ?? 0),
-    chatCount: Number(h.chat_count ?? 0),
-    triggerType,
-    execution,
-    llmPurpose,
+    hasInvokeAgent: Number(h.has_invoke_agent ?? 0) > 0,
+    hasChat: Number(h.has_chat ?? 0) > 0,
+    rootTriggerType,
+    rootExecution,
+    rootLlmPurpose,
   })
   return summary
 }

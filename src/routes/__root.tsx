@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router'
+import { createRootRouteWithContext, HeadContent, Link, Scripts } from '@tanstack/react-router'
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
@@ -11,6 +11,15 @@ interface MyRouterContext {
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+  notFoundComponent: () => (
+    <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">Not found</h1>
+      <p className="text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
+      <Link to="/" className="mt-4 text-sm text-primary underline underline-offset-4 hover:text-primary/80">
+        Back to home
+      </Link>
+    </div>
+  ),
   head: () => ({
     meta: [
       {

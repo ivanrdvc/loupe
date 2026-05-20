@@ -29,6 +29,8 @@ interface SessionViewBarProps {
   autoRefreshOptions?: readonly AutoRefreshInterval[]
   /** Extra actions rendered to the right of the standard cluster (e.g. ContextWindow). */
   extras?: ReactNode
+  /** Tab ids to hide from the view bar (e.g. hide Conversation for utility traces). */
+  hiddenTabs?: SessionInspectView[]
 }
 
 export function SessionViewBar({
@@ -43,13 +45,17 @@ export function SessionViewBar({
   refreshing,
   autoRefreshOptions,
   extras,
+  hiddenTabs,
 }: SessionViewBarProps) {
+  const visibleTabs = hiddenTabs?.length
+    ? SESSION_VIEW_TABS.filter((t) => !hiddenTabs.includes(t.id))
+    : SESSION_VIEW_TABS
   const showSpansActions = view === 'spans'
   const hasModifierGroup = showSpansActions && (onOpenPalette || onFullSpansChange)
   const hasActionGroup = (autoRefresh != null && onAutoRefreshChange != null && onRefresh != null) || extras != null
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-4 py-2">
-      <IconTabs tabs={SESSION_VIEW_TABS} value={view} onChange={onViewChange} aria-label="Session view" />
+      <IconTabs tabs={visibleTabs} value={view} onChange={onViewChange} aria-label="Session view" />
       <div className="flex flex-wrap items-center gap-1">
         {showSpansActions && onOpenPalette && (
           <Tooltip>

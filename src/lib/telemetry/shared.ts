@@ -198,7 +198,15 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
         }
       }
     }
-    if (h.span_status === 'ERROR') hasError = true
+    // Only flag errors on actual AI-operation spans (chat, invoke_agent,
+    // execute_tool). Infrastructure spans that merely carry session.trigger_type
+    // should not mark the whole session as errored.
+    if (h.span_status === 'ERROR') {
+      const opName = typeof h.operation_name === 'string' ? h.operation_name : ''
+      if (h.gen_ai_operation_name || opName.startsWith('invoke_agent ') || opName.startsWith('execute_tool ')) {
+        hasError = true
+      }
+    }
   }
   return {
     startMs: startMs === Number.POSITIVE_INFINITY ? 0 : startMs,

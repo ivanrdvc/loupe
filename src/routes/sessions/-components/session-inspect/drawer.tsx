@@ -11,6 +11,7 @@ import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { Span } from '#/lib/spans'
+import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
 import { SessionContextView } from './context'
 import { SessionInspectLayout } from './overview'
@@ -57,6 +58,13 @@ export function SessionInspectDrawer({
   const [fullSpans, setFullSpans] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
+  const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
+  const isUtility = category === 'utility'
+  const hiddenTabs = useMemo<SessionInspectView[] | undefined>(
+    () => (isUtility ? ['conversation'] : undefined),
+    [isUtility],
+  )
+
   const expandSearch = useMemo(() => {
     if (!expandSession) return undefined
     const next: { range: TimeRange; view: SessionInspectView; span?: string } = {
@@ -81,6 +89,13 @@ export function SessionInspectDrawer({
     setSelectedId(null)
     setDrawerView('spans')
   }, [inspectSessionKey])
+
+  // Auto-select the single chat span for utility traces so the detail panel opens immediately.
+  useEffect(() => {
+    if (!isUtility || selectedId) return
+    const chatSpan = spans.find((s) => s.operation === 'chat')
+    if (chatSpan) setSelectedId(chatSpan.id)
+  }, [isUtility, spans, selectedId])
 
   useEffect(() => {
     if (!open || drawerView !== 'spans') return
@@ -190,6 +205,7 @@ export function SessionInspectDrawer({
           onRefresh={onRefresh}
           refreshing={refreshing}
           autoRefreshOptions={DRAWER_AUTO_REFRESH_OPTIONS}
+          hiddenTabs={hiddenTabs}
           extras={
             contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : null
           }

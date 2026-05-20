@@ -19,6 +19,12 @@ const OPERATION_LABELS: Record<string, string> = {
   title_generation: 'title',
   summarization: 'summary',
   artifact_resolution: 'artifact',
+  event_resolution: 'event',
+  memory_classification: 'memory',
+  questionnaire_classification: 'survey',
+  memory_contradiction: 'conflict',
+  thread_summarization: 'summary',
+  memory_extraction: 'extract',
 }
 
 const PURPOSE_CLS = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'

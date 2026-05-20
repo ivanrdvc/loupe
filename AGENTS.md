@@ -20,8 +20,7 @@ Optimize for tokens: use this map before broad searches.
 - `/` Home shows "what's new/weird": new MCP tools, new agents, and anomaly entry points.
 - `/sessions` lists agent sessions with time range, search, status filters, cost/tokens, and opens `SessionInspectDrawer`.
 - `/sessions/$sessionId` is the session detail page (Spans + Conversation). Legacy `?view=trace` in the URL is treated as spans.
-- `/runs` is the runs landing page (future live ingest); `/runs/$runId` loads a single OTLP trace by `trace_id` with `ConversationView` and `ContextWindow`.
-- `/live` redirects to `/runs`; `/live/$runId` redirects to `/runs/$runId` for old bookmarks.
+- `/traces` lists individual traces + elevated purpose-spans. Session-bound chat traces are hidden by default (toggle to show). Utility purpose-spans (`gen_ai.operation.purpose`) from inside session traces are surfaced as their own rows.
 - `/mcp` lists MCP servers, owners, tool counts, findings, and fetch status.
 - `/evals` is currently an empty-state placeholder.
 - `/inbox` lists alerts with snooze/dismiss actions and links back to sessions and runs.

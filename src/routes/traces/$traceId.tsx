@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { SiteHeader } from '#/components/site-header'
@@ -13,7 +14,11 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import type { Span } from '#/lib/spans'
+
 import { NoteEditor } from '#/routes/notes/-components/note-editor'
+import { SessionContextView } from '#/routes/sessions/-components/session-inspect/context'
+import { SessionInspectLayout } from '#/routes/sessions/-components/session-inspect/overview'
+import { type SessionInspectView, SessionViewBar } from '#/routes/sessions/-components/session-inspect/view-bar'
 import { traceSpansQuery } from './-data'
 
 export const Route = createFileRoute('/traces/$traceId')({
@@ -29,8 +34,37 @@ function TraceDetail() {
   const provider = loaderData?.provider
   const fingerprint = loaderData?.fingerprint
   const truncated = loaderData?.truncated
+  const focusSpanId = loaderData?.focusSpanId
 
   const total = spans.length > 0 ? Math.max(...spans.map((s) => s.endMs)) - Math.min(...spans.map((s) => s.startMs)) : 0
+
+  const [view, setView] = useState<SessionInspectView>('spans')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [fullSpans, setFullSpans] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Auto-select the focused span (from sub-agent/purpose click), or first chat span.
+  useEffect(() => {
+    if (spans.length === 0) return
+    if (focusSpanId && spans.some((s) => s.id === focusSpanId)) {
+      setSelectedId(focusSpanId)
+    } else {
+      const chatSpan = spans.find((s) => s.operation === 'chat')
+      setSelectedId(chatSpan?.id ?? spans[0].id)
+    }
+  }, [spans, focusSpanId])
+
+  useEffect(() => {
+    if (view !== 'spans') return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [view])
 
   return (
     <div className="flex h-full flex-col">
@@ -66,17 +100,38 @@ function TraceDetail() {
             {truncated && <Badge variant="destructive">truncated</Badge>}
           </div>
         }
-        actions={spans.length > 0 ? <ContextWindow spans={spans} /> : undefined}
       />
-      <section className="min-h-0 flex-1">
-        {spans.length > 0 ? (
-          <ConversationView spans={spans} onSelect={() => {}} />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            No spans found for this trace.
-          </div>
-        )}
-      </section>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SessionViewBar
+          view={view}
+          onViewChange={setView}
+          fullSpans={fullSpans}
+          onFullSpansChange={setFullSpans}
+          onOpenPalette={() => setPaletteOpen(true)}
+          extras={view === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : undefined}
+        />
+        <div className="min-h-0 flex-1 overflow-hidden bg-background">
+          {view === 'conversation' ? (
+            <ConversationView spans={spans} onSelect={setSelectedId} />
+          ) : view === 'context' ? (
+            <SessionContextView spans={spans} />
+          ) : spans.length > 0 ? (
+            <SessionInspectLayout
+              spans={spans}
+              loading={false}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              fullSpans={fullSpans}
+              paletteOpen={paletteOpen}
+              onPaletteOpenChange={setPaletteOpen}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              No spans found for this trace.
+            </div>
+          )}
+        </div>
+      </div>
       <section className="shrink-0 border-border border-t px-4 py-4 lg:px-6">
         <div className="flex max-w-3xl flex-col gap-2">
           <h3 className="text-sm font-medium">Notes</h3>

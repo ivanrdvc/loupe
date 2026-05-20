@@ -126,11 +126,12 @@ export async function getTrace(traceId: string): Promise<{
   truncated: boolean
   provider: string
   fingerprint: string
+  focusSpanId?: string
 } | null> {
   const p = getActiveProvider()
   const r = await p.getTrace(traceId)
   if (!r) return null
-  return { spans: r.spans, truncated: !!r.truncated, provider: p.name, fingerprint: p.fingerprint }
+  return { spans: r.spans, truncated: !!r.truncated, provider: p.name, fingerprint: p.fingerprint, focusSpanId: r.focusSpanId }
 }
 
 export async function listRecentTraces(opts?: ListTracesOpts): Promise<{
@@ -190,6 +191,23 @@ export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]
 }
 
 export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
+  // Override: HTTP endpoint for untruncated payload data (e.g. from Cosmos).
+  // Falls through to the default OTEL provider on failure.
+  const apiUrl = process.env.TOOL_PAYLOAD_API_URL
+  if (apiUrl) {
+    try {
+      const params = new URLSearchParams()
+      if (opts?.fromUs) params.set('fromUs', String(opts.fromUs))
+      if (opts?.toUs) params.set('toUs', String(opts.toUs))
+      if (opts?.limit) params.set('limit', String(opts.limit))
+      const res = await fetch(`${apiUrl}?${params}`)
+      if (res.ok) return (await res.json()) as ToolPayloadRow[]
+    } catch {
+      // fallthrough to default provider
+    }
+  }
+  // To use untruncated Cosmos data, run: cd external/cosmos-payloads && npx tsx serve.ts
+  // Then set TOOL_PAYLOAD_API_URL=http://localhost:3100 in .env
   return analytics.fetchToolPayloadSizes(getActiveProvider(), opts)
 }
 

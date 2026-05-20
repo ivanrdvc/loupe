@@ -52,6 +52,21 @@ export const traceColumns: ColumnDef<TraceSummary>[] = [
     enableHiding: false,
   },
   {
+    id: 'hasSession',
+    accessorFn: (s) => (s.hasSessionAttribute ? 'yes' : 'no'),
+    header: () => null,
+    cell: () => null,
+    filterFn: (row, _id, value: string[]) => {
+      if (!Array.isArray(value) || value.length === 0) return true
+      // Utility purpose-spans and sub-agent spans always pass — they're surfaced individually
+      const cat = row.original.category
+      if (cat === 'utility' || cat === 'sub-agent') return true
+      return value.includes(row.original.hasSessionAttribute ? 'yes' : 'no')
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
     accessorKey: 'startedAtMs',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
     cell: ({ row }) => (

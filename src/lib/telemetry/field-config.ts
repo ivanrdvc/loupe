@@ -11,8 +11,8 @@ export interface FieldConfig {
   llmPurposeField?: string
 }
 
-// Values land in provider SQL/KQL unquoted, so reject non-identifier chars.
-const IDENT = /^[A-Za-z0-9_]+$/
+// Dotted OTel attribute keys are allowed; call sites quote for AI and flatten for OO.
+const IDENT = /^[A-Za-z0-9_.]+$/
 const ident = (raw?: string) => {
   const v = raw?.trim()
   return v && IDENT.test(v) ? v : undefined

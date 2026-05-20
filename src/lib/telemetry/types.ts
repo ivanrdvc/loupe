@@ -14,7 +14,7 @@ export interface ListOpts extends WindowOpts {
   limit?: number
 }
 
-export type TraceFetch = { spans: Span[]; truncated?: boolean } | null
+export type TraceFetch = { spans: Span[]; truncated?: boolean; focusSpanId?: string } | null
 
 export type GetTraceOpts = WindowOpts & IdentityFilter
 export type ListTracesOpts = ListOpts & IdentityFilter

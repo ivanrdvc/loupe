@@ -63,7 +63,7 @@ function customExtras(field: CanonicalField): readonly string[] {
   return EMPTY
 }
 
-function bothForms(keys: readonly string[]): string[] {
+export function bothForms(keys: readonly string[]): string[] {
   const out: string[] = []
   for (const k of keys) {
     out.push(k)
@@ -123,10 +123,13 @@ export function ooCoalesceAs(field: CanonicalField, alias: string, opts?: OoColu
 }
 
 // customDimensions is a single map column on AI, so column existence is N/A.
-// Custom session/user fields are opt-in — today only OO consumes them.
+// Both dotted and underscored forms must be checked: some .NET OTel
+// instrumentations (e.g. Microsoft Agent Framework / OpenLLMetry) write
+// `ag_ui_thread_id` into customDimensions, while others write `ag_ui.thread_id`.
+// In-memory lookups go through attrKeysFor() which already bothForms()s.
 export function aiCoalesce(field: CanonicalField, opts?: { includeCustom?: boolean }): string {
   const dotted = ATTRS[field]
   const custom = opts?.includeCustom ? customExtras(field) : EMPTY
-  const all = custom.length ? [...dotted, ...custom] : [...dotted]
+  const all = bothForms(custom.length ? [...dotted, ...custom] : [...dotted])
   return `coalesce(${all.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
 }

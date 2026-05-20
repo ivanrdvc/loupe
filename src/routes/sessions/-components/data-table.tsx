@@ -219,7 +219,7 @@ export function DataTable({
                           <div className="text-xs">Turn off scope-to-me in Settings → Account to see all sessions.</div>
                         </div>
                       ) : (
-                        <div className="max-w-md space-y-1 text-center text-muted-foreground">
+                        <div className="max-w-md space-y-1 text-center text-pretty text-muted-foreground">
                           <div>No sessions in this window.</div>
                           <div className="text-xs">
                             Set <code className="rounded bg-muted px-1 py-0.5 font-mono">ag_ui.thread_id</code> (or your

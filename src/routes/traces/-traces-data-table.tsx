@@ -87,9 +87,11 @@ export function TracesDataTable({
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     status: false,
     category: false,
+    hasSession: false,
   })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
     { id: 'category', value: ['chat', 'sub-agent', 'scheduled', 'webhook', 'background', 'utility', 'orphan'] },
+    { id: 'hasSession', value: ['no'] },
   ])
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [pagination, setPagination] = React.useState({
@@ -140,6 +142,21 @@ export function TracesDataTable({
           <RefreshingIndicator active={!!refreshing} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          {(() => {
+            const col = table.getColumn('hasSession')
+            if (!col) return null
+            const current = col.getFilterValue() as string[] | undefined
+            const showingSession = !current || current.length === 0 || current.includes('yes')
+            return (
+              <Button
+                variant={showingSession ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => col.setFilterValue(showingSession ? ['no'] : ['yes', 'no'])}
+              >
+                {showingSession ? 'Showing session traces' : 'Session traces hidden'}
+              </Button>
+            )
+          })()}
           {table.getColumn('category') && (
             <DataTableFacetedFilter column={table.getColumn('category')} title="Category" options={CATEGORY_OPTIONS} />
           )}
