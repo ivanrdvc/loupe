@@ -1,6 +1,7 @@
-import { extractAgentName } from '#/lib/classify-span'
+import { extractAgentName, extractToolName } from '#/lib/classify-span'
 import { ooColumns } from './conventions'
 import { mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num } from './shared'
+import { bucketSecondsFor, zeroFillBucketed } from './time-series'
 import type {
   CacheHitPoint,
   InventoryDiscoveryKind,
@@ -18,8 +19,6 @@ import type {
   TopOpts,
   WindowOpts,
 } from './types'
-
-const SPARK_BUCKETS = 24
 
 // 20004 = column not in stream yet (fresh ingest). Treat as empty.
 async function emptyOn20004<T>(run: () => Promise<T[]>): Promise<T[]> {
@@ -237,18 +236,6 @@ function hitToInventoryObservation(
   }
 }
 
-function extractToolName(spanName: string): string | undefined {
-  const m = spanName.match(/^execute_tool\s+(\S+)/)
-  return m?.[1]
-}
-
-// Split the user's window into ~SPARK_BUCKETS even slices. 60s floor avoids
-// sub-second INTERVALs on tiny windows.
-function bucketSecondsFor(fromUs: number, toUs: number): number {
-  const spanSec = Math.max(60, Math.floor((toUs - fromUs) / 1_000_000))
-  return Math.max(60, Math.floor(spanSec / SPARK_BUCKETS))
-}
-
 // date_bin returns ISO string or epoch number depending on column type.
 function parseBucketMs(raw: unknown): number | undefined {
   if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
@@ -266,25 +253,5 @@ function zeroFillPoints<V>(
   bucketSec: number,
   mapValue: (h: Record<string, unknown>) => V,
 ): Array<{ ts: number; value: V }> {
-  const bucketMs = bucketSec * 1000
-  const startMs = Math.floor(fromUs / 1000)
-  const endMs = Math.floor(toUs / 1000)
-  const slots: number[] = []
-  for (let t = startMs; t < endMs && slots.length < SPARK_BUCKETS; t += bucketMs) slots.push(t)
-  if (slots.length === 0) return []
-  const byTs = new Map<number, V>()
-  for (const h of hits) {
-    const ts = parseBucketMs(h.bucket)
-    if (ts === undefined) continue
-    byTs.set(ts, mapValue(h))
-  }
-  return slots.map((ts) => {
-    if (byTs.has(ts)) return { ts, value: byTs.get(ts) as V }
-    const lo = ts
-    const hi = ts + bucketMs - 1
-    for (const [k, v] of byTs) {
-      if (k >= lo && k <= hi) return { ts, value: v }
-    }
-    return { ts, value: mapValue({}) }
-  })
+  return zeroFillBucketed(hits, fromUs, toUs, bucketSec, (h) => parseBucketMs(h.bucket), mapValue)
 }

@@ -13,7 +13,7 @@ import {
 } from '#/lib/spans'
 import { aiCoalesce, attrKeysFor } from './conventions'
 import { readFieldConfig } from './field-config'
-import { aggregateSessions, groupBy, pickIdentityValue } from './shared'
+import { aggregateSessions, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
 import { classifyTraceCategory } from './trace-category'
 import type {
   AppInsightsProvider,
@@ -161,13 +161,19 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
-      return { spans, truncated: rows.length >= SESSION_SCAN_LIMIT, focusSpanId: traceId !== realTraceId ? traceId : undefined }
+      return {
+        spans,
+        truncated: rows.length >= SESSION_SCAN_LIMIT,
+        focusSpanId: traceId !== realTraceId ? traceId : undefined,
+      }
     },
 
     async listTraces(opts): Promise<TraceSummary[]> {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
       const userFilter = kqlIdentityFilter(opts)
-      const userCte = userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''
+      const userCte = userFilter
+        ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;`
+        : ''
       const userScope = userFilter ? '| where operation_Id in (_user_traces)' : ''
       const sessionKindExtend = sessionKindField
         ? `session_kind = tostring(customDimensions["${sessionKindField}"]),`
@@ -327,7 +333,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       // Convert sub-agent spans to TraceSummary rows.
       const subAgentSummaries: TraceSummary[] = subAgentRows.map((r) => {
         const name = typeof r.span_name === 'string' ? r.span_name : ''
-        const agent = name.replace(/^invoke_agent\s+/, '').replace(/\(.*\)$/, '').trim() || undefined
+        const agent =
+          name
+            .replace(/^invoke_agent\s+/, '')
+            .replace(/\(.*\)$/, '')
+            .trim() || undefined
         return {
           ...spanRowBase(r),
           category: 'sub-agent' as const,
@@ -576,11 +586,11 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   const userName = row.trace_user_name
   if (typeof userName === 'string' && userName) summary.userName = userName
 
-  const rootTriggerType = pickRowString(row.root_trigger_type)
+  const rootTriggerType = pickStringValue(row.root_trigger_type)
   if (rootTriggerType) summary.triggerType = rootTriggerType
-  const rootExecution = pickRowString(row.root_execution)
+  const rootExecution = pickStringValue(row.root_execution)
   if (rootExecution) summary.execution = rootExecution
-  const rootLlmPurpose = pickRowString(row.root_llm_purpose)
+  const rootLlmPurpose = pickStringValue(row.root_llm_purpose)
   if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
   summary.category = classifyTraceCategory({
     hasSessionAttribute: hasSession,
@@ -594,10 +604,6 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   return summary
 }
 
-function pickRowString(v: unknown): string | undefined {
-  return typeof v === 'string' && v ? v : undefined
-}
-
 function kqlIdentityFilter(opts: GetTraceOpts | ListSessionsOpts | ListTracesOpts | undefined): string | undefined {
   const id = pickIdentityValue(opts)
   if (!id) return undefined
@@ -607,12 +613,6 @@ function kqlIdentityFilter(opts: GetTraceOpts | ListSessionsOpts | ListTracesOpt
 
 function kqlString(value: string): string {
   return JSON.stringify(value)
-}
-
-function num(v: unknown): number | undefined {
-  if (v === null || v === undefined || v === '') return undefined
-  const n = Number(v)
-  return Number.isFinite(n) ? n : undefined
 }
 
 function timespanFromOpts(

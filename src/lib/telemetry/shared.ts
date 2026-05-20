@@ -256,6 +256,12 @@ export function num(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
+// Single-value string picker — returns the value if it is a non-empty string,
+// otherwise undefined. The multi-key variant is `pickString` above.
+export function pickStringValue(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined
+}
+
 export function groupBy<T, K>(items: readonly T[], key: (item: T) => K): Map<K, T[]> {
   const out = new Map<K, T[]>()
   for (const item of items) {

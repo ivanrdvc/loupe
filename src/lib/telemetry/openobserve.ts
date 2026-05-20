@@ -10,7 +10,7 @@ import {
 } from '#/lib/spans'
 import { ooCoalesceAs, ooColumns } from './conventions'
 import { readFieldConfig } from './field-config'
-import { aggregateSessions, groupBy, num, pickIdentityValue } from './shared'
+import { aggregateSessions, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
 import { classifyTraceCategory } from './trace-category'
 import type { GetTraceOpts, ListTracesOpts, OpenObserveProvider, SessionFetch, TraceSummary } from './types'
 
@@ -124,7 +124,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         const lookupSql = `SELECT trace_id FROM "${cfg.stream}" WHERE span_id='${traceId}' LIMIT 1`
         const lookupHits = await search(lookupSql, fromUs, toUs)
         const resolved = lookupHits[0]?.trace_id as string | undefined
-        if (resolved) {
+        if (resolved && /^[A-Za-z0-9_-]+$/.test(resolved)) {
           sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${resolved}'`
           hits = await search(sql, fromUs, toUs)
         }
@@ -135,7 +135,11 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
-      return { spans, truncated: hits.length >= DEFAULT_SIZE, focusSpanId: traceId !== realTraceId ? traceId : undefined }
+      return {
+        spans,
+        truncated: hits.length >= DEFAULT_SIZE,
+        focusSpanId: traceId !== realTraceId ? traceId : undefined,
+      }
     },
 
     async listSessions(opts) {
@@ -334,11 +338,11 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   const userName = h.trace_user_name
   if (typeof userName === 'string' && userName) summary.userName = userName
 
-  const rootTriggerType = pickStringField(h.root_trigger_type)
+  const rootTriggerType = pickStringValue(h.root_trigger_type)
   if (rootTriggerType) summary.triggerType = rootTriggerType
-  const rootExecution = pickStringField(h.root_execution)
+  const rootExecution = pickStringValue(h.root_execution)
   if (rootExecution) summary.execution = rootExecution
-  const rootLlmPurpose = pickStringField(h.root_llm_purpose)
+  const rootLlmPurpose = pickStringValue(h.root_llm_purpose)
   if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
   summary.category = classifyTraceCategory({
     hasSessionAttribute: hasSession,
@@ -350,10 +354,6 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
     rootLlmPurpose,
   })
   return summary
-}
-
-function pickStringField(v: unknown): string | undefined {
-  return typeof v === 'string' && v ? v : undefined
 }
 
 // OpenObserve flattens span attributes into top-level row fields (underscore

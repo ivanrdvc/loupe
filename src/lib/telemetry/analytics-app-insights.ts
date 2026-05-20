@@ -1,6 +1,8 @@
+import { extractAgentName, extractToolName } from '#/lib/classify-span'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import { aiCoalesce } from './conventions'
 import { mapLatencyRow, mapToolErrorRow, mapToolPayloadRow, num } from './shared'
+import { bucketSecondsFor, zeroFillBucketed } from './time-series'
 import type {
   AppInsightsProvider,
   CacheHitPoint,
@@ -18,8 +20,6 @@ import type {
   TopOpts,
   WindowOpts,
 } from './types'
-
-const SPARK_BUCKETS = 24
 
 export async function fetchOverview(p: AppInsightsProvider, opts?: OverviewOpts): Promise<OverviewAggregate> {
   // Cost is computed in TS via estimateCostUsd, mirroring listTraces in app-insights.ts.
@@ -217,10 +217,7 @@ function rowToInventoryObservation(
   row: Record<string, unknown>,
 ): InventoryObservation | null {
   const operationName = String(row.operation_name ?? '')
-  const name =
-    kind === 'new_tool'
-      ? operationName.match(/^execute_tool\s+(\S+)/)?.[1]
-      : operationName.match(/^invoke_agent\s+([^(\s]+)/)?.[1]
+  const name = kind === 'new_tool' ? extractToolName(operationName) : extractAgentName(operationName)
   if (!name) return null
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : firstSeen
@@ -234,11 +231,8 @@ function rowToInventoryObservation(
   }
 }
 
-function bucketSecondsFor(fromUs: number, toUs: number): number {
-  const spanSec = Math.max(60, Math.floor((toUs - fromUs) / 1_000_000))
-  return Math.max(60, Math.floor(spanSec / SPARK_BUCKETS))
-}
-
+// KQL `summarize ... by bin(ts, ...)` returns a string (sometimes with a `+`
+// offset) or a JS Date depending on the column type.
 function parseBucketMs(raw: unknown): number | undefined {
   if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
   if (typeof raw === 'string') {
@@ -249,15 +243,6 @@ function parseBucketMs(raw: unknown): number | undefined {
   return undefined
 }
 
-function buildSlots(fromUs: number, toUs: number, bucketSec: number): number[] {
-  const bucketMs = bucketSec * 1000
-  const startMs = Math.floor(fromUs / 1000)
-  const endMs = Math.floor(toUs / 1000)
-  const slots: number[] = []
-  for (let t = startMs; t < endMs && slots.length < SPARK_BUCKETS; t += bucketMs) slots.push(t)
-  return slots
-}
-
 function zeroFillSeries<V>(
   rows: Array<Record<string, unknown>>,
   fromUs: number,
@@ -265,22 +250,5 @@ function zeroFillSeries<V>(
   bucketSec: number,
   mapValue: (r: Record<string, unknown>) => V,
 ): Array<{ ts: number; value: V }> {
-  const bucketMs = bucketSec * 1000
-  const slots = buildSlots(fromUs, toUs, bucketSec)
-  if (slots.length === 0) return []
-  const byTs = new Map<number, V>()
-  for (const r of rows) {
-    const ts = parseBucketMs(r.bucket)
-    if (ts === undefined) continue
-    byTs.set(ts, mapValue(r))
-  }
-  return slots.map((ts) => {
-    if (byTs.has(ts)) return { ts, value: byTs.get(ts) as V }
-    const lo = ts
-    const hi = ts + bucketMs - 1
-    for (const [k, v] of byTs) {
-      if (k >= lo && k <= hi) return { ts, value: v }
-    }
-    return { ts, value: mapValue({}) }
-  })
+  return zeroFillBucketed(rows, fromUs, toUs, bucketSec, (r) => parseBucketMs(r.bucket), mapValue)
 }

@@ -211,14 +211,20 @@ function pickAgentName(name: string, attrs: Record<string, unknown>): string | u
 function pickToolName(name: string, attrs: Record<string, unknown>): string | undefined {
   const fromAttr = pickString(attrs, ['gen_ai.tool.name', 'gen_ai_tool_name'])
   if (fromAttr) return fromAttr
-  const m = name.match(/^execute_tool\s+(\S+)/)
-  return m?.[1]
+  return extractToolName(name)
 }
 
 // "invoke_agent Explorer(a9bc...)" -> "Explorer". Exported because trace
 // summaries (built from a SQL roll-up of span names) need the same parser.
 export function extractAgentName(spanName: string): string | undefined {
   const m = spanName.match(/^invoke_agent\s+([^(\s]+)/)
+  return m?.[1]
+}
+
+// "execute_tool fetch_url" -> "fetch_url". Exported for the same reason
+// as extractAgentName: roll-up SQL/KQL queries hand us only the span name.
+export function extractToolName(spanName: string): string | undefined {
+  const m = spanName.match(/^execute_tool\s+(\S+)/)
   return m?.[1]
 }
 
