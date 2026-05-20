@@ -6,7 +6,7 @@
       "package-name": "agentops",
       "include-v-in-tag": true,
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
       "initial-version": "0.1.0"
     }
   }
