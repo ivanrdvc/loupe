@@ -50,20 +50,17 @@ function PromptsListPage() {
   return (
     <Page title="Prompts">
       <div className="flex flex-col gap-4 px-4 lg:px-6">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">Prompts</h1>
-          <div className="flex items-center gap-2">
-            <Tabs value={scope} onValueChange={(v) => setScope(v as Scope)}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="mine">Mine</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button onClick={() => setDialogOpen(true)}>
-              <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-              New prompt
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2">
+          <Tabs value={scope} onValueChange={(v) => setScope(v as Scope)}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="mine">Mine</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button onClick={() => setDialogOpen(true)}>
+            <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+            New prompt
+          </Button>
         </div>
 
         {isLoading ? (

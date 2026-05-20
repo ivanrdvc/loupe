@@ -1,4 +1,4 @@
-import { ArrowDown01Icon, ArrowRight01Icon, ArrowRight02Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
+import { ArrowRight02Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
@@ -8,9 +8,8 @@ import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '#/components/ui/item'
 import { Skeleton } from '#/components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { initialsFor } from '#/lib/current-user'
 import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -39,11 +38,7 @@ const KIND_BADGE: Record<NoteTargetKind, 'default' | 'secondary' | 'outline'> = 
 }
 
 function previewBody(body: string): string {
-  return body.replace(/[#*`>_[\]()]/g, '').slice(0, 120)
-}
-
-function truncateTargetId(id: string): string {
-  return id.length > 14 ? `${id.slice(0, 14)}…` : id
+  return body.replace(/[#*`>_[\]()]/g, '').slice(0, 160)
 }
 
 function NotesPage() {
@@ -53,10 +48,8 @@ function NotesPage() {
   return (
     <Page title="Notes">
       <div className="flex flex-col gap-4 px-4 lg:px-6">
-        <h1 className="text-lg font-semibold">Notes</h1>
-
         {isLoading ? (
-          <NotesTableSkeleton />
+          <NotesListSkeleton />
         ) : notes.length === 0 ? (
           <Empty>
             <EmptyHeader>
@@ -68,45 +61,34 @@ function NotesPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader className="bg-muted">
-                <TableRow>
-                  <TableHead className="w-[2.5rem]" />
-                  <TableHead className="w-[14rem]">Target</TableHead>
-                  <TableHead>Preview</TableHead>
-                  <TableHead className="w-[12rem]">Author</TableHead>
-                  <TableHead className="w-[8rem] text-right">Updated</TableHead>
-                  <TableHead className="w-[10rem]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {notes.map((note) => (
-                  <NoteRow
-                    key={note.id}
-                    note={note}
-                    expanded={expandedId === note.id}
-                    onToggle={() => setExpandedId((prev) => (prev === note.id ? null : note.id))}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <ItemGroup>
+            {notes.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                expanded={expandedId === note.id}
+                onToggle={() => setExpandedId((prev) => (prev === note.id ? null : note.id))}
+              />
+            ))}
+          </ItemGroup>
         )}
       </div>
     </Page>
   )
 }
 
-function NoteRow({ note, expanded, onToggle }: { note: Note; expanded: boolean; onToggle: () => void }) {
+function NoteCard({ note, expanded, onToggle }: { note: Note; expanded: boolean; onToggle: () => void }) {
   const navigate = useNavigate()
-  const isSpan = note.targetKind === 'span'
-  const isExperiment = note.targetKind === 'experiment'
-  const navigable = !isSpan && !isExperiment
   const initials = initialsFor(note.author)
 
-  const openTarget = () => {
-    if (!navigable) return
+  const navigable =
+    note.targetKind === 'session' ||
+    note.targetKind === 'trace' ||
+    note.targetKind === 'prompt' ||
+    (note.targetKind === 'span' && (note.parentSessionId != null || note.parentTraceId != null))
+
+  const openTarget = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (note.targetKind === 'session') {
       void navigate({
         to: '/sessions/$sessionId',
@@ -117,141 +99,92 @@ function NoteRow({ note, expanded, onToggle }: { note: Note; expanded: boolean; 
       void navigate({ to: '/traces/$traceId', params: { traceId: note.targetId } })
     } else if (note.targetKind === 'prompt') {
       void navigate({ to: '/prompts/$promptId', params: { promptId: note.targetId } })
+    } else if (note.targetKind === 'span') {
+      if (note.parentSessionId) {
+        void navigate({
+          to: '/sessions/$sessionId',
+          params: { sessionId: note.parentSessionId },
+          search: { range: 7, view: 'spans', span: note.targetId },
+        })
+      } else if (note.parentTraceId) {
+        // Provider resolves span-id-as-trace-id and sets focusSpanId.
+        void navigate({ to: '/traces/$traceId', params: { traceId: note.targetId } })
+      }
     }
   }
 
-  const openTargetButton = (
-    <Button
-      size="sm"
-      variant="ghost"
-      onClick={(e) => {
-        e.stopPropagation()
-        openTarget()
-      }}
-      disabled={!navigable}
-    >
-      Open target
-      <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} data-icon="inline-end" />
-    </Button>
-  )
-
   return (
-    <>
-      <TableRow className={cn('cursor-pointer', expanded && 'bg-muted/30')} onClick={onToggle} aria-expanded={expanded}>
-        <TableCell>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="size-7 p-0"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
-            aria-label={expanded ? 'Collapse note' : 'Expand note'}
-          >
-            <HugeiconsIcon icon={expanded ? ArrowDown01Icon : ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+    <Item
+      variant="outline"
+      className={cn('cursor-pointer', expanded && 'bg-muted/30')}
+      onClick={onToggle}
+      aria-expanded={expanded}
+    >
+      <ItemMedia variant="icon">
+        <HugeiconsIcon icon={StickyNote01Icon} strokeWidth={2} />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="gap-2">
+          <Badge variant={KIND_BADGE[note.targetKind]} className="capitalize">
+            {note.targetKind}
+          </Badge>
+          <span className="truncate font-mono text-[11px] text-muted-foreground" title={note.targetId}>
+            {note.targetId}
+          </span>
+        </ItemTitle>
+        <ItemDescription className={cn(expanded && 'line-clamp-none')}>{previewBody(note.body) || '—'}</ItemDescription>
+      </ItemContent>
+      <ItemActions className="gap-3 text-xs text-muted-foreground">
+        <time
+          dateTime={new Date(note.updatedAt).toISOString()}
+          title={new Date(note.updatedAt).toLocaleString()}
+          className="hidden tabular-nums sm:inline"
+        >
+          {formatAgo(note.updatedAt)}
+        </time>
+        <Avatar size="sm" className="hidden sm:flex" title={note.author}>
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+        {navigable && (
+          <Button size="sm" variant="ghost" onClick={openTarget}>
+            Open
+            <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} data-icon="inline-end" />
           </Button>
-        </TableCell>
-        <TableCell>
-          <div className="flex min-w-0 items-center gap-2">
-            <Badge variant={KIND_BADGE[note.targetKind]} className="shrink-0 capitalize">
-              {note.targetKind}
-            </Badge>
-            <span className="truncate font-mono text-[11px] text-muted-foreground" title={note.targetId}>
-              {truncateTargetId(note.targetId)}
-            </span>
-          </div>
-        </TableCell>
-        <TableCell>
-          <span className="block max-w-[640px] truncate text-muted-foreground">{previewBody(note.body) || '—'}</span>
-        </TableCell>
-        <TableCell>
-          <div className="flex min-w-0 items-center gap-2">
-            <Avatar size="sm">
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            <span className="truncate text-muted-foreground">{note.author}</span>
-          </div>
-        </TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">
-          <time dateTime={new Date(note.updatedAt).toISOString()} title={new Date(note.updatedAt).toLocaleString()}>
-            {formatAgo(note.updatedAt)}
-          </time>
-        </TableCell>
-        <TableCell className="text-right">
-          {navigable ? (
-            openTargetButton
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>{openTargetButton}</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isSpan
-                  ? 'Span notes are visible in the session inspect drawer.'
-                  : 'Experiment view is not available yet.'}
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </TableCell>
-      </TableRow>
+        )}
+      </ItemActions>
       {expanded && (
-        <TableRow className="bg-muted/20 hover:bg-muted/20">
-          <TableCell colSpan={6} className="py-3">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Editing note</span>
-                {navigable ? openTargetButton : null}
-              </div>
-              <NoteEditor targetKind={note.targetKind} targetId={note.targetId} />
-            </div>
-          </TableCell>
-        </TableRow>
+        // biome-ignore lint/a11y/noStaticElementInteractions: stops bubble to row toggle; not itself interactive
+        <div
+          className="basis-full border-border border-t pt-3"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <NoteEditor targetKind={note.targetKind} targetId={note.targetId} compact />
+        </div>
       )}
-    </>
+    </Item>
   )
 }
 
-function NotesTableSkeleton() {
+function NotesListSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted">
-          <TableRow>
-            <TableHead className="w-[2.5rem]" />
-            <TableHead className="w-[14rem]">Target</TableHead>
-            <TableHead>Preview</TableHead>
-            <TableHead className="w-[12rem]">Author</TableHead>
-            <TableHead className="w-[8rem] text-right">Updated</TableHead>
-            <TableHead className="w-[10rem]" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Array.from({ length: 3 }).map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no stable key
-            <TableRow key={i}>
-              <TableCell>
-                <Skeleton className="size-5" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-5 w-32" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-4 w-full max-w-md" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-6 w-24" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="ml-auto h-4 w-12" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="ml-auto h-7 w-24" />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <ItemGroup>
+      {Array.from({ length: 4 }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton items have no stable key
+        <Item key={i} variant="outline">
+          <ItemMedia variant="icon">
+            <Skeleton className="size-4" />
+          </ItemMedia>
+          <ItemContent>
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-72" />
+          </ItemContent>
+          <ItemActions>
+            <Skeleton className="h-4 w-10" />
+            <Skeleton className="size-6 rounded-full" />
+          </ItemActions>
+        </Item>
+      ))}
+    </ItemGroup>
   )
 }

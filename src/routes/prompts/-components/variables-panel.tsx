@@ -38,7 +38,7 @@ export function VariablesPanel({
         <div className="flex flex-col gap-2">
           {variables.map((name) => (
             <div key={name} className="flex flex-col gap-1">
-              <Label htmlFor={`var-${name}`} className="font-mono text-[11px]">
+              <Label htmlFor={`var-${name}`} className="font-mono text-xs">
                 {name}
               </Label>
               <Input

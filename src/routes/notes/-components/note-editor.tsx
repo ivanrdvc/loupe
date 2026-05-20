@@ -15,6 +15,7 @@ import {
 } from '#/components/ui/dialog'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Textarea } from '#/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useUser } from '#/hooks/use-user'
 import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -25,6 +26,8 @@ import type { NoteTargetKind } from '../-types'
 type Props = {
   targetKind: NoteTargetKind
   targetId: string
+  parentTraceId?: string | null
+  parentSessionId?: string | null
   compact?: boolean
   variant?: 'default' | 'inline'
   emptyLabel?: string
@@ -38,7 +41,15 @@ const KIND_LABEL: Record<NoteTargetKind, string> = {
   experiment: 'experiment',
 }
 
-export function NoteEditor({ targetKind, targetId, compact = false, variant = 'default', emptyLabel }: Props) {
+export function NoteEditor({
+  targetKind,
+  targetId,
+  parentTraceId,
+  parentSessionId,
+  compact = false,
+  variant = 'default',
+  emptyLabel,
+}: Props) {
   const user = useUser()
   const queryClient = useQueryClient()
   const {
@@ -72,6 +83,8 @@ export function NoteEditor({ targetKind, targetId, compact = false, variant = 'd
         data: {
           targetKind,
           targetId,
+          parentTraceId,
+          parentSessionId,
           body: body.trim(),
           author: user.name,
         },
@@ -154,7 +167,7 @@ export function NoteEditor({ targetKind, targetId, compact = false, variant = 'd
     return (
       <div
         className={cn(
-          'flex items-center justify-between gap-3 rounded-md border border-dashed text-xs text-muted-foreground',
+          'flex items-center justify-between gap-3 rounded-lg border border-dashed text-xs text-muted-foreground',
           compact ? 'px-3 py-2' : 'px-4 py-3',
         )}
       >
@@ -176,7 +189,7 @@ export function NoteEditor({ targetKind, targetId, compact = false, variant = 'd
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-md border bg-card',
+        'flex flex-col gap-2 rounded-lg border bg-card',
         compact ? 'px-3 py-2' : 'px-4 py-3',
         isFetching && 'opacity-80',
       )}
@@ -186,27 +199,37 @@ export function NoteEditor({ targetKind, targetId, compact = false, variant = 'd
         <span title={new Date(note.updatedAt).toLocaleString()}>
           by {note.author} · {formatAgo(note.updatedAt)}
         </span>
-        <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setDraft(note.body)
-              setEditing(true)
-            }}
-          >
-            <HugeiconsIcon icon={Edit02Icon} strokeWidth={2} data-icon="inline-start" />
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} data-icon="inline-start" />
-            Delete
-          </Button>
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Edit note"
+                onClick={() => {
+                  setDraft(note.body)
+                  setEditing(true)
+                }}
+              >
+                <HugeiconsIcon icon={Edit02Icon} strokeWidth={2} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Delete note"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

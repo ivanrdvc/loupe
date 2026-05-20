@@ -56,6 +56,8 @@ export const notes = sqliteTable(
     id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
     targetKind: text('target_kind', { enum: ['session', 'trace', 'span', 'prompt', 'experiment'] }).notNull(),
     targetId: text('target_id').notNull(),
+    parentTraceId: text('parent_trace_id'),
+    parentSessionId: text('parent_session_id'),
     body: text().notNull(),
     author: text().notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

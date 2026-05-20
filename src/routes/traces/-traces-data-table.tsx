@@ -170,7 +170,7 @@ export function TracesDataTable({
             onRefresh={onRefresh}
             loading={refreshing}
           />
-          <Separator orientation="vertical" className="mx-1 h-5" />
+          <Separator orientation="vertical" className="mx-1 h-5 self-center" />
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -200,7 +200,7 @@ export function TracesDataTable({
           </DropdownMenu>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 md:pt-6 lg:px-6">
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-4 md:py-6 lg:px-6">
         <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">

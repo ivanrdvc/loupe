@@ -49,7 +49,7 @@ export function ToolsPanel({ tools, onChange }: { tools: Tool[]; onChange: (tool
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">Tools ({tools.length})</h3>
+        <h3 className="text-sm font-medium">Tools</h3>
         <Button variant="outline" size="sm" onClick={openCreate}>
           <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
           Add
@@ -135,7 +135,7 @@ function ToolDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initial?.name ? 'Edit tool' : 'New tool'}</DialogTitle>
           <DialogDescription>Define the tool the model can call.</DialogDescription>

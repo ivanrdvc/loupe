@@ -42,7 +42,10 @@ export function VersionRail({
             >
               <Card
                 size="sm"
-                className={cn('cursor-pointer transition-colors hover:bg-muted/50', isActive && 'ring-primary')}
+                className={cn(
+                  'cursor-pointer transition-colors hover:bg-muted/50',
+                  isActive && 'bg-muted/50 ring-2 ring-primary',
+                )}
               >
                 <CardContent className="flex items-center gap-2.5">
                   <Avatar className="size-7">

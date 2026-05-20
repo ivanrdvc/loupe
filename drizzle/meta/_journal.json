@@ -15,6 +15,13 @@
       "when": 1779236748660,
       "tag": "0001_curvy_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779308570699,
+      "tag": "0002_furry_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

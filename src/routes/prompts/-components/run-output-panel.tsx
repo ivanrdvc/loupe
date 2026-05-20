@@ -1,9 +1,11 @@
-import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, ArrowUp01Icon, MoreHorizontalCircle01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '#/components/ui/dropdown-menu'
+import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '#/components/ui/item'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Skeleton } from '#/components/ui/skeleton'
 import { formatAgo, formatDuration } from '#/lib/format'
@@ -59,7 +61,7 @@ export function RunOutputPanel({
             className="flex items-center justify-between text-left text-sm font-medium outline-none"
             aria-expanded={historyOpen}
           >
-            <span>Run history ({runs.length})</span>
+            <span>Run history</span>
             <HugeiconsIcon
               icon={historyOpen ? ArrowUp01Icon : ArrowDown01Icon}
               strokeWidth={2}
@@ -71,11 +73,11 @@ export function RunOutputPanel({
               <p className="text-xs text-muted-foreground">No runs yet.</p>
             ) : (
               <ScrollArea className="max-h-64">
-                <div className="flex flex-col">
+                <ItemGroup>
                   {runs.map((run, idx) => (
                     <RunHistoryRow key={run.id} run={run} isLatest={idx === 0} onShowDiff={() => onShowDiff(run)} />
                   ))}
-                </div>
+                </ItemGroup>
               </ScrollArea>
             ))}
         </CardContent>
@@ -87,19 +89,30 @@ export function RunOutputPanel({
 function RunHistoryRow({ run, isLatest, onShowDiff }: { run: PromptRun; isLatest: boolean; onShowDiff: () => void }) {
   const preview = run.output.replace(/\s+/g, ' ').trim().slice(0, 80)
   return (
-    <div className="group flex items-center gap-2 border-b py-1.5 text-xs last:border-b-0">
-      <Badge variant="secondary" className="font-mono text-[10px]">
-        v{run.versionNumber}
-      </Badge>
-      <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{preview}</span>
-      <span className="shrink-0 text-[11px] text-muted-foreground">{formatAgo(run.createdAt)}</span>
-      <div className="hidden shrink-0 gap-1 group-hover:flex">
-        {!isLatest && (
-          <Button variant="ghost" size="xs" onClick={onShowDiff}>
-            Diff vs latest
-          </Button>
-        )}
-      </div>
-    </div>
+    <Item size="xs">
+      <ItemMedia>
+        <Badge variant="secondary" className="font-mono text-[10px]">
+          v{run.versionNumber}
+        </Badge>
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="font-mono font-normal text-muted-foreground">{preview || '(empty)'}</ItemTitle>
+      </ItemContent>
+      <ItemActions className="gap-1">
+        <span className="text-[11px] tabular-nums text-muted-foreground">{formatAgo(run.createdAt)}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="Run actions">
+              <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onShowDiff} disabled={isLatest}>
+              Diff vs latest
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ItemActions>
+    </Item>
   )
 }

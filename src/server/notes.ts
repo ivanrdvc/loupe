@@ -18,6 +18,8 @@ function toNote(row: typeof notes.$inferSelect): Note {
     id: row.id,
     targetKind: row.targetKind,
     targetId: row.targetId,
+    parentTraceId: row.parentTraceId,
+    parentSessionId: row.parentSessionId,
     body: row.body,
     author: row.author,
     createdAt: row.createdAt.getTime(),
@@ -29,42 +31,56 @@ const SEED_NOTES: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
     targetKind: 'session',
     targetId: 'sess_3f9a2c1b',
+    parentTraceId: null,
+    parentSessionId: null,
     body: '`search_db` returned ~4MB of JSON on a simple lookup. Context blew past 80% by turn 3. Trim the tool output schema or paginate.',
     author: 'ivan',
   },
   {
     targetKind: 'session',
     targetId: 'sess_a814e07f',
+    parentTraceId: null,
+    parentSessionId: null,
     body: "Agent didn't call the right tool first try — went `web_search` instead of `lookup_customer`. System prompt is ambiguous about when to prefer internal tools.",
     author: 'ivan',
   },
   {
     targetKind: 'trace',
     targetId: 'trc_57b40d22e8af1c93',
+    parentTraceId: null,
+    parentSessionId: null,
     body: 'Frontend never received the streamed tool result — `load_invoice` ran but the UI stayed on the loading state. Suspect the SSE channel dropped after the first chunk.',
     author: 'ivan',
   },
   {
     targetKind: 'span',
     targetId: 'span_b3e2f1a049cd',
+    parentTraceId: null,
+    parentSessionId: null,
     body: 'Model picked `set_address` with wrong arg shape (`zip` as int, not string). Tool description needs an explicit type hint.',
     author: 'ivan',
   },
   {
     targetKind: 'prompt',
     targetId: 'p_reviewer',
+    parentTraceId: null,
+    parentSessionId: null,
     body: 'v6 is over-strict on JSON parse failures. Worth A/B against v5 before promoting.',
     author: 'ivan',
   },
   {
     targetKind: 'prompt',
     targetId: 'p_greeter',
+    parentTraceId: null,
+    parentSessionId: null,
     body: 'Few-shot example #3 leaks the customer-id format in the assistant reply — strip before next deploy.',
     author: 'ivan',
   },
   {
     targetKind: 'prompt',
     targetId: 'p_summarizer',
+    parentTraceId: null,
+    parentSessionId: null,
     body: 'Single version still. Add a few-shot example for long inputs > 8k tokens.',
     author: 'ivan',
   },
@@ -113,10 +129,18 @@ export const getNoteForTarget = createServerFn({ method: 'GET' })
     return rows[0] ? toNote(rows[0]) : null
   })
 
+function asOptionalString(value: unknown): string | null {
+  if (value == null) return null
+  const s = String(value).trim()
+  return s.length > 0 ? s : null
+}
+
 export const upsertNote = createServerFn({ method: 'POST' })
   .inputValidator((input: UpsertNoteInput) => ({
     targetKind: asKind(input.targetKind),
     targetId: String(input.targetId),
+    parentTraceId: asOptionalString(input.parentTraceId),
+    parentSessionId: asOptionalString(input.parentSessionId),
     body: String(input.body),
     author: String(input.author),
   }))
@@ -127,6 +151,8 @@ export const upsertNote = createServerFn({ method: 'POST' })
       .values({
         targetKind: data.targetKind,
         targetId: data.targetId,
+        parentTraceId: data.parentTraceId,
+        parentSessionId: data.parentSessionId,
         body: data.body,
         author: data.author,
         createdAt: now,
@@ -134,7 +160,13 @@ export const upsertNote = createServerFn({ method: 'POST' })
       })
       .onConflictDoUpdate({
         target: [notes.targetKind, notes.targetId],
-        set: { body: data.body, author: data.author, updatedAt: now },
+        set: {
+          body: data.body,
+          author: data.author,
+          updatedAt: now,
+          parentTraceId: data.parentTraceId,
+          parentSessionId: data.parentSessionId,
+        },
       })
       .returning()
     if (!row) throw new Error('upsertNote: no row returned')

@@ -1,12 +1,20 @@
 import { PlayCircleIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '#/components/ui/breadcrumb'
 import { Button } from '#/components/ui/button'
-import { Card, CardContent } from '#/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -23,7 +31,6 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { queryKeys } from '#/lib/query-keys'
-import { NoteEditor } from '../notes/-components/note-editor'
 import { ModelParamsPanel } from './-components/model-params-panel'
 import { PromptDetailHeader } from './-components/prompt-detail-header'
 import { PromptEditor } from './-components/prompt-editor'
@@ -53,7 +60,7 @@ function PromptDetailPage() {
 
   if (isLoading) {
     return (
-      <Page title="Prompt">
+      <Page title={<PromptBreadcrumb />}>
         <div className="flex flex-col gap-4 px-4 lg:px-6">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-48 w-full" />
@@ -64,7 +71,7 @@ function PromptDetailPage() {
 
   if (!prompt) {
     return (
-      <Page title="Prompt">
+      <Page title={<PromptBreadcrumb />}>
         <div className="px-4 lg:px-6">
           <Empty>
             <EmptyHeader>
@@ -79,6 +86,24 @@ function PromptDetailPage() {
   }
 
   return <PromptDetailLoaded prompt={prompt} />
+}
+
+function PromptBreadcrumb({ name }: { name?: string }) {
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild>
+            <Link to="/prompts">Prompts</Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage>{name ?? '—'}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  )
 }
 
 function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType<typeof getPrompt>>> }) {
@@ -192,7 +217,7 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
   }
 
   return (
-    <Page title="Prompt">
+    <Page title={<PromptBreadcrumb name={prompt.name} />}>
       <div className="flex flex-col gap-4">
         <PromptDetailHeader
           prompt={prompt}
@@ -200,14 +225,6 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
           saving={saveMutation.isPending}
           onSave={() => saveMutation.mutate()}
         />
-
-        <div className="px-4 lg:px-6">
-          <Card size="sm">
-            <CardContent>
-              <NoteEditor targetKind="prompt" targetId={prompt.id} compact variant="inline" />
-            </CardContent>
-          </Card>
-        </div>
 
         <div className="px-4 lg:px-6">
           <Tabs defaultValue="editor">
@@ -330,36 +347,44 @@ function SettingsTab({ prompt }: { prompt: NonNullable<Awaited<ReturnType<typeof
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="settings-name">Name</Label>
-        <Input id="settings-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="settings-description">Description</Label>
-        <Textarea
-          id="settings-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-        />
-      </div>
-      <div>
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </Button>
-      </div>
-      <Separator />
-      <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium text-destructive">Danger zone</h3>
-        <p className="text-xs text-muted-foreground">
-          Deleting a prompt removes all its versions. This can't be undone.
-        </p>
-        <div>
+      <Card>
+        <CardHeader>
+          <CardTitle>General</CardTitle>
+          <CardDescription>Prompt metadata. Edits don't change the version history.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-name">Name</Label>
+            <Input id="settings-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-description">Description</Label>
+            <Textarea
+              id="settings-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger zone</CardTitle>
+          <CardDescription>Deleting a prompt removes all its versions. This can't be undone.</CardDescription>
+        </CardHeader>
+        <CardContent>
           <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
             Delete prompt
           </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <Dialog
         open={deleteOpen}

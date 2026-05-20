@@ -15,13 +15,12 @@ import {
   CommandItem,
   CommandList,
 } from '#/components/ui/command'
-import { Separator } from '#/components/ui/separator'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import { buildAgentLabels, resolveToolCalls, type Span, spanHasError, type ToolCallResolution } from '#/lib/spans'
-import { NoteEditor } from '#/routes/notes/-components/note-editor'
+import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import { createPrompt } from '#/routes/prompts/-mock-data'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
 import { displayFor, fmtNum, formatDuration } from './shared'
@@ -435,11 +434,28 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
             {display.tagLabel}
           </span>
         )}
-        <span className="truncate text-base font-semibold text-foreground">{display.name}</span>
+        <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{display.name}</span>
         {display.purposeLabel && (
           <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
             {display.purposeLabel}
           </span>
+        )}
+        <NoteSheetButton
+          targetKind="span"
+          targetId={span.id}
+          parentTraceId={span.traceId}
+          parentSessionId={span.sessionId ?? null}
+        />
+        {isLlmSpan(span) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending}
+          >
+            <HugeiconsIcon icon={Edit02Icon} data-icon="inline-start" strokeWidth={2} />
+            {importMutation.isPending ? 'Creating…' : 'Make prompt'}
+          </Button>
         )}
       </div>
 
@@ -472,20 +488,6 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} spans={spans} />
       )}
 
-      {isLlmSpan(span) && (
-        <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending}
-          >
-            <HugeiconsIcon icon={Edit02Icon} data-icon="inline-start" strokeWidth={2} />
-            {importMutation.isPending ? 'Creating…' : 'Make a prompt from this span'}
-          </Button>
-        </div>
-      )}
-
       {(span.responseId || span.systemFingerprint) && (
         <details className="rounded-lg ring-1 ring-border">
           <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -497,12 +499,6 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
           </dl>
         </details>
       )}
-
-      <Separator />
-      <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium">Notes</h3>
-        <NoteEditor targetKind="span" targetId={span.id} compact />
-      </div>
     </div>
   )
 }

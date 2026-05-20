@@ -4,6 +4,8 @@ export type Note = {
   id: number
   targetKind: NoteTargetKind
   targetId: string
+  parentTraceId: string | null
+  parentSessionId: string | null
   body: string
   author: string
   createdAt: number
@@ -13,6 +15,8 @@ export type Note = {
 export type UpsertNoteInput = {
   targetKind: NoteTargetKind
   targetId: string
+  parentTraceId?: string | null
+  parentSessionId?: string | null
   body: string
   author: string
 }

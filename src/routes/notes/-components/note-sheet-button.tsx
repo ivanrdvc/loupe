@@ -4,8 +4,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { ScrollArea } from '#/components/ui/scroll-area'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '#/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '#/components/ui/dialog'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { getNoteForTarget } from '#/server/notes'
@@ -15,6 +21,8 @@ import { NoteEditor } from './note-editor'
 type Props = {
   targetKind: NoteTargetKind
   targetId: string
+  parentTraceId?: string | null
+  parentSessionId?: string | null
   /** Label shown next to the icon. Defaults to "Note". */
   label?: string
 }
@@ -27,7 +35,7 @@ const KIND_DESCRIPTION: Record<NoteTargetKind, string> = {
   experiment: 'Notes attached to this experiment.',
 }
 
-export function NoteSheetButton({ targetKind, targetId, label = 'Note' }: Props) {
+export function NoteSheetButton({ targetKind, targetId, parentTraceId, parentSessionId, label = 'Note' }: Props) {
   const [open, setOpen] = useState(false)
   const { data: note } = useQuery({
     queryKey: queryKeys.notes.byTarget(targetKind, targetId),
@@ -36,8 +44,8 @@ export function NoteSheetButton({ targetKind, targetId, label = 'Note' }: Props)
   const hasNote = Boolean(note)
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <Button variant={hasNote ? 'secondary' : 'ghost'} size="sm" aria-label={hasNote ? 'Edit note' : 'Add note'}>
           <HugeiconsIcon
             icon={StickyNote01Icon}
@@ -50,18 +58,19 @@ export function NoteSheetButton({ targetKind, targetId, label = 'Note' }: Props)
             <Badge variant="outline" className="ml-1 size-1.5 rounded-full bg-primary p-0" aria-hidden />
           ) : null}
         </Button>
-      </SheetTrigger>
-      <SheetContent className="flex flex-col gap-0 p-0">
-        <SheetHeader className="border-b">
-          <SheetTitle>Note</SheetTitle>
-          <SheetDescription>{KIND_DESCRIPTION[targetKind]}</SheetDescription>
-        </SheetHeader>
-        <ScrollArea className="flex-1">
-          <div className="p-4">
-            <NoteEditor targetKind={targetKind} targetId={targetId} />
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Note</DialogTitle>
+          <DialogDescription>{KIND_DESCRIPTION[targetKind]}</DialogDescription>
+        </DialogHeader>
+        <NoteEditor
+          targetKind={targetKind}
+          targetId={targetId}
+          parentTraceId={parentTraceId}
+          parentSessionId={parentSessionId}
+        />
+      </DialogContent>
+    </Dialog>
   )
 }

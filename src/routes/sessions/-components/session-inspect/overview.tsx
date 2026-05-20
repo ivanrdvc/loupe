@@ -13,7 +13,7 @@ import {
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
-import { contextWindowFor, formatTokens } from '#/components/context-window'
+import { formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -106,47 +106,36 @@ export function SessionInspectLayout({
               <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
             </div>
           ) : (
-            <ResizablePanelGroup orientation="vertical" className="flex h-full w-full">
-              <ResizablePanel id="overview" defaultSize="28%" minSize="15%">
-                <ScrollArea className="h-full">
-                  <div className="min-w-0">
-                    <SessionOverview spans={spans} />
-                  </div>
-                </ScrollArea>
-              </ResizablePanel>
-              <ResizableHandle />
-              <ResizablePanel id="details" defaultSize="72%" minSize="25%">
-                <div className="flex h-full min-h-0 min-w-0 flex-col">
-                  <div className="flex shrink-0 items-center border-border border-b bg-muted/30 px-3 py-2">
-                    <IconTabs
-                      tabs={INSPECTOR_TABS}
-                      value={inspectorTab}
-                      onChange={setInspectorTab}
-                      aria-label="Session inspector panel"
-                    />
-                  </div>
-                  <ScrollArea className="min-h-0 min-w-0 flex-1">
-                    {inspectorTab === 'details' ? (
-                      selectedSpan ? (
-                        <DetailPanel span={selectedSpan} spans={spans} />
-                      ) : (
-                        <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
-                          Select a span in the tree for details
-                        </div>
-                      )
-                    ) : inspectorTab === 'tools' ? (
-                      <SessionTools spans={spans} selectedSpan={selectedSpan} />
-                    ) : inspectorTab === 'turns' ? (
-                      <SessionTurnsPanel spans={spans} />
-                    ) : inspectorTab === 'attributes' ? (
-                      <SpanAttributesPanel selectedSpan={selectedSpan} />
-                    ) : (
-                      <SessionLogs spans={spans} />
-                    )}
-                  </ScrollArea>
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            <>
+              <SessionStrip spans={spans} />
+              <div className="flex shrink-0 items-center border-border border-b bg-muted/30 px-3 py-2.5">
+                <IconTabs
+                  tabs={INSPECTOR_TABS}
+                  value={inspectorTab}
+                  onChange={setInspectorTab}
+                  aria-label="Session inspector panel"
+                />
+              </div>
+              <ScrollArea className="min-h-0 min-w-0 flex-1">
+                {inspectorTab === 'details' ? (
+                  selectedSpan ? (
+                    <DetailPanel span={selectedSpan} spans={spans} />
+                  ) : (
+                    <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
+                      Select a span in the tree for details
+                    </div>
+                  )
+                ) : inspectorTab === 'tools' ? (
+                  <SessionTools spans={spans} selectedSpan={selectedSpan} />
+                ) : inspectorTab === 'turns' ? (
+                  <SessionTurnsPanel spans={spans} />
+                ) : inspectorTab === 'attributes' ? (
+                  <SpanAttributesPanel selectedSpan={selectedSpan} />
+                ) : (
+                  <SessionLogs spans={spans} />
+                )}
+              </ScrollArea>
+            </>
           )}
         </section>
       </ResizablePanel>
@@ -244,7 +233,7 @@ function SessionLogs({ spans }: { spans: Span[] }) {
   )
 }
 
-function SessionOverview({ spans }: { spans: Span[] }) {
+function SessionStrip({ spans }: { spans: Span[] }) {
   const orchestratorIds = useMemo(() => findOrchestratorIds(spans), [spans])
   const turns = useMemo(() => extractTurns(spans, orchestratorIds), [spans, orchestratorIds])
   const chatSpans = useMemo(() => turns.flatMap((turn) => turn.chats), [turns])
@@ -284,15 +273,6 @@ function SessionOverview({ spans }: { spans: Span[] }) {
     return { tokens, cost }
   }, [spans])
 
-  const peak = useMemo(() => {
-    let peakSpan: Span | null = null
-    for (const span of spans) {
-      if (span.operation !== 'chat') continue
-      if ((span.inputTokens ?? 0) > (peakSpan?.inputTokens ?? 0)) peakSpan = span
-    }
-    return peakSpan
-  }, [spans])
-
   const inputTokens = total.inputTokens || totals.input
   const outputTokens = total.outputTokens || totals.output
   const cachedTokens = total.cachedTokens || totals.cached
@@ -300,68 +280,48 @@ function SessionOverview({ spans }: { spans: Span[] }) {
   const cachePct = inputTokens > 0 ? Math.round((cachedTokens / inputTokens) * 100) : 0
   const totalCost = totals.cost + subagent.cost
 
-  const peakIn = peak?.inputTokens ?? 0
-  const peakWindow = contextWindowFor(peak?.model)
-  const peakPct = peakWindow ? Math.min(1, peakIn / peakWindow) : 0
-
   if (orchestratorIds.length === 0) {
-    return (
-      <div className="px-4 py-5 text-center text-xs text-muted-foreground/70">
-        No agent invocation found in this session.
-      </div>
-    )
+    return null
   }
 
   return (
-    <section className="flex flex-col overflow-hidden">
-      <header className="shrink-0 px-4 pt-3 pb-2">
-        <div className="min-w-0">
-          <div className="truncate text-base font-semibold text-foreground">{agent}</div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            {turns.length} turn{turns.length === 1 ? '' : 's'} · {formatDuration(totals.duration)}
-          </div>
-        </div>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs tabular-nums">
-          <span className="text-foreground">
-            <span className="font-semibold">{allTokens ? formatTokens(allTokens) : '—'}</span>{' '}
-            <span className="text-muted-foreground">tok</span>
-            {allTokens > 0 && (
-              <span className="text-muted-foreground">
-                {' '}
-                ({formatTokens(inputTokens)} in · {formatTokens(outputTokens)} out)
-              </span>
-            )}
-          </span>
-          <span className="text-muted-foreground/60">·</span>
-          <span className={cachedTokens > 0 ? 'text-success' : 'text-muted-foreground'}>
-            {cachedTokens > 0 ? `${formatTokens(cachedTokens)} cached (${cachePct}%)` : 'no cache'}
-          </span>
-          <span className="text-muted-foreground/60">·</span>
-          <span className="text-foreground">
-            <span className="font-semibold">{formatCost(totalCost)}</span>
-          </span>
-          <span className="text-muted-foreground/60">·</span>
-          <span className={totals.errors > 0 ? 'text-destructive' : 'text-muted-foreground'}>
-            {totals.errors > 0 ? `${totals.errors} err` : '0 err'}
-          </span>
-        </div>
-      </header>
-
-      <div className="shrink-0 border-border border-t px-4 py-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="flex items-baseline gap-2 text-xs">
-            <span className="font-medium text-foreground">Context breakdown</span>
-            {peakWindow && <span className="tabular-nums text-muted-foreground">{(peakPct * 100).toFixed(0)}%</span>}
-            <span className={`text-[11px] text-muted-foreground ${ready ? 'opacity-0' : 'opacity-100'}`}>
-              counting…
-            </span>
-          </div>
-          {peakWindow && (
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              ~{formatTokens(peakIn)} / {formatTokens(peakWindow)} Tokens
+    <section className="shrink-0 border-border border-b px-4 py-3">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 text-xs tabular-nums">
+        <span className="truncate font-medium text-foreground">{agent}</span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-muted-foreground">
+          {turns.length} turn{turns.length === 1 ? '' : 's'}
+        </span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-muted-foreground">{formatDuration(totals.duration)}</span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-foreground">
+          <span className="font-semibold">{allTokens ? formatTokens(allTokens) : '—'}</span>{' '}
+          <span className="text-muted-foreground">tok</span>
+          {allTokens > 0 && (
+            <span className="text-muted-foreground">
+              {' '}
+              ({formatTokens(inputTokens)} in · {formatTokens(outputTokens)} out)
             </span>
           )}
-        </div>
+        </span>
+        {cachedTokens > 0 && (
+          <>
+            <span className="text-muted-foreground/60">·</span>
+            <span className="text-success">
+              {formatTokens(cachedTokens)} cached ({cachePct}%)
+            </span>
+          </>
+        )}
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-foreground font-semibold">{formatCost(totalCost)}</span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className={totals.errors > 0 ? 'text-destructive' : 'text-muted-foreground'}>
+          {totals.errors > 0 ? `${totals.errors} err` : '0 err'}
+        </span>
+        {!ready && <span className="text-[11px] text-muted-foreground">counting…</span>}
+      </div>
+      <div className="mt-3">
         <ContextBreakdown
           systemTokens={total.systemTokens}
           toolDefsTokens={total.toolDefsTokens}

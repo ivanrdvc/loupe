@@ -39,7 +39,7 @@ export function NewPromptDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New prompt</DialogTitle>
           <DialogDescription>Give it a name and a short description. You can edit messages next.</DialogDescription>
@@ -57,7 +57,7 @@ export function NewPromptDialog({ open, onOpenChange }: { open: boolean; onOpenC
               id="new-prompt-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. reviewer-judge"
+              placeholder="e.g. title-generator"
               autoFocus
             />
           </div>
