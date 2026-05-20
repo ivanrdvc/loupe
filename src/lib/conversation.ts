@@ -67,6 +67,10 @@ export type ConversationEvent =
       parentAgentSpanId?: string
     }
 
+// Off until ConversationView shows a placeholder when every event is filtered
+// out — otherwise traces whose chats are all classified as utility render blank.
+const HIDE_UTILITY_CHATS = false
+
 // Build an ordered list of conversation events from spans. Pure — no React,
 // no fetches. Test with span fixtures.
 export function buildConversation(spans: Span[]): ConversationEvent[] {
@@ -114,7 +118,7 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
   for (const span of sorted) {
     const parentAgentSpanId = parentAgentBySpanId.get(span.id)
     if (span.operation === 'chat') {
-      if (utilityChatIds.has(span.id)) {
+      if (HIDE_UTILITY_CHATS && utilityChatIds.has(span.id)) {
         emitUtilityChat(span, events)
       } else {
         emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
