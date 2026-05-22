@@ -21,6 +21,7 @@ import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
+import { useSpanSearch } from './-components/session-inspect/use-span-search'
 import { type SessionInspectView, SessionViewBar } from './-components/session-inspect/view-bar'
 import { sessionQuery } from './-data'
 
@@ -67,24 +68,12 @@ function SessionDetail() {
     search.view === 'spans' && search.span ? search.span : null,
   )
   const [fullSpans, setFullSpans] = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
     setSelectedId(search.view === 'spans' && search.span ? search.span : null)
   }, [search.view, search.span])
 
   const inspectView = search.view
-  useEffect(() => {
-    if (inspectView !== 'spans') return
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setPaletteOpen((prev) => !prev)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [inspectView])
 
   const spans = data?.spans ?? []
   const source = data?.source ?? null
@@ -121,6 +110,15 @@ function SessionDetail() {
       }),
     })
   }
+
+  useSpanSearch({
+    spans,
+    fullSpans,
+    onSelect: (id) => {
+      setSelectedId(id)
+      navigate({ search: (prev) => ({ range: prev.range, view: 'spans' as const, span: id }) })
+    },
+  })
 
   return (
     <div className="flex h-full flex-col">
@@ -167,7 +165,6 @@ function SessionDetail() {
           onViewChange={setInspectView}
           fullSpans={fullSpans}
           onFullSpansChange={setFullSpans}
-          onOpenPalette={() => setPaletteOpen(true)}
           autoRefresh={autoRefresh}
           onAutoRefreshChange={setAutoRefresh}
           onRefresh={() => {
@@ -198,8 +195,6 @@ function SessionDetail() {
               selectedId={selectedId}
               onSelect={setSelectedId}
               fullSpans={fullSpans}
-              paletteOpen={paletteOpen}
-              onPaletteOpenChange={setPaletteOpen}
             />
           ) : inspectView === 'conversation' ? (
             <ConversationView spans={spans} onSelect={setSelectedId} />

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { CommandPaletteTrigger } from '#/components/command-palette'
 import { Separator } from '#/components/ui/separator'
 import { SidebarTrigger } from '#/components/ui/sidebar'
 
@@ -9,7 +10,10 @@ export function SiteHeader({ title, actions }: { title: ReactNode; actions?: Rea
         <SidebarTrigger className="-ml-1 md:hidden" />
         <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4 md:hidden" />
         {typeof title === 'string' ? <h1 className="text-base font-medium">{title}</h1> : title}
-        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+        <div className="ml-auto flex items-center gap-2">
+          {actions}
+          <CommandPaletteTrigger />
+        </div>
       </div>
     </header>
   )

@@ -61,16 +61,12 @@ export function SessionInspectLayout({
   selectedId,
   onSelect,
   fullSpans,
-  paletteOpen,
-  onPaletteOpenChange,
 }: {
   spans: Span[]
   loading?: boolean
   selectedId: string | null
   onSelect: (id: string) => void
   fullSpans?: boolean
-  paletteOpen?: boolean
-  onPaletteOpenChange?: (open: boolean) => void
 }) {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('details')
   const isMobile = useIsMobile()
@@ -92,14 +88,7 @@ export function SessionInspectLayout({
                 <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
               </div>
             ) : (
-              <SpanTreeList
-                spans={spans}
-                selectedId={selectedId}
-                onSelect={onSelect}
-                fullSpans={fullSpans}
-                paletteOpen={paletteOpen}
-                onPaletteOpenChange={onPaletteOpenChange}
-              />
+              <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} fullSpans={fullSpans} />
             )}
           </ScrollArea>
         </section>

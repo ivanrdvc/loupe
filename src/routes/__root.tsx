@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, HeadContent, Link, Scripts } from '@tanstack/react-router'
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
+import { CommandPaletteProvider } from '#/components/command-palette'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import appCss from '../styles.css?url'
@@ -69,8 +70,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
           <TooltipProvider delayDuration={0}>
             <SidebarProvider className="bg-sidebar">
-              <AppSidebar />
-              <SidebarInset>{children}</SidebarInset>
+              <CommandPaletteProvider>
+                <AppSidebar />
+                <SidebarInset>{children}</SidebarInset>
+              </CommandPaletteProvider>
             </SidebarProvider>
           </TooltipProvider>
         </ThemeProvider>

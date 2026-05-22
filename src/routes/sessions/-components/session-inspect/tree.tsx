@@ -1,17 +1,8 @@
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
 import { Clock01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useCallback, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '#/components/ui/badge'
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '#/components/ui/command'
 import { buildAgentLabels, type Span, spanHasError } from '#/lib/spans'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
@@ -133,18 +124,9 @@ interface SpanTreeListProps {
   selectedId: string | null
   onSelect: (id: string) => void
   fullSpans?: boolean
-  paletteOpen?: boolean
-  onPaletteOpenChange?: (open: boolean) => void
 }
 
-export function SpanTreeList({
-  spans,
-  selectedId,
-  onSelect,
-  fullSpans = false,
-  paletteOpen = false,
-  onPaletteOpenChange,
-}: SpanTreeListProps) {
+export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }: SpanTreeListProps) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
   const rows = useMemo(() => buildRows(spans, collapsedIds, fullSpans), [spans, collapsedIds, fullSpans])
   const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
@@ -158,99 +140,51 @@ export function SpanTreeList({
     })
   }
 
-  const paletteItems = useMemo(() => {
+  // When selection changes (e.g. from the command palette or URL), expand any
+  // collapsed ancestors and scroll the row into view.
+  const lastRevealedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedId || selectedId === lastRevealedRef.current) return
     const byId = new Map(spans.map((s) => [s.id, s]))
-    const visible = fullSpans ? spans : spans.filter((s) => s.operation !== 'http' && s.operation !== 'mcp')
-    return visible.map((span) => {
-      const parent = span.parentId ? byId.get(span.parentId) : undefined
-      const display = displayFor(span, agentLabels)
-      const parentDisplay = parent ? displayFor(parent, agentLabels) : undefined
-      return { span, display, parentName: parentDisplay?.name }
+    const target = byId.get(selectedId)
+    if (!target) return
+    lastRevealedRef.current = selectedId
+
+    const ancestorIds: string[] = []
+    for (let pid = target.parentId; pid; pid = byId.get(pid)?.parentId ?? null) {
+      ancestorIds.push(pid)
+    }
+    setCollapsedIds((prev) => {
+      if (!ancestorIds.some((id) => prev.has(id))) return prev
+      const next = new Set(prev)
+      for (const id of ancestorIds) next.delete(id)
+      return next
     })
-  }, [spans, fullSpans, agentLabels])
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'center' })
+    })
+  }, [selectedId, spans])
 
-  const handlePaletteSelect = useCallback(
-    (id: string) => {
-      const byId = new Map(spans.map((s) => [s.id, s]))
-      setCollapsedIds((prev) => {
-        const next = new Set(prev)
-        let cursor: Span | undefined = byId.get(id)
-        while (cursor?.parentId) {
-          next.delete(cursor.parentId)
-          cursor = byId.get(cursor.parentId)
-        }
-        return next
-      })
-      onSelect(id)
-      onPaletteOpenChange?.(false)
-      requestAnimationFrame(() => {
-        document.querySelector(`[data-span-id="${id}"]`)?.scrollIntoView({ block: 'center' })
-      })
-    },
-    [spans, onSelect, onPaletteOpenChange],
-  )
-
+  if (rows.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
+        No spans in this session.
+      </div>
+    )
+  }
   return (
-    <>
-      {rows.length === 0 ? (
-        <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
-          No spans in this session.
-        </div>
-      ) : (
-        <ul className="py-1">
-          {rows.map((row) => (
-            <SpanTreeRow
-              key={row.span.id}
-              row={row}
-              selected={row.span.id === selectedId}
-              onSelect={() => onSelect(row.span.id)}
-              onToggleCollapse={() => toggleCollapsed(row.span.id)}
-              agentLabels={agentLabels}
-            />
-          ))}
-        </ul>
-      )}
-      <CommandDialog open={paletteOpen} onOpenChange={(o) => onPaletteOpenChange?.(o)} title="Jump to span">
-        <Command>
-          <CommandInput placeholder="Find a span by name, model, or tool…" />
-          <CommandList>
-            <CommandEmpty>No spans match.</CommandEmpty>
-            <CommandGroup>
-              {paletteItems.map(({ span, display, parentName }) => (
-                <CommandItem
-                  key={span.id}
-                  value={`${display.tagLabel} ${display.name} ${display.purposeLabel ?? ''} ${parentName ?? ''} ${span.model ?? ''} ${span.id}`}
-                  onSelect={() => handlePaletteSelect(span.id)}
-                >
-                  {display.tagLabel && (
-                    <Badge variant="outline" className="px-1.5 text-muted-foreground">
-                      {display.tagIcon && (
-                        <HugeiconsIcon
-                          icon={display.tagIcon}
-                          strokeWidth={1.5}
-                          className={`size-3 ${display.tagColor ?? ''}`}
-                          aria-hidden
-                        />
-                      )}
-                      {display.tagLabel}
-                    </Badge>
-                  )}
-                  <span className="min-w-0 flex-1 truncate">{display.name}</span>
-                  {display.purposeLabel && (
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
-                      {display.purposeLabel}
-                    </span>
-                  )}
-                  {parentName && (
-                    <span className="ml-auto shrink-0 truncate text-[11px] text-muted-foreground">in {parentName}</span>
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </CommandDialog>
-    </>
+    <ul className="py-1">
+      {rows.map((row) => (
+        <SpanTreeRow
+          key={row.span.id}
+          row={row}
+          selected={row.span.id === selectedId}
+          onSelect={() => onSelect(row.span.id)}
+          onToggleCollapse={() => toggleCollapsed(row.span.id)}
+          agentLabels={agentLabels}
+        />
+      ))}
+    </ul>
   )
 }
 
