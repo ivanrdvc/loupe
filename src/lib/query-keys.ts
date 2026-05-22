@@ -11,6 +11,9 @@ export const queryKeys = {
     window: (range: string, userId = '') => ['traces', userId, { range }] as const,
     detail: (id: string) => ['traces', id] as const,
   },
+  spans: {
+    window: (range: string, userId = '') => ['spans', userId, { range }] as const,
+  },
   inbox: {
     all: () => ['inbox'] as const,
     unreadCount: () => ['inbox', 'unread-count'] as const,

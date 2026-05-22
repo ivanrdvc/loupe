@@ -1,3 +1,7 @@
+// TODO(refactor): this file shares ~80% of its body with -traces-data-table.tsx
+// and sessions/-components/data-table.tsx. Extract a shared <DataTable> primitive
+// next pass — one source of truth for search bar / pagination / column-visibility.
+
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -12,8 +16,6 @@ import {
   type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -23,7 +25,6 @@ import {
 } from '@tanstack/react-table'
 import * as React from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
-import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { RefreshingIndicator } from '#/components/refreshing-indicator'
 import { TimeRangeSelect } from '#/components/time-range-select'
 import { Button } from '#/components/ui/button'
@@ -39,30 +40,15 @@ import { Separator } from '#/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
-import type { TraceSummary } from '#/lib/telemetry'
+import type { SpanSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { traceColumns } from './-columns'
+import { spanColumns } from './-spans-columns'
 
-const STATUS_OPTIONS = [
-  { label: 'OK', value: 'ok' },
-  { label: 'Error', value: 'error' },
-]
-
-const CATEGORY_OPTIONS = [
-  { label: 'Chat', value: 'chat' },
-  { label: 'Sub-agent', value: 'sub-agent' },
-  { label: 'Scheduled', value: 'scheduled' },
-  { label: 'Event', value: 'event' },
-  { label: 'Webhook', value: 'webhook' },
-  { label: 'Background', value: 'background' },
-  { label: 'Orphan', value: 'orphan' },
-]
-
-interface TracesDataTableProps {
-  data: TraceSummary[]
+interface SpansDataTableProps {
+  data: SpanSummary[]
   isLoading?: boolean
-  onRowClick?: (row: TraceSummary) => void
+  onRowClick?: (row: SpanSummary) => void
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
   autoRefresh: AutoRefreshInterval
@@ -71,7 +57,7 @@ interface TracesDataTableProps {
   refreshing?: boolean
 }
 
-export function TracesDataTable({
+export function SpansDataTable({
   data,
   isLoading,
   onRowClick,
@@ -81,30 +67,19 @@ export function TracesDataTable({
   onAutoRefreshChange,
   onRefresh,
   refreshing,
-}: TracesDataTableProps) {
+}: SpansDataTableProps) {
   const [userId] = useUserId()
   const [scopeToMe] = useScopeToMe()
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
-    status: false,
-    category: false,
-  })
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [pagination, setPagination] = React.useState({
-    pageIndex: 0,
-    pageSize: 50,
-  })
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 })
 
   const table = useReactTable({
     data,
-    columns: traceColumns,
-    state: {
-      sorting,
-      columnVisibility,
-      columnFilters,
-      pagination,
-    },
-    getRowId: (row) => row.id,
+    columns: spanColumns,
+    state: { sorting, columnVisibility, columnFilters, pagination },
+    getRowId: (row) => row.spanId,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -113,11 +88,9 @@ export function TracesDataTable({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
-  const searchColumn = table.getColumn('id')
+  const searchColumn = table.getColumn('spanName')
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
 
   return (
@@ -128,7 +101,7 @@ export function TracesDataTable({
             <div className="relative w-full min-w-0 sm:w-64">
               <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search traces, agents, users…"
+                placeholder="Search spans, purposes, users…"
                 value={searchValue}
                 onChange={(e) => searchColumn.setFilterValue(e.target.value)}
                 className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
@@ -138,12 +111,6 @@ export function TracesDataTable({
           <RefreshingIndicator active={!!refreshing} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          {table.getColumn('category') && (
-            <DataTableFacetedFilter column={table.getColumn('category')} title="Category" options={CATEGORY_OPTIONS} />
-          )}
-          {table.getColumn('status') && (
-            <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
-          )}
           <TimeRangeSelect value={range} onChange={onRangeChange} />
           <AutoRefreshSelect
             value={autoRefresh}
@@ -216,7 +183,7 @@ export function TracesDataTable({
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={traceColumns.length} className="h-48">
+                  <TableCell colSpan={spanColumns.length} className="h-48">
                     <div className="flex h-full items-center justify-center">
                       {isLoading ? (
                         <HugeiconsIcon
@@ -227,12 +194,12 @@ export function TracesDataTable({
                       ) : scopeToMe && userId ? (
                         <div className="max-w-md space-y-1 text-center text-muted-foreground">
                           <div>
-                            No traces for <span className="font-mono text-foreground">{userId}</span>.
+                            No spans for <span className="font-mono text-foreground">{userId}</span>.
                           </div>
-                          <div className="text-xs">Turn off scope-to-me in Settings → Account to see all traces.</div>
+                          <div className="text-xs">Turn off scope-to-me in Settings → Account to see all spans.</div>
                         </div>
                       ) : (
-                        <div className="text-muted-foreground">No traces in this window.</div>
+                        <div className="text-muted-foreground">No purpose-attr spans in this window.</div>
                       )}
                     </div>
                   </TableCell>
@@ -251,7 +218,7 @@ export function TracesDataTable({
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => table.setPageSize(Number(value))}
               >
-                <SelectTrigger size="sm" className="w-[68px]" id="rows-per-page">
+                <SelectTrigger size="sm" className="w-[68px]" id="spans-rows-per-page">
                   <SelectValue placeholder={table.getState().pagination.pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">

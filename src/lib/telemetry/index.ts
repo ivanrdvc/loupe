@@ -10,11 +10,13 @@ import type {
   InventoryObservation,
   LatencyPoint,
   ListSessionsOpts,
+  ListSpansOpts,
   ListTracesOpts,
   OverviewAggregate,
   OverviewOpts,
   RunsPoint,
   SessionSummary,
+  SpanSummary,
   TelemetryProvider,
   ToolErrorRow,
   ToolPayloadRow,
@@ -145,6 +147,16 @@ export async function listRecentTraces(opts?: ListTracesOpts): Promise<{
   const p = getActiveProvider()
   if (!p.listTraces) return null
   return { traces: await p.listTraces(opts), provider: p.name, fingerprint: p.fingerprint }
+}
+
+export async function listRecentSpans(opts?: ListSpansOpts): Promise<{
+  spans: SpanSummary[]
+  provider: string
+  fingerprint: string
+} | null> {
+  const p = getActiveProvider()
+  if (!p.listSpans) return null
+  return { spans: await p.listSpans(opts), provider: p.name, fingerprint: p.fingerprint }
 }
 
 export async function listRecentSessions(opts?: ListSessionsOpts): Promise<{

@@ -18,6 +18,26 @@ export type TraceFetch = { spans: Span[]; truncated?: boolean; focusSpanId?: str
 
 export type GetTraceOpts = WindowOpts & IdentityFilter
 export type ListTracesOpts = ListOpts & IdentityFilter
+export type ListSpansOpts = ListOpts & IdentityFilter
+
+// A nested LLM span with `gen_ai.operation.purpose` set — title generation,
+// memory writes, classification, etc. These live inside a parent chat trace
+// but represent independent background activity worth surfacing on its own.
+export interface SpanSummary {
+  spanId: string
+  traceId: string
+  spanName: string
+  purpose: string
+  startedAtMs: number
+  durationMs: number
+  totalTokens?: number
+  totalCostUsd?: number
+  modelId?: string
+  serviceName?: string
+  hasError?: boolean
+  userId?: string
+  userName?: string
+}
 
 export type TraceCategory =
   | 'chat'
@@ -156,6 +176,7 @@ interface BaseProvider {
   fingerprint: string
   getTrace(traceId: string, opts?: GetTraceOpts): Promise<TraceFetch>
   listTraces?(opts?: ListTracesOpts): Promise<TraceSummary[]>
+  listSpans?(opts?: ListSpansOpts): Promise<SpanSummary[]>
   listSessions?(opts?: ListSessionsOpts): Promise<{ sessions: SessionSummary[]; truncated: boolean }>
   getSession?(sessionId: string, opts?: GetTraceOpts): Promise<SessionFetch>
   query(q: string, opts: WindowOpts & { size?: number }): Promise<Array<Record<string, unknown>>>
