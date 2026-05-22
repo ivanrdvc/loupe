@@ -17,6 +17,8 @@ export function classifyTraceCategory(input: TraceClassificationInput): TraceCat
   switch (input.rootTriggerType) {
     case 'scheduled':
       return 'scheduled'
+    case 'event':
+      return 'event'
     case 'webhook':
       return 'webhook'
     case 'user':
@@ -37,7 +39,7 @@ export function categorizeFromSpans(spans: Span[]): TraceCategory {
   return classifyTraceCategory({
     hasInvokeAgent: spans.some((s) => s.operation === 'invoke_agent'),
     hasChat: spans.some((s) => s.operation === 'chat'),
-    hasRootExecuteTool: root?.operation === 'tool',
+    hasRootExecuteTool: root?.operation === 'tool' || root?.operation === 'mcp',
     hasSessionAttribute: spans.some((s) => s.sessionSource === 'attribute'),
     // TODO: verify operationName only set from purpose attr
     rootLlmPurpose: root?.operationName,

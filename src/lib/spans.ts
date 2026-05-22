@@ -31,7 +31,7 @@ export function resolveToolCalls(spans: Span[]): Map<string, ToolCallResolution>
 }
 
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
-export type Operation = 'http' | 'chat' | 'tool' | 'invoke_agent'
+export type Operation = 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent'
 
 export interface Span {
   id: string

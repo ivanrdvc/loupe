@@ -184,7 +184,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         ${userCte}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"])) or isnotempty(tostring(customDimensions["session.trigger_type"]))
+        | where (isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"])) or isnotempty(tostring(customDimensions["session.trigger_type"])))
         ${userScope}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
@@ -210,8 +210,8 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             has_root_execute_tool = countif(is_root and name startswith "execute_tool ") > 0,
             has_invoke_agent = countif(name startswith "invoke_agent ") > 0,
             has_chat = countif(gen_op == "chat") > 0,
-            root_trigger_type = take_anyif(trigger_type, is_root),
-            root_execution = take_anyif(execution, is_root),
+            root_trigger_type = coalesce(take_anyif(trigger_type, is_root), take_anyif(trigger_type, isnotempty(trigger_type) and name startswith "invoke_agent ")),
+            root_execution = coalesce(take_anyif(execution, is_root), take_anyif(execution, isnotempty(execution) and name startswith "invoke_agent ")),
             ${sessionKindField ? 'session_kind = take_any(session_kind),' : ''}
             ${llmPurposeField ? 'root_llm_purpose = take_anyif(llm_purpose, is_root),' : ''}
             root_operation = take_anyif(name, is_root),
@@ -243,110 +243,14 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             ts_ms     = min(ts_ms)
           by operation_Id, model_id, provider
       `
-      // Purpose-spans: individual spans with gen_ai.operation.purpose that live
-      // inside session-bound traces. Surfaced as standalone "utility" rows so
-      // they're visible on /traces even when session traces are hidden.
-      const purposeSpansQ = `
-        ${userCte}
-        union dependencies, requests
-        | extend purpose = tostring(customDimensions["${purposeAttr}"])
-        | where isnotempty(purpose)
-        | where isnotempty(operation_ParentId)
-        ${userScope}
-        | extend
-            in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
-            out_tok = toint(customDimensions["gen_ai.usage.output_tokens"]),
-            end_ts = datetime_add('millisecond', toint(duration), timestamp),
-            u_id = ${USER_ID_COALESCE},
-            u_name = ${USER_NAME_COALESCE}
-        | project
-            span_id = id,
-            trace_id = operation_Id,
-            span_name = name,
-            first_seen = timestamp,
-            last_seen = end_ts,
-            duration_ms = duration,
-            total_tokens = coalesce(in_tok, 0) + coalesce(out_tok, 0),
-            purpose,
-            model_id = tostring(customDimensions["gen_ai.request.model"]),
-            service_name = cloud_RoleName,
-            has_error = success == false,
-            trace_user_id = u_id,
-            trace_user_name = u_name
-        | top ${limit} by first_seen desc
-      `
-      // Sub-agent spans: invoke_agent spans whose parent is an execute_tool span.
-      // These are sub-agent invocations nested inside session-bound traces.
-      const subAgentQ = `
-        ${userCte}
-        let execute_tool_ids = union dependencies, requests
-        | where name startswith "execute_tool "
-        ${userScope}
-        | project tool_id = id, tool_trace = operation_Id;
-        union dependencies, requests
-        | where name startswith "invoke_agent "
-        | where isnotempty(operation_ParentId)
-        ${userScope}
-        | join kind=inner execute_tool_ids on $left.operation_ParentId == $right.tool_id, $left.operation_Id == $right.tool_trace
-        | extend
-            end_ts = datetime_add('millisecond', toint(duration), timestamp),
-            u_id = ${USER_ID_COALESCE},
-            u_name = ${USER_NAME_COALESCE}
-        | project
-            span_id = id,
-            trace_id = operation_Id,
-            span_name = name,
-            first_seen = timestamp,
-            last_seen = end_ts,
-            duration_ms = duration,
-            model_id = tostring(customDimensions["gen_ai.request.model"]),
-            service_name = cloud_RoleName,
-            has_error = success == false,
-            trace_user_id = u_id,
-            trace_user_name = u_name
-        | top ${limit} by first_seen desc
-      `
-      const [rows, costRows, purposeRows, subAgentRows] = await Promise.all([
-        kql(q, timespanFromOpts(opts)),
-        kql(costQ, timespanFromOpts(opts)),
-        kql(purposeSpansQ, timespanFromOpts(opts)),
-        kql(subAgentQ, timespanFromOpts(opts)),
-      ])
+      const [rows, costRows] = await Promise.all([kql(q, timespanFromOpts(opts)), kql(costQ, timespanFromOpts(opts))])
       const costByTrace = sumCostByTrace(costRows)
-      const traceSummaries = rows.map((r) => {
+      return rows.map((r) => {
         const summary = rowToTraceSummary(r)
         const cost = costByTrace.get(summary.id)
         if (cost && cost > 0) summary.totalCostUsd = cost
         return summary
       })
-      // Convert purpose-spans to TraceSummary rows, deduplicating against
-      // traces that are already classified as utility at the trace level.
-      const traceIds = new Set(traceSummaries.filter((t) => t.category === 'utility').map((t) => t.id))
-      const purposeSummaries: TraceSummary[] = purposeRows
-        .filter((r) => !traceIds.has(String(r.trace_id ?? '')))
-        .map((r) => ({
-          ...spanRowBase(r),
-          totalTokens: num(r.total_tokens),
-          category: 'utility' as const,
-          llmPurpose: typeof r.purpose === 'string' ? r.purpose : undefined,
-        }))
-      // Convert sub-agent spans to TraceSummary rows.
-      const subAgentSummaries: TraceSummary[] = subAgentRows.map((r) => {
-        const name = typeof r.span_name === 'string' ? r.span_name : ''
-        const agent =
-          name
-            .replace(/^invoke_agent\s+/, '')
-            .replace(/\(.*\)$/, '')
-            .trim() || undefined
-        return {
-          ...spanRowBase(r),
-          category: 'sub-agent' as const,
-          agent,
-        }
-      })
-      const merged = [...traceSummaries, ...purposeSummaries, ...subAgentSummaries]
-      merged.sort((a, b) => b.startedAtMs - a.startedAtMs)
-      return merged.slice(0, limit)
     },
 
     async listSessions(opts) {
@@ -378,6 +282,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             llm_input = coalesce(tostring(customDimensions["gen_ai.input.messages"]),
                                  tostring(customDimensions["llm.input"])),
             span_status = iff(success == false, "ERROR", "OK"),
+            trigger_type = tostring(customDimensions["session.trigger_type"]),
             ag_ui_thread_id = ${SESSION_ID_COALESCE},
             ag_ui_thread_title = ${SESSION_TITLE_COALESCE},
             user_name = ${USER_NAME_COALESCE},
@@ -446,23 +351,6 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
 // Refuse anything that would break out of a quoted KQL literal.
 function isSafeId(id: string): boolean {
   return /^[A-Za-z0-9_-]+$/.test(id)
-}
-
-// Shared base fields for purpose-span / sub-agent elevated rows.
-function spanRowBase(r: Record<string, unknown>): Omit<TraceSummary, 'category'> {
-  const name = typeof r.span_name === 'string' ? r.span_name : ''
-  return {
-    id: String(r.span_id ?? ''),
-    startedAtMs: typeof r.first_seen === 'string' ? Date.parse(r.first_seen) : 0,
-    durationMs: typeof r.duration_ms === 'number' ? r.duration_ms : Number(r.duration_ms ?? 0),
-    spanCount: 1,
-    hasError: Boolean(r.has_error),
-    hasSessionAttribute: true,
-    rootOperation: name || undefined,
-    serviceName: typeof r.service_name === 'string' ? r.service_name : undefined,
-    userId: typeof r.trace_user_id === 'string' && r.trace_user_id ? r.trace_user_id : undefined,
-    userName: typeof r.trace_user_name === 'string' && r.trace_user_name ? r.trace_user_name : undefined,
-  }
 }
 
 function parseDynamic(raw: unknown): unknown {

@@ -53,6 +53,7 @@ const CATEGORY_OPTIONS = [
   { label: 'Chat', value: 'chat' },
   { label: 'Sub-agent', value: 'sub-agent' },
   { label: 'Scheduled', value: 'scheduled' },
+  { label: 'Event', value: 'event' },
   { label: 'Webhook', value: 'webhook' },
   { label: 'Background', value: 'background' },
   { label: 'Utility', value: 'utility' },
@@ -90,7 +91,10 @@ export function TracesDataTable({
     hasSession: false,
   })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([
-    { id: 'category', value: ['chat', 'sub-agent', 'scheduled', 'webhook', 'background', 'utility', 'orphan'] },
+    {
+      id: 'category',
+      value: ['chat', 'sub-agent', 'scheduled', 'event', 'webhook', 'background', 'utility', 'orphan'],
+    },
     { id: 'hasSession', value: ['no'] },
   ])
   const [sorting, setSorting] = React.useState<SortingState>([])

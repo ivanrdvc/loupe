@@ -275,10 +275,11 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${maxOf(uidCols)} AS trace_user_id,
           ${maxOf(unameCols)} AS trace_user_name
         FROM "${cfg.stream}"
-        WHERE gen_ai_operation_name IS NOT NULL
+        WHERE (gen_ai_operation_name IS NOT NULL
            OR operation_name LIKE 'invoke_agent %'
            OR operation_name LIKE 'execute_tool %'
-           OR session_trigger_type IS NOT NULL
+           OR session_trigger_type IS NOT NULL)
+          AND operation_name NOT LIKE 'tools/%'
         GROUP BY trace_id
         ORDER BY first_seen DESC
         LIMIT ${limit}

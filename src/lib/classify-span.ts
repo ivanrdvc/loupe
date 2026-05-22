@@ -120,7 +120,7 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     c.sessionSource = 'attribute'
   }
 
-  if (operation === 'tool') {
+  if (operation === 'tool' || operation === 'mcp') {
     const toolName = pickToolName(name, attrs)
     if (toolName) c.toolName = toolName
     const callId = pickString(attrs, ['gen_ai.tool.call.id', 'gen_ai_tool_call_id'])
@@ -192,6 +192,9 @@ function pickOperation(name: string, attrs: Record<string, unknown>): Operation 
   if (oiKind === 'AGENT') return 'invoke_agent'
   if (oiKind === 'TOOL') return 'tool'
 
+  // MCP protocol spans — show distinctly from the agent-level execute_tool wrapper.
+  if (name.startsWith('tools/')) return 'mcp'
+
   const op = pickString(attrs, ['gen_ai.operation.name', 'gen_ai_operation_name'])
   if (op === 'chat' || op === 'text_completion' || op === 'generate_content') return 'chat'
   if (op === 'invoke_agent' || op === 'create_agent') return 'invoke_agent'
@@ -223,8 +226,9 @@ export function extractAgentName(spanName: string): string | undefined {
 
 // "execute_tool fetch_url" -> "fetch_url". Exported for the same reason
 // as extractAgentName: roll-up SQL/KQL queries hand us only the span name.
+// Also handles MCP protocol form: "tools/call fetch_url" -> "fetch_url".
 export function extractToolName(spanName: string): string | undefined {
-  const m = spanName.match(/^execute_tool\s+(\S+)/)
+  const m = spanName.match(/^(?:execute_tool|tools\/call)\s+(\S+)/)
   return m?.[1]
 }
 

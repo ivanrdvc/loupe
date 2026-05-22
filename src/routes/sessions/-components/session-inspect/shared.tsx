@@ -16,6 +16,7 @@ export const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: IconSvgEleme
   invoke_agent: { tagLabel: 'agent', tagIcon: Robot01Icon, tagColor: 'text-emerald-500 dark:text-emerald-400' },
   chat: { tagLabel: 'llm', tagIcon: AiBrain01Icon, tagColor: 'text-violet-500 dark:text-violet-400' },
   tool: { tagLabel: 'tool', tagIcon: Wrench01Icon, tagColor: 'text-sky-500 dark:text-sky-400' },
+  mcp: { tagLabel: 'mcp', tagIcon: Wrench01Icon, tagColor: 'text-sky-300 dark:text-sky-500' },
 }
 
 const OPERATION_LABELS: Record<string, string> = {

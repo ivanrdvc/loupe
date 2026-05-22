@@ -118,6 +118,8 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
         {span.finishReasons && span.finishReasons.length > 0 && (
           <Stat label="Finish" value={span.finishReasons.join(', ')} />
         )}
+        {span.responseId && <Stat label="Response id" value={span.responseId} />}
+        {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
       </dl>
 
       {span.agentDescription && <RoleBlock content={span.agentDescription} />}
@@ -126,18 +128,6 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
       {(span.llmInput != null || span.llmOutput != null) && (
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} spans={spans} />
-      )}
-
-      {(span.responseId || span.systemFingerprint) && (
-        <details className="rounded-lg ring-1 ring-border">
-          <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Debug
-          </summary>
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-border border-t px-3 py-2 text-[11px]">
-            {span.responseId && <Stat label="Response id" value={span.responseId} />}
-            {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
-          </dl>
-        </details>
       )}
     </div>
   )

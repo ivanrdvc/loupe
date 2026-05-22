@@ -1,4 +1,4 @@
-import { ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, QueueListIcon } from '@heroicons/react/24/outline'
+import { ChatBubbleLeftRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
 import { IconBraces, IconSearch } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
@@ -8,12 +8,11 @@ import { Separator } from '#/components/ui/separator'
 import { Toggle } from '#/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 
-export type SessionInspectView = 'spans' | 'conversation' | 'context'
+export type SessionInspectView = 'spans' | 'conversation'
 
 export const SESSION_VIEW_TABS = [
   { id: 'spans', label: 'Spans', Icon: QueueListIcon },
   { id: 'conversation', label: 'Conversation', Icon: ChatBubbleLeftRightIcon },
-  { id: 'context', label: 'Context', Icon: ClipboardDocumentListIcon },
 ] as const
 
 interface SessionViewBarProps {

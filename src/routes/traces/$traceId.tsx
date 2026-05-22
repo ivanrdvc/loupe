@@ -15,7 +15,6 @@ import {
 } from '#/components/ui/breadcrumb'
 import type { Span } from '#/lib/spans'
 
-import { SessionContextView } from '#/routes/sessions/-components/session-inspect/context'
 import { SessionInspectLayout } from '#/routes/sessions/-components/session-inspect/overview'
 import { type SessionInspectView, SessionViewBar } from '#/routes/sessions/-components/session-inspect/view-bar'
 import { traceSpansQuery } from './-data'
@@ -112,8 +111,6 @@ function TraceDetail() {
         <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {view === 'conversation' ? (
             <ConversationView spans={spans} onSelect={setSelectedId} />
-          ) : view === 'context' ? (
-            <SessionContextView spans={spans} />
           ) : spans.length > 0 ? (
             <SessionInspectLayout
               spans={spans}

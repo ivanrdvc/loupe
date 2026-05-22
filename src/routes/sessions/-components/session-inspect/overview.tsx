@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ClipboardIcon,
   CommandLineIcon,
+  CubeTransparentIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   MagnifyingGlassIcon,
@@ -35,6 +36,7 @@ import {
 } from '#/lib/spans'
 import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
 import { cn } from '#/lib/utils'
+import { AgUiSessionPanel, AgUiSpanSection } from './agui'
 import { ContextTools } from './context'
 import { collectFrontendTools, collectToolGroups } from './context-collectors'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
@@ -42,11 +44,12 @@ import { DetailPanel } from './detail-panel'
 import { displayFor, formatDuration } from './shared'
 import { SpanTreeList } from './tree'
 
-type InspectorTab = 'details' | 'tools' | 'turns' | 'logs' | 'attributes'
+type InspectorTab = 'details' | 'tools' | 'agui' | 'turns' | 'logs' | 'attributes'
 
 const INSPECTOR_TABS = [
   { id: 'details', label: 'Details', Icon: InformationCircleIcon },
   { id: 'tools', label: 'Tools', Icon: WrenchScrewdriverIcon },
+  { id: 'agui', label: 'AG-UI', Icon: CubeTransparentIcon },
   { id: 'turns', label: 'Turns', Icon: ArrowPathRoundedSquareIcon },
   { id: 'logs', label: 'Logs', Icon: CommandLineIcon },
   { id: 'attributes', label: 'Attributes', Icon: TableCellsIcon },
@@ -130,6 +133,11 @@ export function SessionInspectLayout({
                   )
                 ) : inspectorTab === 'tools' ? (
                   <SessionTools spans={spans} selectedSpan={selectedSpan} />
+                ) : inspectorTab === 'agui' ? (
+                  <div className="px-4 py-4">
+                    {selectedSpan && <AgUiSpanSection span={selectedSpan} />}
+                    <AgUiSessionPanel spans={spans} />
+                  </div>
                 ) : inspectorTab === 'turns' ? (
                   <SessionTurnsPanel spans={spans} />
                 ) : inspectorTab === 'attributes' ? (

@@ -26,6 +26,7 @@ interface Row {
   isCollapsed: boolean
   subtreeTokens: number
   subtreeCost: number
+  isParallel: boolean
 }
 
 const INDENT = 22
@@ -55,7 +56,7 @@ function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean)
     if (visibleChildren.has(parentId)) return visibleChildren.get(parentId) as Span[]
     const out: Span[] = []
     for (const span of byParent.get(parentId) ?? []) {
-      if (!fullSpans && span.operation === 'http') out.push(...collect(span.id))
+      if (!fullSpans && (span.operation === 'http' || span.operation === 'mcp')) out.push(...collect(span.id))
       else out.push(span)
     }
     visibleChildren.set(parentId, out)
@@ -84,6 +85,27 @@ function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean)
   // own last-status) doesn't correspond to a rail column — roots have no shared rail.
   const walk = (parentId: string | null, ancestorHasNext: boolean[]) => {
     const siblings = collect(parentId)
+    // Detect parallel execution: tool siblings that started at approximately
+    // the same time (dispatched concurrently by the framework). Only tool spans
+    // can be parallel — LLM calls are always sequential in an agent loop.
+    const parallelIds = new Set<string>()
+    const toolSiblings = siblings.filter((s) => s.operation === 'tool' || s.operation === 'mcp')
+    for (let i = 0; i < toolSiblings.length; i++) {
+      for (let j = i + 1; j < toolSiblings.length; j++) {
+        const gap = Math.abs(toolSiblings[j].startMs - toolSiblings[i].startMs)
+        const longer = Math.max(
+          toolSiblings[i].endMs - toolSiblings[i].startMs,
+          toolSiblings[j].endMs - toolSiblings[j].startMs,
+        )
+        // Parallel = started within 10% of the longer tool's duration (generous),
+        // with an absolute max of 500ms for very long tools.
+        const threshold = Math.min(Math.max(100, longer * 0.1), 500)
+        if (gap < threshold) {
+          parallelIds.add(toolSiblings[i].id)
+          parallelIds.add(toolSiblings[j].id)
+        }
+      }
+    }
     siblings.forEach((span, i) => {
       const isLast = i === siblings.length - 1
       const totals = agg(span)
@@ -97,6 +119,7 @@ function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean)
         isCollapsed: collapsedIds.has(span.id),
         subtreeTokens: totals.tokens,
         subtreeCost: totals.cost,
+        isParallel: parallelIds.has(span.id),
       })
       if (!collapsedIds.has(span.id)) walk(span.id, [...ancestorHasNext, !isLast])
     })
@@ -137,7 +160,7 @@ export function SpanTreeList({
 
   const paletteItems = useMemo(() => {
     const byId = new Map(spans.map((s) => [s.id, s]))
-    const visible = fullSpans ? spans : spans.filter((s) => s.operation !== 'http')
+    const visible = fullSpans ? spans : spans.filter((s) => s.operation !== 'http' && s.operation !== 'mcp')
     return visible.map((span) => {
       const parent = span.parentId ? byId.get(span.parentId) : undefined
       const display = displayFor(span, agentLabels)
@@ -240,7 +263,7 @@ interface SpanTreeRowProps {
 }
 
 function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }: SpanTreeRowProps) {
-  const { span, depth, railHasNext, isLastChild, childCount, isCollapsed, subtreeTokens } = row
+  const { span, depth, railHasNext, isLastChild, childCount, isCollapsed, subtreeTokens, isParallel } = row
   // Column ends right at chevron's right edge — no trailing whitespace inside the indent area.
   const indentWidth = railX(depth) + HANDLE / 2
   // All three indicator-axis decorations (below-circle vertical, handle button, leaf dot) anchor here.
@@ -356,6 +379,11 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
             {errored && (
               <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
                 error
+              </span>
+            )}
+            {isParallel && (
+              <span className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+                ⫽ parallel
               </span>
             )}
             {depth === 0 &&

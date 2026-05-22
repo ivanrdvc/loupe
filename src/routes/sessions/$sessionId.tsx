@@ -20,7 +20,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
-import { SessionContextView } from './-components/session-inspect/context'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
 import { type SessionInspectView, SessionViewBar } from './-components/session-inspect/view-bar'
 import { sessionQuery } from './-data'
@@ -45,7 +44,6 @@ interface SessionSearch {
 
 function parseSessionView(value: unknown): SessionInspectView | undefined {
   if (value === 'conversation') return 'conversation'
-  if (value === 'context') return 'context'
   if (value === 'spans' || value === 'trace') return 'spans'
   return undefined
 }
@@ -205,9 +203,7 @@ function SessionDetail() {
             />
           ) : inspectView === 'conversation' ? (
             <ConversationView spans={spans} onSelect={setSelectedId} />
-          ) : (
-            <SessionContextView spans={spans} />
-          )}
+          ) : null}
         </div>
       </div>
     </div>

@@ -13,7 +13,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import type { Span } from '#/lib/spans'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
-import { SessionContextView } from './context'
 import { SessionInspectLayout } from './overview'
 import { type SessionInspectView, SessionViewBar } from './view-bar'
 
@@ -220,16 +219,6 @@ export function SessionInspectDrawer({
                 </div>
               ) : (
                 <ConversationView spans={spans} onSelect={setSelectedId} />
-              )}
-            </section>
-          ) : drawerView === 'context' ? (
-            <section className="min-h-0 flex-1 overflow-hidden">
-              {!contentReady || (loading && spans.length === 0) ? (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
-                </div>
-              ) : (
-                <SessionContextView spans={spans} />
               )}
             </section>
           ) : (

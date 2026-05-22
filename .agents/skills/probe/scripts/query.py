@@ -107,7 +107,7 @@ def env_health(env: dict[str, str]) -> list[dict[str, str]]:
 
 # ---------- App Insights ----------
 
-def query_app_insights(env: dict[str, str], kql: str, timespan: str = "P3D") -> list[dict[str, Any]]:
+def query_app_insights(env: dict[str, str], kql: str, timespan: str = "P30D") -> list[dict[str, Any]]:
     app_id = env.get("APPLICATIONINSIGHTS_APP_ID")
     api_key = env.get("APPLICATIONINSIGHTS_API_KEY")
     if not app_id or not api_key:
@@ -240,16 +240,22 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
             or cd.get("teammate.llm.purpose")
         )
         if is_ai_relevant or full:
-            t["timeline"].append({
+            entry_tl: dict[str, Any] = {
                 "name": op_name,
-                "kind": "request" if r.get("itemType") == "request" else "dependency",
                 "duration_ms": int(r.get("duration") or 0),
                 "gen_ai_op": cd.get("gen_ai.operation.name") or None,
-                "session_keys": sess_keys or None,
-                "user_keys": user_keys or None,
                 "purpose": cd.get("gen_ai.operation.purpose") or cd.get("teammate.llm.purpose") or None,
                 "error": (r.get("success") is False) or None,
-            })
+            }
+            if cd.get("gen_ai.operation.name") == "chat":
+                entry_tl["model"] = cd.get("gen_ai.request.model")
+                entry_tl["in_tok"] = int(cd.get("gen_ai.usage.input_tokens") or 0)
+                entry_tl["out_tok"] = int(cd.get("gen_ai.usage.output_tokens") or 0)
+                cached = int(cd.get("gen_ai.usage.cache_read.input_tokens") or 0)
+                if cached: entry_tl["cached_tok"] = cached
+                finish = cd.get("gen_ai.response.finish_reasons")
+                if finish: entry_tl["finish"] = finish
+            t["timeline"].append(entry_tl)
         t["span_count"] += 1
 
     # Detect "purpose tag on ancestor, not on the chat LLM span" — agentops

@@ -19,7 +19,15 @@ export type TraceFetch = { spans: Span[]; truncated?: boolean; focusSpanId?: str
 export type GetTraceOpts = WindowOpts & IdentityFilter
 export type ListTracesOpts = ListOpts & IdentityFilter
 
-export type TraceCategory = 'chat' | 'sub-agent' | 'scheduled' | 'webhook' | 'background' | 'utility' | 'orphan'
+export type TraceCategory =
+  | 'chat'
+  | 'sub-agent'
+  | 'scheduled'
+  | 'event'
+  | 'webhook'
+  | 'background'
+  | 'utility'
+  | 'orphan'
 
 export interface TraceSummary {
   id: string
