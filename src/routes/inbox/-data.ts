@@ -3,13 +3,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { countOpenInboxItems, dismissInboxItem, listOpenInboxItems, snoozeInboxItem } from '#/server/inbox'
 
-const fetchInbox = createServerFn({ method: 'GET' }).handler(async () => {
-  return await listOpenInboxItems()
-})
+const fetchInbox = createServerFn({ method: 'GET' }).handler(() => listOpenInboxItems())
 
-const fetchInboxUnreadCount = createServerFn({ method: 'GET' }).handler(async () => {
-  return await countOpenInboxItems()
-})
+const fetchInboxUnreadCount = createServerFn({ method: 'GET' }).handler(() => countOpenInboxItems())
 
 export const dismissInboxItemFn = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)

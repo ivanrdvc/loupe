@@ -6,7 +6,7 @@ import { Button } from '#/components/ui/button'
 import { Calendar } from '#/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Separator } from '#/components/ui/separator'
-import { label, PRESETS, shortcut, type TimeRange } from '#/lib/time-range'
+import { formatDayMonth, label, PRESETS, shortcut, type TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 
 interface TimeRangeSelectProps {
@@ -146,14 +146,10 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
 
 function previewLabel(selected: DateRange | undefined): string {
   if (!selected?.from) return 'Pick a date'
-  const from = fmt(selected.from)
+  const from = formatDayMonth(selected.from)
   const sameDay = selected.to && startOfDay(selected.to).getTime() === startOfDay(selected.from).getTime()
   if (!selected.to || sameDay) return `${from} – now`
-  return `${from} – ${fmt(selected.to)}`
-}
-
-function fmt(d: Date): string {
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${from} – ${formatDayMonth(selected.to)}`
 }
 
 function startOfDay(date: Date): Date {

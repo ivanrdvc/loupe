@@ -41,11 +41,12 @@ export function parse(v: unknown): TimeRange {
 
 export function label(r: TimeRange) {
   if (typeof r === 'number') return r === 1 ? 'Past 1 day' : `Past ${r} days`
-  const a = fmt(r.from)
-  const b = fmt(r.to)
+  const a = formatDayMonth(r.from)
+  const b = formatDayMonth(r.to)
   return a === b ? a : `${a} – ${b}`
 }
 
 export const shortcut = (r: TimeRange) => (typeof r === 'number' ? `${r}d` : label(r))
 
-const fmt = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+export const formatDayMonth = (d: Date | number) =>
+  (d instanceof Date ? d : new Date(d)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
