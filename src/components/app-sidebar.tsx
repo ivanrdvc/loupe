@@ -8,6 +8,7 @@ import {
   Moon01Icon,
   MoreHorizontalCircle01Icon,
   MoreVerticalIcon,
+  News01Icon,
   PlayCircleIcon,
   PuzzleIcon,
   Settings01Icon,
@@ -284,6 +285,12 @@ function NavUser() {
               <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
                 <HugeiconsIcon icon={KeyboardIcon} />
                 Keyboard shortcuts
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/changelog">
+                  <HugeiconsIcon icon={News01Icon} />
+                  Changelog
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

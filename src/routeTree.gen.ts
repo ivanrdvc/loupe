@@ -18,6 +18,7 @@ import { Route as NotesIndexRouteImport } from './routes/notes/index'
 import { Route as McpIndexRouteImport } from './routes/mcp/index'
 import { Route as InboxIndexRouteImport } from './routes/inbox/index'
 import { Route as EvalsIndexRouteImport } from './routes/evals/index'
+import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as PromptsPromptIdRouteImport } from './routes/prompts/$promptId'
@@ -67,6 +68,11 @@ const EvalsIndexRoute = EvalsIndexRouteImport.update({
   path: '/evals/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
+  id: '/changelog/',
+  path: '/changelog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TracesTraceIdRoute = TracesTraceIdRouteImport.update({
   id: '/traces/$traceId',
   path: '/traces/$traceId',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/mcp/': typeof McpIndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
+  '/changelog': typeof ChangelogIndexRoute
   '/evals': typeof EvalsIndexRoute
   '/inbox': typeof InboxIndexRoute
   '/mcp': typeof McpIndexRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/mcp/': typeof McpIndexRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/traces/$traceId'
+    | '/changelog/'
     | '/evals/'
     | '/inbox/'
     | '/mcp/'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/traces/$traceId'
+    | '/changelog'
     | '/evals'
     | '/inbox'
     | '/mcp'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/traces/$traceId'
+    | '/changelog/'
     | '/evals/'
     | '/inbox/'
     | '/mcp/'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   PromptsPromptIdRoute: typeof PromptsPromptIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
+  ChangelogIndexRoute: typeof ChangelogIndexRoute
   EvalsIndexRoute: typeof EvalsIndexRoute
   InboxIndexRoute: typeof InboxIndexRoute
   McpIndexRoute: typeof McpIndexRoute
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvalsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/changelog/': {
+      id: '/changelog/'
+      path: '/changelog'
+      fullPath: '/changelog/'
+      preLoaderRoute: typeof ChangelogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/traces/$traceId': {
       id: '/traces/$traceId'
       path: '/traces/$traceId'
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   PromptsPromptIdRoute: PromptsPromptIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,
+  ChangelogIndexRoute: ChangelogIndexRoute,
   EvalsIndexRoute: EvalsIndexRoute,
   InboxIndexRoute: InboxIndexRoute,
   McpIndexRoute: McpIndexRoute,
