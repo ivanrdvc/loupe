@@ -2,6 +2,7 @@ import {
   Edit02Icon,
   Home01Icon,
   InboxIcon,
+  KeyboardIcon,
   Logout01Icon,
   MessageMultiple01Icon,
   Moon01Icon,
@@ -22,6 +23,7 @@ import { useTheme } from 'next-themes'
 import { useState } from 'react'
 import { Logo } from '#/components/logo'
 import { SettingsDialog } from '#/components/settings-dialog'
+import { useShortcutsDialog } from '#/components/shortcuts-dialog'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import {
   DropdownMenu,
@@ -78,6 +80,7 @@ const WORKBENCH_NAV: NavItem[] = [
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const { setOpen: setShortcutsOpen } = useShortcutsDialog()
   const { data: unreadCount = 0 } = useQuery(inboxUnreadCountQuery())
   const [userId] = useUserId()
   const { data: recentData } = useQuery(currentUserSessionsQuery(DEFAULT, userId))
@@ -177,6 +180,15 @@ export function AppSidebar() {
                   <SidebarMenuButton onClick={() => setSettingsOpen(true)}>
                     <HugeiconsIcon icon={Settings01Icon} />
                     <span>Settings</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setShortcutsOpen(true)}>
+                    <HugeiconsIcon icon={KeyboardIcon} />
+                    <span>Keyboard shortcuts</span>
+                    <kbd className="ml-auto inline-flex h-5 select-none items-center justify-center rounded border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
+                      ?
+                    </kbd>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

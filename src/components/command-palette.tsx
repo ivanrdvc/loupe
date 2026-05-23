@@ -23,6 +23,8 @@ import {
   CommandList,
   CommandSeparator,
 } from '#/components/ui/command'
+import { Kbd } from '#/components/ui/kbd'
+import { useIsMac } from '#/hooks/use-is-mac'
 
 type NavTo = '/' | '/sessions' | '/traces' | '/mcp' | '/notes' | '/prompts' | '/evals' | '/inbox'
 
@@ -167,19 +169,9 @@ function CommandPaletteDialog({ providers }: { providers: Record<string, SearchP
   )
 }
 
-function detectMac(): boolean {
-  if (typeof navigator === 'undefined') return false
-  const platform = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform
-  const source = platform ?? navigator.platform ?? navigator.userAgent
-  return source.toLowerCase().includes('mac')
-}
-
 export function CommandPaletteTrigger() {
   const { setOpen } = useCommandPalette()
-  const [isMac, setIsMac] = useState(false)
-  useEffect(() => {
-    setIsMac(detectMac())
-  }, [])
+  const isMac = useIsMac()
   return (
     <Button
       variant="link"
@@ -188,12 +180,9 @@ export function CommandPaletteTrigger() {
     >
       <IconSearch data-icon="inline-start" />
       Search
-      <kbd className="hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium text-[10px] sm:inline-flex">
-        <span className="text-xs" suppressHydrationWarning>
-          {isMac ? '⌘' : 'Ctrl'}
-        </span>
-        K
-      </kbd>
+      <Kbd className="hidden sm:inline-flex" suppressHydrationWarning>
+        <span className="text-xs">{isMac ? '⌘' : 'Ctrl'}</span>K
+      </Kbd>
     </Button>
   )
 }

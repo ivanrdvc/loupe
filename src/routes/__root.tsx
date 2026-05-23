@@ -3,7 +3,9 @@ import { createRootRouteWithContext, HeadContent, Link, Scripts } from '@tanstac
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
+import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
+import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import appCss from '../styles.css?url'
 
@@ -71,8 +73,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <TooltipProvider delayDuration={0}>
             <SidebarProvider className="bg-sidebar">
               <CommandPaletteProvider>
-                <AppSidebar />
-                <SidebarInset>{children}</SidebarInset>
+                <ShortcutsDialogProvider>
+                  <AppSidebar />
+                  <SidebarInset>{children}</SidebarInset>
+                  <Toaster />
+                </ShortcutsDialogProvider>
               </CommandPaletteProvider>
             </SidebarProvider>
           </TooltipProvider>

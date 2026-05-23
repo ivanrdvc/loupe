@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { IconMaximize, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { type AutoRefreshInterval, DRAWER_AUTO_REFRESH_OPTIONS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
@@ -14,6 +15,7 @@ import type { Span } from '#/lib/spans'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
 import { SessionInspectLayout } from './overview'
+import { useSessionInspectorShortcuts } from './use-shortcuts'
 import { useSpanSearch } from './use-span-search'
 import { type SessionInspectView, SessionViewBar } from './view-bar'
 
@@ -129,6 +131,12 @@ export function SessionInspectDrawer({
 
   const showLoading = loading || !contentReady
 
+  useSessionInspectorShortcuts({
+    sessionId: title ?? null,
+    link: shareUrl || undefined,
+    enabled: open && contentReady,
+  })
+
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
@@ -236,30 +244,19 @@ export function SessionInspectDrawer({
 }
 
 function ShareLinkButton({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    if (!copied) return
-    const t = window.setTimeout(() => setCopied(false), 1200)
-    return () => window.clearTimeout(t)
-  }, [copied])
-
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-    } catch {}
+      toast.success('Link copied')
+    } catch {
+      toast.error('Could not copy')
+    }
   }
 
   return (
-    <Tooltip open={copied || undefined}>
-      <TooltipTrigger asChild>
-        <Button type="button" variant="outline" size="sm" onClick={copy}>
-          <IconShare2 />
-          Share Link
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{copied ? 'Copied' : 'Copy'}</TooltipContent>
-    </Tooltip>
+    <Button type="button" variant="outline" size="sm" onClick={copy}>
+      <IconShare2 />
+      Share Link
+    </Button>
   )
 }
