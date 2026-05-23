@@ -9,8 +9,8 @@ export function VersionRail({
   onSelect,
 }: {
   versions: PromptVersion[]
-  activeVersionId: string
-  onSelect: (versionId: string) => void
+  activeVersionId: number
+  onSelect: (versionId: number) => void
 }) {
   const sorted = [...versions].sort((a, b) => b.version - a.version)
   const latestVersion = sorted[0]?.version ?? 0
