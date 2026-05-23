@@ -24,14 +24,3 @@
   token-by-token streaming is out of scope (would require a side channel
   that bypasses OTel and violates the read-only / OTel-first stance).
 - Historic data across agent versions (compare runs over time)
-
-## Open questions
-
-- Default key for the "utility LLM purpose" attribute. OTel GenAI semconv has no `purpose`, and OTel naming spec says apps shouldn't add keys under `gen_ai.*`. Pick: keep `gen_ai.operation.purpose` (squats namespace), vendor-neutral `agentops.llm.purpose`, or no default (everyone configures via `CUSTOM_LLM_PURPOSE_FIELD`).
-
-## Polish
-
-- Share button on session inspect — copy a deep link (`/sessions/$sessionId`) to
-  the clipboard. Small icon button in the drawer header next to the close `✕`.
-- Sessions list preview uses `SessionInspectDrawer`; full session route shares `SessionInspectLayout` (Spans + Conversation tabs).
-- Home dashboard rollup subsystem — local sqlite of hourly aggregates synced from provider, dashboard reads rollups + live tail. LRU is a stopgap; rollups are the real fix for scaling to 1M+ sessions on AppInsights.
