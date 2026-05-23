@@ -35,6 +35,9 @@ export const queryKeys = {
     runs: (promptId: string) => ['prompts', 'runs', promptId] as const,
     run: (runId: string) => ['prompts', 'run', runId] as const,
   },
+  logs: {
+    byTraceIds: (ids: readonly string[]) => ['logs', { ids: [...ids].sort() }] as const,
+  },
   notes: {
     all: () => ['notes'] as const,
     list: () => ['notes', 'list'] as const,

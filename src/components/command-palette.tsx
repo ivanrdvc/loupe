@@ -6,6 +6,7 @@ import {
   PlayCircleIcon,
   PuzzleIcon,
   StickyNote01Icon,
+  Task01Icon,
   TestTubeIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -26,12 +27,13 @@ import {
 import { Kbd } from '#/components/ui/kbd'
 import { useIsMac } from '#/hooks/use-is-mac'
 
-type NavTo = '/' | '/sessions' | '/traces' | '/mcp' | '/notes' | '/prompts' | '/evals' | '/inbox'
+type NavTo = '/' | '/sessions' | '/traces' | '/mcp' | '/notes' | '/prompts' | '/tasks' | '/evals' | '/inbox'
 
 const NAV_ITEMS: { to: NavTo; label: string; icon: typeof Home01Icon }[] = [
   { to: '/', label: 'Home', icon: Home01Icon },
   { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon },
   { to: '/traces', label: 'Traces', icon: PlayCircleIcon },
+  { to: '/tasks', label: 'Tasks', icon: Task01Icon },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon },
   { to: '/notes', label: 'Notes', icon: StickyNote01Icon },
   { to: '/prompts', label: 'Prompts', icon: Edit02Icon },

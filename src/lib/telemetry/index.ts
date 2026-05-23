@@ -9,9 +9,11 @@ import type {
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyPoint,
+  ListLogsOpts,
   ListSessionsOpts,
   ListSpansOpts,
   ListTracesOpts,
+  LogRecord,
   OverviewAggregate,
   OverviewOpts,
   RunsPoint,
@@ -188,6 +190,16 @@ export async function getSession(
   const r = await p.getSession(sessionId, opts)
   if (!r) return null
   return { ...r, provider: p.name, fingerprint: p.fingerprint }
+}
+
+export async function listSessionLogs(opts: ListLogsOpts): Promise<{
+  logs: LogRecord[]
+  provider: string
+  fingerprint: string
+} | null> {
+  const p = getActiveProvider()
+  if (!p.listLogs) return null
+  return { logs: await p.listLogs(opts), provider: p.name, fingerprint: p.fingerprint }
 }
 
 export async function discoverInventory(

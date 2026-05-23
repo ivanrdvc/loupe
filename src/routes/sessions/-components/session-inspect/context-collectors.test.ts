@@ -26,7 +26,7 @@ function chatWithToolCalls(id: string, calls: string[], defs: string[] = calls):
 }
 
 describe('collectFrontendTools', () => {
-  // Heuristic: (LLM called the tool) ∧ ¬(execute_tool span ran it).
+  // Heuristic: defined in toolDefinitions ∧ ¬(execute_tool span ran it).
   // Gated on at least one execute_tool span existing — see the topology doc.
 
   it('flags a tool the LLM called but no execute_tool span ran', () => {
@@ -40,7 +40,7 @@ describe('collectFrontendTools', () => {
   })
 
   it('returns nothing when the session has zero execute_tool spans', () => {
-    // The .NET runtime case — every called tool would otherwise be misflagged.
+    // The .NET runtime case — every defined tool would otherwise be misflagged.
     // Without ANY execute_tool span, we have no evidence backend instrumentation
     // is alive, so we'd rather classify nothing than mislabel everything.
     const spans: Span[] = [
@@ -50,14 +50,16 @@ describe('collectFrontendTools', () => {
     expect(collectFrontendTools(spans)).toEqual([])
   })
 
-  it('does not flag tools that were never called this session', () => {
-    // setThemeColor is defined but never tool_called; nothing classifies it.
+  it('surfaces tools defined but never called this session', () => {
+    // setThemeColor is defined but never tool_called — still likely a registered
+    // frontend tool. Show it so the UI reflects what's available to the LLM.
     const spans: Span[] = [
       span({ id: 'orch', operation: 'invoke_agent' }),
       chatWithToolCalls('chat', ['get_proverbs'], ['get_proverbs', 'setThemeColor']),
       span({ id: 'exec', operation: 'tool', parentId: 'orch', toolName: 'get_proverbs' }),
     ]
-    expect(collectFrontendTools(spans)).toEqual([])
+    const frontend = collectFrontendTools(spans)
+    expect(frontend.map((t) => t.name)).toEqual(['setThemeColor'])
   })
 })
 

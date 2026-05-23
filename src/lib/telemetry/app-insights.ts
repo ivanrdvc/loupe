@@ -15,6 +15,7 @@ import { aiCoalesce, attrKeysFor } from './conventions'
 import { readFieldConfig } from './field-config'
 import {
   aggregateSessions,
+  buildLogRecord,
   classifySpanRow,
   groupBy,
   num,
@@ -30,6 +31,8 @@ import type {
   ListSessionsOpts,
   ListSpansOpts,
   ListTracesOpts,
+  LogLevel,
+  LogRecord,
   SessionFetch,
   SpanSummary,
   TraceFetch,
@@ -393,12 +396,59 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       }
       return { sessionId, source, traceIds, spans, title }
     },
+
+    async listLogs(opts) {
+      const ids = opts.traceIds.filter(isSafeId)
+      if (ids.length === 0) return []
+      const idList = ids.map((id) => `"${id}"`).join(', ')
+      const limit = opts.limit ?? 1000
+      const q = `
+        union
+          (traces
+            | where operation_Id in (${idList})
+            | project timestamp, severityLevel, message, cloud_RoleName, operation_Id, operation_ParentId, customDimensions, itemType="trace"),
+          (exceptions
+            | where operation_Id in (${idList})
+            | extend message = strcat(type, ": ", outerMessage)
+            | extend severityLevel = 3
+            | project timestamp, severityLevel, message, cloud_RoleName, operation_Id, operation_ParentId, customDimensions, itemType="exception")
+        | order by timestamp asc
+        | take ${limit}
+      `
+      const rows = await kql(q, timespanFromOpts(opts))
+      return rows.map(aiRowToLogRecord)
+    },
   }
 }
 
 // Refuse anything that would break out of a quoted KQL literal.
 function isSafeId(id: string): boolean {
   return /^[A-Za-z0-9_-]+$/.test(id)
+}
+
+function aiRowToLogRecord(r: Record<string, unknown>): LogRecord {
+  const tsRaw = r.timestamp
+  const tsMs = tsRaw instanceof Date ? tsRaw.getTime() : Number(new Date(String(tsRaw)))
+  return buildLogRecord({
+    timestampMs: Number.isFinite(tsMs) ? tsMs : 0,
+    level: aiSeverityToLevel(r.severityLevel, r.itemType),
+    message: typeof r.message === 'string' ? r.message : '',
+    source: typeof r.cloud_RoleName === 'string' && r.cloud_RoleName ? r.cloud_RoleName : undefined,
+    traceId: typeof r.operation_Id === 'string' ? r.operation_Id : undefined,
+    spanId: typeof r.operation_ParentId === 'string' ? r.operation_ParentId : undefined,
+    attributes: { ...r, customDimensions: parseCustomDimensions(r.customDimensions) },
+  })
+}
+
+// AI severityLevel: 0=Verbose, 1=Information, 2=Warning, 3=Error, 4=Critical.
+function aiSeverityToLevel(v: unknown, itemType: unknown): LogLevel {
+  if (itemType === 'exception') return 'error'
+  const n = Number(v)
+  if (n === 0) return 'debug'
+  if (n === 2) return 'warn'
+  if (n === 3) return 'error'
+  if (n === 4) return 'fatal'
+  return 'info'
 }
 
 function parseDynamic(raw: unknown): unknown {

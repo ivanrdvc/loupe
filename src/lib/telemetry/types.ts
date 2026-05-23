@@ -162,6 +162,27 @@ export type SessionFetch = {
   title?: string
 } | null
 
+export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+
+// One application log record correlated to a trace. Time is in ms.
+// `source` is the producer namespace (logger name / cloud_RoleName / etc).
+// `attributes` carries everything else the row had so the UI can expand it.
+export interface LogRecord {
+  id: string
+  timestampMs: number
+  level: LogLevel
+  message: string
+  source?: string
+  traceId?: string
+  spanId?: string
+  attributes?: Record<string, import('#/lib/json').JsonValue>
+}
+
+export interface ListLogsOpts extends WindowOpts {
+  traceIds: string[]
+  limit?: number
+}
+
 // Span-shape methods stay on the provider — each one's row format is bespoke
 // and intertwined with span normalization. Pure-aggregation features (overview,
 // latency, tool stats, inventory) live in features.ts and dispatch on `name`;
@@ -174,6 +195,7 @@ interface BaseProvider {
   listSpans?(opts?: ListSpansOpts): Promise<SpanSummary[]>
   listSessions?(opts?: ListSessionsOpts): Promise<{ sessions: SessionSummary[]; truncated: boolean }>
   getSession?(sessionId: string, opts?: GetTraceOpts): Promise<SessionFetch>
+  listLogs?(opts: ListLogsOpts): Promise<LogRecord[]>
   query(q: string, opts: WindowOpts & { size?: number }): Promise<Array<Record<string, unknown>>>
 }
 

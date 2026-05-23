@@ -9,6 +9,7 @@ import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
 import { DataTable } from './-components/data-table'
 import { SessionsDrawerHost } from './-components/sessions-drawer-host'
+import { useSessionSearch } from './-components/use-session-search'
 import { sessionsQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/')({
@@ -32,6 +33,8 @@ function Sessions() {
   })
   const sessions = data?.sessions ?? []
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null)
+
+  useSessionSearch({ sessions, onSelect: setPreviewSessionId })
 
   return (
     <Page title="Sessions">

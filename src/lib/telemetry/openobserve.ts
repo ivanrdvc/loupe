@@ -12,7 +12,9 @@ import { ooCoalesceAs, ooColumns } from './conventions'
 import { readFieldConfig } from './field-config'
 import {
   aggregateSessions,
+  buildLogRecord,
   classifySpanRow,
+  firstString,
   groupBy,
   num,
   pickIdentityValue,
@@ -25,6 +27,8 @@ import type {
   GetTraceOpts,
   ListSpansOpts,
   ListTracesOpts,
+  LogLevel,
+  LogRecord,
   OpenObserveProvider,
   SessionFetch,
   SpanSummary,
@@ -37,6 +41,9 @@ export interface OpenObserveConfig {
   stream: string
   user: string
   password: string
+  // Stream that holds application logs (separate from the traces stream). OO
+  // defaults to `default` for logs ingest, so that's the fallback.
+  logsStream?: string
 }
 
 const DEFAULT_LIST_LIMIT = 50
@@ -82,11 +89,12 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     fromUs: number,
     toUs: number,
     size = TRACE_FETCH_LIMIT,
+    type: 'traces' | 'logs' = 'traces',
   ): Promise<Array<Record<string, unknown>>> => {
     const body = JSON.stringify({
       query: { sql, start_time: fromUs, end_time: toUs, from: 0, size },
     })
-    const resp = await fetch(`${cfg.baseUrl}/api/${cfg.org}/_search?type=traces`, {
+    const resp = await fetch(`${cfg.baseUrl}/api/${cfg.org}/_search?type=${type}`, {
       method: 'POST',
       headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
       body,
@@ -353,6 +361,15 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, limit))
       return hits.map(hitToSpanSummary)
     },
+
+    async listLogs(opts) {
+      if (opts.traceIds.length === 0) return []
+      const { fromUs, toUs } = window({ fromUs: opts.fromUs, toUs: opts.toUs })
+      const idList = opts.traceIds.map(sqlString).join(', ')
+      const sql = `SELECT * FROM "${cfg.logsStream ?? 'default'}" WHERE trace_id IN (${idList}) ORDER BY _timestamp ASC`
+      const hits = await search(sql, fromUs, toUs, opts.limit ?? 1000, 'logs')
+      return hits.map(ooHitToLogRecord)
+    },
   }
 }
 
@@ -478,4 +495,27 @@ function kindFromNumber(raw: unknown): SpanKind {
     default:
       return 'internal'
   }
+}
+
+function ooHitToLogRecord(h: Record<string, unknown>): LogRecord {
+  const timestampMs = Math.floor((num(h._timestamp) ?? 0) / 1000)
+  return buildLogRecord({
+    timestampMs,
+    level: normalizeOoLogLevel(h),
+    message: firstString(h, ['message', 'body', 'log', 'msg']) ?? '',
+    source: firstString(h, ['service_name', 'service', 'logger', 'logger_name', 'host_name']),
+    traceId: typeof h.trace_id === 'string' ? h.trace_id : undefined,
+    spanId: typeof h.span_id === 'string' ? h.span_id : undefined,
+    attributes: h,
+  })
+}
+
+function normalizeOoLogLevel(h: Record<string, unknown>): LogLevel {
+  const s = (firstString(h, ['level', 'severity_text', 'severity', 'log.level']) ?? '').toLowerCase()
+  if (s === 'trace') return 'trace'
+  if (s === 'debug') return 'debug'
+  if (s === 'warn' || s === 'warning') return 'warn'
+  if (s === 'error' || s === 'err') return 'error'
+  if (s === 'fatal' || s === 'critical' || s === 'crit') return 'fatal'
+  return 'info'
 }

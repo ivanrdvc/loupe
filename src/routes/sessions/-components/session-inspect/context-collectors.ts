@@ -168,15 +168,15 @@ export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): T
     })
 }
 
-// Tools whose name the LLM emitted in a tool_call, but which never appear as
-// an execute_tool span — backend never handled them, so they were handled
+// Tools that are defined in the chat span's toolDefinitions but never appear
+// as an execute_tool span — backend never handled them, so they were handled
 // frontend-side (CopilotKit useFrontendTool / useHumanInTheLoop / etc.).
 // Tool definitions look identical on the wire whether they're backend or
 // frontend, so this differential is the only signal we have.
 //
 // Gate: requires at least one execute_tool span in the session. Some runtimes
 // (e.g. the .NET Microsoft Agent Framework on AIFunctionFactory tools) don't
-// emit execute_tool spans at all — without them, every called tool would
+// emit execute_tool spans at all — without them, every defined tool would
 // falsely look frontend. When backend instrumentation is dark, we'd rather
 // classify nothing than mislabel everything.
 export function collectFrontendTools(spans: Span[]): FrontendTool[] {
@@ -185,16 +185,6 @@ export function collectFrontendTools(spans: Span[]): FrontendTool[] {
     if (span.operation === 'tool' && span.toolName) backendExecuted.add(span.toolName)
   }
   if (backendExecuted.size === 0) return []
-
-  const calledNames = new Set<string>()
-  for (const span of spans) {
-    if (span.operation !== 'chat') continue
-    for (const msg of asMessages(span.llmOutput)) {
-      for (const part of msg.parts) {
-        if (part.kind === 'tool_call') calledNames.add(part.name)
-      }
-    }
-  }
 
   const defs = new Map<string, { description: string; raw: JsonValue }>()
   for (const span of spans) {
@@ -206,16 +196,14 @@ export function collectFrontendTools(spans: Span[]): FrontendTool[] {
   }
 
   const out: FrontendTool[] = []
-  for (const name of calledNames) {
+  for (const [name, def] of defs) {
     if (backendExecuted.has(name)) continue
-    const def = defs.get(name)
-    const raw: JsonValue = def?.raw ?? null
     out.push({
       id: `frontend-${name}`,
       name,
-      description: def?.description ?? '',
-      raw,
-      tokens: raw != null ? estimateTokens(formatJson(raw)) : 0,
+      description: def.description,
+      raw: def.raw,
+      tokens: estimateTokens(formatJson(def.raw)),
     })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name))

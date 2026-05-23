@@ -20,15 +20,12 @@ function buildGroups(isMac: boolean): ShortcutGroup[] {
   return [
     {
       heading: 'Global',
-      rows: [
-        { label: 'Open command palette', keys: [`${mod}+K`] },
-        { label: 'Show this dialog', keys: ['?'] },
-      ],
+      rows: [{ label: 'Open command palette', keys: [`${mod}+K`] }],
     },
     {
       heading: 'Session inspector',
       rows: [
-        { label: 'Copy session ID', keys: [formatShortcut(isMac, 'C')] },
+        { label: 'Copy session ID', keys: [formatShortcut(isMac, 'Y')] },
         { label: 'Copy link', keys: [formatShortcut(isMac, 'L')] },
       ],
     },

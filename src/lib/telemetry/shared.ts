@@ -274,6 +274,42 @@ export function pickStringValue(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined
 }
 
+export function firstString(h: Record<string, unknown>, keys: readonly string[]): string | undefined {
+  for (const k of keys) {
+    const v = h[k]
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  return undefined
+}
+
+export function buildLogRecord(args: {
+  timestampMs: number
+  level: import('./types').LogLevel
+  message: string
+  source?: string
+  traceId?: string
+  spanId?: string
+  attributes?: Record<string, unknown>
+}): import('./types').LogRecord {
+  const record: import('./types').LogRecord = {
+    id: `${args.traceId ?? ''}-${args.spanId ?? ''}-${args.timestampMs}`,
+    timestampMs: args.timestampMs,
+    level: args.level,
+    message: args.message,
+  }
+  if (args.attributes) {
+    try {
+      record.attributes = JSON.parse(JSON.stringify(args.attributes))
+    } catch {
+      // skip if anything in the row resists JSON
+    }
+  }
+  if (args.source) record.source = args.source
+  if (args.traceId) record.traceId = args.traceId
+  if (args.spanId) record.spanId = args.spanId
+  return record
+}
+
 export function groupBy<T, K>(items: readonly T[], key: (item: T) => K): Map<K, T[]> {
   const out = new Map<K, T[]>()
   for (const item of items) {

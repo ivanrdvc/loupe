@@ -14,6 +14,7 @@ import {
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
+import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
 import { formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
 import { Badge } from '#/components/ui/badge'
@@ -36,11 +37,12 @@ import {
 } from '#/lib/spans'
 import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
 import { cn } from '#/lib/utils'
-import { AgUiSessionPanel, AgUiSpanSection } from './agui'
+import { AgUiPanel } from './agui'
 import { ContextTools } from './context'
 import { collectFrontendTools, collectToolGroups } from './context-collectors'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { DetailPanel } from './detail-panel'
+import { SessionLogsPanel } from './logs'
 import { displayFor, formatDuration } from './shared'
 import { SpanTreeList } from './tree'
 
@@ -124,15 +126,14 @@ export function SessionInspectLayout({
                   <SessionTools spans={spans} selectedSpan={selectedSpan} />
                 ) : inspectorTab === 'agui' ? (
                   <div className="px-4 py-4">
-                    {selectedSpan && <AgUiSpanSection span={selectedSpan} />}
-                    <AgUiSessionPanel spans={spans} />
+                    <AgUiPanel span={selectedSpan} spans={spans} />
                   </div>
                 ) : inspectorTab === 'turns' ? (
                   <SessionTurnsPanel spans={spans} selectedId={selectedId} onSelect={onSelect} />
                 ) : inspectorTab === 'attributes' ? (
                   <SpanAttributesPanel selectedSpan={selectedSpan} />
                 ) : (
-                  <SessionLogs spans={spans} />
+                  <SessionLogsPanel spans={spans} enabled={inspectorTab === 'logs'} />
                 )}
               </ScrollArea>
             </>
@@ -184,51 +185,6 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
         </span>
       </header>
       <ContextTools groups={groups} />
-    </div>
-  )
-}
-
-function SessionLogs({ spans }: { spans: Span[] }) {
-  const logs = useMemo(() => {
-    let first = spans[0]?.startMs ?? Date.now()
-    let toolCount = 0
-    let chatCount = 0
-    for (const span of spans) {
-      if (span.startMs < first) first = span.startMs
-      if (span.operation === 'tool') toolCount++
-      else if (span.operation === 'chat') chatCount++
-    }
-    return [
-      { t: first, level: 'info', source: 'session', message: 'Session inspection opened' },
-      { t: first + 420, level: 'debug', source: 'trace', message: `${spans.length} spans loaded into the drawer` },
-      {
-        t: first + 980,
-        level: 'info',
-        source: 'llm',
-        message: `${chatCount} chat spans summarized for token breakdown`,
-      },
-      { t: first + 1420, level: 'debug', source: 'tools', message: `${toolCount} tool spans correlated with turns` },
-    ].map((log) => ({ ...log, timeStr: new Date(log.t).toLocaleTimeString() }))
-  }, [spans])
-
-  return (
-    <div className="px-4 py-3">
-      <div className="overflow-hidden rounded-md bg-muted text-[11px] text-foreground shadow-inner ring-1 ring-border">
-        {logs.map((log, index) => (
-          <div
-            key={`${log.source}-${log.t}`}
-            className={[
-              'grid grid-cols-[5.75rem_3.5rem_4.5rem_1fr] gap-2 px-3 py-2 font-mono',
-              index > 0 ? 'border-border border-t' : '',
-            ].join(' ')}
-          >
-            <span className="text-muted-foreground">{log.timeStr}</span>
-            <span className={log.level === 'info' ? 'text-foreground' : 'text-muted-foreground'}>{log.level}</span>
-            <span className="text-muted-foreground">{log.source}</span>
-            <span className="min-w-0 truncate">{log.message}</span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
@@ -445,9 +401,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
           <div className="min-w-0 flex-1">
             {isLong ? (
               expanded ? (
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 leading-snug">
-                  {formatted}
-                </pre>
+                <CodeBlock code={formatted} language="json" className="max-h-64" />
               ) : (
                 <span className="block truncate text-muted-foreground/90" title={formatted.slice(0, 400)}>
                   {formatted.slice(0, ATTR_PREVIEW_LIMIT)}…

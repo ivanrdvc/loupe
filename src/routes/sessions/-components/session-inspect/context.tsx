@@ -1,4 +1,7 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '#/components/ui/accordion'
+import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useState } from 'react'
+import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { formatJson } from '#/lib/json'
@@ -16,23 +19,20 @@ export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
     )
   }
   return (
-    <Accordion type="multiple" defaultValue={blocks.length > 0 ? [blocks[0].id] : []}>
+    <div className="overflow-hidden rounded-md border">
       {blocks.map((block) => (
-        <AccordionItem key={block.id} value={block.id}>
-          <AccordionTrigger>
-            <span className="min-w-0 flex-1 truncate">{block.title}</span>
-            <Badge variant="secondary" className="tabular-nums">
-              {block.tokens.toLocaleString()} tok
-            </Badge>
-          </AccordionTrigger>
-          <AccordionContent>
+        <ExpandableRow
+          key={block.id}
+          title={block.title}
+          tokens={block.tokens}
+          content={
             <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
               {block.content}
             </pre>
-          </AccordionContent>
-        </AccordionItem>
+          }
+        />
       ))}
-    </Accordion>
+    </div>
   )
 }
 
@@ -50,38 +50,12 @@ export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   const wrapped = groups.filter((g) => g.kind !== 'default')
   const flat = groups.find((g) => g.kind === 'default')?.tools ?? []
   return (
-    <div className="space-y-3">
-      {wrapped.length > 0 && (
-        <Accordion type="multiple">
-          {wrapped.map((group) => {
-            const value = `${group.kind}:${group.domain}`
-            return (
-              <AccordionItem key={value} value={value}>
-                <AccordionTrigger>
-                  <span className="min-w-0 flex-1 truncate">{group.domain}</span>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Badge variant="secondary" className="tabular-nums">
-                      {group.tools.length} tool{group.tools.length === 1 ? '' : 's'}
-                    </Badge>
-                    <Badge variant="outline" className="tabular-nums">
-                      {group.tokens.toLocaleString()} tok
-                    </Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-0">
-                  <div className="divide-y divide-border border-border border-t">
-                    {group.tools.map((tool) => (
-                      <ToolRow key={tool.id} tool={tool} />
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )
-          })}
-        </Accordion>
-      )}
+    <div className="flex min-w-0 flex-col gap-4">
+      {wrapped.map((group) => (
+        <GroupSection key={`${group.kind}:${group.domain}`} group={group} />
+      ))}
       {flat.length > 0 && (
-        <div className="divide-y divide-border overflow-hidden rounded-md border bg-muted/50">
+        <div className="overflow-hidden rounded-md border">
           {flat.map((tool) => (
             <ToolRow key={tool.id} tool={tool} />
           ))}
@@ -91,21 +65,71 @@ export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   )
 }
 
+function GroupSection({ group }: { group: ToolGroup }) {
+  return (
+    <section className="flex min-w-0 flex-col gap-2">
+      <header className="flex items-baseline justify-between gap-2 px-1 font-mono text-[11px] text-muted-foreground">
+        <span className="truncate">{group.domain}</span>
+        <span className="tabular-nums">
+          {group.tools.length} · {group.tokens.toLocaleString()} tok
+        </span>
+      </header>
+      <div className="overflow-hidden rounded-md border">
+        {group.tools.map((tool) => (
+          <ToolRow key={tool.id} tool={tool} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function ToolRow({ tool }: { tool: ToolDef }) {
   return (
-    <details className="group">
-      <summary className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2 text-xs">
-        <span className="min-w-0">
-          <span className="block truncate font-medium text-foreground">{tool.name}</span>
-          {tool.description && <span className="mt-0.5 block truncate text-muted-foreground">{tool.description}</span>}
-        </span>
-        <Badge variant="outline" className="tabular-nums">
-          {tool.tokens.toLocaleString()} tok
-        </Badge>
-      </summary>
-      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-xs leading-snug text-foreground">
-        {formatJson(tool.raw)}
-      </pre>
-    </details>
+    <ExpandableRow
+      title={tool.name}
+      subtitle={tool.description}
+      tokens={tool.tokens}
+      content={<CodeBlock code={formatJson(tool.raw)} language="json" className="max-h-80" />}
+    />
+  )
+}
+
+export function ExpandableRow({
+  title,
+  subtitle,
+  tokens,
+  content,
+}: {
+  title: string
+  subtitle?: string
+  tokens?: number
+  content: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border-b border-border bg-card text-card-foreground last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="break-words font-medium text-foreground text-sm">{title}</div>
+          {subtitle && <div className="mt-0.5 break-words text-xs text-muted-foreground">{subtitle}</div>}
+        </div>
+        {tokens != null && (
+          <Badge variant="outline" className="tabular-nums">
+            {tokens.toLocaleString()} tok
+          </Badge>
+        )}
+        <HugeiconsIcon
+          icon={open ? ArrowUp01Icon : ArrowDown01Icon}
+          strokeWidth={2}
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      </button>
+      {open && <div className="border-border border-t bg-background px-3 py-2">{content}</div>}
+    </div>
   )
 }

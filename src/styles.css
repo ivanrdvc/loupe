@@ -3,6 +3,7 @@
 @import 'shadcn/tailwind.css';
 @import 'streamdown/styles.css';
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 @plugin '@tailwindcss/typography';
 @source '../node_modules/streamdown/dist/*.js';
 
@@ -10,6 +11,9 @@
 
 @theme {
   --font-sans: 'Pretendard Variable', Pretendard, ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
 }
 
 /* Maps shadcn css vars to Tailwind utilities. Generates bg-background,
@@ -53,6 +57,9 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-heading: var(--font-sans);
   --font-sans: 'Pretendard Variable', Pretendard, ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);

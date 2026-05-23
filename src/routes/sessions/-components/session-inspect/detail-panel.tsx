@@ -1,11 +1,15 @@
-import { Edit02Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Edit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
+import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import { Card, CardContent } from '#/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
@@ -122,7 +126,7 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
         {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
       </dl>
 
-      {span.agentDescription && <RoleBlock content={span.agentDescription} />}
+      {span.agentDescription && <AgentDescriptionCard content={span.agentDescription} />}
 
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
@@ -161,35 +165,45 @@ function MessagesBlock({
     )
   }
   return (
-    <section className="flex flex-col gap-2">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Messages</div>
-      <div className="space-y-2">
-        {inputMsgs.map((msg, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
-          <MessageCard key={`in-${i}`} msg={msg} callResolutions={callResolutions} />
-        ))}
-        {outputMsgs.map((msg, i) => (
-          <MessageCard
+    <section className="flex min-w-0 flex-col gap-3">
+      {inputMsgs.length > 0 && (
+        <div className="flex min-w-0 flex-col gap-2">
+          <SectionLabel>Input</SectionLabel>
+          {inputMsgs.map((msg, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
-            key={`out-${i}`}
-            msg={msg}
-            response
-            structured={structured}
-            callResolutions={callResolutions}
-          />
-        ))}
-      </div>
+            <MessageCard key={`in-${i}`} msg={msg} callResolutions={callResolutions} />
+          ))}
+        </div>
+      )}
+      {outputMsgs.length > 0 && (
+        <div className="flex min-w-0 flex-col gap-2">
+          <SectionLabel>Output</SectionLabel>
+          {outputMsgs.map((msg, i) => (
+            <MessageCard
+              // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
+              key={`out-${i}`}
+              msg={msg}
+              response
+              structured={structured}
+              callResolutions={callResolutions}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
 
-const ROLE_STYLES: Record<MessageRole, { label: string; ring: string }> = {
-  system: { label: 'System', ring: 'ring-border' },
-  user: { label: 'User', ring: 'ring-border' },
-  assistant: {
-    label: 'Assistant',
-    ring: 'ring-violet-500/30 dark:ring-violet-400/25',
-  },
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</div>
+}
+
+type RoleKey = MessageRole | 'agent'
+const ROLE_LABELS: Record<RoleKey, string> = {
+  system: 'System',
+  user: 'User',
+  assistant: 'Assistant',
+  agent: 'Agent',
 }
 
 const TOOL_CALL_TONES = {
@@ -216,47 +230,71 @@ function MessageCard({
   structured?: string
   callResolutions: Map<string, ToolCallResolution>
 }) {
-  const style = ROLE_STYLES[msg.role]
   const isStructured = Boolean(response && structured)
-  const ring = isStructured ? 'ring-slate-500/30 dark:ring-slate-400/25' : style.ring
   return (
-    <div className={`min-w-0 rounded-md bg-card px-3 py-2 ring-1 ${ring}`}>
-      <div className="mb-1.5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {isStructured ? (
-          <>
-            <span>Structured output</span>
-            <span className="rounded bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-medium text-slate-700 dark:text-slate-300">
-              {structured}
+    <Card size="sm" className="min-w-0 gap-2">
+      <CardContent className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <RoleChip kind={msg.role} />
+          {isStructured && (
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              structured · {structured}
             </span>
-          </>
-        ) : (
-          <>
-            <span>{style.label}</span>
-            {response && <span className="text-muted-foreground/70">· response</span>}
-          </>
-        )}
-      </div>
-      <div className="space-y-2">
-        {msg.parts.map((part, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: part positions are stable for a frozen message
-          <MessagePartView key={i} part={part} structured={isStructured} callResolutions={callResolutions} />
-        ))}
-      </div>
-    </div>
+          )}
+        </div>
+        <div className="space-y-2">
+          {msg.parts.map((part, i) => (
+            <MessagePartView
+              // biome-ignore lint/suspicious/noArrayIndexKey: part positions are stable for a frozen message
+              key={i}
+              part={part}
+              structured={isStructured}
+              role={msg.role}
+              callResolutions={callResolutions}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function RoleChip({ kind }: { kind: RoleKey }) {
+  return (
+    <Badge variant={kind === 'assistant' ? 'secondary' : 'outline'} className="h-4 px-1.5 text-[10px]">
+      {ROLE_LABELS[kind]}
+    </Badge>
+  )
+}
+
+function AgentDescriptionCard({ content }: { content: string }) {
+  return (
+    <Card size="sm" className="min-w-0 gap-2">
+      <CardContent className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <RoleChip kind="agent" />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">description</span>
+        </div>
+        <CollapsibleText content={content} />
+      </CardContent>
+    </Card>
   )
 }
 
 function MessagePartView({
   part,
   structured,
+  role,
   callResolutions,
 }: {
   part: MessagePart
   structured?: boolean
+  role: MessageRole
   callResolutions: Map<string, ToolCallResolution>
 }) {
   if (part.kind === 'text') {
     if (structured) return <StructuredText content={part.content} />
+    if (role === 'system') return <CollapsibleText content={part.content} />
     return <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{part.content}</pre>
   }
   if (part.kind === 'tool_call') {
@@ -267,10 +305,13 @@ function MessagePartView({
     const hasResult = resolved?.result !== undefined
     const errored = resolved && !resolved.success
     return (
-      <div className={tone.card}>
-        <div className="flex items-center gap-2 text-[11px]">
+      <Collapsible defaultOpen className={`group ${tone.card}`}>
+        <CollapsibleTrigger className="flex w-full items-center gap-2 text-[11px]">
           <span className={tone.badge}>{tone.label}</span>
-          <span className="font-mono text-foreground">{part.name}</span>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
+          <span className="cursor-text select-text font-mono text-foreground" onMouseDown={(e) => e.stopPropagation()}>
+            {part.name}
+          </span>
           {subAgent && subAgentName && subAgentName !== part.name && (
             <span className="text-muted-foreground">→ {subAgentName}</span>
           )}
@@ -279,31 +320,33 @@ function MessagePartView({
               error
             </span>
           )}
-          <span className="ml-auto truncate font-mono text-[10px] text-muted-foreground" title={part.id}>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
+          <span
+            className="ml-auto cursor-text select-text truncate font-mono text-[10px] text-muted-foreground"
+            title={part.id}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             {part.id}
           </span>
-        </div>
-        {part.arguments != null && (
-          <pre className="mt-1.5 max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
-            {formatJson(part.arguments)}
-          </pre>
-        )}
-        {hasResult && (
-          <div className="mt-1.5 border-border border-t pt-1.5">
-            <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">Result</div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
-              {formatJson(resolved.result)}
-            </pre>
-          </div>
-        )}
-      </div>
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            strokeWidth={2}
+            className="size-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
+          {part.arguments != null && <ToolInput input={part.arguments} />}
+          {hasResult &&
+            (errored && typeof resolved.result === 'string' ? (
+              <ToolOutput output={undefined} errorText={resolved.result} />
+            ) : (
+              <ToolOutput output={resolved.result} errorText={undefined} />
+            ))}
+        </CollapsibleContent>
+      </Collapsible>
     )
   }
-  return (
-    <pre className="whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
-      {formatJson(part.response)}
-    </pre>
-  )
+  return <CodeBlock code={formatJson(part.response)} language="json" />
 }
 
 function StructuredText({ content }: { content: string }) {
@@ -326,21 +369,29 @@ function StructuredText({ content }: { content: string }) {
       )
     }
   }
-  return (
-    <pre className="whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
-      {parsed !== undefined ? formatJson(parsed) : content}
-    </pre>
-  )
+  if (parsed !== undefined) {
+    return <CodeBlock code={formatJson(parsed)} language="json" />
+  }
+  return <pre className="whitespace-pre-wrap break-words text-xs leading-snug text-foreground">{content}</pre>
 }
 
-function RoleBlock({ content }: { content: string }) {
+function CollapsibleText({ content, previewChars = 240 }: { content: string; previewChars?: number }) {
+  const [open, setOpen] = useState(false)
+  if (content.length <= previewChars) {
+    return <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{content}</pre>
+  }
+  const preview = `${content.slice(0, previewChars).trimEnd()}…`
   return (
-    <details open className="rounded-lg bg-muted ring-1 ring-border">
-      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">Role</summary>
-      <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2 text-xs leading-relaxed text-foreground">
-        {content}
+    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
+      <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
+        {open ? content : preview}
       </pre>
-    </details>
+      <CollapsibleTrigger asChild>
+        <button type="button" className="mt-1 text-[11px] font-medium text-primary hover:underline">
+          {open ? 'Show less' : `Show all (${content.length.toLocaleString()} chars)`}
+        </button>
+      </CollapsibleTrigger>
+    </Collapsible>
   )
 }
 
@@ -366,9 +417,7 @@ function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?
   return (
     <div className="min-w-0 max-w-full">
       <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <pre className="max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-snug text-foreground ring-1 ring-border">
-        {text}
-      </pre>
+      <CodeBlock code={text} language="json" className="max-h-96" />
     </div>
   )
 }

@@ -1,9 +1,11 @@
-import { Fragment, useMemo } from 'react'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '#/components/ui/accordion'
-import { Badge } from '#/components/ui/badge'
+import { useMemo } from 'react'
+import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
+import { Card, CardContent } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
-import { formatJson } from '#/lib/json'
+import { Table, TableBody, TableCell, TableRow } from '#/components/ui/table'
+import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import type { Span } from '#/lib/spans'
+import { ExpandableRow } from './context'
 import {
   collectAguiItems,
   collectFrontendTools,
@@ -19,7 +21,7 @@ interface AgUiAttr {
   key: string
   label: string
   value: string
-  parsed: unknown | undefined
+  parsed: JsonValue | undefined
 }
 
 function extractAgUiAttrs(span: Span): AgUiAttr[] {
@@ -30,76 +32,70 @@ function extractAgUiAttrs(span: Span): AgUiAttr[] {
     if (!AG_UI_PREFIXES.some((p) => k.startsWith(p))) continue
     const raw = typeof v === 'string' ? v : JSON.stringify(v)
     const label = k.replace(/^ag_ui[._]/, '')
-    let parsed: unknown | undefined
-    const trimmed = raw.trim()
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        parsed = JSON.parse(raw)
-      } catch {
-        /* plain text */
-      }
-    }
-    out.push({ key: k, label, value: raw, parsed })
+    out.push({ key: k, label, value: raw, parsed: parseJson(raw) })
   }
   return out
 }
 
-export function AgUiSpanSection({ span }: { span: Span }) {
-  const attrs = useMemo(() => extractAgUiAttrs(span), [span])
-  if (attrs.length === 0) return null
-
-  const identifiers: AgUiAttr[] = []
-  const payloads: AgUiAttr[] = []
-  for (const attr of attrs) {
-    if (attr.parsed !== undefined || attr.value.length > 120) payloads.push(attr)
-    else identifiers.push(attr)
-  }
-
-  return (
-    <details open className="rounded-lg ring-1 ring-border">
-      <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        AG-UI Context
-      </summary>
-      <div className="space-y-2 border-border border-t px-3 py-2">
-        {span.agUiRunId && (
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[11px]">
-            <dt className="text-muted-foreground">Run ID</dt>
-            <dd className="min-w-0 truncate font-mono text-foreground" title={span.agUiRunId}>
-              {span.agUiRunId}
-            </dd>
-          </dl>
-        )}
-        {identifiers.length > 0 && (
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[11px]">
-            {identifiers.map((attr) => (
-              <Fragment key={attr.key}>
-                <dt className="text-muted-foreground">{attr.label}</dt>
-                <dd className="min-w-0 truncate text-foreground" title={attr.value}>
-                  {attr.value}
-                </dd>
-              </Fragment>
-            ))}
-          </dl>
-        )}
-        {payloads.map((attr) => (
-          <div key={attr.key}>
-            <div className="mb-1 text-[11px] text-muted-foreground">{attr.label}</div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-snug text-foreground ring-1 ring-border">
-              {attr.parsed !== undefined ? formatJson(attr.parsed) : attr.value}
-            </pre>
-          </div>
-        ))}
-      </div>
-    </details>
-  )
+interface IdRow {
+  label: string
+  value: string
 }
 
-export function AgUiSessionPanel({ spans }: { spans: Span[] }) {
+interface PayloadBlock {
+  id: string
+  label: string
+  parsed: JsonValue | undefined
+  raw: string
+  tokens?: number
+}
+
+export function AgUiPanel({ span, spans }: { span?: Span; spans: Span[] }) {
+  const spanAttrs = useMemo(() => (span ? extractAgUiAttrs(span) : []), [span])
   const systemHits = useMemo(() => collectSystemHits(spans), [spans])
-  const aguiItems = useMemo(() => collectAguiItems(spans, systemHits.agui), [spans, systemHits.agui])
+  const sessionItems = useMemo(() => collectAguiItems(spans, systemHits.agui), [spans, systemHits.agui])
   const frontendTools = useMemo(() => collectFrontendTools(spans), [spans])
 
-  if (aguiItems.length === 0 && frontendTools.length === 0) {
+  const runIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const s of spans) if (s.agUiRunId) ids.add(s.agUiRunId)
+    return [...ids]
+  }, [spans])
+
+  const idRows: IdRow[] = []
+  for (const id of runIds) idRows.push({ label: 'Run ID', value: id })
+  for (const item of sessionItems) {
+    if (isShortValue(item.value)) idRows.push({ label: item.label, value: item.value })
+  }
+  for (const attr of spanAttrs) {
+    if (attr.parsed === undefined && attr.value.length <= 120) {
+      idRows.push({ label: attr.label, value: attr.value })
+    }
+  }
+
+  const payloads: PayloadBlock[] = []
+  for (const attr of spanAttrs) {
+    if (attr.parsed !== undefined || attr.value.length > 120) {
+      payloads.push({
+        id: `span-${attr.key}`,
+        label: attr.label,
+        parsed: attr.parsed,
+        raw: attr.value,
+      })
+    }
+  }
+  for (const item of sessionItems) {
+    if (isShortValue(item.value)) continue
+    payloads.push({
+      id: item.id,
+      label: item.label,
+      parsed: parseJson(item.value),
+      raw: item.value,
+      tokens: item.tokens,
+    })
+  }
+
+  if (idRows.length === 0 && payloads.length === 0 && frontendTools.length === 0) {
     return (
       <Empty className="border-0">
         <EmptyHeader>
@@ -110,82 +106,78 @@ export function AgUiSessionPanel({ spans }: { spans: Span[] }) {
     )
   }
 
-  const identifiers = aguiItems.filter((item) => isShortValue(item.value))
-  const payloads = aguiItems.filter((item) => !isShortValue(item.value))
-
   return (
-    <div className="space-y-4">
-      {frontendTools.length > 0 && <FrontendToolsSection tools={frontendTools} />}
+    <Card size="sm">
+      <CardContent className="flex min-w-0 flex-col gap-4">
+        {idRows.length > 0 && (
+          <Table>
+            <TableBody>
+              {idRows.map((row) => (
+                <TableRow key={`${row.label}-${row.value}`}>
+                  <TableCell className="py-1.5 pr-4 font-mono text-xs text-muted-foreground">{row.label}</TableCell>
+                  <TableCell className="w-full max-w-0 py-1.5 font-mono text-xs text-foreground">
+                    <span className="block truncate" title={row.value}>
+                      {row.value}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
-      {identifiers.length > 0 && (
-        <dl className="overflow-hidden rounded-lg ring-1 ring-border">
-          {identifiers.map((item, i) => (
-            <div
-              key={item.id}
-              className={[
-                'grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-4 px-3 py-1.5 text-xs',
-                i > 0 ? 'border-border border-t' : '',
-              ].join(' ')}
-            >
-              <dt className="text-muted-foreground">{item.label}</dt>
-              <dd className="truncate font-mono text-foreground" title={item.value}>
-                {item.value}
-              </dd>
+        {frontendTools.length > 0 && <FrontendToolsSection tools={frontendTools} />}
+
+        {payloads.length > 0 && (
+          <section className="flex min-w-0 flex-col gap-2">
+            <header className="px-1 font-mono text-[11px] text-muted-foreground">Payloads · {payloads.length}</header>
+            <div className="overflow-hidden rounded-md border">
+              {payloads.map((p) => (
+                <ExpandableRow
+                  key={p.id}
+                  title={p.label}
+                  tokens={p.tokens}
+                  content={
+                    p.parsed !== undefined ? (
+                      <CodeBlock code={formatJson(p.parsed)} language="json" className="max-h-80" />
+                    ) : (
+                      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
+                        {p.raw}
+                      </pre>
+                    )
+                  }
+                />
+              ))}
             </div>
-          ))}
-        </dl>
-      )}
-
-      {payloads.length > 0 && (
-        <Accordion type="multiple">
-          {payloads.map((item) => (
-            <AccordionItem key={item.id} value={item.id}>
-              <AccordionTrigger>
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                <Badge variant="secondary" className="tabular-nums">
-                  {item.tokens.toLocaleString()} tok
-                </Badge>
-              </AccordionTrigger>
-              <AccordionContent>
-                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
-                  {item.value}
-                </pre>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      )}
-    </div>
+          </section>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
 function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
   return (
-    <section>
-      <header className="mb-2 flex items-baseline justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <section className="flex min-w-0 flex-col gap-2">
+      <header className="flex items-baseline justify-between gap-2 px-1 font-mono text-[11px] text-muted-foreground">
         <span>Frontend tools</span>
         <span className="tabular-nums">{tools.length}</span>
       </header>
-      <div className="divide-y divide-border overflow-hidden rounded-lg ring-1 ring-border">
+      <div className="overflow-hidden rounded-md border">
         {tools.map((tool) => (
-          <details key={tool.id} className="group">
-            <summary className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2 text-xs">
-              <span className="min-w-0">
-                <span className="block truncate font-medium text-foreground">{tool.name}</span>
-                {tool.description && (
-                  <span className="mt-0.5 block truncate text-muted-foreground">{tool.description}</span>
-                )}
-              </span>
-              <span className="tabular-nums text-muted-foreground">
-                {tool.tokens ? `${tool.tokens.toLocaleString()} tok` : '—'}
-              </span>
-            </summary>
-            {tool.raw != null && (
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words bg-card/70 px-3 py-2 text-xs leading-snug text-foreground">
-                {formatJson(tool.raw)}
-              </pre>
-            )}
-          </details>
+          <ExpandableRow
+            key={tool.id}
+            title={tool.name}
+            subtitle={tool.description}
+            tokens={tool.tokens || undefined}
+            content={
+              tool.raw != null ? (
+                <CodeBlock code={formatJson(tool.raw)} language="json" className="max-h-80" />
+              ) : (
+                <div className="text-xs text-muted-foreground">No schema captured.</div>
+              )
+            }
+          />
         ))}
       </div>
     </section>

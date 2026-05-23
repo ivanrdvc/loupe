@@ -43,7 +43,7 @@ export function useSessionInspectorShortcuts({ sessionId, link, enabled = true }
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return
       const key = e.key.toLowerCase()
-      if (key === 'c' && hasId) {
+      if (key === 'y' && hasId) {
         e.preventDefault()
         void copyId()
       } else if (key === 'l' && hasLink) {
@@ -62,7 +62,7 @@ export function useSessionInspectorShortcuts({ sessionId, link, enabled = true }
         id: 'copy-session-id',
         label: 'Copy session ID',
         keywords: 'copy id session clipboard',
-        trailing: <CommandShortcut>{formatShortcut(isMac, 'C')}</CommandShortcut>,
+        trailing: <CommandShortcut>{formatShortcut(isMac, 'Y')}</CommandShortcut>,
         onSelect: copyId,
       },
     ]
