@@ -10,14 +10,15 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
+import { useUser } from '#/hooks/use-user'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import { buildAgentLabels, resolveToolCalls, type Span, type ToolCallResolution } from '#/lib/spans'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
-import { createPrompt } from '#/routes/prompts/-mock-data'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
+import { createPrompt } from '#/server/prompts'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 function isLlmSpan(span: Span): boolean {
@@ -42,23 +43,28 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
   const display = displayFor(span, agentLabels)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useUser()
 
   const importMutation = useMutation({
     mutationFn: async () => {
       const messages = extractPromptMessages(span)
       const promptName = `imported-from-${span.id.slice(0, 8)}`
       return createPrompt({
-        name: promptName,
-        description: `Imported from span ${span.id}`,
-        initialMessages: messages.length > 0 ? messages : undefined,
-        initialModel: span.model,
+        data: {
+          folderId: null,
+          name: promptName,
+          description: `Imported from span ${span.id}`,
+          initialMessages: messages.length > 0 ? messages : undefined,
+          initialModelParams: span.model ? { model: span.model } : undefined,
+          author: user.name,
+        },
       })
     },
-    onSuccess: async (prompt) => {
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
       const extractedAny = extractPromptMessages(span).length > 0
       toast.success(extractedAny ? 'Prompt created — opening editor' : 'Imported (no messages found in span)')
-      void navigate({ to: '/prompts/$promptId', params: { promptId: prompt.id } })
+      void navigate({ to: '/prompts/$promptId', params: { promptId: String(result.prompt.id) } })
     },
   })
 

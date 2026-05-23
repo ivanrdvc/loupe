@@ -17,44 +17,70 @@ export type ModelParams = {
   topP?: number
 }
 
+export type FolderKind = 'user' | 'system'
+
+export type PromptFolder = {
+  id: number
+  name: string
+  parentId: number | null
+  kind: FolderKind
+  createdAt: number
+  updatedAt: number
+}
+
 export type PromptVersion = {
-  id: string
+  id: number
+  promptId: number
   version: number
   messages: Message[]
   modelParams: ModelParams
   tools: Tool[]
   responseFormat: ResponseFormat
-  createdAt: number
   author: string
+  createdAt: number
 }
 
 export type Prompt = {
-  id: string
+  id: number
+  folderId: number | null
   name: string
-  description: string
-  versions: PromptVersion[]
+  description: string | null
   createdAt: number
   updatedAt: number
 }
 
+export type PromptWithVersions = {
+  prompt: Prompt
+  versions: PromptVersion[]
+}
+
 export type CreatePromptInput = {
+  folderId: number | null
   name: string
-  description: string
+  description?: string | null
   initialMessages?: Message[]
-  initialModel?: string
+  initialModelParams?: ModelParams
+  author: string
 }
 
-export type SaveVersionInput = Omit<PromptVersion, 'id' | 'version' | 'createdAt' | 'author'> & {
-  author?: string
+export type CreateVersionInput = {
+  promptId: number
+  messages: Message[]
+  modelParams: ModelParams
+  tools: Tool[]
+  responseFormat: ResponseFormat
+  author: string
 }
 
-export type PromptRun = {
-  id: string
-  promptId: string
-  versionId: string
-  versionNumber: number
-  varValues: Record<string, string>
-  output: string
-  durationMs: number
-  createdAt: number
+export type UpdatePromptMetaInput = {
+  promptId: number
+  name?: string
+  description?: string | null
+  folderId?: number | null
+}
+
+export type CreateFolderInput = {
+  name: string
+  parentId?: number | null
+  kind?: FolderKind
 }

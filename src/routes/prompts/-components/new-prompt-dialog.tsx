@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
 import {
@@ -13,25 +13,54 @@ import {
 } from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
+import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
-import { createPrompt } from '../-mock-data'
+import { createPrompt } from '#/server/prompts'
+import type { PromptFolder } from '../-types'
 
-export function NewPromptDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+const NO_FOLDER_VALUE = '__none__'
+
+export function NewPromptDialog({
+  open,
+  onOpenChange,
+  folders,
+  defaultFolderId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  folders: PromptFolder[]
+  defaultFolderId?: number | null
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useUser()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [folderId, setFolderId] = useState<number | null>(defaultFolderId ?? null)
+
+  useEffect(() => {
+    if (open) setFolderId(defaultFolderId ?? null)
+  }, [open, defaultFolderId])
 
   const mutation = useMutation({
-    mutationFn: () => createPrompt({ name: name.trim(), description: description.trim() }),
-    onSuccess: async (prompt) => {
+    mutationFn: () =>
+      createPrompt({
+        data: {
+          folderId,
+          name: name.trim(),
+          description: description.trim() || null,
+          author: user.name,
+        },
+      }),
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
       toast.success('Prompt created')
       onOpenChange(false)
       setName('')
       setDescription('')
-      void navigate({ to: '/prompts/$promptId', params: { promptId: prompt.id } })
+      void navigate({ to: '/prompts/$promptId', params: { promptId: String(result.prompt.id) } })
     },
   })
 
@@ -60,6 +89,27 @@ export function NewPromptDialog({ open, onOpenChange }: { open: boolean; onOpenC
               placeholder="e.g. title-generator"
               autoFocus
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-prompt-folder">Folder</Label>
+            <Select
+              value={folderId == null ? NO_FOLDER_VALUE : String(folderId)}
+              onValueChange={(v) => setFolderId(v === NO_FOLDER_VALUE ? null : Number(v))}
+            >
+              <SelectTrigger id="new-prompt-folder">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value={NO_FOLDER_VALUE}>No folder</SelectItem>
+                  {folders.map((f) => (
+                    <SelectItem key={f.id} value={String(f.id)}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="new-prompt-description">Description</Label>

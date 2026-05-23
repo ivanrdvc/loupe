@@ -33,10 +33,9 @@ export const queryKeys = {
   },
   prompts: {
     all: () => ['prompts'] as const,
-    list: () => ['prompts', 'list'] as const,
-    byId: (id: string) => ['prompts', 'detail', id] as const,
-    runs: (promptId: string) => ['prompts', 'runs', promptId] as const,
-    run: (runId: string) => ['prompts', 'run', runId] as const,
+    folders: () => ['prompts', 'folders'] as const,
+    list: (folderId?: number | null) => ['prompts', 'list', folderId ?? null] as const,
+    detail: (promptId: number) => ['prompts', 'detail', promptId] as const,
   },
   logs: {
     byTraceIds: (ids: readonly string[]) => ['logs', { ids: [...ids].sort() }] as const,

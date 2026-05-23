@@ -30,33 +30,49 @@ import { Separator } from '#/components/ui/separator'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
+import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
+import { type RunLiveOutput, runLivePrompt } from '#/server/prompt-run'
+import { createVersion, deletePrompt, getPrompt, updatePromptMeta } from '#/server/prompts'
 import { ModelParamsPanel } from './-components/model-params-panel'
 import { PromptDetailHeader } from './-components/prompt-detail-header'
 import { PromptEditor } from './-components/prompt-editor'
 import { ResponseFormatPanel } from './-components/response-format-panel'
-import { RunDiffSheet } from './-components/run-diff-sheet'
-import { RunOutputPanel } from './-components/run-output-panel'
+import { RunResultPanel } from './-components/run-result-panel'
 import { ToolsPanel } from './-components/tools-panel'
-import { VariablesPanel } from './-components/variables-panel'
 import { VersionRail } from './-components/version-rail'
-import { deletePrompt, getPrompt, listRuns, runPrompt, saveNewVersion, updatePrompt } from './-mock-data'
-import type { Message, ModelParams, PromptRun, ResponseFormat, Tool } from './-types'
+import type { Message, ModelParams, PromptWithVersions, ResponseFormat, Tool } from './-types'
 
-const promptQuery = (id: string) =>
+const DEFAULT_ENDPOINT = 'http://localhost:8080/v1/responses'
+const DEFAULT_AGENT = 'ProverbsAgent'
+const ENDPOINT_STORAGE_KEY = 'agentops.prompts.liveEndpoint'
+const AGENT_STORAGE_KEY = 'agentops.prompts.liveAgent'
+
+function readStoredEndpoint(): string {
+  if (typeof window === 'undefined') return DEFAULT_ENDPOINT
+  return window.localStorage.getItem(ENDPOINT_STORAGE_KEY) || DEFAULT_ENDPOINT
+}
+
+function readStoredAgent(): string {
+  if (typeof window === 'undefined') return DEFAULT_AGENT
+  return window.localStorage.getItem(AGENT_STORAGE_KEY) ?? DEFAULT_AGENT
+}
+
+const promptQuery = (id: number) =>
   queryOptions({
-    queryKey: queryKeys.prompts.byId(id),
-    queryFn: () => getPrompt(id),
+    queryKey: queryKeys.prompts.detail(id),
+    queryFn: () => getPrompt({ data: { promptId: id } }),
   })
 
 export const Route = createFileRoute('/prompts/$promptId')({
-  loader: ({ context, params }) => context.queryClient.ensureQueryData(promptQuery(params.promptId)),
+  loader: ({ context, params }) => context.queryClient.ensureQueryData(promptQuery(Number(params.promptId))),
   component: PromptDetailPage,
 })
 
 function PromptDetailPage() {
   const { promptId } = Route.useParams()
-  const { data: prompt, isLoading } = useQuery(promptQuery(promptId))
+  const idNum = Number(promptId)
+  const { data, isLoading } = useQuery(promptQuery(idNum))
 
   if (isLoading) {
     return (
@@ -69,7 +85,7 @@ function PromptDetailPage() {
     )
   }
 
-  if (!prompt) {
+  if (!data) {
     return (
       <Page title={<PromptBreadcrumb />}>
         <div className="px-4 lg:px-6">
@@ -85,7 +101,7 @@ function PromptDetailPage() {
     )
   }
 
-  return <PromptDetailLoaded prompt={prompt} />
+  return <PromptDetailLoaded data={data} />
 }
 
 function PromptBreadcrumb({ name }: { name?: string }) {
@@ -106,37 +122,41 @@ function PromptBreadcrumb({ name }: { name?: string }) {
   )
 }
 
-function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType<typeof getPrompt>>> }) {
+function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
+  const { prompt, versions } = data
   const queryClient = useQueryClient()
-  const latest = prompt.versions[prompt.versions.length - 1]
-  const [activeVersionId, setActiveVersionId] = useState(latest.id)
+  const user = useUser()
+  const sorted = useMemo(() => [...versions].sort((a, b) => b.version - a.version), [versions])
+  const latest = sorted[0]
+  const [activeVersionId, setActiveVersionId] = useState<number>(latest?.id ?? 0)
   const activeVersion = useMemo(
-    () => prompt.versions.find((v) => v.id === activeVersionId) ?? latest,
-    [prompt.versions, activeVersionId, latest],
+    () => versions.find((v) => v.id === activeVersionId) ?? latest,
+    [versions, activeVersionId, latest],
   )
-  const isLatest = activeVersion.id === latest.id
+  const isLatest = activeVersion?.id === latest?.id
 
-  const [messages, setMessages] = useState<Message[]>(activeVersion.messages)
-  const [modelParams, setModelParams] = useState<ModelParams>(activeVersion.modelParams)
-  const [tools, setTools] = useState<Tool[]>(activeVersion.tools)
-  const [responseFormat, setResponseFormat] = useState<ResponseFormat>(activeVersion.responseFormat)
-  const [varValues, setVarValues] = useState<Record<string, string>>({})
+  const [messages, setMessages] = useState<Message[]>(activeVersion?.messages ?? [])
+  const [modelParams, setModelParams] = useState<ModelParams>(activeVersion?.modelParams ?? { model: '' })
+  const [tools, setTools] = useState<Tool[]>(activeVersion?.tools ?? [])
+  const [responseFormat, setResponseFormat] = useState<ResponseFormat>(
+    activeVersion?.responseFormat ?? { type: 'text' },
+  )
 
   useEffect(() => {
+    if (!activeVersion) return
     setMessages(activeVersion.messages)
     setModelParams(activeVersion.modelParams)
     setTools(activeVersion.tools)
     setResponseFormat(activeVersion.responseFormat)
-    setVarValues({})
   }, [activeVersion])
 
   const baselineKey = useMemo(
     () =>
       JSON.stringify({
-        m: activeVersion.messages,
-        p: activeVersion.modelParams,
-        t: activeVersion.tools,
-        r: activeVersion.responseFormat,
+        m: activeVersion?.messages ?? [],
+        p: activeVersion?.modelParams ?? {},
+        t: activeVersion?.tools ?? [],
+        r: activeVersion?.responseFormat ?? { type: 'text' },
       }),
     [activeVersion],
   )
@@ -147,60 +167,68 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
   const hasChanges = baselineKey !== currentKey
 
   const [discardOpen, setDiscardOpen] = useState(false)
-  const [pendingVersionId, setPendingVersionId] = useState<string | null>(null)
+  const [pendingVersionId, setPendingVersionId] = useState<number | null>(null)
+  const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_ENDPOINT)
+  const [agentName, setAgentName] = useState<string>(DEFAULT_AGENT)
+  const [latestResult, setLatestResult] = useState<RunLiveOutput | null>(null)
+  const [runError, setRunError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setEndpointUrl(readStoredEndpoint())
+    setAgentName(readStoredAgent())
+  }, [])
+
+  const handleEndpointChange = (next: string) => {
+    setEndpointUrl(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ENDPOINT_STORAGE_KEY, next)
+    }
+  }
+
+  const handleAgentChange = (next: string) => {
+    setAgentName(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(AGENT_STORAGE_KEY, next)
+    }
+  }
+
+  const runMutation = useMutation({
+    mutationFn: () =>
+      runLivePrompt({
+        data: { endpointUrl, agentName, messages, modelParams },
+      }),
+    onMutate: () => {
+      setRunError(null)
+    },
+    onSuccess: (result) => {
+      setLatestResult(result)
+    },
+    onError: (err) => {
+      setRunError(err instanceof Error ? err.message : String(err))
+    },
+  })
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      saveNewVersion(prompt.id, {
-        messages,
-        modelParams,
-        tools,
-        responseFormat,
+      createVersion({
+        data: {
+          promptId: prompt.id,
+          messages,
+          modelParams,
+          tools,
+          responseFormat,
+          author: user.name,
+        },
       }),
     onSuccess: async (newVersion) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.detail(prompt.id) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
       setActiveVersionId(newVersion.id)
       toast.success(`Saved as v${newVersion.version}`)
     },
   })
 
-  const { data: runs = [] } = useQuery({
-    queryKey: queryKeys.prompts.runs(prompt.id),
-    queryFn: () => listRuns(prompt.id),
-  })
-
-  const runMutation = useMutation({
-    mutationFn: () =>
-      runPrompt({
-        promptId: prompt.id,
-        versionId: activeVersion.id,
-        varValues,
-        currentMessages: messages,
-        modelParams,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.prompts.runs(prompt.id) })
-    },
-  })
-
-  const latestRun = runs[0] ?? null
-
-  const [diffOpen, setDiffOpen] = useState(false)
-  const [diffRunA, setDiffRunA] = useState<PromptRun | null>(null)
-  const [diffRunB, setDiffRunB] = useState<PromptRun | null>(null)
-
-  const handleShowDiff = (run: PromptRun) => {
-    setDiffRunA(run)
-    setDiffRunB(runs[0] ?? null)
-    setDiffOpen(true)
-  }
-
-  const handleRun = () => {
-    if (hasChanges) toast('Running with unsaved changes.')
-    runMutation.mutate()
-  }
-
-  const handleSelectVersion = (id: string) => {
+  const handleSelectVersion = (id: number) => {
     if (id === activeVersionId) return
     if (hasChanges) {
       setPendingVersionId(id)
@@ -211,7 +239,7 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
   }
 
   const confirmDiscard = () => {
-    if (pendingVersionId) setActiveVersionId(pendingVersionId)
+    if (pendingVersionId != null) setActiveVersionId(pendingVersionId)
     setPendingVersionId(null)
     setDiscardOpen(false)
   }
@@ -221,11 +249,11 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
       <div className="flex flex-col gap-4">
         <PromptDetailHeader
           prompt={prompt}
+          latestVersion={latest}
           hasChanges={hasChanges}
           saving={saveMutation.isPending}
           isLatest={isLatest}
-          activeVersion={activeVersion.version}
-          latestVersion={latest.version}
+          activeVersion={activeVersion?.version ?? 0}
           onSave={() => saveMutation.mutate()}
         />
 
@@ -242,28 +270,44 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
                 <div className="flex flex-col gap-4">
                   <PromptEditor messages={messages} onChange={setMessages} />
                   <Separator />
-                  <div>
-                    <Button onClick={handleRun} disabled={runMutation.isPending}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label htmlFor="endpoint-url" className="text-xs whitespace-nowrap text-muted-foreground">
+                      Endpoint
+                    </Label>
+                    <Input
+                      id="endpoint-url"
+                      value={endpointUrl}
+                      onChange={(e) => handleEndpointChange(e.target.value)}
+                      placeholder={DEFAULT_ENDPOINT}
+                      className="h-8 max-w-xs font-mono text-xs"
+                    />
+                    <Label htmlFor="agent-name" className="text-xs whitespace-nowrap text-muted-foreground">
+                      Agent
+                    </Label>
+                    <Input
+                      id="agent-name"
+                      value={agentName}
+                      onChange={(e) => handleAgentChange(e.target.value)}
+                      placeholder={DEFAULT_AGENT}
+                      className="h-8 w-40 font-mono text-xs"
+                    />
+                    <Button
+                      onClick={() => runMutation.mutate()}
+                      disabled={!endpointUrl.trim() || runMutation.isPending || messages.length === 0}
+                    >
                       <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
                       {runMutation.isPending ? 'Running…' : 'Run'}
                     </Button>
                   </div>
                   <Separator />
-                  <RunOutputPanel
-                    promptId={prompt.id}
-                    runs={runs}
-                    isRunning={runMutation.isPending}
-                    latestRun={latestRun}
-                    onShowDiff={handleShowDiff}
-                  />
+                  <RunResultPanel result={latestResult} isRunning={runMutation.isPending} error={runError} />
                 </div>
                 <aside className="flex flex-col gap-6">
                   <VersionRail
-                    versions={prompt.versions}
-                    activeVersionId={activeVersion.id}
+                    versions={versions}
+                    activeVersionId={activeVersion?.id ?? 0}
                     onSelect={handleSelectVersion}
                   />
-                  <VariablesPanel messages={messages} values={varValues} onChange={setVarValues} />
                   <ModelParamsPanel value={modelParams} onChange={setModelParams} />
                   <ToolsPanel tools={tools} onChange={setTools} />
                   <ResponseFormatPanel value={responseFormat} onChange={setResponseFormat} />
@@ -307,30 +351,32 @@ function PromptDetailLoaded({ prompt }: { prompt: NonNullable<Awaited<ReturnType
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <RunDiffSheet open={diffOpen} onOpenChange={setDiffOpen} runA={diffRunA} runB={diffRunB} />
     </Page>
   )
 }
 
-function SettingsTab({ prompt }: { prompt: NonNullable<Awaited<ReturnType<typeof getPrompt>>> }) {
+function SettingsTab({ prompt }: { prompt: PromptWithVersions['prompt'] }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [name, setName] = useState(prompt.name)
-  const [description, setDescription] = useState(prompt.description)
+  const [description, setDescription] = useState(prompt.description ?? '')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
 
   const saveMutation = useMutation({
-    mutationFn: () => updatePrompt(prompt.id, { name: name.trim(), description: description.trim() }),
+    mutationFn: () =>
+      updatePromptMeta({
+        data: { promptId: prompt.id, name: name.trim(), description: description.trim() || null },
+      }),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.detail(prompt.id) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
       toast.success('Settings saved')
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: () => deletePrompt(prompt.id),
+    mutationFn: () => deletePrompt({ data: { promptId: prompt.id } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
       toast.success('Prompt deleted')
