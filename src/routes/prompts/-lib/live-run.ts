@@ -2,6 +2,7 @@ import type { Message, ModelParams } from '../-types'
 
 export type LiveRunInput = {
   endpointUrl: string
+  agentName?: string
   messages: Message[]
   modelParams: ModelParams
   signal?: AbortSignal
@@ -37,11 +38,19 @@ function extractText(raw: unknown): string {
   return parts.join('\n')
 }
 
-export async function runLive({ endpointUrl, messages, modelParams, signal }: LiveRunInput): Promise<LiveRunOutput> {
+export async function runLive({
+  endpointUrl,
+  agentName,
+  messages,
+  modelParams,
+  signal,
+}: LiveRunInput): Promise<LiveRunOutput> {
   const start = performance.now()
+  const trimmedAgent = agentName?.trim()
   const body = {
     model: modelParams.model || 'gpt-4o-mini',
     input: messages.map((m) => ({ role: m.role, content: m.content })),
+    ...(trimmedAgent ? { metadata: { entity_id: trimmedAgent } } : {}),
     ...(modelParams.temperature != null && { temperature: modelParams.temperature }),
     ...(modelParams.maxTokens != null && { max_output_tokens: modelParams.maxTokens }),
     ...(modelParams.topP != null && { top_p: modelParams.topP }),

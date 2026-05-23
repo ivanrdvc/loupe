@@ -44,11 +44,18 @@ import { type LiveRunOutput, runLive } from './-lib/live-run'
 import type { Message, ModelParams, PromptWithVersions, ResponseFormat, Tool } from './-types'
 
 const DEFAULT_ENDPOINT = 'http://localhost:8080/v1/responses'
+const DEFAULT_AGENT = 'ProverbsAgent'
 const ENDPOINT_STORAGE_KEY = 'agentops.prompts.liveEndpoint'
+const AGENT_STORAGE_KEY = 'agentops.prompts.liveAgent'
 
 function readStoredEndpoint(): string {
   if (typeof window === 'undefined') return DEFAULT_ENDPOINT
   return window.localStorage.getItem(ENDPOINT_STORAGE_KEY) || DEFAULT_ENDPOINT
+}
+
+function readStoredAgent(): string {
+  if (typeof window === 'undefined') return DEFAULT_AGENT
+  return window.localStorage.getItem(AGENT_STORAGE_KEY) ?? DEFAULT_AGENT
 }
 
 const promptQuery = (id: number) =>
@@ -162,11 +169,13 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
   const [discardOpen, setDiscardOpen] = useState(false)
   const [pendingVersionId, setPendingVersionId] = useState<number | null>(null)
   const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_ENDPOINT)
+  const [agentName, setAgentName] = useState<string>(DEFAULT_AGENT)
   const [latestResult, setLatestResult] = useState<LiveRunOutput | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
 
   useEffect(() => {
     setEndpointUrl(readStoredEndpoint())
+    setAgentName(readStoredAgent())
   }, [])
 
   const handleEndpointChange = (next: string) => {
@@ -176,10 +185,18 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
     }
   }
 
+  const handleAgentChange = (next: string) => {
+    setAgentName(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(AGENT_STORAGE_KEY, next)
+    }
+  }
+
   const runMutation = useMutation({
     mutationFn: () =>
       runLive({
         endpointUrl,
+        agentName,
         messages,
         modelParams,
       }),
@@ -256,26 +273,34 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
                 <div className="flex flex-col gap-4">
                   <PromptEditor messages={messages} onChange={setMessages} />
                   <Separator />
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="endpoint-url" className="text-xs whitespace-nowrap text-muted-foreground">
-                        Agent endpoint
-                      </Label>
-                      <Input
-                        id="endpoint-url"
-                        value={endpointUrl}
-                        onChange={(e) => handleEndpointChange(e.target.value)}
-                        placeholder={DEFAULT_ENDPOINT}
-                        className="h-8 max-w-sm font-mono text-xs"
-                      />
-                      <Button
-                        onClick={() => runMutation.mutate()}
-                        disabled={!endpointUrl.trim() || runMutation.isPending || messages.length === 0}
-                      >
-                        <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
-                        {runMutation.isPending ? 'Running…' : 'Run'}
-                      </Button>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label htmlFor="endpoint-url" className="text-xs whitespace-nowrap text-muted-foreground">
+                      Endpoint
+                    </Label>
+                    <Input
+                      id="endpoint-url"
+                      value={endpointUrl}
+                      onChange={(e) => handleEndpointChange(e.target.value)}
+                      placeholder={DEFAULT_ENDPOINT}
+                      className="h-8 max-w-xs font-mono text-xs"
+                    />
+                    <Label htmlFor="agent-name" className="text-xs whitespace-nowrap text-muted-foreground">
+                      Agent
+                    </Label>
+                    <Input
+                      id="agent-name"
+                      value={agentName}
+                      onChange={(e) => handleAgentChange(e.target.value)}
+                      placeholder={DEFAULT_AGENT}
+                      className="h-8 w-40 font-mono text-xs"
+                    />
+                    <Button
+                      onClick={() => runMutation.mutate()}
+                      disabled={!endpointUrl.trim() || runMutation.isPending || messages.length === 0}
+                    >
+                      <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
+                      {runMutation.isPending ? 'Running…' : 'Run'}
+                    </Button>
                   </div>
                   <Separator />
                   <RunResultPanel result={latestResult} isRunning={runMutation.isPending} error={runError} />
