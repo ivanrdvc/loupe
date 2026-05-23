@@ -1,12 +1,6 @@
-import {
-  Add01Icon,
-  ArrowRight01Icon,
-  Edit02Icon,
-  Folder01Icon,
-  FolderAddIcon,
-  StickyNote01Icon,
-} from '@hugeicons/core-free-icons'
+import { Add01Icon, FolderAddIcon, StickyNote01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { IconChevronRight, IconFile, IconFolder } from '@tabler/icons-react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
@@ -26,10 +20,10 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { queryKeys } from '#/lib/query-keys'
-import { cn } from '#/lib/utils'
 import { createFolder, listFolders, listPrompts } from '#/server/prompts'
 import { NewPromptDialog } from './-components/new-prompt-dialog'
 import type { Prompt, PromptFolder } from './-types'
@@ -101,7 +95,7 @@ function PromptsListPage() {
               <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <HugeiconsIcon icon={Edit02Icon} />
+                    <IconFile />
                   </EmptyMedia>
                   <EmptyTitle>No prompts yet</EmptyTitle>
                   <EmptyDescription>Create a folder to organise your prompts, or jump straight in.</EmptyDescription>
@@ -141,7 +135,7 @@ function PromptsListPage() {
         folders={folders}
         defaultFolderId={defaultFolderId}
       />
-      <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} />
+      <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} folders={folders} />
     </Page>
   )
 }
@@ -192,20 +186,19 @@ function FolderTree({
   const { tree, unfiled } = useMemo(() => buildTree(folders, prompts), [folders, prompts])
 
   return (
-    <div className="flex flex-col gap-0.5 text-sm">
+    <div className="rounded-lg border p-2 text-sm">
       {tree.map((node) => (
         <TreeNodeView
           key={node.type === 'folder' ? `f-${node.folder.id}` : `p-${node.prompt.id}`}
           node={node}
-          depth={0}
           onNewPromptInFolder={onNewPromptInFolder}
         />
       ))}
       {unfiled.length > 0 && (
-        <div className="mt-4 flex flex-col gap-0.5">
-          <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Unfiled</div>
+        <div className="mt-2">
+          <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Unfiled</div>
           {unfiled.map((p) => (
-            <PromptLeaf key={p.id} prompt={p} depth={0} />
+            <PromptLeaf key={p.id} prompt={p} />
           ))}
         </div>
       )}
@@ -215,34 +208,24 @@ function FolderTree({
 
 function TreeNodeView({
   node,
-  depth,
   onNewPromptInFolder,
 }: {
   node: TreeNode
-  depth: number
   onNewPromptInFolder: (folderId: number | null) => void
 }) {
   if (node.type === 'prompt') {
-    return <PromptLeaf prompt={node.prompt} depth={depth} />
+    return <PromptLeaf prompt={node.prompt} />
   }
 
   const { folder, children, prompts } = node
   const count = children.length + prompts.length
+  const hasChildren = children.length + prompts.length > 0
   return (
     <Collapsible defaultOpen className="group/folder">
       <div className="flex items-center gap-0.5 pr-1">
-        <CollapsibleTrigger
-          className={cn(
-            'flex flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-          style={{ paddingLeft: 6 + depth * 14 }}
-        >
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            strokeWidth={2}
-            className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/folder:rotate-90"
-          />
-          <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+        <CollapsibleTrigger className="flex flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
+          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/folder:rotate-90" />
+          <IconFolder className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{folder.name}</span>
           {folder.kind === 'system' && (
             <Badge variant="outline" className="ml-1 text-[10px]">
@@ -262,48 +245,64 @@ function TreeNodeView({
           </Button>
         )}
       </div>
-      <CollapsibleContent>
-        {children.map((child) => (
-          <TreeNodeView
-            key={child.type === 'folder' ? `f-${child.folder.id}` : `p-${child.prompt.id}`}
-            node={child}
-            depth={depth + 1}
-            onNewPromptInFolder={onNewPromptInFolder}
-          />
-        ))}
-        {prompts.map((p) => (
-          <PromptLeaf key={p.id} prompt={p} depth={depth + 1} />
-        ))}
-      </CollapsibleContent>
+      {hasChildren && (
+        <CollapsibleContent>
+          <div className="ml-[13px] border-l border-border/70 pl-2">
+            {children.map((child) => (
+              <TreeNodeView
+                key={child.type === 'folder' ? `f-${child.folder.id}` : `p-${child.prompt.id}`}
+                node={child}
+                onNewPromptInFolder={onNewPromptInFolder}
+              />
+            ))}
+            {prompts.map((p) => (
+              <PromptLeaf key={p.id} prompt={p} />
+            ))}
+          </div>
+        </CollapsibleContent>
+      )}
     </Collapsible>
   )
 }
 
-function PromptLeaf({ prompt, depth }: { prompt: Prompt; depth: number }) {
+function PromptLeaf({ prompt }: { prompt: Prompt }) {
   return (
     <Link
       to="/prompts/$promptId"
       params={{ promptId: String(prompt.id) }}
-      className="flex items-center gap-1.5 rounded-md py-1 text-left outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
-      style={{ paddingLeft: 6 + (depth + 1) * 14, paddingRight: 8 }}
+      className="flex items-center gap-1.5 rounded-md py-1 pl-1.5 pr-2 text-left outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <HugeiconsIcon icon={Edit02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+      <IconFile className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate">{prompt.name}</span>
       {prompt.description && <span className="ml-2 truncate text-xs text-muted-foreground">{prompt.description}</span>}
     </Link>
   )
 }
 
-function NewFolderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+const NO_PARENT_VALUE = '__none__'
+
+function NewFolderDialog({
+  open,
+  onOpenChange,
+  folders,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  folders: PromptFolder[]
+}) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
+  const [parentId, setParentId] = useState<number | null>(null)
+
+  const userFolders = folders.filter((f) => f.kind === 'user')
 
   const mutation = useMutation({
-    mutationFn: () => createFolder({ data: { name: name.trim() } }),
+    mutationFn: () => createFolder({ data: { name: name.trim(), parentId } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.folders() })
       toast.success('Folder created')
       setName('')
+      setParentId(null)
       onOpenChange(false)
     },
   })
@@ -315,13 +314,16 @@ function NewFolderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       open={open}
       onOpenChange={(value) => {
         onOpenChange(value)
-        if (!value) setName('')
+        if (!value) {
+          setName('')
+          setParentId(null)
+        }
       }}
     >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>New folder</DialogTitle>
-          <DialogDescription>Top-level folder for grouping prompts.</DialogDescription>
+          <DialogDescription>Group prompts. Pick a parent to nest.</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-3"
@@ -339,6 +341,27 @@ function NewFolderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
               placeholder="e.g. experiments"
               autoFocus
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-folder-parent">Parent</Label>
+            <Select
+              value={parentId == null ? NO_PARENT_VALUE : String(parentId)}
+              onValueChange={(v) => setParentId(v === NO_PARENT_VALUE ? null : Number(v))}
+            >
+              <SelectTrigger id="new-folder-parent">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value={NO_PARENT_VALUE}>Top level</SelectItem>
+                  {userFolders.map((f) => (
+                    <SelectItem key={f.id} value={String(f.id)}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
