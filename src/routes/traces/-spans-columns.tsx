@@ -45,20 +45,37 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
         .toLowerCase()
       if (!q) return true
       const s = row.original
-      const haystack = [s.spanId, s.traceId, s.spanName, s.purpose, s.modelId ?? '', s.userId ?? '', s.userName ?? '']
+      const haystack = [s.spanId, s.traceId, s.spanName, s.label, s.modelId ?? '', s.userId ?? '', s.userName ?? '']
         .join(' ')
         .toLowerCase()
       return haystack.includes(q)
     },
   },
   {
-    accessorKey: 'purpose',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Purpose" />,
+    accessorKey: 'kind',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Kind" />,
     cell: ({ row }) => (
-      <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px]" title={row.original.purpose}>
-        {row.original.purpose}
+      <Badge variant="outline" className="px-1.5 capitalize text-muted-foreground">
+        {row.original.kind}
       </Badge>
     ),
+    filterFn: (row, _id, value: string[]) => {
+      if (!Array.isArray(value) || value.length === 0) return true
+      return value.includes(row.original.kind)
+    },
+    enableSorting: false,
+  },
+  {
+    accessorKey: 'label',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Label" />,
+    cell: ({ row }) =>
+      row.original.label ? (
+        <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px]" title={row.original.label}>
+          {row.original.label}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground/60">—</span>
+      ),
     enableSorting: false,
   },
   {

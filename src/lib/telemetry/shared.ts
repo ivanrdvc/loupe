@@ -3,7 +3,16 @@ import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
-import type { SessionSummary, ToolErrorRow, ToolPayloadRow } from './types'
+import type { SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow } from './types'
+
+// Spans-tab classifier. Backends return rows matched by either a non-null
+// purpose attr (utility) or `invoke_agent` nested under `execute_tool`
+// (sub-agent). Two providers feed the same UI, so the row → display fields
+// mapping lives here.
+export function classifySpanRow(spanName: string, purpose: string): { kind: SpansViewKind; label: string } {
+  if (purpose) return { kind: 'utility', label: purpose }
+  return { kind: 'sub-agent', label: extractAgentName(spanName) || spanName }
+}
 
 export type IdentityFilter = { userId?: string; userName?: string }
 

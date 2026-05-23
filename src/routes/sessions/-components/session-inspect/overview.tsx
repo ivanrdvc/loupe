@@ -128,7 +128,7 @@ export function SessionInspectLayout({
                     <AgUiSessionPanel spans={spans} />
                   </div>
                 ) : inspectorTab === 'turns' ? (
-                  <SessionTurnsPanel spans={spans} />
+                  <SessionTurnsPanel spans={spans} selectedId={selectedId} onSelect={onSelect} />
                 ) : inspectorTab === 'attributes' ? (
                   <SpanAttributesPanel selectedSpan={selectedSpan} />
                 ) : (
@@ -263,22 +263,23 @@ function SessionStrip({ spans }: { spans: Span[] }) {
     return { input, output, cached, cost, errors, duration }
   }, [turns])
 
-  const subagent = useMemo(() => {
+  // Tracked separately for the breakdown bar's `subagent` segment only —
+  // turnTotals already folds these into per-turn (and thus session) totals,
+  // so we must NOT add them to totalCost / allTokens again.
+  const subagentTokens = useMemo(() => {
     let tokens = 0
-    let cost = 0
     for (const span of subagentChatSpans(spans)) {
       tokens += (span.inputTokens ?? 0) + (span.outputTokens ?? 0)
-      cost += span.costUsd ?? 0
     }
-    return { tokens, cost }
+    return tokens
   }, [spans])
 
   const inputTokens = total.inputTokens || totals.input
   const outputTokens = total.outputTokens || totals.output
   const cachedTokens = total.cachedTokens || totals.cached
-  const allTokens = inputTokens + outputTokens + subagent.tokens
+  const allTokens = inputTokens + outputTokens
   const cachePct = inputTokens > 0 ? Math.round((cachedTokens / inputTokens) * 100) : 0
-  const totalCost = totals.cost + subagent.cost
+  const totalCost = totals.cost
 
   if (orchestratorIds.length === 0) {
     return null
@@ -326,7 +327,7 @@ function SessionStrip({ spans }: { spans: Span[] }) {
           systemTokens={total.systemTokens}
           toolDefsTokens={total.toolDefsTokens}
           messagesTokens={total.messagesTokens}
-          subagentTokens={subagent.tokens}
+          subagentTokens={subagentTokens}
         />
       </div>
     </section>
@@ -390,7 +391,7 @@ function SpanAttributesPanel({ selectedSpan }: { selectedSpan: Span | undefined 
         </Empty>
       ) : (
         <div className="overflow-hidden rounded-md border">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[14rem] font-mono text-[11px] uppercase tracking-wide">Key</TableHead>
@@ -439,12 +440,12 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
       <TableCell className="max-w-[14rem] truncate py-1.5 font-mono text-xs text-muted-foreground" title={attrKey}>
         {attrKey}
       </TableCell>
-      <TableCell className="py-1.5 font-mono text-xs text-foreground">
+      <TableCell className="whitespace-normal py-1.5 font-mono text-xs text-foreground">
         <div className="flex min-w-0 items-start gap-1.5">
           <div className="min-w-0 flex-1">
             {isLong ? (
               expanded ? (
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 leading-snug">
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 leading-snug">
                   {formatted}
                 </pre>
               ) : (
@@ -453,7 +454,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
                 </span>
               )
             ) : (
-              <span className="block break-words">{formatted}</span>
+              <span className="block break-all">{formatted}</span>
             )}
             {isLong && (
               <Button
@@ -498,7 +499,15 @@ function formatAttrValue(v: unknown): string {
   }
 }
 
-function SessionTurnsPanel({ spans }: { spans: Span[] }) {
+function SessionTurnsPanel({
+  spans,
+  selectedId,
+  onSelect,
+}: {
+  spans: Span[]
+  selectedId: string | null
+  onSelect: (id: string) => void
+}) {
   const orchestratorIds = useMemo(() => findOrchestratorIds(spans), [spans])
   const turns = useMemo(() => extractTurns(spans, orchestratorIds), [spans, orchestratorIds])
   const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
@@ -520,31 +529,50 @@ function SessionTurnsPanel({ spans }: { spans: Span[] }) {
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary" className="tabular-nums">
-          {turns.length} turn{turns.length === 1 ? '' : 's'}
-        </Badge>
-        {errorCount > 0 && (
+      {errorCount > 0 && (
+        <div className="flex items-center gap-2">
           <Badge variant="destructive" className="tabular-nums">
             {errorCount} error{errorCount === 1 ? '' : 's'}
           </Badge>
-        )}
-      </div>
+        </div>
+      )}
       <div className="overflow-hidden rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[3rem] text-[11px] uppercase tracking-wide">Turn</TableHead>
               <TableHead className="text-[11px] uppercase tracking-wide">Model</TableHead>
+              <TableHead
+                className="w-[5.5rem] text-right text-[11px] uppercase tracking-wide"
+                title="Context window size at turn start (first chat's input_tokens)"
+              >
+                Ctx in
+              </TableHead>
+              <TableHead
+                className="w-[5.5rem] text-right text-[11px] uppercase tracking-wide"
+                title="Growth in context size since previous turn's start. Captures assistant reply + tool outputs + any new user message."
+              >
+                Δ
+              </TableHead>
               <TableHead className="w-[5rem] text-right text-[11px] uppercase tracking-wide">Calls</TableHead>
-              <TableHead className="w-[8rem] text-right text-[11px] uppercase tracking-wide">Tokens</TableHead>
               <TableHead className="w-[6rem] text-right text-[11px] uppercase tracking-wide">Cost</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {turns.map((turn, index) => (
-              <SessionTurnRow key={turn.run.id} turn={turn} index={index + 1} agentLabels={agentLabels} />
-            ))}
+            {turns.map((turn, index) => {
+              const prev = index > 0 ? turns[index - 1] : undefined
+              return (
+                <SessionTurnRow
+                  key={turn.run.id}
+                  turn={turn}
+                  prevTurn={prev}
+                  index={index + 1}
+                  agentLabels={agentLabels}
+                  selected={turn.run.id === selectedId}
+                  onSelect={onSelect}
+                />
+              )
+            })}
           </TableBody>
         </Table>
       </div>
@@ -611,22 +639,33 @@ function ContextBreakdown({
 
 function SessionTurnRow({
   turn,
+  prevTurn,
   index,
   agentLabels,
+  selected,
+  onSelect,
 }: {
   turn: Turn
+  prevTurn: Turn | undefined
   index: number
   agentLabels?: Map<string, string>
+  selected: boolean
+  onSelect: (id: string) => void
 }) {
-  const { run, chats, actions } = turn
+  const { run, chats, subagentChats, actions } = turn
   const errors = actions.filter(spanHasError).length
   const totals = turnTotals(turn)
-  const tokenTotal = totals.inputTokens + totals.outputTokens
-  const cachePct = totals.inputTokens > 0 ? Math.round((totals.cachedTokens / totals.inputTokens) * 100) : 0
   const modelLabel = totals.model ?? agentLabels?.get(run.id) ?? run.agentName ?? run.name
+  const ctxIn = chats[0]?.inputTokens
+  const prevCtxIn = prevTurn?.chats[0]?.inputTokens
+  const delta = ctxIn != null && prevCtxIn != null ? ctxIn - prevCtxIn : undefined
 
   return (
-    <TableRow>
+    <TableRow
+      data-state={selected ? 'selected' : undefined}
+      onClick={() => onSelect(run.id)}
+      className="cursor-pointer"
+    >
       <TableCell className="py-1.5 font-medium text-muted-foreground">T{index}</TableCell>
       <TableCell className="py-1.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -638,14 +677,23 @@ function SessionTurnRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="py-1.5 text-right tabular-nums">{chats.length}</TableCell>
+      <TableCell className="py-1.5 text-right tabular-nums text-foreground">
+        {ctxIn != null ? formatTokens(ctxIn) : '—'}
+      </TableCell>
       <TableCell className="py-1.5 text-right tabular-nums">
-        <span className="text-foreground">{tokenTotal ? formatTokens(tokenTotal) : '—'}</span>
-        {totals.cachedTokens > 0 && (
-          <span className="ml-1 text-success">
-            · {formatTokens(totals.cachedTokens)} cached ({cachePct}%)
+        {delta == null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : delta >= 0 ? (
+          <span className="text-foreground">+{formatTokens(delta)}</span>
+        ) : (
+          <span className="text-success" title="Context shrank — likely a compaction or trimmed history">
+            −{formatTokens(-delta)}
           </span>
         )}
+      </TableCell>
+      <TableCell className="py-1.5 text-right tabular-nums">
+        <span className="text-foreground">{chats.length}</span>
+        {subagentChats.length > 0 && <span className="ml-1 text-muted-foreground">+{subagentChats.length} sub</span>}
       </TableCell>
       <TableCell className="py-1.5 text-right tabular-nums text-foreground">{formatCost(totals.costUsd)}</TableCell>
     </TableRow>

@@ -75,9 +75,8 @@ export interface Span {
   toolResult?: JsonValue
 
   // Session correlation. `attribute` = lifted from a real semconv key
-  // (session.id / gen_ai.conversation.id / langfuse.session.id / ...).
-  // `trace` = fallback using the OTel trace_id when no session attribute
-  // is present. UI discloses the source so single-trace sessions don't
+  // (e.g. `session.id`, `gen_ai.conversation.id`). `trace` = fallback using
+  // the OTel trace_id when no session attribute is present. UI discloses the source so single-trace sessions don't
   // masquerade as multi-turn conversations.
   sessionId?: string
   sessionSource?: 'attribute' | 'trace'
@@ -248,7 +247,7 @@ export function findOrchestratorIds(spans: Span[]): string[] {
 // "Non-orchestrator" chats: any chat that's nested under an agent but is NOT
 // a direct child of a top-level invoke_agent. Catches three shapes:
 //   1. invoke_agent → execute_tool → invoke_agent → chat  (canonical subagent)
-//   2. invoke_agent → execute_tool → chat                 (Pydantic AI old form
+//   2. invoke_agent → execute_tool → chat                 (instrumentation that
 //      attributes the wrapped LLM call directly to the tool span)
 //   3. invoke_agent → … → invoke_agent → chat             (any deeper nesting)
 // A chat with no invoke_agent in its ancestor chain (raw chat, no agent

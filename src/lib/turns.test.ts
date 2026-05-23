@@ -189,6 +189,7 @@ describe('extractTurns', () => {
     const turns = extractTurns(spans, 'orch')
     expect(turns).toHaveLength(1)
     expect(turns[0].chats.map((c) => c.id)).toEqual(['c1', 'c2'])
+    expect(turns[0].subagentChats).toEqual([])
     expect(turns[0].actions.map((a) => a.id)).toEqual(['t1'])
   })
 
@@ -233,8 +234,62 @@ describe('extractTurns', () => {
     expect(turns.map((t) => t.run.id)).toEqual(['orchA', 'orchB', 'orchC', 'orchD'])
     expect(turns[2].chats.map((c) => c.id)).toEqual(['c1', 'c2'])
     expect(turns[3].chats.map((c) => c.id)).toEqual(['d1', 'd2'])
-    // d-sub-chat lives under the sub-agent, not directly under orchD.
+    // d-sub-chat lives under the sub-agent, not directly under orchD —
+    // it must stay out of `chats` and instead land in `subagentChats`.
     expect(turns[3].chats.map((c) => c.id)).not.toContain('d-sub-chat')
+    expect(turns[3].subagentChats.map((c) => c.id)).toEqual(['d-sub-chat'])
+  })
+
+  it('routes wrapped LLM calls (execute_tool → chat, no inner invoke_agent) into subagentChats', () => {
+    // Some instrumentations attribute an LLM call directly to the wrapping
+    // execute_tool span (see spans.ts shape #2). The chat is still part of
+    // the orchestrator's work, but with no inner invoke_agent it's not a
+    // true sub-agent. Current rule: depth ≥1 → subagentChats. This pins it
+    // down so cost still rolls up via turnTotals, and surfaces the choice
+    // if/when we want to reclassify these as orchestrator-level chats.
+    const spans: Span[] = [
+      span({ id: 'orch', operation: 'invoke_agent', startMs: 0, endMs: 200 }),
+      span({ id: 'tool', operation: 'tool', parentId: 'orch', startMs: 10 }),
+      span({
+        id: 'wrappedChat',
+        operation: 'chat',
+        parentId: 'tool',
+        startMs: 20,
+        inputTokens: 100,
+        outputTokens: 20,
+        costUsd: 0.02,
+        model: 'gpt-4o',
+      }),
+    ]
+    const [turn] = extractTurns(spans, 'orch')
+    expect(turn.chats).toEqual([])
+    expect(turn.subagentChats.map((c) => c.id)).toEqual(['wrappedChat'])
+    const t = turnTotals(turn)
+    expect(t.inputTokens).toBe(100)
+    expect(t.outputTokens).toBe(20)
+    expect(t.costUsd).toBeCloseTo(0.02)
+    // No orchestrator-direct chat → no model on the rollup. Documents the
+    // current behavior; revisit if/when the UI needs a model badge for
+    // these traces.
+    expect(t.model).toBeUndefined()
+  })
+
+  it('collects chats nested under sub-agents into subagentChats', () => {
+    // execute_tool wraps an invoke_agent which fires its own chats — those
+    // chats belong to this turn's cost, but not to the orchestrator's
+    // visible chat sequence.
+    const spans: Span[] = [
+      span({ id: 'orch', operation: 'invoke_agent', startMs: 0, endMs: 500 }),
+      span({ id: 'c1', operation: 'chat', parentId: 'orch', startMs: 10 }),
+      span({ id: 'tool', operation: 'tool', parentId: 'orch', startMs: 20 }),
+      span({ id: 'sub', operation: 'invoke_agent', parentId: 'tool', startMs: 25 }),
+      span({ id: 'subChat1', operation: 'chat', parentId: 'sub', startMs: 30 }),
+      span({ id: 'subChat2', operation: 'chat', parentId: 'sub', startMs: 50 }),
+      span({ id: 'c2', operation: 'chat', parentId: 'orch', startMs: 100 }),
+    ]
+    const [turn] = extractTurns(spans, 'orch')
+    expect(turn.chats.map((c) => c.id)).toEqual(['c1', 'c2'])
+    expect(turn.subagentChats.map((c) => c.id)).toEqual(['subChat1', 'subChat2'])
   })
 
   it('orders turns by the run start time, not by trace insertion order', () => {
@@ -253,6 +308,46 @@ describe('extractTurns', () => {
 })
 
 describe('turnTotals', () => {
+  it('folds sub-agent chat tokens and cost into the parent turn totals', () => {
+    // Sub-agent costs belong to the turn that invoked the sub-agent —
+    // matches how Langfuse / LangSmith / Phoenix roll up descendants onto
+    // the root invocation. Without this, the per-turn rows underreport
+    // and don't sum to the session total.
+    const spans: Span[] = [
+      span({ id: 'orch', operation: 'invoke_agent', startMs: 0, endMs: 500 }),
+      span({
+        id: 'c1',
+        operation: 'chat',
+        parentId: 'orch',
+        startMs: 10,
+        inputTokens: 100,
+        outputTokens: 20,
+        costUsd: 0.01,
+        model: 'gpt-4o',
+      }),
+      span({ id: 'tool', operation: 'tool', parentId: 'orch', startMs: 50 }),
+      span({ id: 'sub', operation: 'invoke_agent', parentId: 'tool', startMs: 60 }),
+      span({
+        id: 'subChat',
+        operation: 'chat',
+        parentId: 'sub',
+        startMs: 70,
+        inputTokens: 200,
+        outputTokens: 40,
+        costUsd: 0.05,
+        model: 'gpt-4o-mini',
+      }),
+    ]
+    const [turn] = extractTurns(spans, 'orch')
+    const t = turnTotals(turn)
+    expect(t.inputTokens).toBe(300)
+    expect(t.outputTokens).toBe(60)
+    expect(t.costUsd).toBeCloseTo(0.06)
+    // Model still reflects the orchestrator's last chat (the visible answer),
+    // not the sub-agent's.
+    expect(t.model).toBe('gpt-4o')
+  })
+
   it('sums tokens and cost across all chats in the run', () => {
     const spans: Span[] = [
       span({ id: 'orch', operation: 'invoke_agent', startMs: 0, endMs: 1000 }),

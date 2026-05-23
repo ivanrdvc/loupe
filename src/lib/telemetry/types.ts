@@ -20,14 +20,14 @@ export type GetTraceOpts = WindowOpts & IdentityFilter
 export type ListTracesOpts = ListOpts & IdentityFilter
 export type ListSpansOpts = ListOpts & IdentityFilter
 
-// A nested LLM span with `gen_ai.operation.purpose` set — title generation,
-// memory writes, classification, etc. These live inside a parent chat trace
-// but represent independent background activity worth surfacing on its own.
+export type SpansViewKind = 'utility' | 'sub-agent'
+
 export interface SpanSummary {
   spanId: string
   traceId: string
   spanName: string
-  purpose: string
+  kind: SpansViewKind
+  label: string // purpose name for utility, agent base-name for sub-agent
   startedAtMs: number
   durationMs: number
   totalTokens?: number
@@ -58,7 +58,7 @@ export interface TraceSummary {
   // Lifted from span attrs — the user-emitted run context that lets the trace
   // list show what a run *is*, not just "which agent name appeared first".
   serviceName?: string // OTel `service.name` — the app that emitted the run
-  sessionId?: string // AG-UI `ag_ui_thread_id` (and later: `session.id`, `langfuse.trace.session.id`)
+  sessionId?: string // session attribute (e.g. `ag_ui.thread_id`, `session.id`, `gen_ai.conversation.id`)
   totalTokens?: number
   totalCostUsd?: number
   hasError?: boolean

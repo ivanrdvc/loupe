@@ -1,6 +1,5 @@
-// TODO(refactor): this file shares ~80% of its body with -traces-data-table.tsx
-// and sessions/-components/data-table.tsx. Extract a shared <DataTable> primitive
-// next pass — one source of truth for search bar / pagination / column-visibility.
+// TODO(refactor): shares most machinery with -traces-data-table.tsx and
+// sessions/-components/data-table.tsx — extract a shared <DataTable> primitive.
 
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -25,6 +24,7 @@ import {
 } from '@tanstack/react-table'
 import * as React from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
+import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { RefreshingIndicator } from '#/components/refreshing-indicator'
 import { TimeRangeSelect } from '#/components/time-range-select'
 import { Button } from '#/components/ui/button'
@@ -44,6 +44,11 @@ import type { SpanSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 import { spanColumns } from './-spans-columns'
+
+const KIND_OPTIONS = [
+  { label: 'Utility', value: 'utility' },
+  { label: 'Sub-agent', value: 'sub-agent' },
+]
 
 interface SpansDataTableProps {
   data: SpanSummary[]
@@ -111,6 +116,9 @@ export function SpansDataTable({
           <RefreshingIndicator active={!!refreshing} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          {table.getColumn('kind') && (
+            <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
+          )}
           <TimeRangeSelect value={range} onChange={onRangeChange} />
           <AutoRefreshSelect
             value={autoRefresh}

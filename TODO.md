@@ -1,11 +1,10 @@
 # TODO
 
 ## Feats
-- Sessions — `docs/plans/sessions.md`
+
 - Evals — `docs/plans/evals.md`
 - Compare two runs side-by-side — `docs/plans/compare-runs.md`
 - MCP — `docs/plans/mcp.md`
-- Notes (free-form human notes on session/trace/span) — `docs/plans/notes.md`
 - Prompt registry → trace linkage (revisit). Two paths discussed: span-attribute
   convention (`agentops.prompt.name`, `agentops.prompt.version_hash` set by the
   user's app, agentops links automatically on ingest) vs a C# SDK package that
@@ -31,6 +30,7 @@
 - Default key for the "utility LLM purpose" attribute. OTel GenAI semconv has no `purpose`, and OTel naming spec says apps shouldn't add keys under `gen_ai.*`. Pick: keep `gen_ai.operation.purpose` (squats namespace), vendor-neutral `agentops.llm.purpose`, or no default (everyone configures via `CUSTOM_LLM_PURPOSE_FIELD`).
 
 ## Polish
+
 - Share button on session inspect — copy a deep link (`/sessions/$sessionId`) to
   the clipboard. Small icon button in the drawer header next to the close `✕`.
 - Sessions list preview uses `SessionInspectDrawer`; full session route shares `SessionInspectLayout` (Spans + Conversation tabs).

@@ -157,7 +157,7 @@ Until then, the ancestor-counting primitive is the cheapest correct stance: one 
 
 ## Trace categories (Runs page)
 
-When browsing all recent traces (not grouped into sessions), each trace is classified into one category. The `/runs` index uses this for faceted filtering. Classification happens in the provider (`listTraces`) using aggregated signals — no need to fetch full span trees.
+When browsing all recent traces (not grouped into sessions), each trace is classified into one category. The `/traces` index uses this for faceted filtering. Classification happens in the provider (`listTraces`) using aggregated signals — no need to fetch full span trees.
 
 Implementation: `src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`.
 
@@ -167,10 +167,10 @@ Implementation: `src/lib/telemetry/trace-category.ts` — `classifyTraceCategory
 | `scheduled` | Producer set `session.trigger_type = "scheduled"` (cron/timer-fired)                                 | —                  |
 | `webhook`   | Producer set `session.trigger_type = "webhook"` (event-driven)                                       | —                  |
 | `background`| Producer set `session.trigger_type = "user"` AND `session.execution = "background"` (queued async)   | —                  |
-| `utility`   | Producer set `CUSTOM_LLM_PURPOSE_FIELD` (title gen, summarization, ...) OR chat-only with no agent   | —                  |
+| `utility`   | Producer set `CUSTOM_LLM_PURPOSE_FIELD` (title gen, summarization, ...) OR chat-only with no agent   | → `/traces?tab=spans` |
 | `chat`      | Trace has a session attribute (`ag_ui.thread_id`, `gen_ai.conversation.id`, ...)                     | → `/sessions/<id>` |
 | `orphan`    | Anything left — typically single invoke_agent runs without a session attribute                       | —                  |
 
-Default filter: show everything except `utility` (noise for most debugging).
+Utility traces are filtered out of the `/traces` Traces tab and surfaced via the Spans tab instead (`?tab=spans`), which also lists `invoke_agent` spans whose parent is an `execute_tool` (nested sub-agent invocations). Each Spans row links back to its parent trace.
 
 Categories are derived consumer-side from raw producer attributes — the producer doesn't need to know about agentops's classification vocabulary, just emit `session.trigger_type` / `session.execution` per OTel-style custom attributes.

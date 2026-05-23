@@ -13,7 +13,7 @@ import {
 } from '#/lib/spans'
 import { aiCoalesce, attrKeysFor } from './conventions'
 import { readFieldConfig } from './field-config'
-import { aggregateSessions, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
+import { aggregateSessions, classifySpanRow, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
 import { classifyTraceCategory } from './trace-category'
 import type {
   AppInsightsProvider,
@@ -248,17 +248,12 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       `
       const [rows, costRows] = await Promise.all([kql(q, timespanFromOpts(opts)), kql(costQ, timespanFromOpts(opts))])
       const costByTrace = sumCostByTrace(costRows)
-      // Utility traces (root span has purpose attr) belong in the Spans tab,
-      // not Traces — filter them out so each title-gen / memory.* row appears
-      // exactly once across the UI.
-      return rows
-        .map((r) => {
-          const summary = rowToTraceSummary(r)
-          const cost = costByTrace.get(summary.id)
-          if (cost && cost > 0) summary.totalCostUsd = cost
-          return summary
-        })
-        .filter((t) => t.category !== 'utility')
+      return rows.map((r) => {
+        const summary = rowToTraceSummary(r)
+        const cost = costByTrace.get(summary.id)
+        if (cost && cost > 0) summary.totalCostUsd = cost
+        return summary
+      })
     },
 
     async listSpans(opts): Promise<SpanSummary[]> {
@@ -266,9 +261,14 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       const userFilter = kqlIdentityFilter(opts)
       const purposeAttr = llmPurposeField ?? 'gen_ai.operation.purpose'
       const q = `
+        let execute_tool_ids = union dependencies, requests
+        | where name startswith "execute_tool "
+        | project tool_id = id;
         union dependencies, requests
         | extend purpose = tostring(customDimensions["${purposeAttr}"])
-        | where isnotempty(purpose)
+        | extend is_utility = isnotempty(purpose) and isnotempty(operation_ParentId),
+                 is_agent = name startswith "invoke_agent "
+        | where is_utility or (is_agent and operation_ParentId in (execute_tool_ids))
         ${userFilter ? `| where ${userFilter}` : ''}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
@@ -493,11 +493,15 @@ function sumCostByTrace(rows: Array<Record<string, unknown>>): Map<string, numbe
 
 function rowToSpanSummary(row: Record<string, unknown>): SpanSummary {
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
+  const spanName = String(row.span_name ?? '')
+  const purpose = typeof row.purpose === 'string' ? row.purpose : ''
+  const { kind, label } = classifySpanRow(spanName, purpose)
   const summary: SpanSummary = {
     spanId: String(row.span_id ?? ''),
     traceId: String(row.trace_id ?? ''),
-    spanName: String(row.span_name ?? ''),
-    purpose: String(row.purpose ?? ''),
+    spanName,
+    kind,
+    label,
     startedAtMs: firstSeen,
     durationMs: typeof row.duration_ms === 'number' ? row.duration_ms : Number(row.duration_ms ?? 0),
   }

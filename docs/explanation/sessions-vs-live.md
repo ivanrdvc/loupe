@@ -47,26 +47,29 @@ The Spans/waterfall view can come back behind an opt-in if needed — not the de
 
 ## List pages
 
-`/sessions` lists multi-turn conversations grouped by session attribute. `/traces` lists individual traces (one row per `trace_id`) with a category facet filter (Chat, Sub-agent, Scheduled, Webhook, Background, Utility, Orphan).
+`/sessions` lists multi-turn conversations grouped by session attribute. `/traces` has two tabs:
 
-**Default visibility on `/traces`:**
+- **Traces tab** — one row per `trace_id`, end-to-end runs. Utility traces (those whose root span carries `gen_ai.operation.purpose`) appear here naturally if the producer emits them as their own trace. Category facet filter: Chat, Sub-agent, Scheduled, Event, Webhook, Background, Utility, Orphan.
+- **Spans tab** (`?tab=spans`) — lazy-fetched flat list of *nested* spans worth surfacing on their own: utility purpose-attr spans inside a larger trace (title-gen, memory.* sitting inside a chat trace) and sub-agent invocations (`invoke_agent` whose parent is `execute_tool`). Each row links to its parent trace; clicking opens the trace with that span focused.
 
-- **Session-bound chat traces are hidden by default.** Traces with a session attribute (`ag_ui.thread_id` etc.) belong on `/sessions` — showing them on both pages is redundant. A "Session traces hidden" toggle in the toolbar reveals them when needed.
-- **Utility purpose-spans always show.** Spans with `gen_ai.operation.purpose` set (e.g. `title_generation`, `summarize`) are elevated to their own rows on `/traces` with Category: Utility — even if they live inside a session-bound trace. This makes auxiliary LLM work visible without navigating into the session drawer.
+A utility appears in **one** place, determined by emission shape:
+- emitted as its own trace → Traces tab (category: utility)
+- emitted as a nested span → Spans tab (kind: utility)
 
-**How purpose-span surfacing works:**
+**How the Spans tab works:**
 
-The `listTraces` provider method runs a parallel query that fetches individual spans with `gen_ai.operation.purpose` set (non-root spans only — root purpose-spans are already captured at the trace level). These are merged into the trace list as virtual "utility" rows, sorted by time alongside real traces. Deduplication ensures a trace already classified as `utility` at the trace level doesn't also spawn per-span rows.
+The `listSpans` provider method runs one query per provider that returns rows matching either: (a) `gen_ai.operation.purpose IS NOT NULL AND parent_span_id IS NOT NULL`, or (b) `operation_name LIKE 'invoke_agent %' AND parent_span operation_name LIKE 'execute_tool %'`. Each row carries a `kind` discriminator (`utility` | `sub-agent`) and a `label` (the purpose name or the agent base name).
 
 **What shows where:**
 
-| Trace type                               | `/sessions`                    | `/traces`                          |
-| ---------------------------------------- | ------------------------------ | ---------------------------------- |
-| Chat trace with session attr             | ✓ (grouped into session)       | Hidden by default (toggle to show) |
-| Scheduled / webhook / background         | Only if it has a session attr  | ✓                                  |
-| Utility (root-level purpose)             | Only if it has a session attr  | ✓                                  |
-| Purpose-span inside a session trace      | Visible in session's span tree | ✓ (elevated as own row)            |
-| Orphan (no session, no category signals) | ✗                              | ✓                                  |
+| Trace type                               | `/sessions`                    | `/traces` (Traces tab)             | `/traces?tab=spans`           |
+| ---------------------------------------- | ------------------------------ | ---------------------------------- | ----------------------------- |
+| Chat trace with session attr             | ✓ (grouped into session)       | ✓                                  | —                             |
+| Scheduled / event / webhook / background | Only if it has a session attr  | ✓                                  | —                             |
+| Utility trace (root purpose attr)        | —                              | Hidden (rendered as span instead)  | ✓                             |
+| Sub-agent span (invoke_agent / exec_tool) | Visible in session's span tree | —                                  | ✓ (kind: sub-agent)           |
+| Purpose-span inside a chat trace         | Visible in session's span tree | —                                  | ✓ (kind: utility)             |
+| Orphan (no session, no category signals) | ✗                              | ✓                                  | —                             |
 
 Toolbar pieces (`SearchInput`, `DataTableFacetedFilter`, `TimeRangeSelect`) plus `formatAgo` / `formatCost` / `truncateId` in `src/lib/format.ts` are shared across both.
 

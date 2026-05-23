@@ -10,7 +10,7 @@ import {
 } from '#/lib/spans'
 import { ooCoalesceAs, ooColumns } from './conventions'
 import { readFieldConfig } from './field-config'
-import { aggregateSessions, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
+import { aggregateSessions, classifySpanRow, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
 import { classifyTraceCategory } from './trace-category'
 import type {
   GetTraceOpts,
@@ -313,10 +313,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       `
       }
       const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, limit))
-      // Utility traces (root span has purpose attr) belong in the Spans tab,
-      // not Traces — filter them out so each title-gen / memory.* row appears
-      // exactly once across the UI.
-      return hits.map(hitToSummary).filter((t) => t.category !== 'utility')
+      return hits.map(hitToSummary)
     },
 
     async listSpans(opts): Promise<SpanSummary[]> {
@@ -324,14 +321,24 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
       const purposeCol = llmPurposeCol ?? 'gen_ai_operation_purpose'
       const buildSql = (known: ReadonlySet<string>) => {
-        if (!known.has(purposeCol)) return null
+        const hasPurposeCol = known.has(purposeCol)
         const userPredicate = identityPredicate(opts, known)
+        const utilityClause = hasPurposeCol
+          ? `(${purposeCol} IS NOT NULL AND reference_parent_span_id IS NOT NULL)`
+          : null
+        const subAgentClause = `(
+          operation_name LIKE 'invoke_agent %'
+          AND reference_parent_span_id IN (
+            SELECT span_id FROM "${cfg.stream}" WHERE operation_name LIKE 'execute_tool %'
+          )
+        )`
+        const kindWhere = utilityClause ? `(${utilityClause} OR ${subAgentClause})` : subAgentClause
         return `
         SELECT
           span_id,
           trace_id,
           operation_name AS span_name,
-          ${purposeCol} AS purpose,
+          ${hasPurposeCol ? purposeCol : "''"} AS purpose,
           start_time,
           end_time,
           ${ooCoalesceAs('totalTokens', 'total_tokens', { known })},
@@ -342,16 +349,13 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('userName', 'user_name', { known })}
         FROM "${cfg.stream}"
-        WHERE ${purposeCol} IS NOT NULL
+        WHERE ${kindWhere}
         ${userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''}
         ORDER BY start_time DESC
         LIMIT ${limit}
       `
       }
-      const hits = await runWithSchema(async (known) => {
-        const sql = buildSql(known)
-        return sql ? search(sql, fromUs, toUs, limit) : []
-      })
+      const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, limit))
       return hits.map(hitToSpanSummary)
     },
   }
@@ -380,11 +384,15 @@ function sqlString(value: string): string {
 function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {
   const startNs = Number(h.start_time ?? 0)
   const endNs = Number(h.end_time ?? 0)
+  const spanName = String(h.span_name ?? '')
+  const purpose = typeof h.purpose === 'string' ? h.purpose : ''
+  const { kind, label } = classifySpanRow(spanName, purpose)
   const summary: SpanSummary = {
     spanId: String(h.span_id ?? ''),
     traceId: String(h.trace_id ?? ''),
-    spanName: String(h.span_name ?? ''),
-    purpose: String(h.purpose ?? ''),
+    spanName,
+    kind,
+    label,
     startedAtMs: Math.floor(startNs / 1_000_000),
     durationMs: Math.max(0, Math.floor((endNs - startNs) / 1_000_000)),
   }

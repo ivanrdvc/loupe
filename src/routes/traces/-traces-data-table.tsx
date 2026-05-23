@@ -56,6 +56,7 @@ const CATEGORY_OPTIONS = [
   { label: 'Event', value: 'event' },
   { label: 'Webhook', value: 'webhook' },
   { label: 'Background', value: 'background' },
+  { label: 'Utility', value: 'utility' },
   { label: 'Orphan', value: 'orphan' },
 ]
 
