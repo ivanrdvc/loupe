@@ -5,6 +5,7 @@
   "ignore": ["src/components/ui/**"],
   "ignoreDependencies": [
     "@fontsource-variable/inter",
+    "@fontsource-variable/jetbrains-mono",
     "@tailwindcss/typography",
     "@testing-library/dom",
     "@tanstack/router-plugin",
