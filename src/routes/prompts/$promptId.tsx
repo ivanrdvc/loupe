@@ -30,7 +30,6 @@ import { Separator } from '#/components/ui/separator'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
 import { createVersion, deletePrompt, getPrompt, updatePromptMeta } from '#/server/prompts'
@@ -38,9 +37,19 @@ import { ModelParamsPanel } from './-components/model-params-panel'
 import { PromptDetailHeader } from './-components/prompt-detail-header'
 import { PromptEditor } from './-components/prompt-editor'
 import { ResponseFormatPanel } from './-components/response-format-panel'
+import { RunResultPanel } from './-components/run-result-panel'
 import { ToolsPanel } from './-components/tools-panel'
 import { VersionRail } from './-components/version-rail'
+import { type LiveRunOutput, runLive } from './-lib/live-run'
 import type { Message, ModelParams, PromptWithVersions, ResponseFormat, Tool } from './-types'
+
+const DEFAULT_ENDPOINT = 'http://localhost:8080/v1/responses'
+const ENDPOINT_STORAGE_KEY = 'agentops.prompts.liveEndpoint'
+
+function readStoredEndpoint(): string {
+  if (typeof window === 'undefined') return DEFAULT_ENDPOINT
+  return window.localStorage.getItem(ENDPOINT_STORAGE_KEY) || DEFAULT_ENDPOINT
+}
 
 const promptQuery = (id: number) =>
   queryOptions({
@@ -152,6 +161,38 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
 
   const [discardOpen, setDiscardOpen] = useState(false)
   const [pendingVersionId, setPendingVersionId] = useState<number | null>(null)
+  const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_ENDPOINT)
+  const [latestResult, setLatestResult] = useState<LiveRunOutput | null>(null)
+  const [runError, setRunError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setEndpointUrl(readStoredEndpoint())
+  }, [])
+
+  const handleEndpointChange = (next: string) => {
+    setEndpointUrl(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ENDPOINT_STORAGE_KEY, next)
+    }
+  }
+
+  const runMutation = useMutation({
+    mutationFn: () =>
+      runLive({
+        endpointUrl,
+        messages,
+        modelParams,
+      }),
+    onMutate: () => {
+      setRunError(null)
+    },
+    onSuccess: (result) => {
+      setLatestResult(result)
+    },
+    onError: (err) => {
+      setRunError(err instanceof Error ? err.message : String(err))
+    },
+  })
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -215,19 +256,29 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
                 <div className="flex flex-col gap-4">
                   <PromptEditor messages={messages} onChange={setMessages} />
                   <Separator />
-                  <div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-block">
-                          <Button disabled>
-                            <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
-                            Run
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>Coming soon — dry-run and live-run modes</TooltipContent>
-                    </Tooltip>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="endpoint-url" className="text-xs whitespace-nowrap text-muted-foreground">
+                        Agent endpoint
+                      </Label>
+                      <Input
+                        id="endpoint-url"
+                        value={endpointUrl}
+                        onChange={(e) => handleEndpointChange(e.target.value)}
+                        placeholder={DEFAULT_ENDPOINT}
+                        className="h-8 max-w-sm font-mono text-xs"
+                      />
+                      <Button
+                        onClick={() => runMutation.mutate()}
+                        disabled={!endpointUrl.trim() || runMutation.isPending || messages.length === 0}
+                      >
+                        <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
+                        {runMutation.isPending ? 'Running…' : 'Run'}
+                      </Button>
+                    </div>
                   </div>
+                  <Separator />
+                  <RunResultPanel result={latestResult} isRunning={runMutation.isPending} error={runError} />
                 </div>
                 <aside className="flex flex-col gap-6">
                   <VersionRail
