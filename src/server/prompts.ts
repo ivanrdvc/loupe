@@ -67,67 +67,77 @@ let seedPromise: Promise<void> | null = null
 async function ensureSeed(): Promise<void> {
   if (seedPromise) return seedPromise
   seedPromise = (async () => {
-    const existing = await db.select({ id: promptFolders.id }).from(promptFolders).limit(1)
-    if (existing.length > 0) return
-    const now = new Date()
-    const [system] = await db
-      .insert(promptFolders)
-      .values({ name: 'System', kind: 'system', parentId: null, createdAt: now, updatedAt: now })
-      .returning()
-    const [user] = await db
-      .insert(promptFolders)
-      .values({ name: 'My prompts', kind: 'user', parentId: null, createdAt: now, updatedAt: now })
-      .returning()
-    if (!system || !user) return
+    db.transaction((tx) => {
+      const existing = tx.select({ id: promptFolders.id }).from(promptFolders).limit(1).all()
+      if (existing.length > 0) return
+      const now = new Date()
+      const [system] = tx
+        .insert(promptFolders)
+        .values({ name: 'System', kind: 'system', parentId: null, createdAt: now, updatedAt: now })
+        .returning()
+        .all()
+      const [user] = tx
+        .insert(promptFolders)
+        .values({ name: 'My prompts', kind: 'user', parentId: null, createdAt: now, updatedAt: now })
+        .returning()
+        .all()
+      if (!system || !user) throw new Error('seed: folder insert returned nothing')
 
-    const [systemPrompt] = await db
-      .insert(prompts)
-      .values({
-        folderId: system.id,
-        name: 'router-system',
-        description: 'Top-level system prompt for the router agent.',
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning()
-    if (systemPrompt) {
-      await db.insert(promptVersions).values({
-        promptId: systemPrompt.id,
-        version: 1,
-        messagesJson: [{ role: 'system', content: 'You route the request to the right specialist agent.' }],
-        modelParamsJson: { model: 'gpt-4o-mini', temperature: 0 },
-        toolsJson: [],
-        responseFormatJson: { type: 'text' },
-        author: 'system',
-        createdAt: now,
-      })
-    }
+      const [systemPrompt] = tx
+        .insert(prompts)
+        .values({
+          folderId: system.id,
+          name: 'router-system',
+          description: 'Top-level system prompt for the router agent.',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .all()
+      if (systemPrompt) {
+        tx.insert(promptVersions)
+          .values({
+            promptId: systemPrompt.id,
+            version: 1,
+            messagesJson: [{ role: 'system', content: 'You route the request to the right specialist agent.' }],
+            modelParamsJson: { model: 'gpt-4o-mini', temperature: 0 },
+            toolsJson: [],
+            responseFormatJson: { type: 'text' },
+            author: 'system',
+            createdAt: now,
+          })
+          .run()
+      }
 
-    const [userPrompt] = await db
-      .insert(prompts)
-      .values({
-        folderId: user.id,
-        name: 'summarizer',
-        description: 'One-paragraph summary of an arbitrary input document.',
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning()
-    if (userPrompt) {
-      await db.insert(promptVersions).values({
-        promptId: userPrompt.id,
-        version: 1,
-        messagesJson: [
-          { role: 'system', content: 'Summarize the input in one paragraph. No more than 80 words.' },
-          { role: 'user', content: '{{input}}' },
-        ],
-        modelParamsJson: { model: 'gpt-4o-mini', temperature: 0.3, maxTokens: 300 },
-        toolsJson: [],
-        responseFormatJson: { type: 'text' },
-        author: 'ivan',
-        createdAt: now,
-      })
-    }
+      const [userPrompt] = tx
+        .insert(prompts)
+        .values({
+          folderId: user.id,
+          name: 'summarizer',
+          description: 'One-paragraph summary of an arbitrary input document.',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .all()
+      if (userPrompt) {
+        tx.insert(promptVersions)
+          .values({
+            promptId: userPrompt.id,
+            version: 1,
+            messagesJson: [
+              { role: 'system', content: 'Summarize the input in one paragraph. No more than 80 words.' },
+              { role: 'user', content: '{{input}}' },
+            ],
+            modelParamsJson: { model: 'gpt-4o-mini', temperature: 0.3, maxTokens: 300 },
+            toolsJson: [],
+            responseFormatJson: { type: 'text' },
+            author: 'ivan',
+            createdAt: now,
+          })
+          .run()
+      }
+    })
   })().catch((err) => {
     seedPromise = null
     throw err
@@ -233,6 +243,21 @@ export const updatePromptMeta = createServerFn({ method: 'POST' })
 export const deletePrompt = createServerFn({ method: 'POST' })
   .inputValidator((input: { promptId: number }) => ({ promptId: Number(input.promptId) }))
   .handler(async ({ data }): Promise<void> => {
+    const [row] = await db
+      .select({ folderId: prompts.folderId })
+      .from(prompts)
+      .where(eq(prompts.id, data.promptId))
+      .limit(1)
+    if (row?.folderId != null) {
+      const [folder] = await db
+        .select({ kind: promptFolders.kind })
+        .from(promptFolders)
+        .where(eq(promptFolders.id, row.folderId))
+        .limit(1)
+      if (folder?.kind === 'system') {
+        throw new Error('Cannot delete a prompt inside the System folder')
+      }
+    }
     await db.delete(prompts).where(eq(prompts.id, data.promptId))
   })
 
@@ -247,26 +272,31 @@ export const createVersion = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }): Promise<PromptVersion> => {
     const now = new Date()
-    const [{ value: currentMax } = { value: 0 }] = await db
-      .select({ value: max(promptVersions.version) })
-      .from(promptVersions)
-      .where(eq(promptVersions.promptId, data.promptId))
-    const nextVersion = (currentMax ?? 0) + 1
-    const [row] = await db
-      .insert(promptVersions)
-      .values({
-        promptId: data.promptId,
-        version: nextVersion,
-        messagesJson: data.messages,
-        modelParamsJson: data.modelParams,
-        toolsJson: data.tools,
-        responseFormatJson: data.responseFormat,
-        author: data.author,
-        createdAt: now,
-      })
-      .returning()
-    if (!row) throw new Error('createVersion: insert failed')
-    await db.update(prompts).set({ updatedAt: now }).where(eq(prompts.id, data.promptId))
+    const row = db.transaction((tx) => {
+      const [{ value: currentMax } = { value: 0 }] = tx
+        .select({ value: max(promptVersions.version) })
+        .from(promptVersions)
+        .where(eq(promptVersions.promptId, data.promptId))
+        .all()
+      const nextVersion = (currentMax ?? 0) + 1
+      const [inserted] = tx
+        .insert(promptVersions)
+        .values({
+          promptId: data.promptId,
+          version: nextVersion,
+          messagesJson: data.messages,
+          modelParamsJson: data.modelParams,
+          toolsJson: data.tools,
+          responseFormatJson: data.responseFormat,
+          author: data.author,
+          createdAt: now,
+        })
+        .returning()
+        .all()
+      if (!inserted) throw new Error('createVersion: insert failed')
+      tx.update(prompts).set({ updatedAt: now }).where(eq(prompts.id, data.promptId)).run()
+      return inserted
+    })
     return toVersion(row)
   })
 
@@ -278,6 +308,15 @@ export const createFolder = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }): Promise<PromptFolder> => {
     if (!data.name) throw new Error('Folder name is required')
+    if (data.parentId != null) {
+      const [parent] = await db
+        .select({ kind: promptFolders.kind })
+        .from(promptFolders)
+        .where(eq(promptFolders.id, data.parentId))
+        .limit(1)
+      if (!parent) throw new Error('Parent folder not found')
+      if (parent.kind === 'system') throw new Error('Cannot nest folders under the System folder')
+    }
     const now = new Date()
     const [row] = await db
       .insert(promptFolders)

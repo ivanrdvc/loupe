@@ -9,6 +9,17 @@ CREATE TABLE `prompt_folder` (
 );
 --> statement-breakpoint
 CREATE INDEX `prompt_folder_parent_idx` ON `prompt_folder` (`parent_id`);--> statement-breakpoint
+CREATE TABLE `prompt` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`folder_id` integer,
+	`name` text NOT NULL,
+	`description` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`folder_id`) REFERENCES `prompt_folder`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `prompt_folder_idx` ON `prompt` (`folder_id`);--> statement-breakpoint
 CREATE TABLE `prompt_version` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`prompt_id` integer NOT NULL,
@@ -23,15 +34,4 @@ CREATE TABLE `prompt_version` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `prompt_version_prompt_version_idx` ON `prompt_version` (`prompt_id`,`version`);--> statement-breakpoint
-CREATE INDEX `prompt_version_prompt_idx` ON `prompt_version` (`prompt_id`);--> statement-breakpoint
-CREATE TABLE `prompt` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`folder_id` integer,
-	`name` text NOT NULL,
-	`description` text,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
-	FOREIGN KEY (`folder_id`) REFERENCES `prompt_folder`(`id`) ON UPDATE no action ON DELETE set null
-);
---> statement-breakpoint
-CREATE INDEX `prompt_folder_idx` ON `prompt` (`folder_id`);
+CREATE INDEX `prompt_version_prompt_idx` ON `prompt_version` (`prompt_id`);

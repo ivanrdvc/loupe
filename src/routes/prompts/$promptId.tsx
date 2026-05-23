@@ -32,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
-import { type RunLiveOutput, runLivePrompt } from '#/server/prompt-run'
+import { getRunDefaults, type RunLiveOutput, runLivePrompt } from '#/server/prompt-run'
 import { createVersion, deletePrompt, getPrompt, updatePromptMeta } from '#/server/prompts'
 import { ModelParamsPanel } from './-components/model-params-panel'
 import { PromptDetailHeader } from './-components/prompt-detail-header'
@@ -43,19 +43,12 @@ import { ToolsPanel } from './-components/tools-panel'
 import { VersionRail } from './-components/version-rail'
 import type { Message, ModelParams, PromptWithVersions, ResponseFormat, Tool } from './-types'
 
-const DEFAULT_ENDPOINT = 'http://localhost:8080/v1/responses'
-const DEFAULT_AGENT = 'ProverbsAgent'
 const ENDPOINT_STORAGE_KEY = 'agentops.prompts.liveEndpoint'
 const AGENT_STORAGE_KEY = 'agentops.prompts.liveAgent'
 
-function readStoredEndpoint(): string {
-  if (typeof window === 'undefined') return DEFAULT_ENDPOINT
-  return window.localStorage.getItem(ENDPOINT_STORAGE_KEY) || DEFAULT_ENDPOINT
-}
-
-function readStoredAgent(): string {
-  if (typeof window === 'undefined') return DEFAULT_AGENT
-  return window.localStorage.getItem(AGENT_STORAGE_KEY) ?? DEFAULT_AGENT
+function readStored(key: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback
+  return window.localStorage.getItem(key) ?? fallback
 }
 
 const promptQuery = (id: number) =>
@@ -64,8 +57,18 @@ const promptQuery = (id: number) =>
     queryFn: () => getPrompt({ data: { promptId: id } }),
   })
 
+const runDefaultsQuery = queryOptions({
+  queryKey: queryKeys.prompts.runDefaults(),
+  queryFn: () => getRunDefaults(),
+  staleTime: Number.POSITIVE_INFINITY,
+})
+
 export const Route = createFileRoute('/prompts/$promptId')({
-  loader: ({ context, params }) => context.queryClient.ensureQueryData(promptQuery(Number(params.promptId))),
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(promptQuery(Number(params.promptId))),
+      context.queryClient.ensureQueryData(runDefaultsQuery),
+    ]),
   component: PromptDetailPage,
 })
 
@@ -150,33 +153,30 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
     setResponseFormat(activeVersion.responseFormat)
   }, [activeVersion])
 
-  const baselineKey = useMemo(
-    () =>
-      JSON.stringify({
-        m: activeVersion?.messages ?? [],
-        p: activeVersion?.modelParams ?? {},
-        t: activeVersion?.tools ?? [],
-        r: activeVersion?.responseFormat ?? { type: 'text' },
-      }),
-    [activeVersion],
-  )
-  const currentKey = useMemo(
-    () => JSON.stringify({ m: messages, p: modelParams, t: tools, r: responseFormat }),
-    [messages, modelParams, tools, responseFormat],
-  )
-  const hasChanges = baselineKey !== currentKey
+  const hasChanges = useMemo(() => {
+    if (!activeVersion) return false
+    return (
+      JSON.stringify(activeVersion.messages) !== JSON.stringify(messages) ||
+      JSON.stringify(activeVersion.modelParams) !== JSON.stringify(modelParams) ||
+      JSON.stringify(activeVersion.tools) !== JSON.stringify(tools) ||
+      JSON.stringify(activeVersion.responseFormat) !== JSON.stringify(responseFormat)
+    )
+  }, [activeVersion, messages, modelParams, tools, responseFormat])
 
   const [discardOpen, setDiscardOpen] = useState(false)
   const [pendingVersionId, setPendingVersionId] = useState<number | null>(null)
-  const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_ENDPOINT)
-  const [agentName, setAgentName] = useState<string>(DEFAULT_AGENT)
+  const { data: runDefaults } = useQuery(runDefaultsQuery)
+  const defaultEndpoint = runDefaults?.endpointUrl ?? ''
+  const defaultAgent = runDefaults?.agentName ?? ''
+  const [endpointUrl, setEndpointUrl] = useState<string>(defaultEndpoint)
+  const [agentName, setAgentName] = useState<string>(defaultAgent)
   const [latestResult, setLatestResult] = useState<RunLiveOutput | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
 
   useEffect(() => {
-    setEndpointUrl(readStoredEndpoint())
-    setAgentName(readStoredAgent())
-  }, [])
+    setEndpointUrl(readStored(ENDPOINT_STORAGE_KEY, defaultEndpoint))
+    setAgentName(readStored(AGENT_STORAGE_KEY, defaultAgent))
+  }, [defaultEndpoint, defaultAgent])
 
   const handleEndpointChange = (next: string) => {
     setEndpointUrl(next)
@@ -278,7 +278,7 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
                       id="endpoint-url"
                       value={endpointUrl}
                       onChange={(e) => handleEndpointChange(e.target.value)}
-                      placeholder={DEFAULT_ENDPOINT}
+                      placeholder={defaultEndpoint || 'http://your-agent/v1/responses'}
                       className="h-8 max-w-xs font-mono text-xs"
                     />
                     <Label htmlFor="agent-name" className="text-xs whitespace-nowrap text-muted-foreground">
@@ -288,7 +288,7 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
                       id="agent-name"
                       value={agentName}
                       onChange={(e) => handleAgentChange(e.target.value)}
-                      placeholder={DEFAULT_AGENT}
+                      placeholder={defaultAgent || 'agent name'}
                       className="h-8 w-40 font-mono text-xs"
                     />
                     <Button

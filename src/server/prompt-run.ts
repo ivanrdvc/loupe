@@ -38,6 +38,33 @@ function extractText(raw: unknown): string {
   return parts.join('\n')
 }
 
+const RUN_TIMEOUT_MS = 60_000
+
+export type RunDefaults = {
+  endpointUrl: string
+  agentName: string
+}
+
+export const getRunDefaults = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<RunDefaults> => ({
+    endpointUrl: process.env.PROMPT_LIVE_ENDPOINT ?? '',
+    agentName: process.env.PROMPT_LIVE_AGENT ?? '',
+  }),
+)
+
+function parseEndpoint(rawUrl: string): URL {
+  let url: URL
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    throw new Error('Endpoint must be a valid absolute URL')
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Endpoint must use http or https')
+  }
+  return url
+}
+
 export const runLivePrompt = createServerFn({ method: 'POST' })
   .inputValidator((input: RunLiveInput) => ({
     endpointUrl: String(input.endpointUrl),
@@ -46,6 +73,7 @@ export const runLivePrompt = createServerFn({ method: 'POST' })
     modelParams: input.modelParams ?? { model: '' },
   }))
   .handler(async ({ data }): Promise<RunLiveOutput> => {
+    const url = parseEndpoint(data.endpointUrl)
     const start = performance.now()
     const trimmedAgent = data.agentName?.trim()
     const body = {
@@ -56,11 +84,20 @@ export const runLivePrompt = createServerFn({ method: 'POST' })
       ...(data.modelParams.maxTokens != null && { max_output_tokens: data.modelParams.maxTokens }),
       ...(data.modelParams.topP != null && { top_p: data.modelParams.topP }),
     }
-    const response = await fetch(data.endpointUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(RUN_TIMEOUT_MS),
+      })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        throw new Error(`Run timed out after ${RUN_TIMEOUT_MS / 1000}s`)
+      }
+      throw err
+    }
     const durationMs = Math.round(performance.now() - start)
     if (!response.ok) {
       const errorText = await response.text().catch(() => '')
