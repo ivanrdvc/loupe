@@ -20,6 +20,7 @@ import { Route as InboxIndexRouteImport } from './routes/inbox/index'
 import { Route as EvalsIndexRouteImport } from './routes/evals/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
+import { Route as TasksTaskKeyRouteImport } from './routes/tasks/$taskKey'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as PromptsPromptIdRouteImport } from './routes/prompts/$promptId'
 
@@ -78,6 +79,11 @@ const TracesTraceIdRoute = TracesTraceIdRouteImport.update({
   path: '/traces/$traceId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TasksTaskKeyRoute = TasksTaskKeyRouteImport.update({
+  id: '/tasks/$taskKey',
+  path: '/tasks/$taskKey',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   id: '/sessions/$sessionId',
   path: '/sessions/$sessionId',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/evals/': typeof EvalsIndexRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/changelog': typeof ChangelogIndexRoute
   '/evals': typeof EvalsIndexRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/evals/': typeof EvalsIndexRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/'
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
+    | '/tasks/$taskKey'
     | '/traces/$traceId'
     | '/changelog/'
     | '/evals/'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
+    | '/tasks/$taskKey'
     | '/traces/$traceId'
     | '/changelog'
     | '/evals'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/'
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
+    | '/tasks/$taskKey'
     | '/traces/$traceId'
     | '/changelog/'
     | '/evals/'
@@ -187,6 +199,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PromptsPromptIdRoute: typeof PromptsPromptIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
+  TasksTaskKeyRoute: typeof TasksTaskKeyRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
   EvalsIndexRoute: typeof EvalsIndexRoute
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TracesTraceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tasks/$taskKey': {
+      id: '/tasks/$taskKey'
+      path: '/tasks/$taskKey'
+      fullPath: '/tasks/$taskKey'
+      preLoaderRoute: typeof TasksTaskKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sessions/$sessionId': {
       id: '/sessions/$sessionId'
       path: '/sessions/$sessionId'
@@ -299,6 +319,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PromptsPromptIdRoute: PromptsPromptIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
+  TasksTaskKeyRoute: TasksTaskKeyRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
   EvalsIndexRoute: EvalsIndexRoute,

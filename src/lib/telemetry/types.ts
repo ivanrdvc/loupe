@@ -69,6 +69,13 @@ export interface TraceSummary {
   // User identity if present on the trace (lifted from user.id / user.name attrs).
   userId?: string
   userName?: string
+  // task.* family lifted from the root span. Primary key for the Tasks page
+  // rollup; without taskId every fire is its own row.
+  taskId?: string
+  taskKind?: string
+  taskSchedule?: string
+  taskName?: string
+  taskSource?: string
 }
 
 // A session is the spine of a multi-turn conversation per

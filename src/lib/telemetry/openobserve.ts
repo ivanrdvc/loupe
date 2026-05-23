@@ -299,6 +299,11 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ) AS root_execution,`
               : ''
           }
+          ${has('task_id') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_id END) AS root_task_id,' : ''}
+          ${has('task_kind') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_kind END) AS root_task_kind,' : ''}
+          ${has('task_schedule') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_schedule END) AS root_task_schedule,' : ''}
+          ${has('task_name') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_name END) AS root_task_name,' : ''}
+          ${has('task_source') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_source END) AS root_task_source,' : ''}
           MAX(CASE WHEN reference_parent_span_id IS NULL THEN operation_name END) AS root_operation,
           ${maxOf(uidCols)} AS trace_user_id,
           ${maxOf(unameCols)} AS trace_user_name
@@ -454,6 +459,11 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   if (typeof h.root_operation === 'string' && h.root_operation) summary.rootOperation = h.root_operation
   if (typeof h.trace_user_id === 'string' && h.trace_user_id) summary.userId = h.trace_user_id
   if (typeof h.trace_user_name === 'string' && h.trace_user_name) summary.userName = h.trace_user_name
+  if (typeof h.root_task_id === 'string' && h.root_task_id) summary.taskId = h.root_task_id
+  if (typeof h.root_task_kind === 'string' && h.root_task_kind) summary.taskKind = h.root_task_kind
+  if (typeof h.root_task_schedule === 'string' && h.root_task_schedule) summary.taskSchedule = h.root_task_schedule
+  if (typeof h.root_task_name === 'string' && h.root_task_name) summary.taskName = h.root_task_name
+  if (typeof h.root_task_source === 'string' && h.root_task_source) summary.taskSource = h.root_task_source
   return summary
 }
 

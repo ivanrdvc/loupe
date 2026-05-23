@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Input } from '#/components/ui/input'
-import { Separator } from '#/components/ui/separator'
 import type { TimeRange } from '#/lib/time-range'
 
 export interface FacetedFilterSpec {
@@ -87,7 +86,6 @@ export function DataTableToolbar<TData>({
           onRefresh={onRefresh}
           loading={refreshing}
         />
-        <Separator orientation="vertical" className="mx-1 h-5 self-center" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-x-1.5">

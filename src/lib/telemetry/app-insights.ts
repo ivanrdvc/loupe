@@ -205,6 +205,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             is_root = isempty(operation_ParentId),
             trigger_type = tostring(customDimensions["session.trigger_type"]),
             execution = tostring(customDimensions["session.execution"]),
+            task_id = tostring(customDimensions["task.id"]),
+            task_kind = tostring(customDimensions["task.kind"]),
+            task_schedule = tostring(customDimensions["task.schedule"]),
+            task_name = tostring(customDimensions["task.name"]),
+            task_source = tostring(customDimensions["task.source"]),
             ${llmPurposeExtend}
             u_id = ${USER_ID_COALESCE},
             u_name = ${USER_NAME_COALESCE}
@@ -222,6 +227,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             has_chat = countif(gen_op == "chat") > 0,
             root_trigger_type = coalesce(take_anyif(trigger_type, is_root), take_anyif(trigger_type, isnotempty(trigger_type) and name startswith "invoke_agent ")),
             root_execution = coalesce(take_anyif(execution, is_root), take_anyif(execution, isnotempty(execution) and name startswith "invoke_agent ")),
+            root_task_id = take_anyif(task_id, is_root and isnotempty(task_id)),
+            root_task_kind = take_anyif(task_kind, is_root and isnotempty(task_kind)),
+            root_task_schedule = take_anyif(task_schedule, is_root and isnotempty(task_schedule)),
+            root_task_name = take_anyif(task_name, is_root and isnotempty(task_name)),
+            root_task_source = take_anyif(task_source, is_root and isnotempty(task_source)),
             ${llmPurposeField ? 'root_llm_purpose = take_anyif(llm_purpose, is_root),' : ''}
             root_operation = take_anyif(name, is_root),
             trace_user_id = take_any(u_id),
@@ -594,6 +604,12 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   if (typeof row.root_operation === 'string' && row.root_operation) summary.rootOperation = row.root_operation
   if (typeof row.trace_user_id === 'string' && row.trace_user_id) summary.userId = row.trace_user_id
   if (typeof row.trace_user_name === 'string' && row.trace_user_name) summary.userName = row.trace_user_name
+  if (typeof row.root_task_id === 'string' && row.root_task_id) summary.taskId = row.root_task_id
+  if (typeof row.root_task_kind === 'string' && row.root_task_kind) summary.taskKind = row.root_task_kind
+  if (typeof row.root_task_schedule === 'string' && row.root_task_schedule)
+    summary.taskSchedule = row.root_task_schedule
+  if (typeof row.root_task_name === 'string' && row.root_task_name) summary.taskName = row.root_task_name
+  if (typeof row.root_task_source === 'string' && row.root_task_source) summary.taskSource = row.root_task_source
   return summary
 }
 

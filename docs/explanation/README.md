@@ -24,6 +24,9 @@ doc, write it here.
   active / single-execution surface.
 - [Session sidebar Recent](session-sidebar-recent.md) — how the Sessions page
   and the sidebar Recent list differ.
+- [Tasks](tasks.md) — what the Tasks page shows: machine-driven agent runs
+  (scheduled, event, webhook, background) rolled up by task identity.
+  Read-only over OTel.
 
 ## Cross-cutting
 

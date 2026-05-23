@@ -14,6 +14,9 @@ export const queryKeys = {
   spans: {
     window: (range: string, userId = '') => ['spans', userId, { range }] as const,
   },
+  tasks: {
+    window: (range: string, userId = '') => ['tasks', userId, { range }] as const,
+  },
   inbox: {
     all: () => ['inbox'] as const,
     unreadCount: () => ['inbox', 'unread-count'] as const,

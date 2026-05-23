@@ -1,26 +1,62 @@
-import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline'
-import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useMemo } from 'react'
+import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
+import { useAutoRefresh } from '#/hooks/use-auto-refresh'
+import { useTimeRange } from '#/hooks/use-time-range'
+import { useScopedUserId } from '#/hooks/use-user'
+import { rollupTasks, summarizeRollup } from '#/lib/tasks/rollup'
+import { windowMs } from '#/lib/time-range'
+import { StatStrip } from './-components/stat-strip'
+import { TasksDataTable } from './-components/tasks-table'
+import { tasksTracesQuery } from './-data'
 
 export const Route = createFileRoute('/tasks/')({
+  validateSearch: (search: Record<string, unknown>): { trace?: string } => {
+    const raw = typeof search.trace === 'string' ? search.trace.trim() : ''
+    return raw ? { trace: raw } : {}
+  },
   component: TasksPage,
 })
 
 function TasksPage() {
+  const navigate = useNavigate()
+  const [range, setRange] = useTimeRange()
+  const [autoRefresh, setAutoRefresh] = useAutoRefresh()
+  const scopedUserId = useScopedUserId()
+
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    ...tasksTracesQuery(range, scopedUserId),
+    refetchInterval: AUTO_REFRESH_MS[autoRefresh],
+  })
+
+  const rows = useMemo(() => {
+    if (!data?.traces) return []
+    const { from, to } = windowMs(range)
+    return rollupTasks(data.traces, { fromMs: from, toMs: to })
+  }, [data?.traces, range])
+
+  const summary = useMemo(() => summarizeRollup(rows), [rows])
+
   return (
     <Page title="Tasks">
-      <div className="px-4 lg:px-6">
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ClipboardDocumentListIcon />
-            </EmptyMedia>
-            <EmptyTitle>No tasks yet</EmptyTitle>
-            <EmptyDescription>Tasks will show up here once you create them.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
+      <StatStrip summary={summary} />
+      <TasksDataTable
+        data={rows}
+        isLoading={isLoading}
+        onRowClick={(row) => {
+          void navigate({ to: '/tasks/$taskKey', params: { taskKey: encodeURIComponent(row.key) } })
+        }}
+        range={range}
+        onRangeChange={setRange}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={setAutoRefresh}
+        onRefresh={() => {
+          void refetch()
+        }}
+        refreshing={isFetching}
+      />
     </Page>
   )
 }

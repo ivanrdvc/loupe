@@ -7,7 +7,7 @@ summary: OTel GenAI semconv plus the Logfire / OpenInference / vendor
 status: stable
 owner: "@ivan"
 audience: anyone reading a span payload
-last-reviewed: 2026-05-12
+last-reviewed: 2026-05-23
 tags: [otel, gen-ai, ingest, attributes]
 ---
 
@@ -140,6 +140,24 @@ Not a published OTel semconv attribute — `gen_ai.*` is OTel's GenAI namespace 
 | Attribute            | Type   |
 | -------------------- | ------ |
 | `gen_ai.prompt.name` | string |
+
+## Triggers & tasks
+
+Stamped on the **root span** of a fire so the trace classifier and the Tasks page can bucket and roll up machine-driven runs without a local mirror.
+
+| Attribute              | Type   | Values                                                  | Notes                                                                                                |
+| ---------------------- | ------ | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `session.trigger_type` | string | `scheduled`, `user`, `event`, `webhook`                 | Drives trace category. Read at `src/lib/telemetry/trace-category.ts`.                                |
+| `session.execution`    | string | `background`                                            | Requires `trigger_type=user` — only that combination yields category `background`. Ignored otherwise. |
+| `task.id`              | string | stable task-definition id                               | Primary key for the Tasks page rollup. Without it, every fire is its own row.                        |
+| `task.kind`            | string | `cron`, `one_shot`, `event`, `webhook`, `background`    | Sub-classification finer than `trigger_type` alone.                                                  |
+| `task.schedule`        | string | cron expr, ISO due-at, or interval                      | Shown in the Trigger column. Required for scheduled fires; ignored otherwise.                        |
+| `task.name`            | string | human label                                             | Optional; falls back to `task.id`.                                                                   |
+| `task.source`          | string | event topic, queue name, or webhook route               | Optional; identifies the source for event/webhook fires.                                             |
+
+Identity priority on the read side (for grouping fires into task rows): `task.id` → cloud semconv (`cloud.scheduler.job.name`, `messaging.destination.name`, `http.route`) → derived `(service.name, gen_ai.agent.name, trigger_type)` as a lossy fallback.
+
+`task.*` is a vendor-neutral namespace defined by agentops — same posture as `gen_ai.operation.purpose`. Bare `task.*`, not `agentops.task.*`.
 
 ## AG-UI (CopilotKit)
 
