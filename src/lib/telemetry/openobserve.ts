@@ -10,7 +10,16 @@ import {
 } from '#/lib/spans'
 import { ooCoalesceAs, ooColumns } from './conventions'
 import { readFieldConfig } from './field-config'
-import { aggregateSessions, classifySpanRow, groupBy, num, pickIdentityValue, pickStringValue } from './shared'
+import {
+  aggregateSessions,
+  classifySpanRow,
+  groupBy,
+  num,
+  pickIdentityValue,
+  pickStringValue,
+  SESSION_SCAN_LIMIT,
+  TRACE_FETCH_LIMIT,
+} from './shared'
 import { classifyTraceCategory } from './trace-category'
 import type {
   GetTraceOpts,
@@ -30,13 +39,7 @@ export interface OpenObserveConfig {
   password: string
 }
 
-const DEFAULT_SIZE = 1000
 const DEFAULT_LIST_LIMIT = 50
-// Per-row cap on the session-aggregation scan. Sessions are reconstructed
-// in TS from raw spans, so we have to pull every span that could carry
-// session-identifying info. If the scan hits this cap, `listSessions`
-// reports `truncated: true` so the UI can warn the user.
-const SESSION_SCAN_LIMIT = 10000
 // Last 30 days — OO scans local Parquet, cost ~free.
 const DEFAULT_WINDOW_US = 30 * 24 * 60 * 60 * 1_000_000
 
@@ -49,9 +52,8 @@ const LLM_COST_EXTRAS = ['_o2_llm_cost_details_total']
 const SCHEMA_TTL_MS = 5 * 60 * 1000
 
 export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObserveProvider {
-  // sessionKind/llmPurpose are deployment-specific, not OTel — stay in field-config.
-  const { sessionKindField, llmPurposeField } = readFieldConfig()
-  const sessionKindCol = sessionKindField?.replace(/\./g, '_')
+  // llmPurpose is deployment-specific, not OTel — stays in field-config.
+  const { llmPurposeField } = readFieldConfig()
   const llmPurposeCol = llmPurposeField?.replace(/\./g, '_')
   const auth = btoa(`${cfg.user}:${cfg.password}`)
 
@@ -79,7 +81,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     sql: string,
     fromUs: number,
     toUs: number,
-    size = DEFAULT_SIZE,
+    size = TRACE_FETCH_LIMIT,
   ): Promise<Array<Record<string, unknown>>> => {
     const body = JSON.stringify({
       query: { sql, start_time: fromUs, end_time: toUs, from: 0, size },
@@ -145,7 +147,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       propagateInheritedAttrs(spans)
       return {
         spans,
-        truncated: hits.length >= DEFAULT_SIZE,
+        truncated: hits.length >= TRACE_FETCH_LIMIT,
         focusSpanId: traceId !== realTraceId ? traceId : undefined,
       }
     },
@@ -156,7 +158,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       // Pull every row needed to (a) resolve a trace's session id and (b)
       // roll up its tokens/cost. Group by trace in TS, then by session.
       const buildSql = (known: ReadonlySet<string>) => {
-        const userPredicate = identityPredicate(opts, known)
         const sessionCols = ooColumns('sessionId', { known })
         return `
         SELECT
@@ -170,8 +171,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${ooCoalesceAs('userName', 'user_name', { known })},
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('host', 'host_name', { known })},
-          start_time,
-          end_time,
+          start_time / 1000000 AS start_ms,
+          end_time / 1000000 AS end_ms,
           gen_ai_operation_name,
           ${ooCoalesceAs('totalTokens', 'llm_usage_tokens_total', { known })},
           ${ooCoalesceAs('costUsd', 'llm_usage_cost_total', { known, extras: LLM_COST_EXTRAS })},
@@ -186,7 +187,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           OR gen_ai_operation_name = 'chat'
           ${sessionCols.map((c) => `OR ${c} != ''`).join('\n          ')}
         )
-        ${userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''}
+        ${whereIdentity(opts, known)}
         ORDER BY start_time DESC
         LIMIT ${SESSION_SCAN_LIMIT}
       `
@@ -205,10 +206,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         for (const col of ooColumns('sessionId', { known })) {
           clauses.push(`${col} = '${sessionId}'`)
         }
-        const userPredicate = identityPredicate(opts, known)
-        return `SELECT DISTINCT trace_id FROM "${cfg.stream}" WHERE (${clauses.join(' OR ')}) ${
-          userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''
-        }`
+        return `SELECT DISTINCT trace_id FROM "${cfg.stream}" WHERE (${clauses.join(' OR ')}) ${whereIdentity(opts, known)}`
       }
       const trHits = await runWithSchema((known) => search(buildTraceSql(known), fromUs, toUs))
       const traceIds = trHits.map((h) => String(h.trace_id)).filter(Boolean)
@@ -276,7 +274,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           MAX(CASE WHEN operation_name LIKE 'execute_tool %' AND reference_parent_span_id IS NULL THEN 1 ELSE 0 END) AS has_root_execute_tool,
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN 1 ELSE 0 END) AS has_invoke_agent,
           MAX(CASE WHEN gen_ai_operation_name = 'chat' THEN 1 ELSE 0 END) AS has_chat,
-          ${sessionKindCol ? `MAX(${sessionKindCol}) AS session_kind,` : ''}
           ${llmPurposeCol ? `MAX(CASE WHEN reference_parent_span_id IS NULL THEN ${llmPurposeCol} END) AS root_llm_purpose,` : ''}
           ${
             has('session_trigger_type')
@@ -322,7 +319,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       const purposeCol = llmPurposeCol ?? 'gen_ai_operation_purpose'
       const buildSql = (known: ReadonlySet<string>) => {
         const hasPurposeCol = known.has(purposeCol)
-        const userPredicate = identityPredicate(opts, known)
         const utilityClause = hasPurposeCol
           ? `(${purposeCol} IS NOT NULL AND reference_parent_span_id IS NOT NULL)`
           : null
@@ -343,14 +339,13 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           end_time,
           ${ooCoalesceAs('totalTokens', 'total_tokens', { known })},
           ${ooCoalesceAs('costUsd', 'cost_usd', { known, extras: LLM_COST_EXTRAS })},
-          gen_ai_request_model AS model_id,
-          service_name,
+          ${ooCoalesceAs('model', 'model_id', { known })},
           span_status,
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('userName', 'user_name', { known })}
         FROM "${cfg.stream}"
         WHERE ${kindWhere}
-        ${userPredicate ? `AND (${userPredicate})` : opts?.userId || opts?.userName ? 'AND 1 = 0' : ''}
+        ${whereIdentity(opts, known)}
         ORDER BY start_time DESC
         LIMIT ${limit}
       `
@@ -367,14 +362,16 @@ function window(opts: GetTraceOpts | ListTracesOpts | ListSpansOpts | undefined)
   return { fromUs, toUs }
 }
 
-function identityPredicate(
-  opts: { userId?: string; userName?: string } | undefined,
-  known: ReadonlySet<string>,
-): string | undefined {
+// Returns a clause that can be appended directly after an existing WHERE.
+// Empty when no identity is requested. `AND 1=0` when an identity is requested
+// but no schema column carries it — preserves the "show nothing" intent.
+function whereIdentity(opts: { userId?: string; userName?: string } | undefined, known: ReadonlySet<string>): string {
   const id = pickIdentityValue(opts)
-  if (!id) return undefined
+  if (!id) return ''
   const cols = ooColumns(id.kind === 'id' ? 'userId' : 'userName', { known })
-  return cols.map((k) => `${k} = ${sqlString(id.value)}`).join(' OR ') || undefined
+  if (cols.length === 0) return 'AND 1 = 0'
+  const ors = cols.map((k) => `${k} = ${sqlString(id.value)}`).join(' OR ')
+  return `AND (${ors})`
 }
 
 function sqlString(value: string): string {
@@ -401,7 +398,6 @@ function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {
   const cost = num(h.cost_usd)
   if (cost) summary.totalCostUsd = cost
   if (typeof h.model_id === 'string' && h.model_id) summary.modelId = h.model_id
-  if (typeof h.service_name === 'string' && h.service_name) summary.serviceName = h.service_name
   if (h.span_status === 'ERROR') summary.hasError = true
   if (typeof h.user_id === 'string' && h.user_id) summary.userId = h.user_id
   if (typeof h.user_name === 'string' && h.user_name) summary.userName = h.user_name
@@ -412,13 +408,22 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? 0)
   const hasSession = typeof h.session_id === 'string' && h.session_id.length > 0
+  const rootLlmPurpose = pickStringValue(h.root_llm_purpose)
   const summary: TraceSummary = {
     id: String(h.trace_id),
     startedAtMs: Math.floor(firstSeenNs / 1_000_000),
     durationMs: Math.max(0, Math.floor((lastSeenNs - firstSeenNs) / 1_000_000)),
     spanCount: Number(h.span_count ?? 0),
     hasError: Number(h.has_error ?? 0) === 1,
-    hasSessionAttribute: hasSession,
+    category: classifyTraceCategory({
+      hasSessionAttribute: hasSession,
+      hasRootExecuteTool: Number(h.has_root_execute_tool) > 0,
+      hasInvokeAgent: Number(h.has_invoke_agent ?? 0) > 0,
+      hasChat: Number(h.has_chat ?? 0) > 0,
+      rootTriggerType: pickStringValue(h.root_trigger_type),
+      rootExecution: pickStringValue(h.root_execution),
+      rootLlmPurpose,
+    }),
   }
   const tokens = num(h.total_tokens)
   if (tokens) summary.totalTokens = tokens
@@ -427,30 +432,11 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
   const agent = extractAgentName(String(h.sample_agent ?? ''))
   if (agent) summary.agent = agent
   if (hasSession) summary.sessionId = String(h.session_id)
-  const service = h.service_name
-  if (typeof service === 'string' && service) summary.serviceName = service
-  const rootOp = h.root_operation
-  if (typeof rootOp === 'string' && rootOp) summary.rootOperation = rootOp
-  const userId = h.trace_user_id
-  if (typeof userId === 'string' && userId) summary.userId = userId
-  const userName = h.trace_user_name
-  if (typeof userName === 'string' && userName) summary.userName = userName
-
-  const rootTriggerType = pickStringValue(h.root_trigger_type)
-  if (rootTriggerType) summary.triggerType = rootTriggerType
-  const rootExecution = pickStringValue(h.root_execution)
-  if (rootExecution) summary.execution = rootExecution
-  const rootLlmPurpose = pickStringValue(h.root_llm_purpose)
   if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
-  summary.category = classifyTraceCategory({
-    hasSessionAttribute: hasSession,
-    hasRootExecuteTool: Number(h.has_root_execute_tool) > 0,
-    hasInvokeAgent: Number(h.has_invoke_agent ?? 0) > 0,
-    hasChat: Number(h.has_chat ?? 0) > 0,
-    rootTriggerType,
-    rootExecution,
-    rootLlmPurpose,
-  })
+  if (typeof h.service_name === 'string' && h.service_name) summary.serviceName = h.service_name
+  if (typeof h.root_operation === 'string' && h.root_operation) summary.rootOperation = h.root_operation
+  if (typeof h.trace_user_id === 'string' && h.trace_user_id) summary.userId = h.trace_user_id
+  if (typeof h.trace_user_name === 'string' && h.trace_user_name) summary.userName = h.trace_user_name
   return summary
 }
 

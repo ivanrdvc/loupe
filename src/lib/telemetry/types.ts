@@ -33,7 +33,6 @@ export interface SpanSummary {
   totalTokens?: number
   totalCostUsd?: number
   modelId?: string
-  serviceName?: string
   hasError?: boolean
   userId?: string
   userName?: string
@@ -63,12 +62,8 @@ export interface TraceSummary {
   totalCostUsd?: number
   hasError?: boolean
   category?: TraceCategory
-  // Raw producer attributes, kept so the UI can show a secondary chip
-  // (e.g. llm_purpose=title_generation under category=utility).
-  triggerType?: string
-  execution?: string
+  // Shown as a secondary chip when category=utility (e.g. "title_generation").
   llmPurpose?: string
-  hasSessionAttribute?: boolean
   // Root operation name (first non-http span or fallback to first span name).
   rootOperation?: string
   // User identity if present on the trace (lifted from user.id / user.name attrs).

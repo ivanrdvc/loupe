@@ -21,6 +21,7 @@ import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
 import { SessionInspectLayout } from './-components/session-inspect/overview'
+import { useSessionInspectorShortcuts } from './-components/session-inspect/use-shortcuts'
 import { useSpanSearch } from './-components/session-inspect/use-span-search'
 import { type SessionInspectView, SessionViewBar } from './-components/session-inspect/view-bar'
 import { sessionQuery } from './-data'
@@ -119,6 +120,13 @@ function SessionDetail() {
       navigate({ search: (prev) => ({ range: prev.range, view: 'spans' as const, span: id }) })
     },
   })
+
+  const [pageLink, setPageLink] = useState('')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-read href whenever the route's search params change
+  useEffect(() => {
+    if (typeof window !== 'undefined') setPageLink(window.location.href)
+  }, [search])
+  useSessionInspectorShortcuts({ sessionId, link: pageLink || undefined })
 
   return (
     <div className="flex h-full flex-col">

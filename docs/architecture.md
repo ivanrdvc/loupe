@@ -160,6 +160,17 @@ Implemented in `lib/telemetry/trace-category.ts` (priority order, first match wi
   orphan       everything else
 ```
 
+Where a utility shows up follows the producer's emission shape:
+- **Emitted as its own trace** (own `trace_id`, root span carries the purpose
+  attr) → listed on `/traces` with category `utility`.
+- **Emitted as a nested span inside a larger trace** → invisible from the
+  trace list, surfaced on the Spans tab (`?tab=spans`).
+
+The Spans tab is a flat-spans view fed by `provider.listSpans`, which
+returns nested purpose-attr spans plus nested sub-agent invocations
+(`invoke_agent` whose parent is `execute_tool`). Each row links to its
+parent trace.
+
 **Sub-agent inference** — no OTel attribute exists; we read it off tree shape.
 
 ```
@@ -196,11 +207,15 @@ Full rationale + heuristics + failure modes:
     tokens.ts               tokenizer family + breakdown math
     llm-pricing.ts          model → $/token, fills costUsd when producer omits
     telemetry/
-      types.ts              TelemetryProvider interface, shared row types
+      types.ts              TelemetryProvider interface (listTraces, listSpans,
+                            listSessions, getTrace, getSession, query)
+      index.ts              dispatch wrapper (getActiveProvider, listRecent*)
       openobserve.ts        DataFusion SQL → spans
       app-insights.ts       KQL → spans
       shared.ts             session aggregation, identity, common mappers
-      conventions.ts        attribute key catalog (dotted + underscore forms)
+      conventions.ts        canonical attribute → dotted/underscore key catalog
+      field-config.ts       env-driven attr overrides ($CUSTOM_SESSION_ID_FIELDS,
+                            $CUSTOM_LLM_PURPOSE_FIELD)
       trace-category.ts     classifyTraceCategory
     mcp/                    MCP registry + live tools/list fetch
 
@@ -222,6 +237,7 @@ Rules:
 | Topology inference (why)  | [explanation/agent-trace-topology.md](explanation/agent-trace-topology.md) |
 | Classifier rules          | [explanation/classify-span.md](explanation/classify-span.md) |
 | Sessions roll-up logic    | [explanation/sessions-vs-live.md](explanation/sessions-vs-live.md) |
+| Data model + per-query rationale | [explanation/data-model-and-queries.md](explanation/data-model-and-queries.md) |
 | MCP registry              | [explanation/mcp-read-through.md](explanation/mcp-read-through.md) |
 | Code conventions          | [explanation/code-organization.md](explanation/code-organization.md) |
 | Attribute key catalog     | [reference/ai-attributes.md](reference/ai-attributes.md)     |

@@ -5,6 +5,14 @@ import { estimateCostUsd } from '#/lib/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
 import type { SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow } from './types'
 
+// Sessions are reconstructed from raw spans, so the scan has to pull every
+// row that could carry a session-identifying attribute. When the cap is hit
+// the provider returns `truncated: true` so the UI can warn the user.
+export const SESSION_SCAN_LIMIT = 10000
+// Hard cap on spans returned for one trace fetch. A trace exceeding this is
+// truncated and rendered partially.
+export const TRACE_FETCH_LIMIT = 5000
+
 // Spans-tab classifier. Backends return rows matched by either a non-null
 // purpose attr (utility) or `invoke_agent` nested under `execute_tool`
 // (sub-agent). Two providers feed the same UI, so the row → display fields
@@ -155,14 +163,14 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
   let userId: string | undefined
   let host: string | undefined
   let firstInput: string | undefined
-  let firstInputAtNs = Number.POSITIVE_INFINITY
+  let firstInputAtMs = Number.POSITIVE_INFINITY
   let tokens = 0
   let triggerType: string | undefined
   let cost = 0
   let hasError = false
   for (const h of rows) {
-    const s = Math.floor(Number(h.start_time ?? 0) / 1_000_000)
-    const e = Math.floor(Number(h.end_time ?? 0) / 1_000_000)
+    const s = Number(h.start_ms ?? 0)
+    const e = Number(h.end_ms ?? 0)
     if (s && s < startMs) startMs = s
     if (e > endMs) endMs = e
     if (typeof h.operation_name === 'string') {
@@ -193,12 +201,11 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
           spanStartMs: s,
         })
       if (c) cost += c
-      const startNs = Number(h.start_time ?? 0)
-      if (startNs && startNs < firstInputAtNs) {
+      if (s && s < firstInputAtMs) {
         const candidate = extractFirstUserText(pickCanonical(h, 'llmInput'))
         if (candidate) {
           firstInput = candidate
-          firstInputAtNs = startNs
+          firstInputAtMs = s
         }
       }
     }

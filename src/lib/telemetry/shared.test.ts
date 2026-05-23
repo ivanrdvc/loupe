@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { aggregateSessions, findSessionKey, pickIdentityValue } from './shared'
 
-const NS_PER_MS = 1_000_000
-
 type Row = Record<string, unknown>
 
 function invokeAgent(opts: {
@@ -19,8 +17,8 @@ function invokeAgent(opts: {
     span_id: opts.span,
     reference_parent_span_id: opts.parent ?? null,
     operation_name: `invoke_agent ${opts.agent}(${opts.hex})`,
-    start_time: opts.startMs * NS_PER_MS,
-    end_time: (opts.endMs ?? opts.startMs + 100) * NS_PER_MS,
+    start_ms: opts.startMs,
+    end_ms: opts.endMs ?? opts.startMs + 100,
   }
 }
 
@@ -39,8 +37,8 @@ function chat(opts: {
     reference_parent_span_id: opts.parent,
     operation_name: 'chat gpt-4o-mini',
     gen_ai_operation_name: 'chat',
-    start_time: opts.startMs * NS_PER_MS,
-    end_time: (opts.startMs + 50) * NS_PER_MS,
+    start_ms: opts.startMs,
+    end_ms: opts.startMs + 50,
     llm_usage_tokens_total: opts.tokens,
     llm_usage_cost_total: opts.cost,
     span_status: opts.error ? 'ERROR' : 'OK',
@@ -85,16 +83,16 @@ describe('aggregateSessions', () => {
         span_id: 'a',
         operation_name: 'invoke_agent Bot(11)',
         ag_ui_thread_id: 'thread-1',
-        start_time: 1000 * NS_PER_MS,
-        end_time: 1100 * NS_PER_MS,
+        start_ms: 1000,
+        end_ms: 1100,
       },
       {
         trace_id: 't2',
         span_id: 'b',
         operation_name: 'invoke_agent Bot(22)',
         ag_ui_thread_id: 'thread-1',
-        start_time: 2000 * NS_PER_MS,
-        end_time: 2100 * NS_PER_MS,
+        start_ms: 2000,
+        end_ms: 2100,
       },
     ]
     const out = aggregateSessions(hits, 10)
@@ -137,8 +135,8 @@ describe('aggregateSessions', () => {
         gen_ai_provider_name: 'openai',
         gen_ai_usage_input_tokens: 169,
         gen_ai_usage_output_tokens: 15,
-        start_time: 1010 * NS_PER_MS,
-        end_time: 1060 * NS_PER_MS,
+        start_ms: 1010,
+        end_ms: 1060,
         span_status: 'OK',
         ag_ui_thread_id: 'th-1',
         // intentionally no llm_usage_cost_total — simulates App Insights row
