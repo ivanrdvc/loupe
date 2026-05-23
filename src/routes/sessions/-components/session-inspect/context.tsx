@@ -25,11 +25,11 @@ export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
           key={block.id}
           title={block.title}
           tokens={block.tokens}
-          content={
+          content={() => (
             <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
               {block.content}
             </pre>
-          }
+          )}
         />
       ))}
     </div>
@@ -89,7 +89,7 @@ function ToolRow({ tool }: { tool: ToolDef }) {
       title={tool.name}
       subtitle={tool.description}
       tokens={tool.tokens}
-      content={<CodeBlock code={formatJson(tool.raw)} language="json" className="max-h-80" />}
+      content={() => <CodeBlock code={formatJson(tool.raw)} language="json" className="max-h-80" />}
     />
   )
 }
@@ -103,7 +103,8 @@ export function ExpandableRow({
   title: string
   subtitle?: string
   tokens?: number
-  content: React.ReactNode
+  // Render-prop so heavy work (formatJson, Shiki) only runs when expanded.
+  content: () => React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -129,7 +130,7 @@ export function ExpandableRow({
           className="size-4 shrink-0 text-muted-foreground"
         />
       </button>
-      {open && <div className="border-border border-t bg-background px-3 py-2">{content}</div>}
+      {open && <div className="border-border border-t bg-background px-3 py-2">{content()}</div>}
     </div>
   )
 }

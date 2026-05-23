@@ -148,8 +148,8 @@ function MessagesBlock({
   outputType?: string
   spans?: Span[]
 }) {
-  const inputMsgs = asMessages(input)
-  const outputMsgs = asMessages(output)
+  const inputMsgs = useMemo(() => asMessages(input), [input])
+  const outputMsgs = useMemo(() => asMessages(output), [output])
   // Tool results live on the sibling execute_tool span — asMessages drops
   // tool-role messages — so we splice them back in keyed by tool_call id.
   const callResolutions = useMemo(() => (spans ? resolveToolCalls(spans) : new Map()), [spans])
@@ -242,7 +242,7 @@ function MessageCard({
             </span>
           )}
         </div>
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           {msg.parts.map((part, i) => (
             <MessagePartView
               // biome-ignore lint/suspicious/noArrayIndexKey: part positions are stable for a frozen message
@@ -305,24 +305,30 @@ function MessagePartView({
     const hasResult = resolved?.result !== undefined
     const errored = resolved && !resolved.success
     return (
-      <Collapsible defaultOpen className={`group ${tone.card}`}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 text-[11px]">
-          <span className={tone.badge}>{tone.label}</span>
+      <Collapsible className={`group min-w-0 overflow-hidden ${tone.card}`}>
+        <CollapsibleTrigger className="flex w-full min-w-0 items-center gap-2 text-[11px]">
+          <span className={`shrink-0 ${tone.badge}`}>{tone.label}</span>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
-          <span className="cursor-text select-text font-mono text-foreground" onMouseDown={(e) => e.stopPropagation()}>
+          <span
+            className="min-w-0 truncate font-mono text-foreground"
+            title={part.name}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             {part.name}
           </span>
           {subAgent && subAgentName && subAgentName !== part.name && (
-            <span className="text-muted-foreground">→ {subAgentName}</span>
+            <span className="min-w-0 truncate text-muted-foreground" title={subAgentName}>
+              → {subAgentName}
+            </span>
           )}
           {errored && (
-            <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+            <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
               error
             </span>
           )}
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
           <span
-            className="ml-auto cursor-text select-text truncate font-mono text-[10px] text-muted-foreground"
+            className="ml-auto min-w-0 max-w-[12rem] shrink truncate font-mono text-[10px] text-muted-foreground"
             title={part.id}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -331,10 +337,10 @@ function MessagePartView({
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             strokeWidth={2}
-            className="size-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+            className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
           />
         </CollapsibleTrigger>
-        <CollapsibleContent className="mt-2 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
+        <CollapsibleContent className="mt-2 min-w-0 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
           {part.arguments != null && <ToolInput input={part.arguments} />}
           {hasResult &&
             (errored && typeof resolved.result === 'string' ? (

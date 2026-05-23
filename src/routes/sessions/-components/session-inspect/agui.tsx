@@ -137,7 +137,7 @@ export function AgUiPanel({ span, spans }: { span?: Span; spans: Span[] }) {
                   key={p.id}
                   title={p.label}
                   tokens={p.tokens}
-                  content={
+                  content={() =>
                     p.parsed !== undefined ? (
                       <CodeBlock code={formatJson(p.parsed)} language="json" className="max-h-80" />
                     ) : (
@@ -170,7 +170,7 @@ function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
             title={tool.name}
             subtitle={tool.description}
             tokens={tool.tokens || undefined}
-            content={
+            content={() =>
               tool.raw != null ? (
                 <CodeBlock code={formatJson(tool.raw)} language="json" className="max-h-80" />
               ) : (
