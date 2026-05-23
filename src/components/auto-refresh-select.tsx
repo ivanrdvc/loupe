@@ -1,9 +1,14 @@
 import { Refresh01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { IconChevronDown } from '@tabler/icons-react'
 import { useState } from 'react'
-import { Button } from '#/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
-import { Separator } from '#/components/ui/separator'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
 import { cn } from '#/lib/utils'
 
 type IntervalDef = { label: string; selectedLabel: string; ms: false | number }
@@ -46,9 +51,7 @@ interface AutoRefreshSelectProps {
   value: AutoRefreshInterval
   onChange: (value: AutoRefreshInterval) => void
   onRefresh?: () => void
-  /** Disables the refresh button while a fetch is in flight (no animation). */
   loading?: boolean
-  /** Available interval options. Defaults to the sessions-list set. */
   options?: readonly AutoRefreshInterval[]
 }
 
@@ -62,9 +65,8 @@ export function AutoRefreshSelect({
   options = LIST_AUTO_REFRESH_OPTIONS,
 }: AutoRefreshSelectProps) {
   const selected = AUTO_REFRESH_INTERVALS[value]
-  // Animate the refresh icon only on manual click — background polls are surfaced via <RefreshingIndicator />.
   const [spin, setSpin] = useState(false)
-  const handleClick = () => {
+  const handleRefresh = () => {
     if (!onRefresh) return
     setSpin(true)
     onRefresh()
@@ -72,38 +74,53 @@ export function AutoRefreshSelect({
   }
 
   return (
-    <div className="inline-flex items-center gap-1">
-      {onRefresh && (
-        <Button
-          type="button"
-          aria-label="Refresh now"
-          variant="outline"
-          size="icon-sm"
-          onClick={handleClick}
-          disabled={loading}
-        >
-          <HugeiconsIcon
-            icon={Refresh01Icon}
-            className={cn(spin && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
-          />
-        </Button>
+    <div
+      className={cn(
+        'inline-flex h-8 items-stretch rounded-md border border-border bg-transparent text-sm',
+        'dark:bg-input/30',
+        'focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50',
       )}
-      <Select value={value} onValueChange={(v) => onChange(v as AutoRefreshInterval)}>
-        <SelectTrigger size="sm" aria-label="Auto refresh" className="border-border bg-transparent">
-          <span className="text-muted-foreground">Auto</span>
-          <Separator orientation="vertical" className="data-[orientation=vertical]:h-3.5" />
-          <SelectValue>
-            <span className="tabular-nums">{selected.selectedLabel}</span>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent position="popper" align="end">
-          {options.map((key) => (
-            <SelectItem key={key} value={key}>
-              {AUTO_REFRESH_INTERVALS[key].label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    >
+      <button
+        type="button"
+        aria-label="Refresh now"
+        onClick={handleRefresh}
+        disabled={!onRefresh || loading}
+        className={cn(
+          'inline-flex items-center rounded-l-[5px] px-2 outline-none transition-colors',
+          'hover:bg-accent/40 dark:hover:bg-input/50',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+      >
+        <HugeiconsIcon
+          icon={Refresh01Icon}
+          className={cn('size-4 shrink-0', spin && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
+        />
+      </button>
+      <span className="w-px self-stretch bg-border" aria-hidden="true" />
+      <span className="inline-flex items-center px-2 text-sm tabular-nums">{selected.selectedLabel}</span>
+      <span className="w-px self-stretch bg-border" aria-hidden="true" />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Auto refresh interval"
+          className={cn(
+            'inline-flex items-center rounded-r-[5px] px-1.5 outline-none transition-colors',
+            'hover:bg-accent/40 dark:hover:bg-input/50',
+            'data-[state=open]:bg-accent/40',
+          )}
+        >
+          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuRadioGroup value={value} onValueChange={(v) => onChange(v as AutoRefreshInterval)}>
+            {options.map((key) => (
+              <DropdownMenuRadioItem key={key} value={key}>
+                {AUTO_REFRESH_INTERVALS[key].label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

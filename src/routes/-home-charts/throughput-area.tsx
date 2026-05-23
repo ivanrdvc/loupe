@@ -1,12 +1,25 @@
+import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
 import type { RunsPoint } from '#/lib/telemetry'
+import type { TimeRange } from '#/lib/time-range'
+import { runsPerHourQuery } from '../-home-data'
+import { HomeChartCard } from './chart-card'
 
 const CHART_CONFIG: ChartConfig = {
   runs: { label: 'Runs', color: 'var(--primary)' },
 }
 
-export function ThroughputAreaChart({ data }: { data: RunsPoint[] }) {
+export function ThroughputAreaChart() {
+  return <HomeChartCard title="Runs over time">{(range) => <ThroughputChart range={range} />}</HomeChartCard>
+}
+
+function ThroughputChart({ range }: { range: TimeRange }) {
+  const { data = [] } = useQuery(runsPerHourQuery(range))
+  return <ThroughputChartInner data={data} />
+}
+
+function ThroughputChartInner({ data }: { data: RunsPoint[] }) {
   if (data.length === 0 || data.every((d) => d.runs === 0)) {
     return <div className="text-xs text-muted-foreground">No runs in this window.</div>
   }

@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
-import { useEnv } from '#/hooks/use-env'
 import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
 import { DataTable } from './-components/data-table'
@@ -22,7 +21,6 @@ export const Route = createFileRoute('/sessions/')({
 
 function Sessions() {
   const { userId: overrideUserId } = Route.useSearch()
-  const [env, setEnv] = useEnv()
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
   const globalScopedUserId = useScopedUserId()
@@ -43,8 +41,6 @@ function Sessions() {
         isLoading={isLoading}
         onRowClick={(row) => setPreviewSessionId(row.sessionId)}
         rowClassName={(row) => (row.sessionId === previewSessionId ? 'bg-muted' : undefined)}
-        env={env}
-        onEnvChange={setEnv}
         range={range}
         onRangeChange={setRange}
         autoRefresh={autoRefresh}

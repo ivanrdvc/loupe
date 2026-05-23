@@ -1,6 +1,5 @@
-import { IconCheck, IconCirclePlus } from '@tabler/icons-react'
+import { IconCheck, IconChevronDown, IconPlus } from '@tabler/icons-react'
 import type { Column } from '@tanstack/react-table'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   Command,
@@ -12,7 +11,6 @@ import {
   CommandSeparator,
 } from '#/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
-import { Separator } from '#/components/ui/separator'
 import { cn } from '#/lib/utils'
 
 interface DataTableFacetedFilterProps<TData, TValue> {
@@ -32,36 +30,31 @@ export function DataTableFacetedFilter<TData, TValue>({
 }: DataTableFacetedFilterProps<TData, TValue>) {
   const facets = column?.getFacetedUniqueValues()
   const selectedValues = new Set(column?.getFilterValue() as string[])
+  const hasSelection = selectedValues.size > 0
+  const selectedOptions = options.filter((o) => selectedValues.has(o.value))
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
-          <IconCirclePlus />
-          {title}
-          {selectedValues.size > 0 && (
+        <Button variant="outline" size="sm" className={cn('gap-x-1.5 border-border', !hasSelection && 'border-dashed')}>
+          <IconPlus
+            className={cn('-ml-0.5 size-4 shrink-0 transition-transform', hasSelection && 'rotate-45')}
+            aria-hidden="true"
+          />
+          <span>{title}</span>
+          {hasSelection && (
             <>
-              <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-              <Badge variant="secondary" className="rounded-sm px-1 font-normal lg:hidden">
-                {selectedValues.size}
-              </Badge>
-              <div className="hidden gap-1 lg:flex">
-                {selectedValues.size > 2 ? (
-                  <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                    {selectedValues.size} selected
-                  </Badge>
-                ) : (
-                  options
-                    .filter((option) => selectedValues.has(option.value))
-                    .map((option) => (
-                      <Badge key={option.value} variant="secondary" className="rounded-sm px-1 font-normal">
-                        {option.label}
-                      </Badge>
-                    ))
-                )}
-              </div>
+              <span className="h-3.5 w-px bg-border" aria-hidden="true" />
+              {selectedValues.size > 2 ? (
+                <span className="font-medium text-primary">{selectedValues.size} selected</span>
+              ) : (
+                <span className="max-w-[10rem] truncate font-medium text-primary">
+                  {selectedOptions.map((o) => o.label).join(', ')}
+                </span>
+              )}
             </>
           )}
+          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[220px] p-0" align="start">

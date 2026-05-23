@@ -46,7 +46,5 @@ export function label(r: TimeRange) {
   return a === b ? a : `${a} – ${b}`
 }
 
-export const shortcut = (r: TimeRange) => (typeof r === 'number' ? `${r}d` : label(r))
-
 export const formatDayMonth = (d: Date | number) =>
   (d instanceof Date ? d : new Date(d)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })

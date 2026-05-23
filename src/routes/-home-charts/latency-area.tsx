@@ -1,7 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { Area, Bar, CartesianGrid, ComposedChart, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
 import { formatDuration } from '#/lib/format'
 import type { LatencyPoint } from '#/lib/telemetry'
+import type { TimeRange } from '#/lib/time-range'
+import { chatLatencyOverTimeQuery } from '../-home-data'
+import { HomeChartCard } from './chart-card'
 
 const CHART_CONFIG: ChartConfig = {
   p95Ms: { label: 'p95 latency', color: 'var(--primary)' },
@@ -9,7 +13,20 @@ const CHART_CONFIG: ChartConfig = {
   count: { label: 'LLM calls', color: 'var(--muted)' },
 }
 
-export function LatencyAreaChart({ data }: { data: LatencyPoint[] }) {
+export function LatencyAreaChart() {
+  return (
+    <HomeChartCard title="Chat latency over time" wide>
+      {(range) => <LatencyChart range={range} />}
+    </HomeChartCard>
+  )
+}
+
+function LatencyChart({ range }: { range: TimeRange }) {
+  const { data = [] } = useQuery(chatLatencyOverTimeQuery(range))
+  return <LatencyChartInner data={data} />
+}
+
+function LatencyChartInner({ data }: { data: LatencyPoint[] }) {
   if (data.length === 0 || data.every((d) => d.count === 0)) {
     return <div className="text-xs text-muted-foreground">No chat spans in this window.</div>
   }

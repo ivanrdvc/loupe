@@ -1,13 +1,6 @@
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  IconAdjustmentsHorizontal,
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronsLeft,
-  IconChevronsRight,
-  IconSearch,
-} from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import {
   type ColumnFiltersState,
@@ -23,32 +16,26 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import * as React from 'react'
-import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
-import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
-import { type Env, EnvSelect } from '#/components/env-select'
-import { RefreshingIndicator } from '#/components/refreshing-indicator'
-import { TimeRangeSelect } from '#/components/time-range-select'
+import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
+import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
 import { Button } from '#/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
-import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
-import { Separator } from '#/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import type { SessionSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 import { sessionColumns } from './columns'
 
-const STATUS_OPTIONS = [
-  { label: 'OK', value: 'ok' },
-  { label: 'Error', value: 'error' },
+const FILTERS: FacetedFilterSpec[] = [
+  {
+    columnId: 'status',
+    title: 'Status',
+    options: [
+      { label: 'OK', value: 'ok' },
+      { label: 'Error', value: 'error' },
+    ],
+  },
 ]
 
 interface DataTableProps {
@@ -56,8 +43,6 @@ interface DataTableProps {
   isLoading?: boolean
   onRowClick?: (row: SessionSummary) => void
   rowClassName?: (row: SessionSummary) => string | undefined
-  env: Env
-  onEnvChange: (env: Env) => void
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
   autoRefresh: AutoRefreshInterval
@@ -71,8 +56,6 @@ export function DataTable({
   isLoading,
   onRowClick,
   rowClassName,
-  env,
-  onEnvChange,
   range,
   onRangeChange,
   autoRefresh,
@@ -112,69 +95,21 @@ export function DataTable({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
-  const searchColumn = table.getColumn('sessionId')
-  const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
-
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="-mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 md:-mt-6 lg:px-6">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {searchColumn && (
-            <div className="relative w-full min-w-0 sm:w-64">
-              <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search agents, users, ids…"
-                value={searchValue}
-                onChange={(e) => searchColumn.setFilterValue(e.target.value)}
-                className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
-              />
-            </div>
-          )}
-          <RefreshingIndicator active={!!refreshing} />
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {table.getColumn('status') && (
-            <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
-          )}
-          <EnvSelect value={env} onChange={onEnvChange} />
-          <TimeRangeSelect value={range} onChange={onRangeChange} />
-          <AutoRefreshSelect
-            value={autoRefresh}
-            onChange={onAutoRefreshChange}
-            onRefresh={onRefresh}
-            loading={refreshing}
-          />
-          <Separator orientation="vertical" className="mx-1 h-5 self-center" />
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" aria-label="Customize columns">
-                    <IconAdjustmentsHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Customize columns</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter((column) => typeof column.accessorFn !== 'undefined' && column.getCanHide())
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-4 md:py-6 lg:px-6">
+      <DataTableToolbar
+        table={table}
+        searchColumnId="sessionId"
+        searchPlaceholder="Search agents, users, ids…"
+        filters={FILTERS}
+        range={range}
+        onRangeChange={onRangeChange}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={onAutoRefreshChange}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+      />
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 md:pb-6 lg:px-6">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto rounded-lg border bg-background">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">

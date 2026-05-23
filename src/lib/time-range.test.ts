@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT, label, PRESETS, parse, serialize, shortcut, type TimeRange, windowMs } from './time-range'
+import { DEFAULT, label, PRESETS, parse, serialize, type TimeRange, windowMs } from './time-range'
 
 describe('parse', () => {
   it('accepts preset numbers from PRESETS', () => {
@@ -93,19 +93,15 @@ describe('windowMs', () => {
   })
 })
 
-describe('label / shortcut', () => {
+describe('label', () => {
   it('formats preset days', () => {
     expect(label(1)).toBe('Past 1 day')
     expect(label(7)).toBe('Past 7 days')
-    expect(shortcut(1)).toBe('1d')
-    expect(shortcut(14)).toBe('14d')
   })
 
   it('formats a single-day custom range as one date', () => {
     const start = new Date(2026, 3, 1, 0, 0, 0).getTime()
     const end = new Date(2026, 3, 1, 23, 59, 59).getTime()
-    expect(label({ from: start, to: end })).toBe(shortcut({ from: start, to: end }))
-    // Both bounds collapse to the same Apr 1 formatted string.
     expect(label({ from: start, to: end })).not.toContain('–')
   })
 

@@ -20,18 +20,12 @@ import { runDetection } from '#/server/detection'
 import { runToolErrorRateDetection, runToolPayloadDetection } from '#/server/detection/anomalies'
 import { type InventoryRow, listHomeInventory } from '#/server/inbox'
 
-export type HomeData = {
+export type HomeInbox = {
   newTools: InventoryRow[]
   newAgents: InventoryRow[]
-} & {
   toolErrors: ToolErrorRow[]
   toolPayloads: ToolPayloadRow[]
-  chatLatencyOverTime: LatencyPoint[]
-  cacheHitRateOverTime: CacheHitPoint[]
-  runsPerHour: RunsPoint[]
 }
-
-const cache = new LRUCache<string, HomeData>({ max: 200 })
 
 function ttlMsFor(range: TimeRange): number {
   const { from, to } = windowMs(range)
@@ -42,11 +36,16 @@ function ttlMsFor(range: TimeRange): number {
   return 60 * 60_000
 }
 
-const fetchHome = createServerFn({ method: 'GET' })
+const inboxCache = new LRUCache<string, HomeInbox>({ max: 200 })
+const latencyCache = new LRUCache<string, LatencyPoint[]>({ max: 200 })
+const cacheHitCache = new LRUCache<string, CacheHitPoint[]>({ max: 200 })
+const runsCache = new LRUCache<string, RunsPoint[]>({ max: 200 })
+
+const fetchInbox = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))
-  .handler(async ({ data }): Promise<HomeData> => {
+  .handler(async ({ data }): Promise<HomeInbox> => {
     const key = `${getActiveProviderId()}:${serialize(data)}`
-    const cached = cache.get(key)
+    const cached = inboxCache.get(key)
     if (cached) return cached
 
     const { from, to } = windowMs(data)
@@ -57,31 +56,80 @@ const fetchHome = createServerFn({ method: 'GET' })
       runToolErrorRateDetection({ fromUs, toUs }),
       runToolPayloadDetection({ fromUs, toUs }),
     ])
-    const [inventory, toolErrors, toolPayloads, chatLatencyOverTime, cacheHitRateOverTime, runsPerHour] =
-      await Promise.all([
-        listHomeInventory(from, to),
-        listToolErrorRates({ fromUs, toUs, limit: 5 }).catch(() => []),
-        listToolPayloadSizes({ fromUs, toUs, limit: 5 }).catch(() => []),
-        listChatLatencyOverTime({ fromUs, toUs }).catch(() => []),
-        listCacheHitRateOverTime({ fromUs, toUs }).catch(() => []),
-        listRunsPerHour({ fromUs, toUs }).catch(() => []),
-      ])
-    const result: HomeData = {
-      ...inventory,
-      toolErrors,
-      toolPayloads,
-      chatLatencyOverTime,
-      cacheHitRateOverTime,
-      runsPerHour,
-    }
-    cache.set(key, result, { ttl: ttlMsFor(data) })
+    const [inventory, toolErrors, toolPayloads] = await Promise.all([
+      listHomeInventory(from, to),
+      listToolErrorRates({ fromUs, toUs, limit: 5 }).catch(() => []),
+      listToolPayloadSizes({ fromUs, toUs, limit: 5 }).catch(() => []),
+    ])
+    const result: HomeInbox = { ...inventory, toolErrors, toolPayloads }
+    inboxCache.set(key, result, { ttl: ttlMsFor(data) })
     return result
   })
 
-export const homeQuery = (range: TimeRange = DEFAULT) =>
+const fetchLatency = createServerFn({ method: 'GET' })
+  .inputValidator((input: unknown) => parse(input))
+  .handler(async ({ data }): Promise<LatencyPoint[]> => {
+    const key = `${getActiveProviderId()}:${serialize(data)}`
+    const cached = latencyCache.get(key)
+    if (cached) return cached
+    const { fromUs, toUs } = windowUs(data)
+    const result = await listChatLatencyOverTime({ fromUs, toUs }).catch(() => [])
+    latencyCache.set(key, result, { ttl: ttlMsFor(data) })
+    return result
+  })
+
+const fetchCacheHit = createServerFn({ method: 'GET' })
+  .inputValidator((input: unknown) => parse(input))
+  .handler(async ({ data }): Promise<CacheHitPoint[]> => {
+    const key = `${getActiveProviderId()}:${serialize(data)}`
+    const cached = cacheHitCache.get(key)
+    if (cached) return cached
+    const { fromUs, toUs } = windowUs(data)
+    const result = await listCacheHitRateOverTime({ fromUs, toUs }).catch(() => [])
+    cacheHitCache.set(key, result, { ttl: ttlMsFor(data) })
+    return result
+  })
+
+const fetchRunsPerHour = createServerFn({ method: 'GET' })
+  .inputValidator((input: unknown) => parse(input))
+  .handler(async ({ data }): Promise<RunsPoint[]> => {
+    const key = `${getActiveProviderId()}:${serialize(data)}`
+    const cached = runsCache.get(key)
+    if (cached) return cached
+    const { fromUs, toUs } = windowUs(data)
+    const result = await listRunsPerHour({ fromUs, toUs }).catch(() => [])
+    runsCache.set(key, result, { ttl: ttlMsFor(data) })
+    return result
+  })
+
+export const homeInboxQuery = (range: TimeRange = DEFAULT) =>
   queryOptions({
-    queryKey: queryKeys.home.window(serialize(range)),
-    queryFn: () => fetchHome({ data: range }),
+    queryKey: [...queryKeys.home.window(serialize(range)), 'inbox'] as const,
+    queryFn: () => fetchInbox({ data: range }),
+    staleTime: STALE_TELEMETRY_MS,
+    refetchInterval: STALE_TELEMETRY_MS,
+  })
+
+export const chatLatencyOverTimeQuery = (range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: [...queryKeys.home.window(serialize(range)), 'latency'] as const,
+    queryFn: () => fetchLatency({ data: range }),
+    staleTime: STALE_TELEMETRY_MS,
+    refetchInterval: STALE_TELEMETRY_MS,
+  })
+
+export const cacheHitRateOverTimeQuery = (range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: [...queryKeys.home.window(serialize(range)), 'cache'] as const,
+    queryFn: () => fetchCacheHit({ data: range }),
+    staleTime: STALE_TELEMETRY_MS,
+    refetchInterval: STALE_TELEMETRY_MS,
+  })
+
+export const runsPerHourQuery = (range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: [...queryKeys.home.window(serialize(range)), 'runs'] as const,
+    queryFn: () => fetchRunsPerHour({ data: range }),
     staleTime: STALE_TELEMETRY_MS,
     refetchInterval: STALE_TELEMETRY_MS,
   })

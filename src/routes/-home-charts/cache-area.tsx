@@ -1,12 +1,25 @@
+import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
 import type { CacheHitPoint } from '#/lib/telemetry'
+import type { TimeRange } from '#/lib/time-range'
+import { cacheHitRateOverTimeQuery } from '../-home-data'
+import { HomeChartCard } from './chart-card'
 
 const CHART_CONFIG: ChartConfig = {
   ratio: { label: 'Cache hit', color: 'var(--primary)' },
 }
 
-export function CacheAreaChart({ data }: { data: CacheHitPoint[] }) {
+export function CacheAreaChart() {
+  return <HomeChartCard title="Cache-hit rate over time">{(range) => <CacheChart range={range} />}</HomeChartCard>
+}
+
+function CacheChart({ range }: { range: TimeRange }) {
+  const { data = [] } = useQuery(cacheHitRateOverTimeQuery(range))
+  return <CacheChartInner data={data} />
+}
+
+function CacheChartInner({ data }: { data: CacheHitPoint[] }) {
   if (data.length === 0 || data.every((d) => d.inputTokens === 0)) {
     return <div className="text-xs text-muted-foreground">No chat spans in this window.</div>
   }

@@ -11,21 +11,10 @@ import type { InventoryRow } from '#/server/inbox'
 
 const PREVIEW_ROWS = 5
 
-export function Section({
-  icon: Icon,
-  title,
-  children,
-  wide,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  children: React.ReactNode
-  wide?: boolean
-}) {
+export function Section({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <Card className={`gap-4 py-4 ${wide ? 'xl:col-span-2' : ''}`}>
       <CardHeader className="flex flex-row items-center gap-2 px-4 [.border-b]:pb-4">
-        <Icon className="size-4 fill-primary" />
         <CardTitle className="text-base font-semibold">{title}</CardTitle>
       </CardHeader>
       <CardContent className="px-4">{children}</CardContent>

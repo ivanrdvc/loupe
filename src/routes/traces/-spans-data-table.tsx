@@ -3,18 +3,13 @@
 
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  IconAdjustmentsHorizontal,
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronsLeft,
-  IconChevronsRight,
-  IconSearch,
-} from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import {
   type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -23,31 +18,26 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import * as React from 'react'
-import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
-import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
-import { RefreshingIndicator } from '#/components/refreshing-indicator'
-import { TimeRangeSelect } from '#/components/time-range-select'
+import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
+import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
 import { Button } from '#/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
-import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
-import { Separator } from '#/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import type { SpanSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 import { spanColumns } from './-spans-columns'
 
-const KIND_OPTIONS = [
-  { label: 'Utility', value: 'utility' },
-  { label: 'Sub-agent', value: 'sub-agent' },
+const FILTERS: FacetedFilterSpec[] = [
+  {
+    columnId: 'kind',
+    title: 'Kind',
+    options: [
+      { label: 'Utility', value: 'utility' },
+      { label: 'Sub-agent', value: 'sub-agent' },
+    ],
+  },
 ]
 
 interface SpansDataTableProps {
@@ -93,69 +83,24 @@ export function SpansDataTable({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
   })
-
-  const searchColumn = table.getColumn('spanName')
-  const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-6 lg:px-6">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {searchColumn && (
-            <div className="relative w-full min-w-0 sm:w-64">
-              <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search spans, purposes, users…"
-                value={searchValue}
-                onChange={(e) => searchColumn.setFilterValue(e.target.value)}
-                className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
-              />
-            </div>
-          )}
-          <RefreshingIndicator active={!!refreshing} />
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {table.getColumn('kind') && (
-            <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
-          )}
-          <TimeRangeSelect value={range} onChange={onRangeChange} />
-          <AutoRefreshSelect
-            value={autoRefresh}
-            onChange={onAutoRefreshChange}
-            onRefresh={onRefresh}
-            loading={refreshing}
-          />
-          <Separator orientation="vertical" className="mx-1 h-5 self-center" />
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" aria-label="Customize columns">
-                    <IconAdjustmentsHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Customize columns</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter((column) => typeof column.accessorFn !== 'undefined' && column.getCanHide())
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <DataTableToolbar
+        table={table}
+        searchColumnId="spanName"
+        searchPlaceholder="Search spans, purposes, users…"
+        filters={FILTERS}
+        range={range}
+        onRangeChange={onRangeChange}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={onAutoRefreshChange}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+      />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
           <Table>

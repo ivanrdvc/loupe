@@ -1,12 +1,11 @@
-import { ArrowLeft01Icon, UnfoldMoreIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { IconCalendar, IconChevronDown, IconChevronLeft } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import type { DateRange } from 'react-day-picker'
 import { Button } from '#/components/ui/button'
 import { Calendar } from '#/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Separator } from '#/components/ui/separator'
-import { formatDayMonth, label, PRESETS, shortcut, type TimeRange } from '#/lib/time-range'
+import { formatDayMonth, label, PRESETS, type TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 
 interface TimeRangeSelectProps {
@@ -21,14 +20,14 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
   const [open, setOpen] = useState(false)
   const isCustom = typeof value !== 'number'
   const [view, setView] = useState<View>(isCustom ? 'custom' : 'presets')
-  const [selected, setSelected] = useState<DateRange | undefined>(
+  const [draft, setDraft] = useState<DateRange | undefined>(
     isCustom ? { from: new Date(value.from), to: new Date(value.to) } : undefined,
   )
 
   useEffect(() => {
     if (!open) return
     setView(isCustom ? 'custom' : 'presets')
-    setSelected(isCustom ? { from: new Date(value.from), to: new Date(value.to) } : undefined)
+    setDraft(isCustom ? { from: new Date(value.from), to: new Date(value.to) } : undefined)
   }, [open, value, isCustom])
 
   const handlePreset = (days: number) => {
@@ -36,17 +35,17 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
     setOpen(false)
   }
 
+  const canApply = !!draft?.from
   const handleApply = () => {
-    if (!selected?.from) return
-    const fromMs = startOfDay(selected.from).getTime()
-    // Single-date selection means "from that day to now"; full range means absolute window.
-    const sameDay = selected.to && startOfDay(selected.to).getTime() === fromMs
-    const toMs = !selected.to || sameDay ? Date.now() : endOfDay(selected.to).getTime()
+    if (!draft?.from) return
+    const fromMs = startOfDay(draft.from).getTime()
+    const sameDay = draft.to && startOfDay(draft.to).getTime() === fromMs
+    const toMs = !draft.to || sameDay ? Date.now() : endOfDay(draft.to).getTime()
     onChange({ from: fromMs, to: toMs })
     setOpen(false)
   }
 
-  const canApply = !!selected?.from
+  const triggerLabel = isCustom ? `${formatDayMonth(value.from)} – ${formatDayMonth(value.to)}` : label(value)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -54,45 +53,34 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
         <button
           type="button"
           aria-label="Time range"
-          data-slot="select-trigger"
-          data-size="sm"
           data-state={open ? 'open' : 'closed'}
           className={cn(
-            // verbatim SelectTrigger classes (radix-mira preset):
-            "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-            // sibling overrides (match EnvSelect / AutoRefreshSelect):
-            'border-border bg-transparent',
-            // open state, matches focus-visible look:
+            'inline-flex h-8 items-center gap-x-1.5 rounded-md border border-border bg-transparent px-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none',
+            'hover:bg-accent/40 dark:bg-input/30 dark:hover:bg-input/50',
+            'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
             'data-[state=open]:border-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/30',
           )}
         >
-          <span className="text-muted-foreground">Range</span>
-          <Separator orientation="vertical" className="data-[orientation=vertical]:h-3.5" />
-          <span className="tabular-nums">{shortcut(value)}</span>
-          <HugeiconsIcon
-            icon={UnfoldMoreIcon}
-            strokeWidth={2}
-            className="pointer-events-none size-4 text-muted-foreground"
-          />
+          <IconCalendar className="-ml-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="max-w-[180px] truncate">{triggerLabel}</span>
+          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={4}
-        className="w-auto rounded-lg p-0 text-popover-foreground shadow-md ring-1 ring-foreground/10"
-      >
+      <PopoverContent align="end" sideOffset={4} className="w-auto rounded-lg p-0">
         {view === 'presets' ? (
-          <div className="flex w-44 flex-col p-1">
+          <div className="flex w-44 flex-col gap-0.5 p-2">
             {options.map((days) => {
-              const isActive = value === days
+              const isActive = !isCustom && value === days
               return (
                 <button
                   key={days}
                   type="button"
                   onClick={() => handlePreset(days)}
                   className={cn(
-                    'flex h-7 items-center rounded-md px-2 text-left text-sm',
-                    isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground',
+                    'flex h-7 items-center rounded-md px-2 text-left text-sm transition-colors',
+                    isActive
+                      ? 'bg-accent font-medium text-accent-foreground'
+                      : 'hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
                   {label(days)}
@@ -104,8 +92,10 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
               type="button"
               onClick={() => setView('custom')}
               className={cn(
-                'flex h-7 items-center rounded-md px-2 text-left text-sm',
-                isCustom ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground',
+                'flex h-7 items-center rounded-md px-2 text-left text-sm transition-colors',
+                isCustom
+                  ? 'bg-accent font-medium text-accent-foreground'
+                  : 'hover:bg-accent hover:text-accent-foreground',
               )}
             >
               Custom range…
@@ -115,19 +105,20 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
           <div className="flex flex-col">
             <div className="flex items-center gap-1 border-b p-1.5">
               <Button variant="ghost" size="icon-sm" aria-label="Back to presets" onClick={() => setView('presets')}>
-                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
+                <IconChevronLeft className="size-3.5" />
               </Button>
               <span className="text-xs font-medium">Custom range</span>
             </div>
             <Calendar
               mode="range"
               numberOfMonths={1}
-              selected={selected}
-              onSelect={setSelected}
-              defaultMonth={selected?.from ?? new Date()}
+              selected={draft}
+              onSelect={setDraft}
+              defaultMonth={draft?.from ?? new Date()}
+              disabled={{ after: new Date() }}
             />
             <div className="flex items-center justify-between gap-2 border-t p-2">
-              <span className="px-1 text-xs text-muted-foreground">{previewLabel(selected)}</span>
+              <span className="px-1 text-xs text-muted-foreground">{previewLabel(draft)}</span>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
                   Cancel
@@ -144,12 +135,12 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
   )
 }
 
-function previewLabel(selected: DateRange | undefined): string {
-  if (!selected?.from) return 'Pick a date'
-  const from = formatDayMonth(selected.from)
-  const sameDay = selected.to && startOfDay(selected.to).getTime() === startOfDay(selected.from).getTime()
-  if (!selected.to || sameDay) return `${from} – now`
-  return `${from} – ${formatDayMonth(selected.to)}`
+function previewLabel(draft: DateRange | undefined): string {
+  if (!draft?.from) return 'Pick a date'
+  const from = formatDayMonth(draft.from)
+  const sameDay = draft.to && startOfDay(draft.to).getTime() === startOfDay(draft.from).getTime()
+  if (!draft.to || sameDay) return `${from} – now`
+  return `${from} – ${formatDayMonth(draft.to)}`
 }
 
 function startOfDay(date: Date): Date {
