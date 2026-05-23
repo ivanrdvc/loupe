@@ -7,14 +7,14 @@ import { formatShortcut, useIsMac } from '#/hooks/use-is-mac'
 export { formatShortcut, useIsMac } from '#/hooks/use-is-mac'
 
 interface Options {
-  sessionId: string | null | undefined
+  entityId: string | null | undefined
   link?: string
   enabled?: boolean
 }
 
-export function useSessionInspectorShortcuts({ sessionId, link, enabled = true }: Options) {
+export function useInspectShortcuts({ entityId, link, enabled = true }: Options) {
   const isMac = useIsMac()
-  const id = sessionId ?? ''
+  const id = entityId ?? ''
   const hasId = id.length > 0
   const hasLink = !!link
 
@@ -22,7 +22,7 @@ export function useSessionInspectorShortcuts({ sessionId, link, enabled = true }
     if (!hasId) return
     try {
       await navigator.clipboard.writeText(id)
-      toast.success('Session ID copied')
+      toast.success('ID copied')
     } catch {
       toast.error('Could not copy')
     }
@@ -59,23 +59,23 @@ export function useSessionInspectorShortcuts({ sessionId, link, enabled = true }
     if (!enabled || !hasId) return null
     const items: SearchProvider['items'] = [
       {
-        id: 'copy-session-id',
-        label: 'Copy session ID',
-        keywords: 'copy id session clipboard',
+        id: 'copy-id',
+        label: 'Copy ID',
+        keywords: 'copy id session trace clipboard',
         trailing: <CommandShortcut>{formatShortcut(isMac, 'Y')}</CommandShortcut>,
         onSelect: copyId,
       },
     ]
     if (hasLink) {
       items.push({
-        id: 'copy-session-link',
+        id: 'copy-link',
         label: 'Copy link',
         keywords: 'copy link share url',
         trailing: <CommandShortcut>{formatShortcut(isMac, 'L')}</CommandShortcut>,
         onSelect: copyLink,
       })
     }
-    return { id: 'session-inspector', group: 'Session', items }
+    return { id: 'inspector', group: 'Inspect', items }
   }, [enabled, hasId, hasLink, isMac, copyId, copyLink])
 
   useRegisterSearchProvider(provider)

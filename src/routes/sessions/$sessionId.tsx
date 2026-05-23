@@ -6,6 +6,10 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
+import { InspectLayout } from '#/components/inspect/overview'
+import { useInspectShortcuts } from '#/components/inspect/use-shortcuts'
+import { useSpanSearch } from '#/components/inspect/use-span-search'
+import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
 import { SiteHeader } from '#/components/site-header'
 import { Badge } from '#/components/ui/badge'
 import {
@@ -20,10 +24,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
-import { SessionInspectLayout } from './-components/session-inspect/overview'
-import { useSessionInspectorShortcuts } from './-components/session-inspect/use-shortcuts'
-import { useSpanSearch } from './-components/session-inspect/use-span-search'
-import { type SessionInspectView, SessionViewBar } from './-components/session-inspect/view-bar'
 import { sessionQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
@@ -40,11 +40,11 @@ export const Route = createFileRoute('/sessions/$sessionId')({
 
 interface SessionSearch {
   range: TimeRange
-  view: SessionInspectView
+  view: InspectView
   span?: string
 }
 
-function parseSessionView(value: unknown): SessionInspectView | undefined {
+function parseSessionView(value: unknown): InspectView | undefined {
   if (value === 'conversation') return 'conversation'
   if (value === 'spans' || value === 'trace') return 'spans'
   return undefined
@@ -84,10 +84,7 @@ function SessionDetail() {
 
   const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
   const isUtility = category === 'utility'
-  const hiddenTabs = useMemo<SessionInspectView[] | undefined>(
-    () => (isUtility ? ['conversation'] : undefined),
-    [isUtility],
-  )
+  const hiddenTabs = useMemo<InspectView[] | undefined>(() => (isUtility ? ['conversation'] : undefined), [isUtility])
 
   // Redirect utility traces to Spans view when no explicit ?view= was provided by the user.
   const [hasRedirected, setHasRedirected] = useState(false)
@@ -102,7 +99,7 @@ function SessionDetail() {
     }
   }, [isUtility, search.view, hasRedirected, spans, navigate])
 
-  const setInspectView = (view: SessionInspectView) => {
+  const setInspectView = (view: InspectView) => {
     navigate({
       search: (prev) => ({
         range: prev.range,
@@ -126,7 +123,7 @@ function SessionDetail() {
   useEffect(() => {
     if (typeof window !== 'undefined') setPageLink(window.location.href)
   }, [search])
-  useSessionInspectorShortcuts({ sessionId, link: pageLink || undefined })
+  useInspectShortcuts({ entityId: sessionId, link: pageLink || undefined })
 
   return (
     <div className="flex h-full flex-col">
@@ -168,7 +165,7 @@ function SessionDetail() {
       />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <SessionViewBar
+        <InspectViewBar
           view={inspectView}
           onViewChange={setInspectView}
           fullSpans={fullSpans}
@@ -197,7 +194,7 @@ function SessionDetail() {
               </EmptyHeader>
             </Empty>
           ) : inspectView === 'spans' ? (
-            <SessionInspectLayout
+            <InspectLayout
               spans={spans}
               loading={false}
               selectedId={selectedId}

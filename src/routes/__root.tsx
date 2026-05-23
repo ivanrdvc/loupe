@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { createRootRouteWithContext, HeadContent, Link, Scripts } from '@tanstack/react-router'
+import { createRootRouteWithContext, HeadContent, Link, Scripts, useNavigate, useSearch } from '@tanstack/react-router'
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
@@ -7,6 +7,8 @@ import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
+import { SessionsDrawerHost } from '#/routes/sessions/-components/sessions-drawer-host'
+import { TraceInspectDrawerHost } from '#/routes/traces/-components/trace-drawer-host'
 import appCss from '../styles.css?url'
 
 interface MyRouterContext {
@@ -76,6 +78,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <ShortcutsDialogProvider>
                   <AppSidebar />
                   <SidebarInset>{children}</SidebarInset>
+                  <SessionDrawerMount />
+                  <TraceDrawerMount />
                   <Toaster />
                 </ShortcutsDialogProvider>
               </CommandPaletteProvider>
@@ -85,5 +89,42 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
+  )
+}
+
+// The root has no validateSearch so its search type is `never`; we cast the
+// reducer to `never` to satisfy the route-bound `ParamsReducerFn`. Runtime
+// merges the returned object into whatever search the active route validates.
+type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
+const clearKey =
+  (key: string): SearchUpdater =>
+  (prev) => ({ ...prev, [key]: undefined })
+
+function TraceDrawerMount() {
+  const search = useSearch({ strict: false }) as { trace?: string }
+  const navigate = useNavigate()
+  const previewTraceId = typeof search.trace === 'string' && search.trace ? search.trace : null
+  return (
+    <TraceInspectDrawerHost
+      previewTraceId={previewTraceId}
+      onClose={() => {
+        void navigate({ search: clearKey('trace') as never, replace: true })
+      }}
+    />
+  )
+}
+
+function SessionDrawerMount() {
+  const search = useSearch({ strict: false }) as { session?: string; trace?: string }
+  const navigate = useNavigate()
+  // When both are set, the trace drawer takes priority — never stack two Sheets.
+  const previewSessionId = !search.trace && typeof search.session === 'string' && search.session ? search.session : null
+  return (
+    <SessionsDrawerHost
+      previewSessionId={previewSessionId}
+      onClose={() => {
+        void navigate({ search: clearKey('session') as never, replace: true })
+      }}
+    />
   )
 }

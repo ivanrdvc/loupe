@@ -70,7 +70,6 @@ export function DataTableToolbar<TData>({
         {isFiltered && (
           <Button
             variant="ghost"
-            size="sm"
             onClick={() => table.resetColumnFilters()}
             className="text-primary hover:text-primary"
           >
@@ -88,7 +87,7 @@ export function DataTableToolbar<TData>({
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-x-1.5">
+            <Button variant="outline" className="gap-x-1.5">
               <IconAdjustmentsHorizontal className="size-4" />
               View
             </Button>

@@ -13,16 +13,20 @@ import { TracesDataTable } from './-traces-data-table'
 type TabValue = 'traces' | 'spans'
 
 export const Route = createFileRoute('/traces/')({
-  validateSearch: (search: Record<string, unknown>): { tab?: TabValue } => {
-    const raw = typeof search.tab === 'string' ? search.tab : ''
-    return raw === 'spans' ? { tab: 'spans' } : {}
+  validateSearch: (search: Record<string, unknown>): { tab?: TabValue; trace?: string } => {
+    const rawTab = typeof search.tab === 'string' ? search.tab : ''
+    const rawTrace = typeof search.trace === 'string' ? search.trace.trim() : ''
+    return {
+      ...(rawTab === 'spans' ? { tab: 'spans' as const } : {}),
+      ...(rawTrace ? { trace: rawTrace } : {}),
+    }
   },
   component: TracesIndex,
 })
 
 function TracesIndex() {
   const { tab } = Route.useSearch()
-  const navigate = useNavigate()
+  const navigate = useNavigate({ from: Route.fullPath })
   const activeTab: TabValue = tab ?? 'traces'
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
@@ -47,7 +51,10 @@ function TracesIndex() {
       <Tabs
         value={activeTab}
         onValueChange={(v) =>
-          void navigate({ to: '/traces', search: v === 'spans' ? { tab: 'spans' as const } : {}, replace: true })
+          void navigate({
+            search: (prev) => ({ ...prev, tab: v === 'spans' ? ('spans' as const) : undefined }),
+            replace: true,
+          })
         }
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
@@ -66,7 +73,7 @@ function TracesIndex() {
             data={traces}
             isLoading={tracesQ.isLoading}
             onRowClick={(row) => {
-              void navigate({ to: '/traces/$traceId', params: { traceId: row.id } })
+              void navigate({ search: (prev) => ({ ...prev, trace: row.id }) })
             }}
             range={range}
             onRangeChange={setRange}
@@ -83,7 +90,7 @@ function TracesIndex() {
             data={spans}
             isLoading={spansQ.isLoading}
             onRowClick={(row) => {
-              void navigate({ to: '/traces/$traceId', params: { traceId: row.traceId } })
+              void navigate({ search: (prev) => ({ ...prev, trace: row.traceId }) })
             }}
             range={range}
             onRangeChange={setRange}

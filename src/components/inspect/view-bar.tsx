@@ -7,16 +7,16 @@ import { Separator } from '#/components/ui/separator'
 import { Toggle } from '#/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 
-export type SessionInspectView = 'spans' | 'conversation'
+export type InspectView = 'spans' | 'conversation'
 
-export const SESSION_VIEW_TABS = [
+export const INSPECT_VIEW_TABS = [
   { id: 'spans', label: 'Spans', Icon: QueueListIcon },
   { id: 'conversation', label: 'Conversation', Icon: ChatBubbleLeftRightIcon },
 ] as const
 
-interface SessionViewBarProps {
-  view: SessionInspectView
-  onViewChange: (view: SessionInspectView) => void
+interface InspectViewBarProps {
+  view: InspectView
+  onViewChange: (view: InspectView) => void
   fullSpans?: boolean
   onFullSpansChange?: (value: boolean) => void
   autoRefresh?: AutoRefreshInterval
@@ -27,10 +27,10 @@ interface SessionViewBarProps {
   /** Extra actions rendered to the right of the standard cluster (e.g. ContextWindow). */
   extras?: ReactNode
   /** Tab ids to hide from the view bar (e.g. hide Conversation for utility traces). */
-  hiddenTabs?: SessionInspectView[]
+  hiddenTabs?: InspectView[]
 }
 
-export function SessionViewBar({
+export function InspectViewBar({
   view,
   onViewChange,
   fullSpans,
@@ -42,16 +42,16 @@ export function SessionViewBar({
   autoRefreshOptions,
   extras,
   hiddenTabs,
-}: SessionViewBarProps) {
+}: InspectViewBarProps) {
   const visibleTabs = hiddenTabs?.length
-    ? SESSION_VIEW_TABS.filter((t) => !hiddenTabs.includes(t.id))
-    : SESSION_VIEW_TABS
+    ? INSPECT_VIEW_TABS.filter((t) => !hiddenTabs.includes(t.id))
+    : INSPECT_VIEW_TABS
   const showSpansActions = view === 'spans'
   const hasModifierGroup = showSpansActions && onFullSpansChange
   const hasActionGroup = (autoRefresh != null && onAutoRefreshChange != null && onRefresh != null) || extras != null
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-4 py-2">
-      <IconTabs tabs={visibleTabs} value={view} onChange={onViewChange} aria-label="Session view" />
+      <IconTabs tabs={visibleTabs} value={view} onChange={onViewChange} aria-label="Inspect view" />
       <div className="flex flex-wrap items-center gap-1">
         {showSpansActions && onFullSpansChange && (
           <Tooltip>

@@ -10,9 +10,9 @@
 
 ## Map
 
-- App shell: `src/routes/__root.tsx` mounts `AppSidebar` + `SiteHeader`. Routes wrap their body in `Page`.
-- `/sessions` list + `SessionInspectDrawer`; `/sessions/$sessionId` is the full-page version. Both share view components — edit those, not the shells.
+- App shell: `src/routes/__root.tsx` mounts `AppSidebar` + the `Session`/`Trace` drawer mounts (controlled by `?session=` / `?trace=` URL params, so any page can open either drawer). Individual pages mount their own `SiteHeader`.
+- `/sessions` and `/traces` lists open `InspectDrawer` via URL params; `/sessions/$sessionId` and `/traces/$traceId` are the full-page versions for permalink/cold-open. Both pages and both drawers share the same inner view components — edit those, not the shells.
 - `/traces` has two tabs: Traces (end-to-end runs; utility traces filtered out) and Spans (`?tab=spans`, lazy-fetched) listing utility purpose-attr spans + sub-agent invocations (`invoke_agent` under `execute_tool`).
-- Session drawer (`src/routes/sessions/-components/session-inspect/`): `drawer.tsx` shell · `overview.tsx` Spans-tab layout + inspector tabs · `tree.tsx` left pane (tree, palette) · `detail-panel.tsx` right pane (messages, tool calls, Make-prompt) · `context.tsx` Context-tab UI backed by pure `context-collectors.ts` · `context-segments.ts` stacked-bar math. Keep pure helpers in `.ts` siblings so tests don't pull `src/db` via React imports.
+- Inspect drawer (`src/components/inspect/`, shared by sessions + traces): `drawer.tsx` Sheet shell · `overview.tsx` `InspectLayout` Spans-tab layout + inspector tabs · `tree.tsx` left pane (tree, palette) · `detail-panel.tsx` right pane (messages, tool calls, Make-prompt) · `context.tsx` Context-tab UI backed by pure `context-collectors.ts` · `context-segments.ts` stacked-bar math · `view-bar.tsx` `InspectViewBar`. Per-entity hosts that bind the right query live next to each route: `src/routes/sessions/-components/sessions-drawer-host.tsx`, `src/routes/traces/-components/trace-drawer-host.tsx`. Keep pure helpers in `.ts` siblings so tests don't pull `src/db` via React imports.
 - Span/domain helpers: `src/lib/spans.ts`. Formatting: `src/lib/format.ts`.
 - Ingest: `src/lib/classify-span.ts` (OTel bag → typed `Classification`). Provider clients in `src/lib/telemetry/` — no local mirror DB. Attribute reference: `docs/reference/ai-attributes.md`.

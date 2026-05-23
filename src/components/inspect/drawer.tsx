@@ -4,7 +4,6 @@ import { IconMaximize, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { type AutoRefreshInterval, DRAWER_AUTO_REFRESH_OPTIONS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
@@ -14,46 +13,47 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import type { Span } from '#/lib/spans'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
-import { SessionInspectLayout } from './overview'
-import { useSessionInspectorShortcuts } from './use-shortcuts'
+import { InspectLayout } from './overview'
+import { useInspectShortcuts } from './use-shortcuts'
 import { useSpanSearch } from './use-span-search'
-import { type SessionInspectView, SessionViewBar } from './view-bar'
+import { type InspectView, InspectViewBar } from './view-bar'
 
-export { SESSION_VIEW_TABS, type SessionInspectView } from './view-bar'
+export { INSPECT_VIEW_TABS, type InspectView } from './view-bar'
 
-type DrawerView = SessionInspectView
+type DrawerView = InspectView
 
 const DRAWER_TRANSITION_MS = 200
 
-interface SessionInspectDrawerProps {
+interface InspectDrawerProps {
   open: boolean
   onClose: () => void
   spans: Span[]
   loading?: boolean
   title?: string
+  /** Optional service/agent name shown before the ID in the header. */
+  service?: string
+  /** When true, renders a small error dot before the service name. */
+  hasError?: boolean
   /** Builds in-app expand target: `/sessions/:id` with `view`, optional `span`, and `range`. */
   expandSession?: { sessionId: string; range: TimeRange }
-  /** Stable id for the inspected session — resets picker state when it changes while `open`. */
-  inspectSessionKey?: string | null
-  autoRefresh?: AutoRefreshInterval
-  onAutoRefreshChange?: (value: AutoRefreshInterval) => void
-  onRefresh?: () => void
-  refreshing?: boolean
+  /** Builds in-app expand target: `/traces/:traceId`. */
+  expandTrace?: { traceId: string }
+  /** Stable id for the inspected entity — resets picker state when it changes while `open`. */
+  inspectKey?: string | null
 }
 
-export function SessionInspectDrawer({
+export function InspectDrawer({
   open,
   onClose,
   spans,
   loading,
   title,
+  service,
+  hasError,
   expandSession,
-  inspectSessionKey,
-  autoRefresh,
-  onAutoRefreshChange,
-  onRefresh,
-  refreshing,
-}: SessionInspectDrawerProps) {
+  expandTrace,
+  inspectKey,
+}: InspectDrawerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerView, setDrawerView] = useState<DrawerView>('spans')
   const [contentReady, setContentReady] = useState(false)
@@ -70,14 +70,11 @@ export function SessionInspectDrawer({
 
   const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
   const isUtility = category === 'utility'
-  const hiddenTabs = useMemo<SessionInspectView[] | undefined>(
-    () => (isUtility ? ['conversation'] : undefined),
-    [isUtility],
-  )
+  const hiddenTabs = useMemo<InspectView[] | undefined>(() => (isUtility ? ['conversation'] : undefined), [isUtility])
 
   const expandSearch = useMemo(() => {
     if (!expandSession) return undefined
-    const next: { range: TimeRange; view: SessionInspectView; span?: string } = {
+    const next: { range: TimeRange; view: InspectView; span?: string } = {
       range: expandSession.range,
       view: drawerView,
     }
@@ -86,19 +83,23 @@ export function SessionInspectDrawer({
   }, [expandSession, drawerView, selectedId])
 
   const shareUrl = useMemo(() => {
-    if (typeof window === 'undefined' || !expandSession || !expandSearch) return ''
+    if (typeof window === 'undefined') return ''
+    if (expandTrace) {
+      return `${window.location.origin}/traces/${encodeURIComponent(expandTrace.traceId)}`
+    }
+    if (!expandSession || !expandSearch) return ''
     const params = new URLSearchParams()
     params.set('range', serialize(expandSearch.range))
     params.set('view', expandSearch.view)
     if (expandSearch.span) params.set('span', expandSearch.span)
     return `${window.location.origin}/sessions/${encodeURIComponent(expandSession.sessionId)}?${params.toString()}`
-  }, [expandSession, expandSearch])
+  }, [expandSession, expandSearch, expandTrace])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed reset when the previewed session identity changes while the drawer stays mounted
   useEffect(() => {
     setSelectedId(null)
     setDrawerView('spans')
-  }, [inspectSessionKey])
+  }, [inspectKey])
 
   // Auto-select the single chat span for utility traces so the detail panel opens immediately.
   useEffect(() => {
@@ -110,7 +111,7 @@ export function SessionInspectDrawer({
   useEffect(() => {
     let frame = 0
     let timeout = 0
-    const hasSession = inspectSessionKey != null
+    const hasSession = inspectKey != null
 
     if (open && hasSession) {
       setContentReady(false)
@@ -127,12 +128,12 @@ export function SessionInspectDrawer({
       if (frame) window.cancelAnimationFrame(frame)
       if (timeout) window.clearTimeout(timeout)
     }
-  }, [open, inspectSessionKey])
+  }, [open, inspectKey])
 
   const showLoading = loading || !contentReady
 
-  useSessionInspectorShortcuts({
-    sessionId: title ?? null,
+  useInspectShortcuts({
+    entityId: title ?? null,
     link: shareUrl || undefined,
     enabled: open && contentReady,
   })
@@ -160,20 +161,38 @@ export function SessionInspectDrawer({
       >
         <header className="flex items-center justify-between gap-3 border-b px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <SheetTitle className="sr-only">Session</SheetTitle>
+            <SheetTitle className="sr-only">{expandTrace ? 'Trace' : 'Session'}</SheetTitle>
             <SheetDescription className="sr-only">
-              Inspect spans, conversation, and context for the selected session.
+              Inspect spans, conversation, and context for the selected {expandTrace ? 'trace' : 'session'}.
             </SheetDescription>
+            {hasError && (
+              <>
+                <span className="sr-only">Errored</span>
+                <span aria-hidden="true" title="Errored" className="size-2 shrink-0 rounded-full bg-destructive" />
+              </>
+            )}
+            {service && <span className="truncate text-sm font-medium text-foreground">{service}</span>}
             {title && (
               <>
                 <span className="truncate font-mono text-xs text-muted-foreground">{title}</span>
-                <CopyButton value={title} label="Copy session id" />
+                <CopyButton value={title} label="Copy id" />
               </>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {shareUrl && <ShareLinkButton url={shareUrl} />}
-            {expandSession && expandSearch && (
+            {expandTrace ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button asChild variant="ghost" size="icon-sm" aria-label="Open in full page">
+                    <Link to="/traces/$traceId" params={{ traceId: expandTrace.traceId }} onClick={() => onClose()}>
+                      <IconMaximize />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Open in full page</TooltipContent>
+              </Tooltip>
+            ) : expandSession && expandSearch ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button asChild variant="ghost" size="icon-sm" aria-label="Open in full page">
@@ -189,7 +208,7 @@ export function SessionInspectDrawer({
                 </TooltipTrigger>
                 <TooltipContent>Open in full page</TooltipContent>
               </Tooltip>
-            )}
+            ) : null}
             <SheetClose asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Close">
                 <IconX />
@@ -198,16 +217,11 @@ export function SessionInspectDrawer({
           </div>
         </header>
 
-        <SessionViewBar
+        <InspectViewBar
           view={drawerView}
           onViewChange={setDrawerView}
           fullSpans={fullSpans}
           onFullSpansChange={setFullSpans}
-          autoRefresh={autoRefresh}
-          onAutoRefreshChange={onAutoRefreshChange}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-          autoRefreshOptions={DRAWER_AUTO_REFRESH_OPTIONS}
           hiddenTabs={hiddenTabs}
           extras={
             contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : null
@@ -227,8 +241,8 @@ export function SessionInspectDrawer({
             </section>
           ) : (
             <div className="flex min-h-0 flex-1">
-              <SessionInspectLayout
-                key={inspectSessionKey ?? undefined}
+              <InspectLayout
+                key={inspectKey ?? undefined}
                 spans={contentReady ? spans : []}
                 loading={showLoading}
                 selectedId={selectedId}

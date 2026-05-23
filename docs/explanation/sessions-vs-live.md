@@ -31,7 +31,7 @@ Default tabs: **`Conversation`** vs **`Spans`**. Search params use `view=spans`;
 - **Left** — `TurnsView` (`src/components/turns-view.tsx`): token-usage table (`# · Time · In · Out · Errs · Turn · Σ · Dur` + Total), the breakdown panel below (`System prompts · Tool definitions · Messages · Prompt cache · Total`) computed by `useBreakdowns` (`src/hooks/use-breakdowns.ts`) on top of `breakdownChat` in `src/lib/tokens.ts`, then one card per turn with status / cost / duration.
 - **Right** — `ConversationView` (`src/components/conversation-view.tsx`): chat bubbles, paired tool cards, agent cards. Renders `ConversationEvent[]` from `src/lib/conversation.ts`.
 
-**Spans tab.** Session span tree (`SessionInspectLayout`, `session-inspect-drawer.tsx`) + turn strip + span detail (`DetailPanel`). Hides naked `http` transport spans while keeping subtree rollups contiguous.
+**Spans tab.** Span tree (`InspectLayout`, `src/components/inspect/`) + turn strip + span detail (`DetailPanel`). Hides naked `http` transport spans while keeping subtree rollups contiguous. Same components render the slide-over `InspectDrawer` used by both the sessions and traces lists.
 
 ## Run detail (`/runs/$runId`)
 

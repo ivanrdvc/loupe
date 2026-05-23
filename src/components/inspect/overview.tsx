@@ -57,7 +57,7 @@ const INSPECTOR_TABS = [
   { id: 'attributes', label: 'Attributes', Icon: TableCellsIcon },
 ] as const
 
-export function SessionInspectLayout({
+export function InspectLayout({
   spans,
   loading,
   selectedId,

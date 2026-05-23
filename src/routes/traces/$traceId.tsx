@@ -3,6 +3,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
+import { InspectLayout } from '#/components/inspect/overview'
+import { useSpanSearch } from '#/components/inspect/use-span-search'
+import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
 import { SiteHeader } from '#/components/site-header'
 import { Badge } from '#/components/ui/badge'
 import {
@@ -14,10 +17,6 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import type { Span } from '#/lib/spans'
-
-import { SessionInspectLayout } from '#/routes/sessions/-components/session-inspect/overview'
-import { useSpanSearch } from '#/routes/sessions/-components/session-inspect/use-span-search'
-import { type SessionInspectView, SessionViewBar } from '#/routes/sessions/-components/session-inspect/view-bar'
 import { traceSpansQuery } from './-data'
 
 export const Route = createFileRoute('/traces/$traceId')({
@@ -37,7 +36,7 @@ function TraceDetail() {
 
   const total = spans.length > 0 ? Math.max(...spans.map((s) => s.endMs)) - Math.min(...spans.map((s) => s.startMs)) : 0
 
-  const [view, setView] = useState<SessionInspectView>('spans')
+  const [view, setView] = useState<InspectView>('spans')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [fullSpans, setFullSpans] = useState(false)
 
@@ -97,7 +96,7 @@ function TraceDetail() {
         }
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <SessionViewBar
+        <InspectViewBar
           view={view}
           onViewChange={setView}
           fullSpans={fullSpans}
@@ -108,7 +107,7 @@ function TraceDetail() {
           {view === 'conversation' ? (
             <ConversationView spans={spans} onSelect={setSelectedId} />
           ) : spans.length > 0 ? (
-            <SessionInspectLayout
+            <InspectLayout
               spans={spans}
               loading={false}
               selectedId={selectedId}
