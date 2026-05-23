@@ -4,15 +4,19 @@ The "why" of agentops subsystems. Mental models, architecture, trade-offs.
 Longer-form prose. The highest-leverage section — if you can only write one
 doc, write it here.
 
-## Ingest & classification
+## Read first (ordered)
 
-- [Agent trace topology](agent-trace-topology.md) — why we infer agent topology
-  from span trees, the shapes runtimes actually emit, the one primitive that
-  handles all of them, and which rules are guesses we'd rather replace with
-  real signals.
-- [Span classification](classify-span.md) — one function owns every rule for
-  turning raw OTel attributes into a Span's GenAI-shaped fields. Why it lives
-  in one file, what it handles, and how to add a new provider.
+- [01 — Architecture](01-architecture.md) — how agentops reads OTel traces,
+  classifies spans, layers session / purpose / category / sub-agent inference
+  on top, and where every piece lives in the code. Includes the five trace
+  topologies and the fallback inference rules.
+- [02 — Convention spec](02-spec.md) — the curated subset of OTel + extensions
+  agentops operates on. What producers emit, what agentops reads, what gets
+  stamped consumer-side. Includes the per-category producer emission
+  checklist.
+- [03 — Span classification](03-classify-span.md) — one function owns every
+  rule for turning raw OTel attributes into a Span's GenAI-shaped fields. Why
+  it lives in one file, what it handles, and how to add a new provider.
 
 ## Subsystems
 

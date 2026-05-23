@@ -262,7 +262,7 @@ export function subagentChatSpans(spans: Span[]): Span[] {
   })
 }
 
-function countAgentAncestors(s: Span, byId: Map<string, Span>): number {
+export function countAgentAncestors(s: Span, byId: Map<string, Span>): number {
   let cursor: Span | undefined = s.parentId ? byId.get(s.parentId) : undefined
   let count = 0
   while (cursor) {

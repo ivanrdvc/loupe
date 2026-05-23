@@ -12,12 +12,10 @@
   `.cs` files. Park until after Playground + Notes ship. See
   `PLAYGROUND_PROMPTS_RESEARCH.md` for the rejected detection-by-fuzzy-match
   approach and why it's worse than no linkage during an incident.
-- Experiment tags — free-form string tag on spans (`agentops.tag` or reuse
-  `service.namespace`) for ad-hoc grouping while testing prompt/agent changes.
-  Promote the existing "env" filter to a "Tag" filter, pull values dynamically
-  from spans instead of hardcoding `['main','dev']`. Closest priors: Langfuse
-  `tags[]`, LangSmith `tags`, Helicone "Properties". OTel-native, no SDK
-  changes needed beyond setting the attribute at ingest.
+- Experiment tags — UI work only. Attribute decided: `tag.tags` (OpenInference,
+  adopted in `docs/explanation/02-spec.md`). Promote the existing "env" filter
+  to a "Tag" filter, pull values dynamically from spans instead of hardcoding
+  `['main','dev']`. Render as filter chips on `/traces` and `/sessions`.
 - HTTP API for LLM debugging — `docs/plans/http-api.md`
 - Live ingest — spans appear in the viewer as they flush from the agent's
   OTel exporter. Granularity is one span (turn / tool call), not tokens;

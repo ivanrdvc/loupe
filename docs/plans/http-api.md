@@ -39,7 +39,7 @@ Search is **open** (see below). If included, it's:
 - **Search in v1?** Either ship a minimal grep-over-recent-runs implementation, or skip and rely on the LLM fetching `recent` then drilling into specific runs. Lean toward *skip in v1* — the dev usually knows which run is broken, and grep-style search invites scope creep.
 - **Project / session scoping.** Multi-project users need `?project=<id>` everywhere. Default to "current project from cwd" if the skill passes it; otherwise return across all and let the LLM filter. Decide once project switching lands in the UI.
 - **Live runs.** Does `/runs/:id/brief` work on an in-flight run, or only completed ones? TODO already flags live ingest as future — for v1, brief returns whatever spans have landed, marked `status: in_progress`. Decision deferred until live ingest lands.
-- **Brief shape — what exactly is in 5 KB?** First cut: 10 most recent tool calls, each ≤ 500 chars in/out; all errors in full; final assistant message ≤ 1 KB. Tune after first real use.
+- **Brief shape — what exactly is in 5 KB?** First cut: 10 most recent tool calls, each ≤ 500 chars in/out; all errors in full; final assistant message ≤ 1 KB. Tune after first real use. Surface `gen_ai.task.parent.id` for run lineage (so the LLM sees orchestrator vs subagent context) and `tag.tags` in the header (env/tenant). See [`../explanation/02-spec.md`](../explanation/02-spec.md) for the canonical attrs.
 - **Cost / token aggregates as separate endpoint, or inlined in brief header?** Inlined for v1 (it's a small number); break out only if a dedicated `/cost` endpoint earns its keep.
 
 ## Brief shape (sketch)

@@ -38,6 +38,8 @@ The MCP registry can't see column 2; only an agent inventory can. The agent inve
 
 - **Workflows vs agents.** `/v1/entities` returns both. Each workflow has a non-empty `executors` field (nested nodes). v1 ingests them as agents (single `agents` row, type discriminator); rendering the executor tree is a follow-up.
 
+- **OTel-derived agents (future).** Every distinct `gen_ai.agent.name` that appears as a top-level `invoke_agent` (no `gen_ai.task.parent.id`) is an agent — agentops can derive a second inventory from telemetry alone, alongside DevUI. Especially useful for non-MEAI frameworks. `gen_ai.task.parent.id` (per [`../explanation/02-spec.md`](../explanation/02-spec.md)) also gives sub-agent linkage without manual lint rules.
+
 ## Source interface
 
 `src/lib/agents/types.ts`:

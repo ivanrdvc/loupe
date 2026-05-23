@@ -16,7 +16,6 @@ function span(overrides: Partial<Span> & Pick<Span, 'id' | 'operation'>): Span {
 }
 
 describe('findOrchestratorIds', () => {
-  // Topology #3 in docs/explanation/agent-trace-topology.md
   it('excludes nested invoke_agent runs (real subagent)', () => {
     const spans: Span[] = [
       span({ id: 'root1', operation: 'http', traceId: 'tr1', endMs: 200 }),
@@ -83,7 +82,7 @@ describe('findOrchestratorIds', () => {
 
 describe('subagentChatSpans', () => {
   // Rule: chat has ≥1 invoke_agent ancestor AND is not a direct child of a
-  // top-level invoke_agent. See docs/explanation/agent-trace-topology.md.
+  // top-level invoke_agent.
 
   it('returns chats nested under an execute_tool that wraps an invoke_agent', () => {
     const spans: Span[] = [

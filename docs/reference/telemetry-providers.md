@@ -160,15 +160,20 @@ through one process into a single row.
 
 `src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`. Reads producer-emitted `session.trigger_type` / `session.execution` / `gen_ai.operation.purpose` (or the deployment's `CUSTOM_LLM_PURPOSE_FIELD`); no producer-side classifier remapping.
 
-Priority order (first match wins):
+Priority order (first match wins — pinned by `trace-category.test.ts`):
 
-1. **sub-agent** — root span is `execute_tool` + trace has `invoke_agent` descendants
-2. **scheduled** — `session.trigger_type = "scheduled"`
+1. **scheduled** — `session.trigger_type = "scheduled"`
+2. **event** — `session.trigger_type = "event"`
 3. **webhook** — `session.trigger_type = "webhook"`
 4. **background** — `session.trigger_type = "user"` AND `session.execution = "background"`
-5. **utility** — explicit `llm.purpose` marker OR chat-only with no invoke_agent
-6. **chat** — has session attribute
-7. **orphan** — anything else
+5. **sub-agent** — root span operation is `tool` or `mcp` AND trace has any `invoke_agent` descendant
+6. **chat** — trace has any `invoke_agent` span
+7. **utility** — root span carries `gen_ai.operation.purpose`
+8. **chat** — trace has a session attribute
+9. **utility** — trace has chat spans (fallback for raw LLM calls)
+10. **orphan** — anything else
+
+Producer-stamped trigger types win over structural inference — a scheduled trigger on a sub-agent-shaped trace still reports `scheduled`. The interleaved chat / utility branches reflect that `hasInvokeAgent` and `hasSessionAttribute` are independent signals and producers emit them inconsistently.
 
 ### Consumer-specific attribute keys
 

@@ -22,7 +22,7 @@ A fire is any root trace whose category is `scheduled`, `event`, `webhook`, or `
 
 ## OTel attributes the Tasks UI reads
 
-The reference table in [ai-attributes.md → Triggers & tasks](../reference/ai-attributes.md#triggers--tasks) is the source of truth. Below is what each attribute is *used for* on this page specifically.
+The reference table in [ai-attributes.md → Triggers & tasks](../reference/ai-attributes.md#triggers--tasks) is the source of truth for attribute shapes. The canonical "what to emit" spec is [`02-spec.md`](02-spec.md). Below is what each attribute is *used for* on this page specifically.
 
 ### Stamped on the root span by the producer
 
@@ -43,6 +43,15 @@ The reference table in [ai-attributes.md → Triggers & tasks](../reference/ai-a
 | `gen_ai.agent.name`      | The "agent" rail on the detail hero and the Agent column in the table. Falls back to `service.name` when absent.                    |
 | `service.name`           | Used as the agent-rail label fallback, and as the second term in the derived identity tuple.                                        |
 | `gen_ai.conversation.id` | "Origin chat" linkage. When every fire of a task carries the *same* conversation id, the detail hero shows it as the chain's left node and links into `/sessions/$id`. Legacy `ag_ui.thread_id` is read as a fallback via `pickCanonical`. |
+
+### Run-graph attrs (forward-compatible)
+
+Two attribute families coexist by purpose (see [`02-spec.md`](02-spec.md) for the full disambiguation):
+
+- `task.*` — the **scheduling identity** the Tasks page rolls up by. What this doc covers above.
+- `gen_ai.task.id` / `gen_ai.task.parent.id` — the **run-graph node identity**. Used by the per-trace drawer for sub-agent linkage, not by the Tasks page itself. Producers that emit `graph.node.id` / `graph.node.parent_id` get the alias for free.
+
+Tasks rows are scheduling-identity by definition (`task.*`); the run-graph attrs become load-bearing in the drawer when you click into a fire.
 
 ### Identity priority (what becomes the row key)
 

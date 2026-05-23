@@ -90,6 +90,8 @@ Idempotent on `(project_id, definition_name, run.external_id)`. Callers: a `agen
 
 ### Path 2 — OTel piggyback (for users who already ship OTel to OpenObserve)
 
+When this lands, the `eval.*` attrs below should be declared in [`../explanation/02-spec.md`](../explanation/02-spec.md) alongside the existing `gen_ai.*` and `task.*` sets — agentops's convention spec is the canonical home for "what attrs agentops reads", and eval attrs are a natural spec extension. Cross-link both directions when the spec gets a new section.
+
 Ship a small MEAI `IEvaluationResultStore` / Python equivalent that emits each result as an **OTel log record** with a known attribute schema:
 
 ```
