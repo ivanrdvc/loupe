@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.2.0...agentops-v0.3.0) (2026-05-23)
+
+
+### Features
+
+* **changelog:** add changelog page from CHANGELOG.md ([#27](https://github.com/ivanrdvc/agentops/issues/27)) ([b13409d](https://github.com/ivanrdvc/agentops/commit/b13409d808cdd96a8e98f20afd18829afeaacf87))
+* **session-inspect:** real logs panel + shiki json + tasks scaffold ([#26](https://github.com/ivanrdvc/agentops/issues/26)) ([cf4d0d3](https://github.com/ivanrdvc/agentops/commit/cf4d0d35b8677bafba22571a0a7f9e86a74c0add))
+* **spans:** sub-agent rows + turn cost rollup ([#25](https://github.com/ivanrdvc/agentops/issues/25)) ([5e7f316](https://github.com/ivanrdvc/agentops/commit/5e7f316cd7a02a92e2820bd848e84ed306888da9))
+* **tasks:** build out tasks page + producer docs ([#28](https://github.com/ivanrdvc/agentops/issues/28)) ([d53214a](https://github.com/ivanrdvc/agentops/commit/d53214afbb5cfefec14f74fc3a0c43496d95dc72))
+* **theme:** neutral default + Slack/VS Code themes, tighter input text ([eac702a](https://github.com/ivanrdvc/agentops/commit/eac702a9f1ffd94300e0eba7550e39b47315202d))
+
 ## [0.2.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.1.1...agentops-v0.2.0) (2026-05-20)
 
 
