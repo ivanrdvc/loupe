@@ -1,16 +1,10 @@
-import {
-  Clock01Icon,
-  Message01Icon,
-  Notification03Icon,
-  RepeatIcon,
-  Robot01Icon,
-  Time04Icon,
-} from '@hugeicons/core-free-icons'
+import { FlashIcon, Message01Icon, Robot01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import { useMemo } from 'react'
-import { formatAgo, formatDuration } from '#/lib/format'
-import type { TaskKind, TaskRow } from '#/lib/tasks/rollup'
+import { formatAgo, formatDuration, formatRelative, shortId } from '#/lib/format'
+import { KIND_META } from '#/lib/tasks/kind-meta'
+import type { TaskRow } from '#/lib/tasks/rollup'
 import type { TraceSummary } from '#/lib/telemetry'
 import { cn } from '#/lib/utils'
 import { FireTimeline } from './fire-timeline'
@@ -22,15 +16,6 @@ interface TaskHeroProps {
   toMs: number
   conversationId?: string
   onFireClick?: (fire: TraceSummary) => void
-}
-
-const KIND_ICON: Record<TaskKind, IconSvgElement> = {
-  cron: Clock01Icon,
-  one_shot: Time04Icon,
-  event: Notification03Icon,
-  webhook: RepeatIcon,
-  background: RepeatIcon,
-  unknown: RepeatIcon,
 }
 
 export function TaskHero({ row, fires, fromMs, toMs, conversationId, onFireClick }: TaskHeroProps) {
@@ -59,39 +44,52 @@ export function TaskHero({ row, fires, fromMs, toMs, conversationId, onFireClick
 
 function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversationId?: string; errorRate: number }) {
   const stroke = errorRate >= 0.05 ? 'var(--destructive)' : 'var(--primary)'
+  const kindMeta = KIND_META[row.kind]
+  const taskLabel = row.name ?? (row.taskId && shortId(row.taskId)) ?? row.rootOperation ?? kindMeta.label
+  const taskTitle = row.taskId ?? row.name ?? row.rootOperation ?? kindMeta.label
+  const taskHint = computeTaskHint(row)
+  const runLabel = `${row.fires.toLocaleString()} ${row.fires === 1 ? 'run' : 'runs'}`
+  const runHint = computeRunHint(row)
   return (
     <div className="flex items-center justify-center gap-0 px-4 pt-5 lg:px-6">
-      {conversationId ? (
-        <NodeChip
-          label={shortId(conversationId)}
-          hint="origin chat"
-          mono
-          icon={Message01Icon}
-          iconColor="text-blue-500 dark:text-blue-400"
-          href={{
-            to: '/sessions/$sessionId',
-            params: { sessionId: conversationId },
-            search: { range: 7, view: 'conversation' },
-          }}
-        />
-      ) : (
-        <NodeChip
-          label={row.schedule ?? row.source ?? row.kind}
-          hint={row.kind}
-          mono={!!(row.schedule || row.source)}
-          icon={KIND_ICON[row.kind]}
-          iconColor="text-amber-500 dark:text-amber-400"
-        />
+      {conversationId && (
+        <>
+          <Link
+            to="/sessions/$sessionId"
+            params={{ sessionId: conversationId }}
+            search={{ range: 7, view: 'conversation' }}
+            className="block"
+          >
+            <NodeChip
+              label={shortId(conversationId)}
+              title={conversationId}
+              hint="origin chat"
+              mono
+              icon={Message01Icon}
+              iconColor="text-blue-500 dark:text-blue-400"
+              interactive
+            />
+          </Link>
+          <Beam stroke={stroke} delay={0} />
+        </>
       )}
-      <Beam stroke={stroke} delay={0} />
       <NodeChip
-        label={row.name ?? (row.taskId ? shortId(row.taskId) : row.kind)}
-        hint={row.taskId && row.name ? shortId(row.taskId) : undefined}
+        label={taskLabel}
+        title={taskTitle}
+        hint={taskHint.text}
         mono={!row.name && !!row.taskId}
-        icon={KIND_ICON[row.kind]}
-        iconColor="text-amber-500 dark:text-amber-400"
+        hintMono={taskHint.mono}
+        icon={kindMeta.icon}
+        iconColor={kindMeta.color}
       />
       <Beam stroke={stroke} delay={0.5} />
+      <NodeChip
+        label={runLabel}
+        hint={runHint}
+        icon={FlashIcon}
+        iconColor={row.errored > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-500 dark:text-emerald-400'}
+      />
+      <Beam stroke={stroke} delay={1} />
       <NodeChip
         label={row.agent ?? row.serviceName ?? 'Agent'}
         hint={row.agent && row.serviceName && row.agent !== row.serviceName ? row.serviceName : undefined}
@@ -104,52 +102,45 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
 
 function NodeChip({
   label,
+  title,
   hint,
   mono,
+  hintMono,
   icon,
   iconColor,
-  href,
+  interactive,
 }: {
   label: string
+  title?: string
   hint?: string
   mono?: boolean
+  hintMono?: boolean
   icon: IconSvgElement
   iconColor: string
-  href?: { to: string; params: Record<string, string>; search?: Record<string, unknown> }
+  interactive?: boolean
 }) {
-  const inner = (
+  return (
     <div
       className={cn(
-        'flex w-[180px] flex-col items-center gap-0.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs shadow-sm',
-        href && 'transition-colors hover:border-foreground/40',
+        'flex w-[160px] flex-col items-center gap-0.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs shadow-sm',
+        interactive && 'transition-colors hover:border-foreground/40',
       )}
     >
       <div className="flex w-full items-center justify-center gap-1.5">
         <HugeiconsIcon icon={icon} strokeWidth={1.6} className={cn('size-3.5 shrink-0', iconColor)} aria-hidden />
-        <span className={cn('min-w-0 truncate', mono && 'font-mono text-[11px]')} title={label}>
+        <span className={cn('min-w-0 truncate', mono && 'font-mono text-[11px]')} title={title ?? label}>
           {label}
         </span>
       </div>
       {hint && (
-        <span className="block w-full truncate text-center text-[10px] text-muted-foreground" title={hint}>
+        <span
+          className={cn('block w-full truncate text-center text-[10px] text-muted-foreground', hintMono && 'font-mono')}
+          title={hint}
+        >
           {hint}
         </span>
       )}
     </div>
-  )
-  if (!href) return inner
-  return (
-    <Link
-      // biome-ignore lint/suspicious/noExplicitAny: dynamic typed route
-      to={href.to as any}
-      // biome-ignore lint/suspicious/noExplicitAny: ditto
-      params={href.params as any}
-      // biome-ignore lint/suspicious/noExplicitAny: ditto
-      search={href.search as any}
-      className="block"
-    >
-      {inner}
-    </Link>
   )
 }
 
@@ -209,7 +200,7 @@ function CadenceLine({
       )}
       <span>last fire {formatAgo(lastFireMs)}</span>
       <span className={errTone}>
-        {errored} of {fires} errored
+        {fires === 1 ? (errored === 1 ? 'errored' : 'OK') : `${errored} of ${fires} errored`}
       </span>
     </div>
   )
@@ -257,6 +248,29 @@ function buildExpectedMarkers(fires: TraceSummary[], medianMs: number | undefine
   return markers
 }
 
-function shortId(id: string): string {
-  return id.length > 18 ? `${id.slice(0, 10)}…${id.slice(-4)}` : id
+function computeTaskHint(row: TaskRow): { text: string | undefined; mono: boolean } {
+  if (row.schedule) {
+    if (looksLikeIsoDate(row.schedule)) {
+      const t = Date.parse(row.schedule)
+      if (!Number.isNaN(t)) return { text: `due ${formatRelative(t)}`, mono: false }
+    }
+    return { text: row.schedule, mono: true }
+  }
+  if (row.source) return { text: row.source, mono: true }
+  if (row.taskId && row.name) return { text: shortId(row.taskId), mono: true }
+  return { text: undefined, mono: false }
+}
+
+// Prefilter — Date.parse alone happily parses bare words like "Mon".
+function looksLikeIsoDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}([T ]|$)/.test(s)
+}
+
+function computeRunHint(row: TaskRow): string | undefined {
+  if (row.fires === 0) return undefined
+  const dur = formatDuration(row.avgDurationMs)
+  if (row.errored > 0) {
+    return row.fires === 1 ? `errored · ${dur}` : `${row.errored} errored · avg ${dur}`
+  }
+  return row.fires === 1 ? dur : `avg ${dur}`
 }

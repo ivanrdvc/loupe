@@ -54,9 +54,24 @@ The reference table in [ai-attributes.md → Triggers & tasks](../reference/ai-a
 
 When you click a row, `/tasks/$key` renders three layers from the same fire data — no extra fetch:
 
-- **Flow chain** — `[origin chat OR trigger] ▶ [task] ▶ [agent]`. The left node is the `gen_ai.conversation.id`-linked session when one exists; otherwise it's the `task.schedule` / `task.source` / kind label.
+- **Flow chain** — `[origin] ▶ [task] ▶ [runs] ▶ [agent]`. Four conceptually distinct stages, only the first is conditional. See the per-node table below for what each chip shows and what attribute populates it.
 - **Cadence line** — median inter-fire interval (`every ~10m`), the coefficient-of-variation jitter (`±12%`), last fire age, and error count. Derived from the actual fire timestamps in the window — no need to parse cron expressions.
 - **Fire timeline** — one tick per fire colored by status. When cadence looks regular (≥3 fires, derived median), faint dashed verticals project expected next-fire times beyond the last actual fire. Gaps in those marks are the visual cue for "should've fired by now."
+
+### Producer cheat-sheet: what to stamp to make each node light up
+
+The **bare minimum** to get a useful chain: `session.trigger_type` + `task.id` + `task.kind`. Add `task.schedule` (or `task.source`) and `gen_ai.agent.name` to fill out the chips. Add `gen_ai.conversation.id` to wire the Origin chip back to the chat that registered the task.
+
+Each node maps to specific OTel attributes on the root span. If a node looks wrong, this is where to start.
+
+| Node       | What it represents                                                          | Source attribute(s)                                                                | When the chip is hidden / falls back                                                                 |
+| ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Origin** | The chat / conversation that registered the task (if any).                  | `gen_ai.conversation.id` on every fire of this task. Upstream canonicalisation also folds in legacy `ag_ui.thread_id` so you don't have to migrate stamping at once. | Hidden entirely unless every fire of this task shares the same conversation id. |
+| **Task**   | The scheduled task definition — the entry registered with your scheduler (Quartz job, cron line, event subscription, etc.). | Label: `task.name` → `shortId(task.id)` → root span operation name (the cloud-semconv identity fallback, e.g. `process queueitem` from KEDA / Cloud Scheduler) → the literal kind word (`one_shot`, `event`, …) as a last resort. Hint: `task.schedule` (cron expression, mono) — an ISO `DueAt` is reformatted to relative time (`due 1h ago`, `due in 5m`). Then `task.source` (topic/queue/route), then `shortId(task.id)` when both `task.name` and `task.id` are stamped. Icon: `task.kind`. | Stamp at minimum `task.id` + `task.kind`. Without `task.id` the row collapses into a derived identity and gets a `derived` badge. |
+| **Runs**   | The execution layer — individual fires of the task definition above.        | Label: count of fires in the window (`1 run`, `12 runs`). Hint depends on shape: single OK fire → `2.4s`; single errored fire → `errored · 2.4s`; multiple OK fires → `avg 2.4s`; multiple with errors → `2 errored · avg 850ms`. Duration is per-fire root span start/end — no extra stamp required. Error tone comes from `error` / `status_code=error` on the root span. | Always shown when there's at least one fire; icon turns rose when any fire errored. |
+| **Agent**  | The handler that took the run — your agent process / service.               | Label: `gen_ai.agent.name`, falling back to `service.name`. Hint: `service.name` when it differs from the agent name. | If both are missing, shows the literal label `Agent`. |
+
+In short: the **Task** chip is the *schedule registration* (the cron/event subscription you defined), the **Runs** chip is the *executions* of that schedule, and the **Origin** + **Agent** chips bookend the chain with "who created this" and "who handled it."
 
 ## Non-goals
 

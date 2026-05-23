@@ -83,12 +83,25 @@ describe('summarizeRollup', () => {
     const s = summarizeRollup(rows)
     expect(s.fires).toBe(3)
     expect(s.errored).toBe(1)
+    expect(s.success).toBe(2)
     expect(s.taskCount).toBe(2)
     expect(s.errorRate).toBeCloseTo(1 / 3)
+    expect(s.successRate).toBeCloseTo(2 / 3)
+    // task 'a' has 1 error → not healthy; task 'b' is clean → healthy
+    expect(s.healthyTasks).toBe(1)
   })
 
   it('returns zeros on empty input', () => {
     const s = summarizeRollup([])
-    expect(s).toEqual({ fires: 0, errored: 0, errorRate: 0, avgDurationMs: 0, taskCount: 0 })
+    expect(s).toEqual({
+      fires: 0,
+      errored: 0,
+      success: 0,
+      successRate: 0,
+      errorRate: 0,
+      avgDurationMs: 0,
+      taskCount: 0,
+      healthyTasks: 0,
+    })
   })
 })

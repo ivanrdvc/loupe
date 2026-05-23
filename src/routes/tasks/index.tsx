@@ -8,7 +8,7 @@ import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
 import { rollupTasks, summarizeRollup } from '#/lib/tasks/rollup'
 import { windowMs } from '#/lib/time-range'
-import { StatStrip } from './-components/stat-strip'
+import { MetricTiles } from './-components/metric-tiles'
 import { TasksDataTable } from './-components/tasks-table'
 import { tasksTracesQuery } from './-data'
 
@@ -41,7 +41,7 @@ function TasksPage() {
 
   return (
     <Page title="Tasks">
-      <StatStrip summary={summary} />
+      <MetricTiles summary={summary} />
       <TasksDataTable
         data={rows}
         isLoading={isLoading}

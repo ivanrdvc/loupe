@@ -13,6 +13,7 @@ export interface TaskRow {
   taskId?: string
   schedule?: string
   source?: string
+  rootOperation?: string
   category: TraceCategory
   agent?: string
   serviceName?: string
@@ -93,6 +94,7 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
       taskId: sample.taskId,
       schedule: sample.taskSchedule,
       source: sample.taskSource,
+      rootOperation: sample.rootOperation,
       category: sample.category ?? 'orphan',
       agent: sample.agent,
       serviceName: sample.serviceName,
@@ -139,25 +141,34 @@ function deriveKind(t: TraceSummary): TaskKind {
 export interface RollupSummary {
   fires: number
   errored: number
+  success: number
+  successRate: number
   errorRate: number
   avgDurationMs: number
   taskCount: number
+  healthyTasks: number
 }
 
 export function summarizeRollup(rows: TaskRow[]): RollupSummary {
   let fires = 0
   let errored = 0
   let weightedDur = 0
+  let healthyTasks = 0
   for (const r of rows) {
     fires += r.fires
     errored += r.errored
     weightedDur += r.avgDurationMs * r.fires
+    if (r.errored === 0) healthyTasks += 1
   }
+  const success = fires - errored
   return {
     fires,
     errored,
+    success,
+    successRate: fires > 0 ? success / fires : 0,
     errorRate: fires > 0 ? errored / fires : 0,
     avgDurationMs: fires > 0 ? Math.round(weightedDur / fires) : 0,
     taskCount: rows.length,
+    healthyTasks,
   }
 }

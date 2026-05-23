@@ -1,22 +1,13 @@
-import { Clock01Icon, Notification03Icon, RepeatIcon, Time04Icon, WebhookIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { Badge } from '#/components/ui/badge'
 import { formatAgo, formatDuration, formatPercent, metricTone } from '#/lib/format'
-import type { TaskKind, TaskRow } from '#/lib/tasks/rollup'
+import { KIND_META } from '#/lib/tasks/kind-meta'
+import type { TaskRow } from '#/lib/tasks/rollup'
 import { cn } from '#/lib/utils'
-
-const KIND_META: Record<TaskKind, { label: string; icon: IconSvgElement; color: string }> = {
-  cron: { label: 'Cron', icon: Clock01Icon, color: 'text-amber-500 dark:text-amber-400' },
-  one_shot: { label: 'One-shot', icon: Time04Icon, color: 'text-amber-500 dark:text-amber-400' },
-  event: { label: 'Event', icon: Notification03Icon, color: 'text-orange-500 dark:text-orange-400' },
-  webhook: { label: 'Webhook', icon: WebhookIcon, color: 'text-cyan-500 dark:text-cyan-400' },
-  background: { label: 'Background', icon: RepeatIcon, color: 'text-violet-500 dark:text-violet-400' },
-  unknown: { label: 'Task', icon: RepeatIcon, color: 'text-zinc-400 dark:text-zinc-500' },
-}
 
 export const taskColumns: ColumnDef<TaskRow>[] = [
   {

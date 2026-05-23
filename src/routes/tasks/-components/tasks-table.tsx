@@ -1,13 +1,6 @@
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  IconAdjustmentsHorizontal,
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronsLeft,
-  IconChevronsRight,
-  IconSearch,
-} from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import {
   type ColumnFiltersState,
   flexRender,
@@ -22,18 +15,9 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import * as React from 'react'
-import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
-import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
-import { RefreshingIndicator } from '#/components/refreshing-indicator'
-import { TimeRangeSelect } from '#/components/time-range-select'
+import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
+import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
 import { Button } from '#/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
-import { Input } from '#/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import type { TaskRow } from '#/lib/tasks/rollup'
@@ -41,16 +25,25 @@ import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 import { taskColumns } from '../-columns'
 
-const STATUS_OPTIONS = [
-  { label: 'OK', value: 'ok' },
-  { label: 'Error', value: 'error' },
-]
-
-const KIND_OPTIONS = [
-  { label: 'Cron', value: 'cron' },
-  { label: 'One-shot', value: 'one_shot' },
-  { label: 'Event', value: 'event' },
-  { label: 'Background', value: 'background' },
+const FILTERS: FacetedFilterSpec[] = [
+  {
+    columnId: 'kind',
+    title: 'Kind',
+    options: [
+      { label: 'Cron', value: 'cron' },
+      { label: 'One-shot', value: 'one_shot' },
+      { label: 'Event', value: 'event' },
+      { label: 'Background', value: 'background' },
+    ],
+  },
+  {
+    columnId: 'status',
+    title: 'Status',
+    options: [
+      { label: 'OK', value: 'ok' },
+      { label: 'Error', value: 'error' },
+    ],
+  },
 ]
 
 interface TasksDataTableProps {
@@ -100,65 +93,20 @@ export function TasksDataTable({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
-  const searchColumn = table.getColumn('name')
-  const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
-
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-6 lg:px-6">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {searchColumn && (
-            <div className="relative w-full min-w-0 sm:w-64">
-              <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search tasks, schedules, agents…"
-                value={searchValue}
-                onChange={(e) => searchColumn.setFilterValue(e.target.value)}
-                className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
-              />
-            </div>
-          )}
-          <RefreshingIndicator active={!!refreshing} />
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {table.getColumn('kind') && (
-            <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
-          )}
-          {table.getColumn('status') && (
-            <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={STATUS_OPTIONS} />
-          )}
-          <TimeRangeSelect value={range} onChange={onRangeChange} />
-          <AutoRefreshSelect
-            value={autoRefresh}
-            onChange={onAutoRefreshChange}
-            onRefresh={onRefresh}
-            loading={refreshing}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-x-1.5">
-                <IconAdjustmentsHorizontal className="size-4" />
-                View
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter((c) => typeof c.accessorFn !== 'undefined' && c.getCanHide())
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <DataTableToolbar
+        table={table}
+        searchColumnId="name"
+        searchPlaceholder="Search tasks, schedules, agents…"
+        filters={FILTERS}
+        range={range}
+        onRangeChange={onRangeChange}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={onAutoRefreshChange}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+      />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
           <Table>

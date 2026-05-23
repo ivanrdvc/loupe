@@ -2,7 +2,7 @@ import { Clock01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '#/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { formatAgo, formatDuration, metricTone } from '#/lib/format'
+import { formatAgo, formatDuration, metricTone, shortId } from '#/lib/format'
 import type { TraceSummary } from '#/lib/telemetry'
 import { cn } from '#/lib/utils'
 
@@ -73,9 +73,7 @@ export function FiresTable({ data, onRowClick }: FiresTableProps) {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{fire.spanCount}</TableCell>
                   <TableCell>
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {fire.id.length > 16 ? `${fire.id.slice(0, 10)}…${fire.id.slice(-4)}` : fire.id}
-                    </span>
+                    <span className="font-mono text-[11px] text-muted-foreground">{shortId(fire.id)}</span>
                   </TableCell>
                 </TableRow>
               ))

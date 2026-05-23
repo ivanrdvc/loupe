@@ -8,6 +8,25 @@ export function formatAgo(ms: number): string {
   return `${Math.round(h / 24)}d ago`
 }
 
+// Like formatAgo but renders future timestamps as "in 5m" instead of clamping.
+export function formatRelative(ms: number): string {
+  const diff = ms - Date.now()
+  if (Math.abs(diff) < 5_000) return 'now'
+  const absS = Math.abs(diff) / 1000
+  const suffix = diff < 0 ? ' ago' : ''
+  const prefix = diff < 0 ? '' : 'in '
+  if (absS < 60) return `${prefix}${Math.round(absS)}s${suffix}`
+  const m = absS / 60
+  if (m < 60) return `${prefix}${Math.round(m)}m${suffix}`
+  const h = m / 60
+  if (h < 24) return `${prefix}${Math.round(h)}h${suffix}`
+  return `${prefix}${Math.round(h / 24)}d${suffix}`
+}
+
+export function shortId(id: string, cutoff = 16): string {
+  return id.length > cutoff ? `${id.slice(0, Math.max(4, cutoff - 6))}…${id.slice(-4)}` : id
+}
+
 export function formatCost(usd: number): string {
   if (!usd) return '—'
   if (usd < 0.0001) return '<$0.0001'
