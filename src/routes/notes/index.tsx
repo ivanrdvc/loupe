@@ -1,14 +1,26 @@
-import { ArrowRight02Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
+import { ArrowRight02Icon, CheckmarkCircle02Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { IconCheck, IconChevronDown, IconPlus } from '@tabler/icons-react'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '#/components/ui/command'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '#/components/ui/item'
+import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
 import { initialsFor } from '#/lib/current-user'
 import { formatAgo } from '#/lib/format'
@@ -16,7 +28,7 @@ import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { listAllNotes } from '#/server/notes'
 import { NoteEditor } from './-components/note-editor'
-import type { Note, NoteTargetKind } from './-types'
+import type { Note, NoteStatus, NoteTargetKind } from './-types'
 
 const notesListQuery = () =>
   queryOptions({
@@ -25,6 +37,10 @@ const notesListQuery = () =>
   })
 
 export const Route = createFileRoute('/notes/')({
+  validateSearch: (search: Record<string, unknown>): { note?: number } => {
+    const raw = typeof search.note === 'number' ? search.note : Number(search.note)
+    return Number.isInteger(raw) && raw > 0 ? { note: raw } : {}
+  },
   loader: ({ context }) => context.queryClient.ensureQueryData(notesListQuery()),
   component: NotesPage,
 })
@@ -37,49 +53,159 @@ const KIND_BADGE: Record<NoteTargetKind, 'default' | 'secondary' | 'outline'> = 
   experiment: 'outline',
 }
 
+const KIND_LABEL: Record<NoteTargetKind, string> = {
+  session: 'Sessions',
+  trace: 'Traces',
+  span: 'Spans',
+  prompt: 'Prompts',
+  experiment: 'Experiments',
+}
+
+const KIND_DESCRIPTION: Record<NoteTargetKind, string> = {
+  session: 'Notes attached to this session — visible to your team.',
+  trace: 'Notes attached to this trace.',
+  span: 'Notes attached to this span.',
+  prompt: 'Notes attached to this prompt.',
+  experiment: 'Notes attached to this experiment.',
+}
+
 function previewBody(body: string): string {
   return body.replace(/[#*`>_[\]()]/g, '').slice(0, 160)
 }
 
+const STATUS_OPTIONS: { label: string; value: NoteStatus }[] = [
+  { label: 'Open', value: 'open' },
+  { label: 'Resolved', value: 'resolved' },
+]
+
+const KIND_OPTIONS: { label: string; value: NoteTargetKind }[] = (Object.keys(KIND_LABEL) as NoteTargetKind[]).map(
+  (k) => ({ label: KIND_LABEL[k], value: k }),
+)
+
 function NotesPage() {
   const { data: notes = [], isLoading } = useQuery(notesListQuery())
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const { note: activeNoteId } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const [statusFilter, setStatusFilter] = useState<Set<NoteStatus>>(() => new Set())
+  const [kindFilter, setKindFilter] = useState<Set<NoteTargetKind>>(() => new Set())
+
+  const activeNote = useMemo(
+    () => (activeNoteId != null ? (notes.find((n) => n.id === activeNoteId) ?? null) : null),
+    [notes, activeNoteId],
+  )
+  const openNote = (id: number) => void navigate({ search: (prev) => ({ ...prev, note: id }) })
+  const closeNote = () => void navigate({ search: (prev) => ({ ...prev, note: undefined }) })
+
+  useEffect(() => {
+    if (!isLoading && activeNoteId != null && activeNote == null) {
+      void navigate({ search: (prev) => ({ ...prev, note: undefined }), replace: true })
+    }
+  }, [isLoading, activeNoteId, activeNote, navigate])
+
+  const statusFacets = useMemo(() => {
+    const m = new Map<NoteStatus, number>()
+    for (const n of notes) m.set(n.status, (m.get(n.status) ?? 0) + 1)
+    return m
+  }, [notes])
+
+  const kindFacets = useMemo(() => {
+    const m = new Map<NoteTargetKind, number>()
+    for (const n of notes) m.set(n.targetKind, (m.get(n.targetKind) ?? 0) + 1)
+    return m
+  }, [notes])
+
+  const filtered = useMemo(() => {
+    return notes.filter((n) => {
+      if (statusFilter.size > 0 && !statusFilter.has(n.status)) return false
+      if (kindFilter.size > 0 && !kindFilter.has(n.targetKind)) return false
+      return true
+    })
+  }, [notes, statusFilter, kindFilter])
+
+  const isFiltered = statusFilter.size > 0 || kindFilter.size > 0
 
   return (
     <Page title="Notes">
       <div className="flex flex-col gap-4 px-4 lg:px-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterFacet
+            title="Status"
+            options={STATUS_OPTIONS}
+            selected={statusFilter}
+            onChange={setStatusFilter}
+            facets={statusFacets}
+          />
+          <FilterFacet
+            title="Kind"
+            options={KIND_OPTIONS}
+            selected={kindFilter}
+            onChange={setKindFilter}
+            facets={kindFacets}
+          />
+          {isFiltered && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setStatusFilter(new Set())
+                setKindFilter(new Set())
+              }}
+              className="text-primary hover:text-primary"
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
+
         {isLoading ? (
           <NotesListSkeleton />
-        ) : notes.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <HugeiconsIcon icon={StickyNote01Icon} />
               </EmptyMedia>
-              <EmptyTitle>No notes yet</EmptyTitle>
-              <EmptyDescription>Open a session, trace, or prompt and add one.</EmptyDescription>
+              <EmptyTitle>{notes.length === 0 ? 'No notes yet' : 'No matching notes'}</EmptyTitle>
+              <EmptyDescription>
+                {notes.length === 0 ? 'Open a session, trace, or prompt and add one.' : 'Adjust the filters above.'}
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
           <ItemGroup>
-            {notes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                expanded={expandedId === note.id}
-                onToggle={() => setExpandedId((prev) => (prev === note.id ? null : note.id))}
-              />
+            {filtered.map((note) => (
+              <NoteCard key={note.id} note={note} onOpen={() => openNote(note.id)} />
             ))}
           </ItemGroup>
         )}
       </div>
+
+      <Sheet open={activeNote != null} onOpenChange={(o) => !o && closeNote()}>
+        <SheetContent className="flex flex-col gap-0 sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Note</SheetTitle>
+            <SheetDescription>{activeNote ? KIND_DESCRIPTION[activeNote.targetKind] : null}</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            {activeNote && (
+              <NoteEditor
+                key={activeNote.id}
+                targetKind={activeNote.targetKind}
+                targetId={activeNote.targetId}
+                parentTraceId={activeNote.parentTraceId}
+                parentSessionId={activeNote.parentSessionId}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Page>
   )
 }
 
-function NoteCard({ note, expanded, onToggle }: { note: Note; expanded: boolean; onToggle: () => void }) {
+function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
   const navigate = useNavigate()
   const initials = initialsFor(note.author)
+  const isResolved = note.status === 'resolved'
 
   const navigable =
     note.targetKind === 'session' ||
@@ -107,7 +233,6 @@ function NoteCard({ note, expanded, onToggle }: { note: Note; expanded: boolean;
           search: { range: 7, view: 'spans', span: note.targetId },
         })
       } else if (note.parentTraceId) {
-        // Provider resolves span-id-as-trace-id and sets focusSpanId.
         void navigate({ to: '/traces/$traceId', params: { traceId: note.targetId } })
       }
     }
@@ -116,23 +241,35 @@ function NoteCard({ note, expanded, onToggle }: { note: Note; expanded: boolean;
   return (
     <Item
       variant="outline"
-      className={cn('cursor-pointer', expanded && 'bg-muted/30')}
-      onClick={onToggle}
-      aria-expanded={expanded}
+      className={cn('cursor-pointer transition-colors hover:bg-muted/40', isResolved && 'opacity-70')}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
     >
       <ItemMedia variant="icon">
-        <HugeiconsIcon icon={StickyNote01Icon} strokeWidth={2} />
+        <HugeiconsIcon icon={isResolved ? CheckmarkCircle02Icon : StickyNote01Icon} strokeWidth={2} />
       </ItemMedia>
       <ItemContent>
         <ItemTitle className="gap-2">
           <Badge variant={KIND_BADGE[note.targetKind]} className="capitalize">
             {note.targetKind}
           </Badge>
+          {isResolved && (
+            <Badge variant="outline" className="text-muted-foreground">
+              Resolved
+            </Badge>
+          )}
           <span className="truncate font-mono text-[11px] text-muted-foreground" title={note.targetId}>
             {note.targetId}
           </span>
         </ItemTitle>
-        <ItemDescription className={cn(expanded && 'line-clamp-none')}>{previewBody(note.body) || '—'}</ItemDescription>
+        <ItemDescription>{previewBody(note.body) || '—'}</ItemDescription>
       </ItemContent>
       <ItemActions className="gap-3 text-xs text-muted-foreground">
         <time
@@ -152,17 +289,101 @@ function NoteCard({ note, expanded, onToggle }: { note: Note; expanded: boolean;
           </Button>
         )}
       </ItemActions>
-      {expanded && (
-        // biome-ignore lint/a11y/noStaticElementInteractions: stops bubble to row toggle; not itself interactive
-        <div
-          className="basis-full border-border border-t pt-3"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          <NoteEditor targetKind={note.targetKind} targetId={note.targetId} compact />
-        </div>
-      )}
     </Item>
+  )
+}
+
+function FilterFacet<TValue extends string>({
+  title,
+  options,
+  selected,
+  onChange,
+  facets,
+}: {
+  title: string
+  options: { label: string; value: TValue }[]
+  selected: Set<TValue>
+  onChange: (next: Set<TValue>) => void
+  facets?: Map<TValue, number>
+}) {
+  const hasSelection = selected.size > 0
+  const selectedOptions = options.filter((o) => selected.has(o.value))
+
+  const toggle = (value: TValue) => {
+    const next = new Set(selected)
+    if (next.has(value)) next.delete(value)
+    else next.add(value)
+    onChange(next)
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn('gap-x-1.5 border-border', !hasSelection && 'border-dashed')}>
+          <IconPlus
+            className={cn('-ml-0.5 size-4 shrink-0 transition-transform', hasSelection && 'rotate-45')}
+            aria-hidden="true"
+          />
+          <span>{title}</span>
+          {hasSelection && (
+            <>
+              <span className="h-3.5 w-px bg-border" aria-hidden="true" />
+              {selected.size > 2 ? (
+                <span className="font-medium text-primary">{selected.size} selected</span>
+              ) : (
+                <span className="max-w-[10rem] truncate font-medium text-primary">
+                  {selectedOptions.map((o) => o.label).join(', ')}
+                </span>
+              )}
+            </>
+          )}
+          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={title} />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => {
+                const isSelected = selected.has(option.value)
+                return (
+                  <CommandItem key={option.value} onSelect={() => toggle(option.value)}>
+                    <div
+                      className={cn(
+                        'flex size-4 items-center justify-center rounded-[4px] border',
+                        isSelected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-input [&_svg]:invisible',
+                      )}
+                    >
+                      <IconCheck className="size-3" />
+                    </div>
+                    <span>{option.label}</span>
+                    {facets?.get(option.value) ? (
+                      <span className="ml-auto flex size-4 items-center justify-center font-mono text-xs text-muted-foreground">
+                        {facets.get(option.value)}
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+            {hasSelection && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem onSelect={() => onChange(new Set())} className="justify-center text-center">
+                    Clear
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 

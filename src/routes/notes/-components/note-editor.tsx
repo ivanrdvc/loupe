@@ -1,9 +1,10 @@
-import { Delete02Icon, Edit02Icon } from '@hugeicons/core-free-icons'
+import { CheckmarkCircle02Icon, CopyLinkIcon, Delete02Icon, Edit02Icon, ReloadIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Markdown } from '#/components/markdown'
+import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -20,7 +21,7 @@ import { useUser } from '#/hooks/use-user'
 import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { deleteNote, getNoteForTarget, upsertNote } from '#/server/notes'
+import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/server/notes'
 import type { NoteTargetKind } from '../-types'
 
 type Props = {
@@ -106,6 +107,14 @@ export function NoteEditor({
     },
   })
 
+  const statusMutation = useMutation({
+    mutationFn: (input: { id: number; status: 'open' | 'resolved' }) => setNoteStatus({ data: input }),
+    onSuccess: async (next) => {
+      await invalidate()
+      toast.success(next.status === 'resolved' ? 'Note resolved' : 'Note reopened')
+    },
+  })
+
   if (isLoading) {
     return (
       <div className={cn('flex flex-col gap-2', compact ? 'py-1' : 'py-2')}>
@@ -186,6 +195,33 @@ export function NoteEditor({
     )
   }
 
+  const isResolved = note.status === 'resolved'
+  const toggleStatus = () => {
+    statusMutation.mutate({ id: note.id, status: isResolved ? 'open' : 'resolved' })
+  }
+
+  const copyLink = async () => {
+    if (typeof window === 'undefined') return
+    const url = `${window.location.origin}/notes?note=${note.id}`
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = url
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        ta.remove()
+      }
+      toast.success('Link copied')
+    } catch {
+      toast.error('Could not copy link')
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -194,12 +230,49 @@ export function NoteEditor({
         isFetching && 'opacity-80',
       )}
     >
-      <Markdown>{note.body}</Markdown>
+      {isResolved && (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="gap-1 text-muted-foreground">
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
+            Resolved
+          </Badge>
+          {note.resolvedAt && (
+            <span className="text-[11px] text-muted-foreground" title={new Date(note.resolvedAt).toLocaleString()}>
+              {formatAgo(note.resolvedAt)}
+            </span>
+          )}
+        </div>
+      )}
+      <div className={cn(isResolved && 'text-muted-foreground')}>
+        <Markdown>{note.body}</Markdown>
+      </div>
       <div className="flex items-center justify-between gap-2 border-border border-t pt-2 text-[11px] text-muted-foreground">
         <span title={new Date(note.updatedAt).toLocaleString()}>
           by {note.author} · {formatAgo(note.updatedAt)}
         </span>
         <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={isResolved ? 'Reopen note' : 'Resolve note'}
+                disabled={statusMutation.isPending}
+                onClick={toggleStatus}
+              >
+                <HugeiconsIcon icon={isResolved ? ReloadIcon : CheckmarkCircle02Icon} strokeWidth={2} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{isResolved ? 'Reopen' : 'Resolve'}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon-sm" variant="ghost" aria-label="Copy link to note" onClick={copyLink}>
+                <HugeiconsIcon icon={CopyLinkIcon} strokeWidth={2} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy link</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

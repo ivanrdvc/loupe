@@ -29,7 +29,7 @@ export function TaskHero({ row, fires, fromMs, toMs, conversationId, onFireClick
   return (
     <div className="border-b">
       <FlowChain row={row} conversationId={conversationId} errorRate={errorRate} />
-      <CadenceLine cadence={cadence} lastFireMs={row.lastFireMs} errored={row.errored} fires={row.fires} />
+      <StatusLine row={row} cadence={cadence} />
       <FireTimeline
         fires={fires}
         fromMs={fromMs}
@@ -173,25 +173,34 @@ interface Cadence {
   label: string
 }
 
-function CadenceLine({
-  cadence,
-  lastFireMs,
-  errored,
-  fires,
-}: {
-  cadence: Cadence | undefined
-  lastFireMs: number
-  errored: number
-  fires: number
-}) {
+function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefined }) {
+  const { kind, fires, errored, lastFireMs, avgDurationMs } = row
   const errTone =
     errored / Math.max(fires, 1) >= 0.05
       ? 'text-rose-700 dark:text-rose-300'
       : errored > 0
         ? 'text-amber-700 dark:text-amber-300'
         : 'text-muted-foreground'
+  const wrap =
+    'flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1 px-4 pt-3 text-[11px] tabular-nums text-muted-foreground lg:px-6'
+
+  // Lifecycle: one-shot or background, single fire — past tense, no series framing.
+  if (fires === 1 && (kind === 'one_shot' || kind === 'background')) {
+    const verb = kind === 'background' ? 'triggered' : 'fired'
+    return (
+      <div className={wrap}>
+        <span>
+          {verb} {formatAgo(lastFireMs)}
+        </span>
+        <span>{formatDuration(avgDurationMs)}</span>
+        <span className={errTone}>{errored === 1 ? 'errored' : 'OK'}</span>
+      </div>
+    )
+  }
+
+  // Cadence: cron / recurring / event / webhook / multi-fire — observed interval + last fire.
   return (
-    <div className="flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1 px-4 pt-3 text-[11px] tabular-nums text-muted-foreground lg:px-6">
+    <div className={wrap}>
       {cadence && (
         <span>
           {cadence.label}
@@ -199,11 +208,15 @@ function CadenceLine({
         </span>
       )}
       <span>last fire {formatAgo(lastFireMs)}</span>
-      <span className={errTone}>
-        {fires === 1 ? (errored === 1 ? 'errored' : 'OK') : `${errored} of ${fires} errored`}
-      </span>
+      <span className={errTone}>{errString(errored, fires)}</span>
     </div>
   )
+}
+
+function errString(errored: number, fires: number): string {
+  if (errored === 0) return 'OK'
+  if (errored === fires) return fires === 1 ? 'errored' : 'all errored'
+  return `${errored} of ${fires} errored`
 }
 
 function deriveCadence(fires: TraceSummary[]): Cadence | undefined {
@@ -249,6 +262,13 @@ function buildExpectedMarkers(fires: TraceSummary[], medianMs: number | undefine
 }
 
 function computeTaskHint(row: TaskRow): { text: string | undefined; mono: boolean } {
+  // One-shot already fired — kind icon + status line carry the story; no chip hint.
+  if (row.kind === 'one_shot' && row.fires > 0) return { text: undefined, mono: false }
+  // Event / webhook / background — source if known, else kind icon suffices.
+  if (row.kind === 'event' || row.kind === 'webhook' || row.kind === 'background') {
+    return row.source ? { text: row.source, mono: true } : { text: undefined, mono: false }
+  }
+  // Cron / unknown — schedule expression or due date.
   if (row.schedule) {
     if (looksLikeIsoDate(row.schedule)) {
       const t = Date.parse(row.schedule)

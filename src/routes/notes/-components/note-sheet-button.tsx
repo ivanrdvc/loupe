@@ -35,6 +35,7 @@ export function NoteSheetButton({ targetKind, targetId, parentTraceId, parentSes
     queryFn: () => getNoteForTarget({ data: { targetKind, targetId } }),
   })
   const hasNote = Boolean(note)
+  const isResolved = note?.status === 'resolved'
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -48,7 +49,14 @@ export function NoteSheetButton({ targetKind, targetId, parentTraceId, parentSes
           />
           {label}
           {hasNote ? (
-            <Badge variant="outline" className="ml-1 size-1.5 rounded-full bg-primary p-0" aria-hidden />
+            <Badge
+              variant="outline"
+              className={cn(
+                'ml-1 size-1.5 rounded-full p-0',
+                isResolved ? 'border-muted-foreground/40 bg-transparent' : 'bg-primary',
+              )}
+              aria-hidden
+            />
           ) : null}
         </Button>
       </SheetTrigger>

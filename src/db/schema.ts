@@ -60,11 +60,16 @@ export const notes = sqliteTable(
     parentSessionId: text('parent_session_id'),
     body: text().notNull(),
     author: text().notNull(),
+    status: text({ enum: ['open', 'resolved'] })
+      .notNull()
+      .default('open'),
+    resolvedAt: integer('resolved_at', { mode: 'timestamp_ms' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [
     uniqueIndex('note_target_unique').on(table.targetKind, table.targetId),
     index('note_updated_idx').on(table.updatedAt),
+    index('note_status_updated_idx').on(table.status, table.updatedAt),
   ],
 )
