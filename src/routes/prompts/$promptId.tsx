@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
+import { type RunLiveOutput, runLivePrompt } from '#/server/prompt-run'
 import { createVersion, deletePrompt, getPrompt, updatePromptMeta } from '#/server/prompts'
 import { ModelParamsPanel } from './-components/model-params-panel'
 import { PromptDetailHeader } from './-components/prompt-detail-header'
@@ -40,7 +41,6 @@ import { ResponseFormatPanel } from './-components/response-format-panel'
 import { RunResultPanel } from './-components/run-result-panel'
 import { ToolsPanel } from './-components/tools-panel'
 import { VersionRail } from './-components/version-rail'
-import { type LiveRunOutput, runLive } from './-lib/live-run'
 import type { Message, ModelParams, PromptWithVersions, ResponseFormat, Tool } from './-types'
 
 const DEFAULT_ENDPOINT = 'http://localhost:8080/v1/responses'
@@ -170,7 +170,7 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
   const [pendingVersionId, setPendingVersionId] = useState<number | null>(null)
   const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_ENDPOINT)
   const [agentName, setAgentName] = useState<string>(DEFAULT_AGENT)
-  const [latestResult, setLatestResult] = useState<LiveRunOutput | null>(null)
+  const [latestResult, setLatestResult] = useState<RunLiveOutput | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -194,11 +194,8 @@ function PromptDetailLoaded({ data }: { data: PromptWithVersions }) {
 
   const runMutation = useMutation({
     mutationFn: () =>
-      runLive({
-        endpointUrl,
-        agentName,
-        messages,
-        modelParams,
+      runLivePrompt({
+        data: { endpointUrl, agentName, messages, modelParams },
       }),
     onMutate: () => {
       setRunError(null)

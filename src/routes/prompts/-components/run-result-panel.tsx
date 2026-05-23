@@ -3,10 +3,10 @@ import { Badge } from '#/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Skeleton } from '#/components/ui/skeleton'
-import type { LiveRunOutput } from '../-lib/live-run'
+import type { RunLiveOutput } from '#/server/prompt-run'
 
 type Props = {
-  result: LiveRunOutput | null
+  result: RunLiveOutput | null
   isRunning: boolean
   error: string | null
 }
@@ -59,7 +59,7 @@ export function RunResultPanel({ result, isRunning, error }: Props) {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <pre className="mt-2 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-[11px]">
-            {JSON.stringify(result.raw, null, 2)}
+            {result.rawJson}
           </pre>
         </CollapsibleContent>
       </Collapsible>
