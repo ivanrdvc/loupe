@@ -110,7 +110,7 @@ function PromptDetailPage() {
     )
   }
 
-  return <PromptDetailLoaded data={data} />
+  return <PromptDetailLoaded key={data.prompt.id} data={data} />
 }
 
 function PromptBreadcrumb({ name }: { name?: string }) {

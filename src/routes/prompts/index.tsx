@@ -138,11 +138,11 @@ function PromptsListPage() {
 
   const tagFilterOptions = useMemo(() => tags.map((t) => ({ label: t.name, value: String(t.id) })), [tags])
 
+  const visibleRows = table.getRowModel().rows
   const groupedRows = useMemo(() => {
-    const visible = table.getRowModel().rows
-    type Group = { key: string; folder: PromptFolder | null; rows: typeof visible }
+    type Group = { key: string; folder: PromptFolder | null; rows: typeof visibleRows }
     const map = new Map<string, Group>()
-    for (const row of visible) {
+    for (const row of visibleRows) {
       const folderId = row.original.folderId
       const folder = folderId != null ? (folderById.get(folderId) ?? null) : null
       const key = folder ? `f-${folder.id}` : UNFILED_KEY
@@ -164,7 +164,7 @@ function PromptsListPage() {
       return a.folder.name.localeCompare(b.folder.name)
     })
     return groups
-  }, [table, folderById])
+  }, [visibleRows, folderById])
 
   const isLoading = foldersLoading || promptsLoading
   const columnCount = table.getVisibleLeafColumns().length
