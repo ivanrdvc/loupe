@@ -76,4 +76,20 @@ Consumer-side normalisation at fetch time. The single pass in `src/lib/spans.ts`
 
 Pass-through: when a span arrives already carrying these attrs (Traceloop producers, LangGraph via the `graph.node.*` alias, anyone emitting them natively), the normaliser trusts the producer and skips its own stamping.
 
-Why the work runs in agentops rather than producer-side or in an OTel Collector: OTTL transform processors are strictly per-span (can't dereference `parent_span_id` to walk ancestors), and we don't want to ship a producer-side SDK processor in two languages. Rationale + rollout: [`../plans/agentops-conventions.md`](../plans/agentops-conventions.md). Fallback inference rules + topology shapes: [`01-architecture.md`](01-architecture.md).
+Why the work runs in agentops rather than producer-side or in an OTel Collector: OTTL transform processors are strictly per-span (can't dereference `parent_span_id` to walk ancestors), and we don't want to ship a producer-side SDK processor in two languages. Fallback inference rules + topology shapes: [`01-architecture.md`](01-architecture.md).
+
+## Rendering
+
+A span's UI surface is determined by what the span *is*, not by `gen_ai.task.*`. The normaliser stamps run-graph attrs for in-trace use (subtree focus inside the trace-detail tree, parent linkage in the per-trace drawer) — it does **not** drive a new list-level surface.
+
+- **Root spans** appear on `/traces` (Traces tab), one row per `trace_id`, classified by [`trace-category.ts`](../../src/lib/telemetry/trace-category.ts).
+- **Sub-agent spans** (`invoke_agent` whose parent is `execute_tool`, or any span with `gen_ai.task.parent.id` set) appear on `/traces?tab=spans` with `kind=sub-agent`. They are not promoted to Traces rows — a sub-agent is a nested span, not a trace.
+- **Utility spans** (`gen_ai.operation.purpose` set, non-root) appear on `/traces?tab=spans` with `kind=utility`. A utility emitted as its own trace lands on the Traces tab instead (`category=utility`).
+
+See [`sessions-vs-live.md`](sessions-vs-live.md) for the full per-tab matrix.
+
+### Rejected — sub-agents as first-class Traces rows
+
+Earlier proposal: promote any span with `gen_ai.task.parent.id` to its own row on `/traces` (keyed by `gen_ai.task.id`) and shrink the Spans tab to utility-only.
+
+**Rejected.** A sub-agent invocation is one span — it is not a root. Treating it as a row on the Traces tab would conflate `trace_id` (the unit a Traces row keys on) with span identity, and create two surfaces that show the same execution. Sub-agents stay on the Spans tab alongside utility spans, where every row is by definition a nested span surfaced on its own. The normaliser still stamps `gen_ai.task.*` for in-trace use (subtree focus, drawer scoping inside trace detail) — it just doesn't drive a new list-level surface. Matches prior art: Phoenix surfaces sub-agents via a filterable flat Spans list; Langfuse / LangSmith keep them nested under the parent trace.

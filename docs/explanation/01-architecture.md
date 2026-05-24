@@ -318,5 +318,4 @@ Rules:
 | Sessions roll-up logic | [`sessions-vs-live.md`](sessions-vs-live.md) |
 | Attribute catalog (full OTel + extensions) | [`../reference/ai-attributes.md`](../reference/ai-attributes.md) |
 | Provider details | [`../reference/telemetry-providers.md`](../reference/telemetry-providers.md) |
-| Rollout plan + prior art | [`../plans/agentops-conventions.md`](../plans/agentops-conventions.md) |
 | Unbuilt plans | [`../plans/`](../plans/) |

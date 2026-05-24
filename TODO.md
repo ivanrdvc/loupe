@@ -22,3 +22,7 @@
   token-by-token streaming is out of scope (would require a side channel
   that bypasses OTel and violates the read-only / OTel-first stance).
 - Historic data across agent versions (compare runs over time)
+
+## Stash (sister-project producer work)
+
+- Agent-run-test (`agent/Demos.cs`) — emit producer-side per [`docs/explanation/02-spec.md`](docs/explanation/02-spec.md) producer emission checklist: cron scenario (`task.kind=cron` + `task.schedule`), `task.name` on scheduled/event/webhook/background, `task.source` on event/webhook/background. Optional: stamp `gen_ai.task.id` / `gen_ai.task.parent.id` on `invoke_agent` spans (normaliser fills them otherwise).

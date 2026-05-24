@@ -50,7 +50,7 @@ The Spans/waterfall view can come back behind an opt-in if needed — not the de
 `/sessions` lists multi-turn conversations grouped by session attribute. `/traces` has two tabs:
 
 - **Traces tab** — one row per `trace_id`, end-to-end runs. Utility traces (those whose root span carries `gen_ai.operation.purpose`) appear here naturally if the producer emits them as their own trace. Category facet filter: Chat, Sub-agent, Scheduled, Event, Webhook, Background, Utility, Orphan.
-- **Spans tab** (`?tab=spans`) — lazy-fetched flat list of *nested* spans worth surfacing on their own: utility purpose-attr spans inside a larger trace (title-gen, memory.* sitting inside a chat trace) and sub-agent invocations (`invoke_agent` whose parent is `execute_tool`). Each row links to its parent trace; clicking opens the trace with that span focused. **Transitional**: once the consumer-side normaliser lands ([`../plans/agentops-conventions.md`](../plans/agentops-conventions.md)), sub-agents become first-class rows on the Traces tab keyed by `gen_ai.task.id`, and the Spans tab shrinks to utility-only.
+- **Spans tab** (`?tab=spans`) — lazy-fetched flat list of *nested* spans worth surfacing on their own: utility purpose-attr spans inside a larger trace (title-gen, memory.* sitting inside a chat trace) and sub-agent invocations (`invoke_agent` whose parent is `execute_tool`). Each row links to its parent trace; clicking opens the trace with that span focused. Sub-agents stay here permanently — they are not root spans, so promoting them to Traces rows would conflate `trace_id` with span identity. (Decision recorded in [`02-spec.md`](02-spec.md#rejected--sub-agents-as-first-class-traces-rows).)
 
 A utility appears in **one** place, determined by emission shape:
 - emitted as its own trace → Traces tab (category: utility)
@@ -58,7 +58,7 @@ A utility appears in **one** place, determined by emission shape:
 
 **How the Spans tab works (fallback path):**
 
-The `listSpans` provider method runs one query per provider that returns rows matching either: (a) `gen_ai.operation.purpose IS NOT NULL AND parent_span_id IS NOT NULL`, or (b) `operation_name LIKE 'invoke_agent %' AND parent_span operation_name LIKE 'execute_tool %'`. Each row carries a `kind` discriminator (`utility` | `sub-agent`) and a `label` (the purpose name or the agent base name). These structural rules are the fallback for producers that don't stamp `gen_ai.task.parent.id` natively — see [`02-spec.md`](02-spec.md).
+The `listSpans` provider method runs one query per provider that returns rows matching either: (a) `gen_ai.operation.purpose IS NOT NULL AND parent_span_id IS NOT NULL`, or (b) `operation_name LIKE 'invoke_agent %' AND parent_span operation_name LIKE 'execute_tool %'`. Each row carries a `kind` discriminator (`utility` | `sub-agent`) and a `label` (the purpose name or the agent base name). These structural rules cover producers that don't stamp `gen_ai.task.parent.id` natively; when the attribute is present the normaliser uses it directly — see [`02-spec.md`](02-spec.md).
 
 **What shows where:**
 

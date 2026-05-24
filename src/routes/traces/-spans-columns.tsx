@@ -26,10 +26,11 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Span" />,
     cell: ({ row }) => {
       const s = row.original
+      const display = s.spanName.replace(/\s*\([0-9a-f-]{8,}\)\s*$/i, '')
       return (
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="block max-w-[260px] truncate" title={s.spanName}>
-            {s.spanName}
+            {display}
           </span>
           {s.hasError && (
             <Badge variant="destructive" className="shrink-0 px-1.5">
