@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, lt, lte, or } from 'drizzle-orm'
+import { and, count, desc, eq, gt, isNull, lt, lte, or } from 'drizzle-orm'
 import { db } from '#/db'
 import { inboxItems, inventory } from '#/db/schema'
 
@@ -36,7 +36,12 @@ export async function listOpenInboxItems(limit = 100): Promise<InboxRow[]> {
 }
 
 export async function countOpenInboxItems(): Promise<number> {
-  return (await listOpenInboxItems(1000)).length
+  const now = new Date()
+  const [row] = await db
+    .select({ value: count() })
+    .from(inboxItems)
+    .where(and(isNull(inboxItems.dismissedAt), or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now))))
+  return row?.value ?? 0
 }
 
 export async function dismissInboxItem(id: number): Promise<void> {

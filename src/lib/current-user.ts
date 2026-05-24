@@ -5,7 +5,7 @@ export type CurrentUser = {
   initials: string
 }
 
-export const DEFAULT_USER: CurrentUser = {
+const DEFAULT_USER: CurrentUser = {
   name: 'Anonymous',
   email: 'you@example.com',
   initials: 'AN',

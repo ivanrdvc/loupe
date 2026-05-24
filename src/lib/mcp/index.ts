@@ -5,9 +5,7 @@ import type { McpRegistryResult, McpServer } from './types'
 
 const CONCURRENCY = 5
 
-export type { McpLintFinding, McpRegistryResult, McpServer, McpServerRef, McpTool } from './types'
-
-export async function listMcpRegistry(): Promise<McpRegistryResult> {
+async function listMcpRegistry(): Promise<McpRegistryResult> {
   const fetchedAt = Date.now()
   const source = getRegistrySource()
   const refs = await source.listServerRefs()

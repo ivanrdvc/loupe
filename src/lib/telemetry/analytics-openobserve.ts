@@ -8,8 +8,6 @@ import type {
   InventoryObservation,
   LatencyPoint,
   OpenObserveProvider,
-  OverviewAggregate,
-  OverviewOpts,
   RunsPoint,
   ToolErrorRow,
   ToolPayloadRow,
@@ -24,28 +22,6 @@ async function emptyOn20004<T>(run: () => Promise<T[]>): Promise<T[]> {
   } catch (e) {
     if (e instanceof Error && e.message.includes('"code":20004')) return []
     throw e
-  }
-}
-
-export async function fetchOverview(p: OpenObserveProvider, opts?: OverviewOpts): Promise<OverviewAggregate> {
-  const sql = `
-    SELECT
-      COUNT(DISTINCT trace_id) AS runs,
-      COUNT(DISTINCT CASE WHEN span_status = 'ERROR' THEN trace_id END) AS errored_runs,
-      approx_percentile_cont(CASE WHEN gen_ai_operation_name = 'chat' THEN duration END, 0.95) / 1000 AS p95_chat_ms,
-      SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN gen_ai_usage_cost_total ELSE 0 END) AS total_cost
-    FROM "${p.stream}"
-    WHERE gen_ai_operation_name IS NOT NULL
-       OR operation_name LIKE 'execute_tool %'
-       OR operation_name LIKE 'invoke_agent %'
-  `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 1 }))
-  const row = hits[0] ?? {}
-  return {
-    runs: Number(row.runs ?? 0),
-    erroredRuns: Number(row.errored_runs ?? 0),
-    p95ChatMs: Math.round(Number(row.p95_chat_ms ?? 0)),
-    totalCostUsd: Number(row.total_cost ?? 0),
   }
 }
 

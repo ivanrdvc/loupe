@@ -13,7 +13,7 @@ export function bucketSecondsFor(fromUs: number, toUs: number): number {
   return Math.max(60, Math.floor(spanSec / SPARK_BUCKETS))
 }
 
-export function buildSlots(fromUs: number, toUs: number, bucketSec: number): number[] {
+function buildSlots(fromUs: number, toUs: number, bucketSec: number): number[] {
   const bucketMs = bucketSec * 1000
   const startMs = Math.floor(fromUs / 1000)
   const endMs = Math.floor(toUs / 1000)

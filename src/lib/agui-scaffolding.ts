@@ -62,7 +62,7 @@ function isScaffoldAssistant(
   return isPureJson(event.content)
 }
 
-export function isPureJson(content: string): boolean {
+function isPureJson(content: string): boolean {
   const trimmed = content.trim()
   if (!/^[{[]/.test(trimmed)) return false
   try {

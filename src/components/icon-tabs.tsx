@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '#/components/ui/tabs'
 
-export interface IconTab<T extends string> {
+interface IconTab<T extends string> {
   id: T
   label: string
   Icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>

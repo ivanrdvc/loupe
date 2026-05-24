@@ -226,14 +226,6 @@ export function findUtilityChatIds(spans: Span[]): Set<string> {
   return out
 }
 
-export const KIND_LETTER: Record<SpanKind, string> = {
-  server: 's',
-  client: 'c',
-  internal: 'i',
-  producer: 'p',
-  consumer: 'u',
-}
-
 export function spanHasError(span: Span): boolean {
   if (span.hasError) return true
   const r = span.toolResult

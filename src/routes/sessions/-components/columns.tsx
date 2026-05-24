@@ -1,15 +1,12 @@
 import { Clock01Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
-import { queryKeys } from '#/lib/query-keys'
 import type { SessionSummary } from '#/lib/telemetry'
-import { getNoteFlagsForKind } from '#/server/notes'
 
 function userPrimary(s: SessionSummary): string {
   return s.userName ?? s.userId ?? '—'
@@ -20,14 +17,9 @@ function userSecondary(s: SessionSummary): string | undefined {
   return undefined
 }
 
-function SessionIdCell({ session }: { session: SessionSummary }) {
+function SessionIdCell({ session, hasNote }: { session: SessionSummary; hasNote: boolean }) {
   const title = session.title?.trim()
   const idLabel = truncateId(session.sessionId)
-  const { data: flags } = useQuery({
-    queryKey: queryKeys.notes.flagsForKind('session'),
-    queryFn: () => getNoteFlagsForKind({ data: 'session' }),
-  })
-  const hasNote = Boolean(flags?.[session.sessionId])
   return (
     <div className="flex min-w-0 items-center gap-1.5">
       {title ? (
@@ -59,110 +51,112 @@ function SessionIdCell({ session }: { session: SessionSummary }) {
   )
 }
 
-export const sessionColumns: ColumnDef<SessionSummary>[] = [
-  {
-    accessorKey: 'status',
-    accessorFn: (s) => (s.hasError ? 'error' : 'ok'),
-    header: () => null,
-    cell: () => null,
-    filterFn: (row, _id, value: string[]) =>
-      Array.isArray(value) && value.includes(row.original.hasError ? 'error' : 'ok'),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: 'lastSeenMs',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
-    cell: ({ row }) => (
-      <RelativeTime ts={row.original.lastSeenMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
-    ),
-  },
-  {
-    accessorKey: 'sessionId',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Session" />,
-    cell: ({ row }) => <SessionIdCell session={row.original} />,
-    filterFn: (row, _id, value) => {
-      const q = String(value ?? '')
-        .trim()
-        .toLowerCase()
-      if (!q) return true
-      const s = row.original
-      const haystack = [
-        s.sessionId,
-        s.title ?? '',
-        s.userName ?? '',
-        s.userId ?? '',
-        s.host ?? '',
-        s.agents.join(' '),
-        s.firstInput ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(q)
+export function buildSessionColumns(noteFlags: Record<string, boolean>): ColumnDef<SessionSummary>[] {
+  return [
+    {
+      accessorKey: 'status',
+      accessorFn: (s) => (s.hasError ? 'error' : 'ok'),
+      header: () => null,
+      cell: () => null,
+      filterFn: (row, _id, value: string[]) =>
+        Array.isArray(value) && value.includes(row.original.hasError ? 'error' : 'ok'),
+      enableSorting: false,
+      enableHiding: false,
     },
-  },
-  {
-    accessorKey: 'firstInput',
-    header: 'Input',
-    cell: ({ row }) => {
-      const firstInput = row.original.firstInput?.trim()
-      return firstInput ? (
-        <span className="block max-w-[420px] truncate" title={firstInput}>
-          {firstInput}
-        </span>
-      ) : (
-        <span className="text-muted-foreground/60">—</span>
-      )
+    {
+      accessorKey: 'lastSeenMs',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
+      cell: ({ row }) => (
+        <RelativeTime ts={row.original.lastSeenMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
+      ),
     },
-    enableSorting: false,
-  },
-  {
-    id: 'user',
-    accessorFn: (s) => userPrimary(s),
-    header: ({ column }) => <DataTableColumnHeader column={column} title="User" />,
-    cell: ({ row }) => {
-      const primary = userPrimary(row.original)
-      const secondary = userSecondary(row.original)
-      return (
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 max-w-[160px] truncate">{primary}</span>
-          {secondary ? (
-            <span className="max-w-[160px] shrink-0 truncate text-xs text-muted-foreground">{secondary}</span>
-          ) : null}
-        </div>
-      )
+    {
+      accessorKey: 'sessionId',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Session" />,
+      cell: ({ row }) => <SessionIdCell session={row.original} hasNote={Boolean(noteFlags[row.original.sessionId])} />,
+      filterFn: (row, _id, value) => {
+        const q = String(value ?? '')
+          .trim()
+          .toLowerCase()
+        if (!q) return true
+        const s = row.original
+        const haystack = [
+          s.sessionId,
+          s.title ?? '',
+          s.userName ?? '',
+          s.userId ?? '',
+          s.host ?? '',
+          s.agents.join(' '),
+          s.firstInput ?? '',
+        ]
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(q)
+      },
     },
-  },
-  {
-    id: 'duration',
-    accessorFn: (s) => s.activeDurationMs,
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Duration" className="justify-end" />,
-    cell: ({ row }) => {
-      const ms = row.original.activeDurationMs
-      return (
-        <div className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms)}`}>
-          <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 opacity-80" />
-          {formatDuration(ms)}
-        </div>
-      )
+    {
+      accessorKey: 'firstInput',
+      header: 'Input',
+      cell: ({ row }) => {
+        const firstInput = row.original.firstInput?.trim()
+        return firstInput ? (
+          <span className="block max-w-[420px] truncate" title={firstInput}>
+            {firstInput}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/60">—</span>
+        )
+      },
+      enableSorting: false,
     },
-  },
-  {
-    accessorKey: 'totalTokens',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" className="justify-end" />,
-    cell: ({ row }) => <div className="text-right tabular-nums">{formatTokens(row.original.totalTokens)}</div>,
-  },
-  {
-    accessorKey: 'totalCostUsd',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" className="justify-end" />,
-    cell: ({ row }) => {
-      const value = row.original.totalCostUsd ?? 0
-      return <div className={`text-right tabular-nums ${metricTone('cost', value)}`}>{formatCost(value)}</div>
+    {
+      id: 'user',
+      accessorFn: (s) => userPrimary(s),
+      header: ({ column }) => <DataTableColumnHeader column={column} title="User" />,
+      cell: ({ row }) => {
+        const primary = userPrimary(row.original)
+        const secondary = userSecondary(row.original)
+        return (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 max-w-[160px] truncate">{primary}</span>
+            {secondary ? (
+              <span className="max-w-[160px] shrink-0 truncate text-xs text-muted-foreground">{secondary}</span>
+            ) : null}
+          </div>
+        )
+      },
     },
-  },
-  {
-    accessorKey: 'traceCount',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Traces" className="justify-end" />,
-    cell: ({ row }) => <div className="text-right tabular-nums">{row.original.traceCount}</div>,
-  },
-]
+    {
+      id: 'duration',
+      accessorFn: (s) => s.activeDurationMs,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Duration" className="justify-end" />,
+      cell: ({ row }) => {
+        const ms = row.original.activeDurationMs
+        return (
+          <div className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms)}`}>
+            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 opacity-80" />
+            {formatDuration(ms)}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'totalTokens',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" className="justify-end" />,
+      cell: ({ row }) => <div className="text-right tabular-nums">{formatTokens(row.original.totalTokens)}</div>,
+    },
+    {
+      accessorKey: 'totalCostUsd',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" className="justify-end" />,
+      cell: ({ row }) => {
+        const value = row.original.totalCostUsd ?? 0
+        return <div className={`text-right tabular-nums ${metricTone('cost', value)}`}>{formatCost(value)}</div>
+      },
+    },
+    {
+      accessorKey: 'traceCount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Traces" className="justify-end" />,
+      cell: ({ row }) => <div className="text-right tabular-nums">{row.original.traceCount}</div>,
+    },
+  ]
+}

@@ -10,7 +10,7 @@ export interface IdentityFilter {
   userName?: string
 }
 
-export interface ListOpts extends WindowOpts {
+interface ListOpts extends WindowOpts {
   limit?: number
 }
 
@@ -151,15 +151,6 @@ export interface RunsPoint {
   ts: number
   runs: number
 }
-
-export interface OverviewAggregate {
-  runs: number
-  erroredRuns: number
-  p95ChatMs: number
-  totalCostUsd: number
-}
-
-export type OverviewOpts = WindowOpts
 
 export type SessionFetch = {
   sessionId: string

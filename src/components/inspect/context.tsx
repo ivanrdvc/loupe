@@ -5,36 +5,7 @@ import { CodeBlock } from '#/components/ai-elements/code-block'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { formatJson } from '#/lib/json'
-import type { SystemBlock, ToolDef, ToolGroup } from './context-collectors'
-
-export function ContextSystem({ blocks }: { blocks: SystemBlock[] }) {
-  if (blocks.length === 0) {
-    return (
-      <Empty className="border-0">
-        <EmptyHeader>
-          <EmptyTitle>No system prompt</EmptyTitle>
-          <EmptyDescription>None of the chat spans carry a system message.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-  return (
-    <div className="overflow-hidden rounded-md border">
-      {blocks.map((block) => (
-        <ExpandableRow
-          key={block.id}
-          title={block.title}
-          tokens={block.tokens}
-          content={() => (
-            <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
-              {block.content}
-            </pre>
-          )}
-        />
-      ))}
-    </div>
-  )
-}
+import type { ToolDef, ToolGroup } from './context-collectors'
 
 export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   if (groups.length === 0) {

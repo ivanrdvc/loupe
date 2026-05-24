@@ -46,7 +46,7 @@ interface SessionSearch {
 
 function parseSessionView(value: unknown): InspectView | undefined {
   if (value === 'conversation') return 'conversation'
-  if (value === 'spans' || value === 'trace') return 'spans'
+  if (value === 'spans') return 'spans'
   return undefined
 }
 

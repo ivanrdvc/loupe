@@ -1,21 +1,13 @@
 import {
-  Edit02Icon,
-  Home01Icon,
   InboxIcon,
   KeyboardIcon,
   Logout01Icon,
-  MessageMultiple01Icon,
   Moon01Icon,
   MoreHorizontalCircle01Icon,
   MoreVerticalIcon,
   News01Icon,
-  PlayCircleIcon,
-  PuzzleIcon,
   Settings01Icon,
-  StickyNote01Icon,
   Sun01Icon,
-  Task01Icon,
-  TestTubeIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
@@ -23,6 +15,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useTheme } from 'next-themes'
 import { useState } from 'react'
 import { Logo } from '#/components/logo'
+import { NAV_ITEMS, type NavItem, navMatches } from '#/components/nav-items'
 import { SettingsDialog } from '#/components/settings-dialog'
 import { useShortcutsDialog } from '#/components/shortcuts-dialog'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -55,32 +48,8 @@ import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 
 const APP_VERSION = `v${__APP_VERSION__}`
 
-type NavItem = {
-  to: '/' | '/sessions' | '/traces' | '/mcp' | '/evals' | '/notes' | '/prompts' | '/tasks'
-  label: string
-  icon: typeof Home01Icon
-  match: (path: string) => boolean
-  soon?: boolean
-}
-
-const OBSERVE_NAV: NavItem[] = [
-  { to: '/', label: 'Home', icon: Home01Icon, match: (p) => p === '/' },
-  { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon, match: (p) => p.startsWith('/sessions') },
-  {
-    to: '/traces',
-    label: 'Traces',
-    icon: PlayCircleIcon,
-    match: (p) => p.startsWith('/traces'),
-  },
-  { to: '/tasks', label: 'Tasks', icon: Task01Icon, match: (p) => p.startsWith('/tasks') },
-  { to: '/mcp', label: 'MCP', icon: PuzzleIcon, match: (p) => p.startsWith('/mcp'), soon: true },
-]
-
-const WORKBENCH_NAV: NavItem[] = [
-  { to: '/notes', label: 'Notes', icon: StickyNote01Icon, match: (p) => p.startsWith('/notes') },
-  { to: '/prompts', label: 'Prompts', icon: Edit02Icon, match: (p) => p.startsWith('/prompts') },
-  { to: '/evals', label: 'Evals', icon: TestTubeIcon, match: (p) => p.startsWith('/evals'), soon: true },
-]
+const OBSERVE_NAV = NAV_ITEMS.filter((n) => n.group === 'observe')
+const WORKBENCH_NAV = NAV_ITEMS.filter((n) => n.group === 'workbench')
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -220,7 +189,7 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
   }
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={item.match(pathname)}>
+      <SidebarMenuButton asChild isActive={navMatches(item, pathname)}>
         <Link to={item.to}>
           <HugeiconsIcon icon={item.icon} />
           <span>{item.label}</span>

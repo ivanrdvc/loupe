@@ -12,7 +12,7 @@ export interface Display {
   purposeCls?: string
 }
 
-export const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: IconSvgElement; tagColor: string }> = {
+const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: IconSvgElement; tagColor: string }> = {
   invoke_agent: { tagLabel: 'agent', tagIcon: Robot01Icon, tagColor: 'text-emerald-500 dark:text-emerald-400' },
   chat: { tagLabel: 'llm', tagIcon: AiBrain01Icon, tagColor: 'text-violet-500 dark:text-violet-400' },
   tool: { tagLabel: 'tool', tagIcon: Wrench01Icon, tagColor: 'text-sky-500 dark:text-sky-400' },

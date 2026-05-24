@@ -233,7 +233,7 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
           search: { range: 7, view: 'spans', span: note.targetId },
         })
       } else if (note.parentTraceId) {
-        void navigate({ to: '/traces/$traceId', params: { traceId: note.targetId } })
+        void navigate({ to: '/traces/$traceId', params: { traceId: note.parentTraceId } })
       }
     }
   }

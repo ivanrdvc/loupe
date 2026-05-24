@@ -1,7 +1,7 @@
 import { Refresh01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { IconChevronDown } from '@tabler/icons-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,16 +36,7 @@ export const LIST_AUTO_REFRESH_OPTIONS = [
   '15m',
 ] as const satisfies readonly AutoRefreshInterval[]
 
-export const DRAWER_AUTO_REFRESH_OPTIONS = [
-  'off',
-  '5s',
-  '30s',
-  '1m',
-  '5m',
-] as const satisfies readonly AutoRefreshInterval[]
-
 export const DEFAULT_AUTO_REFRESH_INTERVAL: AutoRefreshInterval = '30s'
-export const DRAWER_DEFAULT_AUTO_REFRESH_INTERVAL: AutoRefreshInterval = '5s'
 
 interface AutoRefreshSelectProps {
   value: AutoRefreshInterval
@@ -66,11 +57,19 @@ export function AutoRefreshSelect({
 }: AutoRefreshSelectProps) {
   const selected = AUTO_REFRESH_INTERVALS[value]
   const [spin, setSpin] = useState(false)
+  const spinTimerRef = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (spinTimerRef.current != null) window.clearTimeout(spinTimerRef.current)
+    },
+    [],
+  )
   const handleRefresh = () => {
     if (!onRefresh) return
     setSpin(true)
     onRefresh()
-    window.setTimeout(() => setSpin(false), SPIN_MS)
+    if (spinTimerRef.current != null) window.clearTimeout(spinTimerRef.current)
+    spinTimerRef.current = window.setTimeout(() => setSpin(false), SPIN_MS)
   }
 
   return (

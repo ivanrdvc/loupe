@@ -4,8 +4,6 @@ import { type SearchProvider, useRegisterSearchProvider } from '#/components/com
 import { CommandShortcut } from '#/components/ui/command'
 import { formatShortcut, useIsMac } from '#/hooks/use-is-mac'
 
-export { formatShortcut, useIsMac } from '#/hooks/use-is-mac'
-
 interface Options {
   entityId: string | null | undefined
   link?: string

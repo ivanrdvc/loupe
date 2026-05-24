@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 
 export type InspectView = 'spans' | 'conversation'
 
-export const INSPECT_VIEW_TABS = [
+const INSPECT_VIEW_TABS = [
   { id: 'spans', label: 'Spans', Icon: QueueListIcon },
   { id: 'conversation', label: 'Conversation', Icon: ChatBubbleLeftRightIcon },
 ] as const
@@ -23,7 +23,6 @@ interface InspectViewBarProps {
   onAutoRefreshChange?: (value: AutoRefreshInterval) => void
   onRefresh?: () => void
   refreshing?: boolean
-  autoRefreshOptions?: readonly AutoRefreshInterval[]
   /** Extra actions rendered to the right of the standard cluster (e.g. ContextWindow). */
   extras?: ReactNode
   /** Tab ids to hide from the view bar (e.g. hide Conversation for utility traces). */
@@ -39,7 +38,6 @@ export function InspectViewBar({
   onAutoRefreshChange,
   onRefresh,
   refreshing,
-  autoRefreshOptions,
   extras,
   hiddenTabs,
 }: InspectViewBarProps) {
@@ -70,7 +68,6 @@ export function InspectViewBar({
             onChange={onAutoRefreshChange}
             onRefresh={onRefresh}
             loading={refreshing}
-            options={autoRefreshOptions}
           />
         )}
         {extras}

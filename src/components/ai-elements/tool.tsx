@@ -1,102 +1,12 @@
-import {
-  ArrowDown01Icon,
-  Cancel01Icon,
-  CheckmarkCircle02Icon,
-  CircleIcon,
-  Clock01Icon,
-  Wrench01Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import type { ComponentProps, ReactNode } from 'react'
 import { isValidElement } from 'react'
 
-import { Badge } from '#/components/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { cn } from '#/lib/utils'
 
 import { CodeBlock } from './code-block'
-import type { DynamicToolPartShape, ToolPartShape } from './tool-types'
 
-export type ToolProps = ComponentProps<typeof Collapsible>
-
-export const Tool = ({ className, ...props }: ToolProps) => (
-  <Collapsible className={cn('group not-prose mb-4 w-full rounded-md border', className)} {...props} />
-)
-
-export type ToolPart = ToolPartShape | DynamicToolPartShape
-
-export type ToolHeaderProps = {
-  title?: string
-  className?: string
-} & (
-  | { type: ToolPartShape['type']; state: ToolPartShape['state']; toolName?: never }
-  | {
-      type: DynamicToolPartShape['type']
-      state: DynamicToolPartShape['state']
-      toolName: string
-    }
-)
-
-const statusLabels: Record<ToolPart['state'], string> = {
-  'approval-requested': 'Awaiting Approval',
-  'approval-responded': 'Responded',
-  'input-available': 'Running',
-  'input-streaming': 'Pending',
-  'output-available': 'Completed',
-  'output-denied': 'Denied',
-  'output-error': 'Error',
-}
-
-const statusIcons: Record<ToolPart['state'], ReactNode> = {
-  'approval-requested': <HugeiconsIcon icon={Clock01Icon} className="size-4 text-yellow-600" strokeWidth={2} />,
-  'approval-responded': <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-4 text-blue-600" strokeWidth={2} />,
-  'input-available': <HugeiconsIcon icon={Clock01Icon} className="size-4 animate-pulse" strokeWidth={2} />,
-  'input-streaming': <HugeiconsIcon icon={CircleIcon} className="size-4" strokeWidth={2} />,
-  'output-available': <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-4 text-green-600" strokeWidth={2} />,
-  'output-denied': <HugeiconsIcon icon={Cancel01Icon} className="size-4 text-orange-600" strokeWidth={2} />,
-  'output-error': <HugeiconsIcon icon={Cancel01Icon} className="size-4 text-red-600" strokeWidth={2} />,
-}
-
-export const getStatusBadge = (status: ToolPart['state']) => (
-  <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
-    {statusIcons[status]}
-    {statusLabels[status]}
-  </Badge>
-)
-
-export const ToolHeader = ({ className, title, type, state, toolName, ...props }: ToolHeaderProps) => {
-  const derivedName = type === 'dynamic-tool' ? toolName : type.split('-').slice(1).join('-')
-
-  return (
-    <CollapsibleTrigger className={cn('flex w-full items-center justify-between gap-4 p-3', className)} {...props}>
-      <div className="flex items-center gap-2">
-        <HugeiconsIcon icon={Wrench01Icon} className="size-4 text-muted-foreground" strokeWidth={2} />
-        <span className="font-medium text-sm">{title ?? derivedName}</span>
-        {getStatusBadge(state)}
-      </div>
-      <HugeiconsIcon
-        icon={ArrowDown01Icon}
-        className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
-        strokeWidth={2}
-      />
-    </CollapsibleTrigger>
-  )
-}
-
-export type ToolContentProps = ComponentProps<typeof CollapsibleContent>
-
-export const ToolContent = ({ className, ...props }: ToolContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-4 p-4 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
-      className,
-    )}
-    {...props}
-  />
-)
-
-export type ToolInputProps = ComponentProps<'div'> & {
-  input: ToolPart['input']
+type ToolInputProps = ComponentProps<'div'> & {
+  input: unknown
 }
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
@@ -108,17 +18,15 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   </div>
 )
 
-export type ToolOutputProps = ComponentProps<'div'> & {
-  output: ToolPart['output']
-  errorText: ToolPart['errorText']
+type ToolOutputProps = ComponentProps<'div'> & {
+  output: unknown
+  errorText: string | undefined
 }
 
 export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutputProps) => {
-  if (!(output || errorText)) {
-    return null
-  }
+  if (output == null && !errorText) return null
 
-  let Output = <div>{output as ReactNode}</div>
+  let Output: ReactNode = <div>{output as ReactNode}</div>
 
   if (typeof output === 'object' && !isValidElement(output)) {
     Output = <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />

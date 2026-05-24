@@ -1,7 +1,7 @@
 import { CheckmarkCircle02Icon, CopyLinkIcon, Delete02Icon, Edit02Icon, ReloadIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Markdown } from '#/components/markdown'
 import { RelativeTime } from '#/components/relative-time'
@@ -29,28 +29,9 @@ type Props = {
   targetId: string
   parentTraceId?: string | null
   parentSessionId?: string | null
-  compact?: boolean
-  variant?: 'default' | 'inline'
-  emptyLabel?: string
 }
 
-const KIND_LABEL: Record<NoteTargetKind, string> = {
-  session: 'session',
-  trace: 'trace',
-  span: 'span',
-  prompt: 'prompt',
-  experiment: 'experiment',
-}
-
-export function NoteEditor({
-  targetKind,
-  targetId,
-  parentTraceId,
-  parentSessionId,
-  compact = false,
-  variant = 'default',
-  emptyLabel,
-}: Props) {
+export function NoteEditor({ targetKind, targetId, parentTraceId, parentSessionId }: Props) {
   const user = useUser()
   const queryClient = useQueryClient()
   const {
@@ -65,10 +46,6 @@ export function NoteEditor({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
-
-  useEffect(() => {
-    if (!editing) setDraft(note?.body ?? '')
-  }, [note, editing])
 
   const invalidate = async () => {
     await Promise.all([
@@ -117,8 +94,8 @@ export function NoteEditor({
 
   if (isLoading) {
     return (
-      <div className={cn('flex flex-col gap-2', compact ? 'py-1' : 'py-2')}>
-        <Skeleton className={compact ? 'h-12 w-full' : 'h-20 w-full'} />
+      <div className="flex flex-col gap-2 py-2">
+        <Skeleton className="h-20 w-full" />
       </div>
     )
   }
@@ -133,17 +110,17 @@ export function NoteEditor({
     setEditing(false)
   }
 
-  if (editing || (!note && draft)) {
+  if (editing) {
     return (
-      <div className={cn('flex flex-col gap-2', compact ? 'py-1' : 'py-2')}>
+      <div className="flex flex-col gap-2 py-2">
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write a note. Markdown supported."
-          rows={compact ? 3 : 6}
+          rows={6}
           autoFocus
         />
-        <div className={cn('flex items-center', compact ? 'gap-1.5' : 'gap-2')}>
+        <div className="flex items-center gap-2">
           <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || !draft.trim()}>
             {saveMutation.isPending ? 'Saving…' : 'Save'}
           </Button>
@@ -156,30 +133,8 @@ export function NoteEditor({
   }
 
   if (!note) {
-    if (variant === 'inline') {
-      return (
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>{emptyLabel ?? `Add a note about this ${KIND_LABEL[targetKind]}`}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setDraft('')
-              setEditing(true)
-            }}
-          >
-            Add
-          </Button>
-        </div>
-      )
-    }
     return (
-      <div
-        className={cn(
-          'flex items-center justify-between gap-3 rounded-lg border border-dashed text-xs text-muted-foreground',
-          compact ? 'px-3 py-2' : 'px-4 py-3',
-        )}
-      >
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground">
         <span>No note yet.</span>
         <Button
           size="sm"
@@ -204,18 +159,7 @@ export function NoteEditor({
     if (typeof window === 'undefined') return
     const url = `${window.location.origin}/notes?note=${note.id}`
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url)
-      } else {
-        const ta = document.createElement('textarea')
-        ta.value = url
-        ta.style.position = 'fixed'
-        ta.style.opacity = '0'
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        ta.remove()
-      }
+      await navigator.clipboard.writeText(url)
       toast.success('Link copied')
     } catch {
       toast.error('Could not copy link')
@@ -223,13 +167,7 @@ export function NoteEditor({
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-2 rounded-lg border bg-card',
-        compact ? 'px-3 py-2' : 'px-4 py-3',
-        isFetching && 'opacity-80',
-      )}
-    >
+    <div className={cn('flex flex-col gap-2 rounded-lg border bg-card px-4 py-3', isFetching && 'opacity-80')}>
       {isResolved && (
         <div className="flex items-center gap-1.5">
           <Badge variant="outline" className="gap-1 text-muted-foreground">

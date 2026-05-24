@@ -2,7 +2,7 @@ import { ComputerIcon, Moon01Icon, Sun01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { providersQuery, setProviderFn } from '#/components/settings-data'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -168,10 +168,6 @@ function AccountPane() {
   const [storedId, setStoredId] = useUserId()
   const [value, setValue] = useState(storedId)
   const [scopeToMe, setScopeToMe] = useScopeToMe()
-
-  useEffect(() => {
-    setValue(storedId)
-  }, [storedId])
 
   const dirty = value.trim() !== storedId
 

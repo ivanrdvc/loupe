@@ -18,8 +18,6 @@ import { useInspectShortcuts } from './use-shortcuts'
 import { useSpanSearch } from './use-span-search'
 import { type InspectView, InspectViewBar } from './view-bar'
 
-export { INSPECT_VIEW_TABS, type InspectView } from './view-bar'
-
 type DrawerView = InspectView
 
 const DRAWER_TRANSITION_MS = 200

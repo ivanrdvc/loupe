@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { InspectLayout } from '#/components/inspect/overview'
@@ -40,9 +40,13 @@ function TraceDetail() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [fullSpans, setFullSpans] = useState(false)
 
-  // Auto-select the focused span (from sub-agent/purpose click), or first chat span.
+  // Auto-select once per (trace, focusSpanId) — don't clobber the user's pick on refetch.
+  const lastAutoSelectKey = useRef<string | null>(null)
   useEffect(() => {
     if (spans.length === 0) return
+    const key = `${spans[0]?.id ?? ''}|${focusSpanId ?? ''}`
+    if (lastAutoSelectKey.current === key) return
+    lastAutoSelectKey.current = key
     if (focusSpanId && spans.some((s) => s.id === focusSpanId)) {
       setSelectedId(focusSpanId)
     } else {

@@ -14,8 +14,6 @@ import type {
   ListSpansOpts,
   ListTracesOpts,
   LogRecord,
-  OverviewAggregate,
-  OverviewOpts,
   RunsPoint,
   SessionSummary,
   SpanSummary,
@@ -114,7 +112,7 @@ function resolveProviderId(): ProviderId {
   return 'openobserve'
 }
 
-export function getActiveProvider(): TelemetryProvider {
+function getActiveProvider(): TelemetryProvider {
   return getProvider(resolveProviderId())
 }
 
@@ -232,10 +230,6 @@ export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadR
   // To use untruncated Cosmos data, run: cd external/cosmos-payloads && npx tsx serve.ts
   // Then set TOOL_PAYLOAD_API_URL=http://localhost:3100 in .env
   return analytics.fetchToolPayloadSizes(getActiveProvider(), opts)
-}
-
-export async function getOverview(opts?: OverviewOpts): Promise<OverviewAggregate> {
-  return analytics.fetchOverview(getActiveProvider(), opts)
 }
 
 export async function listChatLatencyOverTime(opts?: WindowOpts): Promise<LatencyPoint[]> {

@@ -10,8 +10,6 @@ import type {
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyPoint,
-  OverviewAggregate,
-  OverviewOpts,
   RunsPoint,
   TelemetryProvider,
   ToolErrorRow,
@@ -19,15 +17,6 @@ import type {
   TopOpts,
   WindowOpts,
 } from './types'
-
-export async function fetchOverview(p: TelemetryProvider, opts?: OverviewOpts): Promise<OverviewAggregate> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchOverview(p, opts)
-    case 'app-insights':
-      return ai.fetchOverview(p, opts)
-  }
-}
 
 export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {
   switch (p.name) {

@@ -1,5 +1,4 @@
 import { extractAgentName, extractToolName } from '#/lib/classify-span'
-import { estimateCostUsd } from '#/lib/llm-pricing'
 import { aiCoalesce } from './conventions'
 import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import { bucketSecondsFor, zeroFillBucketed } from './time-series'
@@ -9,64 +8,12 @@ import type {
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyPoint,
-  OverviewAggregate,
-  OverviewOpts,
   RunsPoint,
   ToolErrorRow,
   ToolPayloadRow,
   TopOpts,
   WindowOpts,
 } from './types'
-
-export async function fetchOverview(p: AppInsightsProvider, opts?: OverviewOpts): Promise<OverviewAggregate> {
-  // Cost is computed in TS via estimateCostUsd, mirroring listTraces in app-insights.ts.
-  const aggQ = `
-    union dependencies, requests
-    | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-    | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool "
-    | summarize
-        runs = dcount(operation_Id),
-        errored_runs = dcountif(operation_Id, success == false),
-        p95_chat_ms = percentile(iff(gen_op == "chat", duration, real(null)), 95)
-  `
-  const costQ = `
-    union dependencies, requests
-    | where tostring(customDimensions["gen_ai.operation.name"]) == "chat"
-    | extend
-        in_tok    = toint(customDimensions["gen_ai.usage.input_tokens"]),
-        out_tok   = toint(customDimensions["gen_ai.usage.output_tokens"]),
-        cache_tok = toint(customDimensions["gen_ai.usage.cache_read.input_tokens"]),
-        model_id  = tostring(customDimensions["gen_ai.request.model"]),
-        provider  = tostring(customDimensions["gen_ai.provider.name"]),
-        ts_ms     = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
-    | summarize
-        in_tok = sum(in_tok),
-        out_tok = sum(out_tok),
-        cache_tok = sum(cache_tok),
-        ts_ms = min(ts_ms)
-      by model_id, provider
-  `
-  const [aggRows, costRows] = await Promise.all([p.query(aggQ, opts ?? {}), p.query(costQ, opts ?? {})])
-  const agg = aggRows[0] ?? {}
-  let totalCost = 0
-  for (const r of costRows) {
-    const cost = estimateCostUsd({
-      model: typeof r.model_id === 'string' ? r.model_id : undefined,
-      inputTokens: num(r.in_tok),
-      outputTokens: num(r.out_tok),
-      cachedInputTokens: num(r.cache_tok),
-      provider: typeof r.provider === 'string' ? r.provider : undefined,
-      spanStartMs: num(r.ts_ms),
-    })
-    if (cost) totalCost += cost
-  }
-  return {
-    runs: Number(agg.runs ?? 0),
-    erroredRuns: Number(agg.errored_runs ?? 0),
-    p95ChatMs: Math.round(num(agg.p95_chat_ms) ?? 0),
-    totalCostUsd: totalCost,
-  }
-}
 
 export async function fetchToolErrorRates(p: AppInsightsProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {
   const limit = opts?.limit ?? 5

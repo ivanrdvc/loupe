@@ -5,7 +5,7 @@ export const SEGMENT_COLORS = {
   subagents: 'bg-sky-300 dark:bg-sky-400',
 } as const
 
-export type ContextSegmentKey = keyof typeof SEGMENT_COLORS
+type ContextSegmentKey = keyof typeof SEGMENT_COLORS
 
 export interface ContextSegment {
   key: ContextSegmentKey

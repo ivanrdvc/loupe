@@ -67,7 +67,7 @@ async function loadEncoder(family: Family): Promise<Encoder> {
   return p
 }
 
-export async function resolveEncoder(model: string | undefined): Promise<ResolvedEncoder> {
+async function resolveEncoder(model: string | undefined): Promise<ResolvedEncoder> {
   const family = resolveFamily(model)
   const count = await loadEncoder(family)
   return { family, count }

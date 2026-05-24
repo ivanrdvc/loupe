@@ -9,10 +9,9 @@ interface ContextWindowProps {
   spans: Span[]
 }
 
-// Conservative context-window lookup. Wrong values are worse than missing — we
-// fall back to a "—" label rather than guessing when the model string doesn't
-// match anything known.
-export function contextWindowFor(model: string | undefined): number | null {
+// Wrong values are worse than missing — return null when the model string
+// doesn't match anything known.
+function contextWindowFor(model: string | undefined): number | null {
   const m = (model ?? '').toLowerCase()
   if (!m) return null
   if (m.startsWith('claude')) return 200_000

@@ -1,6 +1,7 @@
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
   type ColumnFiltersState,
@@ -22,10 +23,12 @@ import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
+import { queryKeys } from '#/lib/query-keys'
 import type { SessionSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { sessionColumns } from './columns'
+import { getNoteFlagsForKind } from '#/server/notes'
+import { buildSessionColumns } from './columns'
 
 const FILTERS: FacetedFilterSpec[] = [
   {
@@ -73,9 +76,15 @@ export function DataTable({
     pageSize: 50,
   })
 
+  const { data: noteFlags } = useQuery({
+    queryKey: queryKeys.notes.flagsForKind('session'),
+    queryFn: () => getNoteFlagsForKind({ data: 'session' }),
+  })
+  const columns = React.useMemo(() => buildSessionColumns(noteFlags ?? {}), [noteFlags])
+
   const table = useReactTable({
     data,
-    columns: sessionColumns,
+    columns,
     state: {
       sorting,
       columnVisibility,
@@ -138,7 +147,7 @@ export function DataTable({
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={sessionColumns.length} className="h-48">
+                  <TableCell colSpan={columns.length} className="h-48">
                     <div className="flex h-full items-center justify-center">
                       {isLoading ? (
                         <HugeiconsIcon

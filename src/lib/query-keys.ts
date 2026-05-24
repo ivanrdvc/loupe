@@ -3,7 +3,6 @@ export const queryKeys = {
     all: () => ['sessions'] as const,
     window: (range: string, userId = '') => ['sessions', userId, { range }] as const,
     currentUserWindow: (range: string, userId: string) => ['sessions', 'current-user', userId, { range }] as const,
-    detail: (id: string) => ['sessions', id] as const,
     detailWindow: (id: string, range: string) => ['sessions', id, { range }] as const,
   },
   traces: {
@@ -37,12 +36,12 @@ export const queryKeys = {
     list: (folderId?: number | null) => ['prompts', 'list', folderId ?? null] as const,
     detail: (promptId: number) => ['prompts', 'detail', promptId] as const,
     runDefaults: () => ['prompts', 'run-defaults'] as const,
+    tags: () => ['prompts', 'tags'] as const,
   },
   logs: {
     byTraceIds: (ids: readonly string[]) => ['logs', { ids: [...ids].sort() }] as const,
   },
   notes: {
-    all: () => ['notes'] as const,
     list: () => ['notes', 'list'] as const,
     byTarget: (kind: string, id: string) => ['notes', 'target', kind, id] as const,
     flagsForKind: (kind: string) => ['notes', 'flags', kind] as const,

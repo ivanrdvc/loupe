@@ -3,7 +3,7 @@ import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
-import type { SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow } from './types'
+import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow } from './types'
 
 // Sessions are reconstructed from raw spans, so the scan has to pull every
 // row that could carry a session-identifying attribute. When the cap is hit
@@ -21,8 +21,6 @@ export function classifySpanRow(spanName: string, purpose: string): { kind: Span
   if (purpose) return { kind: 'utility', label: purpose }
   return { kind: 'sub-agent', label: extractAgentName(spanName) || spanName }
 }
-
-export type IdentityFilter = { userId?: string; userName?: string }
 
 export function pickIdentityValue(
   opts: IdentityFilter | undefined,

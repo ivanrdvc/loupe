@@ -40,7 +40,7 @@ export interface RegistrySource {
   listServerRefs(): Promise<McpServerRef[]>
 }
 
-export type LintSeverity = 'info' | 'warning' | 'error'
+type LintSeverity = 'info' | 'warning' | 'error'
 
 export interface McpLintFinding {
   severity: LintSeverity

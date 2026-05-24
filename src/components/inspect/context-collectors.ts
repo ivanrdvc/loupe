@@ -4,7 +4,7 @@ import { formatJson, type JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { displayFor } from './shared'
 
-export interface SystemBlock {
+interface SystemBlock {
   id: string
   title: string
   content: string
@@ -15,7 +15,7 @@ export interface SystemBlock {
 // named collapsible group, 'default' is the unnamed catch-all flat list.
 // Using a discriminator instead of comparing the display string avoids a
 // collision if a real MCP server is literally named 'frontend' or 'tools'.
-export type ToolGroupKind = 'frontend' | 'server' | 'default'
+type ToolGroupKind = 'frontend' | 'server' | 'default'
 
 export interface ToolDef {
   id: string

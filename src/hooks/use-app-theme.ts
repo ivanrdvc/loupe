@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-export const COLOR_THEMES = ['neutral', 'spotify', 'vscode'] as const
-export const APP_FONTS = ['pretendard', 'inter'] as const
+const COLOR_THEMES = ['neutral', 'spotify', 'vscode'] as const
+const APP_FONTS = ['pretendard', 'inter'] as const
 
 export type ColorTheme = (typeof COLOR_THEMES)[number]
 export type AppFont = (typeof APP_FONTS)[number]

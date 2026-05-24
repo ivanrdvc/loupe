@@ -38,7 +38,7 @@ const ATTRS = {
 
 export type CanonicalField = keyof typeof ATTRS
 
-export function bothForms(keys: readonly string[]): string[] {
+function bothForms(keys: readonly string[]): string[] {
   const out: string[] = []
   for (const k of keys) {
     out.push(k)

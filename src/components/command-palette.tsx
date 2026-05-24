@@ -1,18 +1,8 @@
-import {
-  Edit02Icon,
-  Home01Icon,
-  InboxIcon,
-  MessageMultiple01Icon,
-  PlayCircleIcon,
-  PuzzleIcon,
-  StickyNote01Icon,
-  Task01Icon,
-  TestTubeIcon,
-} from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { IconSearch } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
 import { createContext, Fragment, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { NAV_ITEMS } from '#/components/nav-items'
 import { Button } from '#/components/ui/button'
 import {
   Command,
@@ -27,21 +17,7 @@ import {
 import { Kbd } from '#/components/ui/kbd'
 import { useIsMac } from '#/hooks/use-is-mac'
 
-type NavTo = '/' | '/sessions' | '/traces' | '/mcp' | '/notes' | '/prompts' | '/tasks' | '/evals' | '/inbox'
-
-const NAV_ITEMS: { to: NavTo; label: string; icon: typeof Home01Icon }[] = [
-  { to: '/', label: 'Home', icon: Home01Icon },
-  { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon },
-  { to: '/traces', label: 'Traces', icon: PlayCircleIcon },
-  { to: '/tasks', label: 'Tasks', icon: Task01Icon },
-  { to: '/mcp', label: 'MCP', icon: PuzzleIcon },
-  { to: '/notes', label: 'Notes', icon: StickyNote01Icon },
-  { to: '/prompts', label: 'Prompts', icon: Edit02Icon },
-  { to: '/evals', label: 'Evals', icon: TestTubeIcon },
-  { to: '/inbox', label: 'Inbox', icon: InboxIcon },
-]
-
-export interface SearchItem {
+interface SearchItem {
   id: string
   label: string
   keywords?: string
@@ -64,7 +40,7 @@ interface PaletteCtx {
 
 const PaletteContext = createContext<PaletteCtx | null>(null)
 
-export function useCommandPalette() {
+function useCommandPalette() {
   const ctx = useContext(PaletteContext)
   if (!ctx) throw new Error('useCommandPalette must be used inside <CommandPaletteProvider>')
   return ctx
