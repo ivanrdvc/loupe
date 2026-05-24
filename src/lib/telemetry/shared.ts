@@ -209,12 +209,16 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
         }
       }
     }
-    // Only flag errors on actual AI-operation spans (chat, invoke_agent,
-    // execute_tool). Infrastructure spans that merely carry session.trigger_type
-    // should not mark the whole session as errored.
+    // Flag errors on AI-op spans (chat / invoke_agent / execute_tool) and on
+    // session-bearing root spans (e.g. POST /v1/responses/ failing with 5xx).
+    // The latter is the user-facing call — its failure means the session
+    // failed. Pure infrastructure spans (no AI op, no session attr) are
+    // ignored so trigger-receiver noise doesn't pollute.
     if (h.span_status === 'ERROR') {
       const opName = typeof h.operation_name === 'string' ? h.operation_name : ''
-      if (h.gen_ai_operation_name || opName.startsWith('invoke_agent ') || opName.startsWith('execute_tool ')) {
+      const isAiOp = h.gen_ai_operation_name || opName.startsWith('invoke_agent ') || opName.startsWith('execute_tool ')
+      const isSessionRoot = !!pickCanonical(h, 'sessionId')
+      if (isAiOp || isSessionRoot) {
         hasError = true
       }
     }

@@ -56,6 +56,26 @@ const DEFAULT_WINDOW_US = 30 * 24 * 60 * 60 * 1_000_000
 const LLM_INPUT_EXTRAS = ['_o2_llm_input']
 const LLM_COST_EXTRAS = ['_o2_llm_cost_details_total']
 
+// Per-row chat-span token expression. OTel GenAI semconv splits usage into
+// input/output and treats total_tokens as derived; producers (MAF, OpenLLMetry,
+// Pydantic AI) routinely emit only input+output. Prefer the producer-emitted
+// total when present, otherwise compute input+output. Returns '0' when none of
+// the columns exist in the stream schema, so a SUM over the expression stays
+// well-typed.
+function chatTokensExpr(known: ReadonlySet<string>): string {
+  const total = ooColumns('totalTokens', { known })
+  const input = ooColumns('inputTokens', { known })
+  const output = ooColumns('outputTokens', { known })
+  const totalExpr = total.length === 0 ? null : total.length === 1 ? total[0] : `COALESCE(${total.join(', ')})`
+  const ioParts: string[] = []
+  if (input.length) ioParts.push(input.length === 1 ? `COALESCE(${input[0]}, 0)` : `COALESCE(${input.join(', ')}, 0)`)
+  if (output.length)
+    ioParts.push(output.length === 1 ? `COALESCE(${output[0]}, 0)` : `COALESCE(${output.join(', ')}, 0)`)
+  const ioExpr = ioParts.length ? ioParts.join(' + ') : null
+  if (totalExpr && ioExpr) return `COALESCE(${totalExpr}, ${ioExpr})`
+  return totalExpr ?? ioExpr ?? '0'
+}
+
 const SCHEMA_TTL_MS = 5 * 60 * 1000
 
 export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObserveProvider {
@@ -247,7 +267,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       // numbers, so summing all spans would double-count.
       const buildSql = (known: ReadonlySet<string>) => {
         const sessionCols = ooColumns('sessionId', { known })
-        const tokenCols = ooColumns('totalTokens', { known })
         const costCols = ooColumns('costUsd', { known, extras: LLM_COST_EXTRAS })
         const uidCols = ooColumns('userId', { known })
         const unameCols = ooColumns('userName', { known })
@@ -269,7 +288,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           MIN(start_time) AS first_seen,
           MAX(end_time)   AS last_seen,
           COUNT(*)        AS span_count,
-          ${sumChatOf(tokenCols)} AS total_tokens,
+          SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN ${chatTokensExpr(known)} ELSE 0 END) AS total_tokens,
           ${sumChatOf(costCols)} AS total_cost,
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN operation_name END) AS sample_agent,
           MAX(CASE WHEN span_status = 'ERROR' AND (gen_ai_operation_name IS NOT NULL OR operation_name LIKE 'invoke_agent %' OR operation_name LIKE 'execute_tool %') THEN 1 ELSE 0 END) AS has_error,

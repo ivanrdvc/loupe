@@ -50,6 +50,14 @@ const DEFAULT_BASE = 'https://api.applicationinsights.io'
 const DEFAULT_LIST_LIMIT = 50
 const DEFAULT_DURATION = 'P30D'
 
+// Azure Monitor's .NET exporter writes `operation_ParentId == operation_Id`
+// for spans with no real parent instead of leaving it empty. Detect "root" by
+// either condition — same handling that Honeycomb / Grafana Tempo's Azure
+// Monitor receivers use. Every place that needs "is this a root span" must
+// route through this expression; otherwise root-scoped attribute extraction
+// (trigger_type, task.*, llm_purpose) silently drops .NET-exported workloads.
+const AI_IS_ROOT_EXPR = '(isempty(operation_ParentId) or operation_ParentId == operation_Id)'
+
 const SESSION_ID_COALESCE = aiCoalesce('sessionId')
 const SESSION_TITLE_COALESCE = aiCoalesce('sessionTitle')
 const USER_NAME_COALESCE = aiCoalesce('userName')
@@ -200,7 +208,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             out_tok = toint(customDimensions["gen_ai.usage.output_tokens"]),
             sess = ${SESSION_ID_COALESCE},
             end_ts = datetime_add('millisecond', toint(duration), timestamp),
-            is_root = isempty(operation_ParentId),
+            is_root = ${AI_IS_ROOT_EXPR},
             trigger_type = tostring(customDimensions["session.trigger_type"]),
             execution = tostring(customDimensions["session.execution"]),
             task_id = tostring(customDimensions["task.id"]),
@@ -278,7 +286,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         | project tool_id = id;
         union dependencies, requests
         | extend purpose = tostring(customDimensions["gen_ai.operation.purpose"])
-        | extend is_utility = isnotempty(purpose) and isnotempty(operation_ParentId),
+        | extend is_utility = isnotempty(purpose) and not (${AI_IS_ROOT_EXPR}),
                  is_subagent = name startswith "invoke_agent " and operation_ParentId in (execute_tool_ids)
         | where is_utility or is_subagent
         ${userFilter ? `| where ${userFilter}` : ''}
@@ -316,7 +324,8 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"]))
+        | extend sess = ${SESSION_ID_COALESCE}
+        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"])) or isnotempty(sess)
         ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
         | extend start_ms = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
         | project
@@ -487,10 +496,14 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
   const operationName = String(row.name ?? '?')
   const { startMs, endMs } = timeBounds(row.timestamp, row.duration)
   const failed = row.success === false || row.success === 'False' || row.success === 'false'
+  const rawParent = typeof row.operation_ParentId === 'string' ? row.operation_ParentId : ''
+  // Azure Monitor's .NET exporter sets operation_ParentId == operation_Id for
+  // root spans; treat that as null so tree-walking sees a clean root.
+  const parentId = rawParent && rawParent !== row.operation_Id ? rawParent : null
   return {
     id: String(row.id ?? ''),
     traceId,
-    parentId: (row.operation_ParentId as string) || null,
+    parentId,
     service: String(row.cloud_RoleName ?? 'unknown'),
     kind: kindFromAi(row),
     name: operationName,
