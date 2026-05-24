@@ -3,8 +3,10 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo, truncateId } from '#/lib/format'
+import { formatAgo } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
+
+const MAX_AGENTS_SHOWN = 2
 
 export function useSessionSearch({
   sessions,
@@ -20,9 +22,12 @@ export function useSessionSearch({
       group: 'Sessions in this window',
       items: sessions.map((session) => {
         const title = session.title?.trim()
-        const idLabel = truncateId(session.sessionId)
-        const label = title || session.firstInput?.trim() || idLabel
+        const firstInput = session.firstInput?.trim()
+        const agents = session.agents.filter(Boolean)
+        const agentsLabel = agents.slice(0, MAX_AGENTS_SHOWN).join(', ')
+        const label = title || firstInput || agentsLabel || 'Untitled session'
         const user = session.userName ?? session.userId ?? ''
+        const metaParts = [user, agentsLabel].filter(Boolean)
         return {
           id: session.sessionId,
           label,
@@ -42,8 +47,7 @@ export function useSessionSearch({
           ) : undefined,
           trailing: (
             <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
-              {user && <span className="max-w-[140px] truncate">{user}</span>}
-              <span className="font-mono">{idLabel}</span>
+              {metaParts.length > 0 && <span className="max-w-[220px] truncate">{metaParts.join(' · ')}</span>}
               <span className="inline-flex items-center gap-1 tabular-nums">
                 <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3" />
                 {formatAgo(session.lastSeenMs)}
