@@ -93,13 +93,11 @@ async function walkMarkdown(root: string, subdir: string): Promise<string[]> {
   while (queue.length > 0) {
     const dir = queue.pop()
     if (!dir) break
-    let entries: Awaited<ReturnType<typeof readdir>>
-    try {
-      entries = await readdir(dir, { withFileTypes: true })
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+    const entries = await readdir(dir, { withFileTypes: true }).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return null
       throw err
-    }
+    })
+    if (!entries) continue
     for (const entry of entries) {
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
