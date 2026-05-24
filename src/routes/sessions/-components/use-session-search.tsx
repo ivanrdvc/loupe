@@ -26,8 +26,7 @@ export function useSessionSearch({
         const agents = session.agents.filter(Boolean)
         const agentsLabel = agents.slice(0, MAX_AGENTS_SHOWN).join(', ')
         const label = title || firstInput || agentsLabel || 'Untitled session'
-        const user = session.userName ?? session.userId ?? ''
-        const metaParts = [user, agentsLabel].filter(Boolean)
+        const metaParts = [session.userName ?? '', agentsLabel].filter(Boolean)
         return {
           id: session.sessionId,
           label,

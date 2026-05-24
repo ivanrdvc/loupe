@@ -14,7 +14,7 @@ import {
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
-import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
+import { CodeBlock } from '#/components/ai-elements/code-block'
 import { formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
 import { Badge } from '#/components/ui/badge'

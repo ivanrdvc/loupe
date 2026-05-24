@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
+import { CodeBlock } from '#/components/ai-elements/code-block'
 import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/component
 import { useUser } from '#/hooks/use-user'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
-import { formatJson, type JsonValue } from '#/lib/json'
+import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import { buildAgentLabels, resolveToolCalls, type Span, type ToolCallResolution } from '#/lib/spans'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
@@ -416,20 +416,25 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
+function asScalarText(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return null
+}
+
 function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?: string }) {
-  const text =
-    raw ??
-    (() => {
-      try {
-        return JSON.stringify(value, null, 2)
-      } catch {
-        return String(value)
-      }
-    })()
+  const resolved = raw != null ? (parseJson(raw) ?? raw) : value
+  const scalar = asScalarText(resolved)
   return (
     <div className="min-w-0 max-w-full">
       <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <CodeBlock code={text} language="json" className="max-h-96" />
+      {scalar != null ? (
+        <pre className="not-prose max-h-96 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">
+          {scalar}
+        </pre>
+      ) : (
+        <CodeBlock code={raw ?? formatJson(value)} language="json" className="max-h-96" />
+      )}
     </div>
   )
 }

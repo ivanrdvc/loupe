@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
+import { CodeBlock } from '#/components/ai-elements/code-block'
 import { Card, CardContent } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableRow } from '#/components/ui/table'

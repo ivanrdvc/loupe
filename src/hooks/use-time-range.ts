@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DEFAULT, parse, serialize, type TimeRange } from '#/lib/time-range'
 
 const STORAGE_KEY = 'sessions-time-range'
 
 export function useTimeRange(): [TimeRange, (next: TimeRange) => void] {
-  // Lazy initializer reads localStorage on first client render, avoiding the
-  // default-then-stored flip that caused a second fetch on every page load.
-  const [range, setState] = useState<TimeRange>(() => {
-    if (typeof window === 'undefined') return DEFAULT
+  // SSR can't see localStorage — start from DEFAULT and sync on mount to keep
+  // server and first client render in agreement.
+  const [range, setState] = useState<TimeRange>(DEFAULT)
+  useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    return stored != null ? parse(stored) : DEFAULT
-  })
+    if (stored != null) setState(parse(stored))
+  }, [])
   const setRange = (next: TimeRange) => {
     setState(next)
     window.localStorage.setItem(STORAGE_KEY, serialize(next))

@@ -1,7 +1,7 @@
 import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
-import { CodeBlock } from '#/components/ai-elements/code-block-lazy'
+import { CodeBlock } from '#/components/ai-elements/code-block'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { formatJson } from '#/lib/json'

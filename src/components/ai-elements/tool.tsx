@@ -14,7 +14,7 @@ import { Badge } from '#/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { cn } from '#/lib/utils'
 
-import { CodeBlock } from './code-block-lazy'
+import { CodeBlock } from './code-block'
 import type { DynamicToolPartShape, ToolPartShape } from './tool-types'
 
 export type ToolProps = ComponentProps<typeof Collapsible>
