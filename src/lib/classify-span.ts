@@ -39,14 +39,17 @@ export interface Classification {
   agUiRunId?: string
   // Semantic purpose of the LLM call when it's not a user-facing conversation
   // turn — e.g. "title_generation", "summarization". Producers emit on
-  // `gen_ai.operation.purpose` (gen_ai-namespaced extension, not a published
-  // OTel attribute). Custom per-deployment keys plug in via
-  // CUSTOM_LLM_PURPOSE_FIELD. Distinct from `gen_ai.operation.name` which
+  // `gen_ai.operation.purpose` (gen_ai-namespaced extension, not yet a
+  // published OTel attribute). Distinct from `gen_ai.operation.name` which
   // MEAI uses for span classification (chat, execute_tool, etc.).
   operationName?: string
   // `gen_ai.output.type` — `text` by default; `json`/`json_schema`/`image`
   // signal a structured call (title gen, classification, etc.).
   outputType?: string
+  // Run-graph identity from gen_ai.task.* (or graph.node.* alias). Only set
+  // when the producer stamped it; consumer-side normaliser fills the rest.
+  taskId?: string
+  taskParentId?: string
 }
 
 export function classifySpan(name: string, attrs: Record<string, unknown>, spanStartMs?: number): Classification {
@@ -96,6 +99,18 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     const description = pickString(attrs, ['gen_ai.agent.description', 'gen_ai_agent_description'])
     if (description) c.agentDescription = description
   }
+
+  // Run-graph identity (top-level so producers stamping on non-invoke_agent
+  // spans also flow through). graph.node.* is accepted as an alias.
+  const taskId = pickString(attrs, ['gen_ai.task.id', 'gen_ai_task_id', 'graph.node.id', 'graph_node_id'])
+  if (taskId) c.taskId = taskId
+  const taskParentId = pickString(attrs, [
+    'gen_ai.task.parent.id',
+    'gen_ai_task_parent_id',
+    'graph.node.parent_id',
+    'graph_node_parent_id',
+  ])
+  if (taskParentId) c.taskParentId = taskParentId
 
   // Session correlation. Priority (lowest tier shown first in code, applied
   // last):

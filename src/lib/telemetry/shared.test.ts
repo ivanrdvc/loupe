@@ -39,8 +39,8 @@ function chat(opts: {
     gen_ai_operation_name: 'chat',
     start_ms: opts.startMs,
     end_ms: opts.startMs + 50,
-    llm_usage_tokens_total: opts.tokens,
-    llm_usage_cost_total: opts.cost,
+    gen_ai_usage_total_tokens: opts.tokens,
+    gen_ai_usage_cost_total: opts.cost,
     span_status: opts.error ? 'ERROR' : 'OK',
   }
 }

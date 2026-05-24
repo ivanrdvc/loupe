@@ -2,6 +2,7 @@ import { classifySpan, extractAgentName } from '#/lib/classify-span'
 import type { JsonValue } from '#/lib/json'
 import {
   dedupeById,
+  normalizeRunGraph,
   normalizeTraceRoots,
   propagateInheritedAttrs,
   propagateSessionInTrace,
@@ -9,7 +10,6 @@ import {
   type SpanKind,
 } from '#/lib/spans'
 import { ooCoalesceAs, ooColumns } from './conventions'
-import { readFieldConfig } from './field-config'
 import {
   aggregateSessions,
   buildLogRecord,
@@ -59,9 +59,6 @@ const LLM_COST_EXTRAS = ['_o2_llm_cost_details_total']
 const SCHEMA_TTL_MS = 5 * 60 * 1000
 
 export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObserveProvider {
-  // llmPurpose is deployment-specific, not OTel — stays in field-config.
-  const { llmPurposeField } = readFieldConfig()
-  const llmPurposeCol = llmPurposeField?.replace(/\./g, '_')
   const auth = btoa(`${cfg.user}:${cfg.password}`)
 
   let schemaCache: { cols: Set<string>; at: number } | undefined
@@ -70,8 +67,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     const resp = await fetch(`${cfg.baseUrl}/api/${cfg.org}/streams/${cfg.stream}/schema?type=traces`, {
       headers: { Authorization: `Basic ${auth}` },
     })
-    // Stream not ingested yet, or upstream error — cache empty so optional
-    // columns fall back to '' literals; queries that need real data still run.
     const cols = new Set<string>()
     if (resp.ok) {
       const data = (await resp.json()) as { schema?: Array<{ name: string }> }
@@ -109,8 +104,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     return (json.hits ?? []) as Array<Record<string, unknown>>
   }
 
-  // Build the SQL with a fresh column set; on 20004 (new column appeared after
-  // cache, or schema raced), drop the cache and retry exactly once.
+  // 20004 = column referenced in SQL doesn't exist in stream schema. Drop the
+  // cache and retry once with a fresh probe — handles columns that appeared
+  // after our cache was warmed.
   const runWithSchema = async <T>(run: (known: ReadonlySet<string>) => Promise<T>): Promise<T> => {
     try {
       return await run(await getKnownColumns())
@@ -153,6 +149,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
+      normalizeRunGraph(spans)
       return {
         spans,
         truncated: hits.length >= TRACE_FETCH_LIMIT,
@@ -175,18 +172,18 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           operation_name,
           ${ooCoalesceAs('sessionId', 'ag_ui_thread_id', { known })},
           ${ooCoalesceAs('sessionTitle', 'ag_ui_thread_title', { known })},
-          ${ooCoalesceAs('llmInput', 'llm_input', { known, extras: LLM_INPUT_EXTRAS })},
+          ${ooCoalesceAs('llmInput', 'gen_ai_input_messages', { known, extras: LLM_INPUT_EXTRAS })},
           ${ooCoalesceAs('userName', 'user_name', { known })},
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('host', 'host_name', { known })},
           start_time / 1000000 AS start_ms,
           end_time / 1000000 AS end_ms,
           gen_ai_operation_name,
-          ${ooCoalesceAs('totalTokens', 'llm_usage_tokens_total', { known })},
-          ${ooCoalesceAs('costUsd', 'llm_usage_cost_total', { known, extras: LLM_COST_EXTRAS })},
+          ${ooCoalesceAs('totalTokens', 'gen_ai_usage_total_tokens', { known })},
+          ${ooCoalesceAs('costUsd', 'gen_ai_usage_cost_total', { known, extras: LLM_COST_EXTRAS })},
           ${ooCoalesceAs('inputTokens', 'gen_ai_usage_input_tokens', { known })},
           ${ooCoalesceAs('outputTokens', 'gen_ai_usage_output_tokens', { known })},
-          ${known.has('session_trigger_type') ? `session_trigger_type AS trigger_type,` : ''}
+          session_trigger_type AS trigger_type,
           span_status,
           service_name
         FROM "${cfg.stream}"
@@ -254,7 +251,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         const costCols = ooColumns('costUsd', { known, extras: LLM_COST_EXTRAS })
         const uidCols = ooColumns('userId', { known })
         const unameCols = ooColumns('userName', { known })
-        const has = (c: string) => known.has(c)
         const maxOf = (cols: readonly string[]) =>
           cols.length === 0
             ? 'NULL'
@@ -279,31 +275,22 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           MAX(CASE WHEN span_status = 'ERROR' AND (gen_ai_operation_name IS NOT NULL OR operation_name LIKE 'invoke_agent %' OR operation_name LIKE 'execute_tool %') THEN 1 ELSE 0 END) AS has_error,
           ${maxOf(sessionCols)} AS session_id,
           MAX(service_name)    AS service_name,
-          MAX(CASE WHEN operation_name LIKE 'execute_tool %' AND reference_parent_span_id IS NULL THEN 1 ELSE 0 END) AS has_root_execute_tool,
           MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN 1 ELSE 0 END) AS has_invoke_agent,
           MAX(CASE WHEN gen_ai_operation_name = 'chat' THEN 1 ELSE 0 END) AS has_chat,
-          ${llmPurposeCol ? `MAX(CASE WHEN reference_parent_span_id IS NULL THEN ${llmPurposeCol} END) AS root_llm_purpose,` : ''}
-          ${
-            has('session_trigger_type')
-              ? `COALESCE(
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN gen_ai_operation_purpose END) AS root_llm_purpose,
+          COALESCE(
             MAX(CASE WHEN reference_parent_span_id IS NULL THEN session_trigger_type END),
             MAX(CASE WHEN operation_name LIKE 'invoke_agent %' AND session_trigger_type IS NOT NULL THEN session_trigger_type END)
-          ) AS root_trigger_type,`
-              : ''
-          }
-          ${
-            has('session_execution')
-              ? `COALESCE(
+          ) AS root_trigger_type,
+          COALESCE(
             MAX(CASE WHEN reference_parent_span_id IS NULL THEN session_execution END),
             MAX(CASE WHEN operation_name LIKE 'invoke_agent %' AND session_execution IS NOT NULL THEN session_execution END)
-          ) AS root_execution,`
-              : ''
-          }
-          ${has('task_id') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_id END) AS root_task_id,' : ''}
-          ${has('task_kind') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_kind END) AS root_task_kind,' : ''}
-          ${has('task_schedule') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_schedule END) AS root_task_schedule,' : ''}
-          ${has('task_name') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_name END) AS root_task_name,' : ''}
-          ${has('task_source') ? 'MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_source END) AS root_task_source,' : ''}
+          ) AS root_execution,
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_id END) AS root_task_id,
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_kind END) AS root_task_kind,
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_schedule END) AS root_task_schedule,
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_name END) AS root_task_name,
+          MAX(CASE WHEN reference_parent_span_id IS NULL THEN task_source END) AS root_task_source,
           MAX(CASE WHEN reference_parent_span_id IS NULL THEN operation_name END) AS root_operation,
           ${maxOf(uidCols)} AS trace_user_id,
           ${maxOf(unameCols)} AS trace_user_name
@@ -312,10 +299,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
            OR operation_name LIKE 'invoke_agent %'
            OR operation_name LIKE 'execute_tool %'
            OR session_trigger_type IS NOT NULL
-           ${(() => {
-             const purposeCol = llmPurposeCol ?? 'gen_ai_operation_purpose'
-             return has(purposeCol) ? `OR ${purposeCol} IS NOT NULL` : ''
-           })()})
+           OR gen_ai_operation_purpose IS NOT NULL)
           AND operation_name NOT LIKE 'tools/%'
         GROUP BY trace_id
         ORDER BY first_seen DESC
@@ -329,25 +313,18 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     async listSpans(opts): Promise<SpanSummary[]> {
       const { fromUs, toUs } = window(opts)
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
-      const purposeCol = llmPurposeCol ?? 'gen_ai_operation_purpose'
-      const buildSql = (known: ReadonlySet<string>) => {
-        const hasPurposeCol = known.has(purposeCol)
-        const utilityClause = hasPurposeCol
-          ? `(${purposeCol} IS NOT NULL AND reference_parent_span_id IS NOT NULL)`
-          : null
-        const subAgentClause = `(
-          operation_name LIKE 'invoke_agent %'
-          AND reference_parent_span_id IN (
-            SELECT span_id FROM "${cfg.stream}" WHERE operation_name LIKE 'execute_tool %'
-          )
-        )`
-        const kindWhere = utilityClause ? `(${utilityClause} OR ${subAgentClause})` : subAgentClause
-        return `
+      // Sub-agent rows = invoke_agent spans whose parent is an execute_tool span
+      // (the "agent as tool" pattern). Identified by span_id IN (...) rather than
+      // by a producer-stamped attribute, because MAF / OpenLLMetry don't yet
+      // emit gen_ai.task.parent.id and we follow the Langfuse-style approach of
+      // walking structure on the consumer side. Utility rows = purpose-tagged
+      // non-root spans (gen_ai.operation.purpose).
+      const buildSql = (known: ReadonlySet<string>) => `
         SELECT
           span_id,
           trace_id,
           operation_name AS span_name,
-          ${hasPurposeCol ? purposeCol : "''"} AS purpose,
+          gen_ai_operation_purpose AS purpose,
           start_time,
           end_time,
           ${ooCoalesceAs('totalTokens', 'total_tokens', { known })},
@@ -357,12 +334,15 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('userName', 'user_name', { known })}
         FROM "${cfg.stream}"
-        WHERE ${kindWhere}
+        WHERE ((operation_name LIKE 'invoke_agent %'
+                AND reference_parent_span_id IN (
+                  SELECT span_id FROM "${cfg.stream}" WHERE operation_name LIKE 'execute_tool %'
+                ))
+            OR (gen_ai_operation_purpose IS NOT NULL AND reference_parent_span_id IS NOT NULL))
         ${whereIdentity(opts, known)}
         ORDER BY start_time DESC
         LIMIT ${limit}
       `
-      }
       const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, limit))
       return hits.map(hitToSpanSummary)
     },
@@ -439,9 +419,9 @@ function hitToSummary(h: Record<string, unknown>): TraceSummary {
     hasError: Number(h.has_error ?? 0) === 1,
     category: classifyTraceCategory({
       hasSessionAttribute: hasSession,
-      hasRootExecuteTool: Number(h.has_root_execute_tool) > 0,
       hasInvokeAgent: Number(h.has_invoke_agent ?? 0) > 0,
       hasChat: Number(h.has_chat ?? 0) > 0,
+      rootOperation: pickStringValue(h.root_operation),
       rootTriggerType: pickStringValue(h.root_trigger_type),
       rootExecution: pickStringValue(h.root_execution),
       rootLlmPurpose,

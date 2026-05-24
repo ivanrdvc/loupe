@@ -1,13 +1,15 @@
 import type { Span } from '../spans'
 import type { TraceCategory } from './types'
 
-// Trigger and purpose come from the root span only; structural markers (counts → booleans)
-// describe shape. A nested utility LLM never flips the whole trace's category.
+// Trigger and purpose come from the root span only. `rootOperation` is the
+// root span's OTel operation name (e.g. "execute_tool explore", "invoke_agent
+// ProverbsAgent"); sub-agent identity follows from it starting with
+// `execute_tool ` per the convention spec.
 export interface TraceClassificationInput {
   hasInvokeAgent: boolean
   hasChat: boolean
-  hasRootExecuteTool: boolean
   hasSessionAttribute: boolean
+  rootOperation?: string
   rootTriggerType?: string
   rootExecution?: string
   rootLlmPurpose?: string
@@ -25,7 +27,7 @@ export function classifyTraceCategory(input: TraceClassificationInput): TraceCat
       if (input.rootExecution === 'background') return 'background'
       break
   }
-  if (input.hasRootExecuteTool && input.hasInvokeAgent) return 'sub-agent'
+  if (input.rootOperation?.startsWith('execute_tool ') && input.hasInvokeAgent) return 'sub-agent'
   if (input.hasInvokeAgent) return 'chat'
   if (input.rootLlmPurpose) return 'utility'
   if (input.hasSessionAttribute) return 'chat'
@@ -39,9 +41,8 @@ export function categorizeFromSpans(spans: Span[]): TraceCategory {
   return classifyTraceCategory({
     hasInvokeAgent: spans.some((s) => s.operation === 'invoke_agent'),
     hasChat: spans.some((s) => s.operation === 'chat'),
-    hasRootExecuteTool: root?.operation === 'tool' || root?.operation === 'mcp',
     hasSessionAttribute: spans.some((s) => s.sessionSource === 'attribute'),
-    // TODO: verify operationName only set from purpose attr
+    rootOperation: root?.name,
     rootLlmPurpose: root?.operationName,
   })
 }

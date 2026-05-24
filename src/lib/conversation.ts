@@ -1,5 +1,5 @@
 import { type JsonValue, parseJson } from './json'
-import { findUtilityChatIds, findWrappedAgent, type Span } from './spans'
+import { findUtilityChatIds, type Span } from './spans'
 
 // Discriminated union for the conversation view. Each renderer pattern-
 // matches on `kind`; adding a new event type is one new arm. We deliberately
@@ -76,6 +76,15 @@ const HIDE_UTILITY_CHATS = false
 export function buildConversation(spans: Span[]): ConversationEvent[] {
   const byId = new Map(spans.map((s) => [s.id, s]))
 
+  // Index invoke_agent spans by their direct parent (execute_tool wrapping
+  // them, in the "agent as tool" pattern). One pass; downstream lookups O(1).
+  const wrappedAgentByToolId = new Map<string, Span>()
+  for (const span of spans) {
+    if (span.operation === 'invoke_agent' && span.parentId) {
+      wrappedAgentByToolId.set(span.parentId, span)
+    }
+  }
+
   // Tool-call IDs that actually have an execute_tool span in *this* trace.
   // The `llm_input` of a chat span carries the full prior thread history,
   // including tool_calls from earlier traces whose execute_tool spans live
@@ -88,7 +97,7 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
   for (const span of spans) {
     if (span.operation === 'tool' && span.toolCallId) {
       realCallIds.add(span.toolCallId)
-      if (findWrappedAgent(spans, span.id)) agentWrappedCallIds.add(span.toolCallId)
+      if (wrappedAgentByToolId.has(span.id)) agentWrappedCallIds.add(span.toolCallId)
     }
   }
 
@@ -124,7 +133,7 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
         emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
       }
     } else if (span.operation === 'tool') {
-      emitTool(span, spans, events, parentAgentSpanId)
+      emitTool(span, wrappedAgentByToolId.get(span.id), events, parentAgentSpanId)
     }
   }
 
@@ -259,12 +268,16 @@ function emitFromMessage(
   }
 }
 
-function emitTool(span: Span, spans: Span[], events: ConversationEvent[], parentAgentSpanId: string | undefined): void {
+function emitTool(
+  span: Span,
+  wrappedAgent: Span | undefined,
+  events: ConversationEvent[],
+  parentAgentSpanId: string | undefined,
+): void {
   if (!span.toolName || !span.toolCallId) return
 
   // execute_tool wrapping an invoke_agent — sub-agent boundary. Emit one
   // agent_call event with input AND the agent's return value.
-  const wrappedAgent = findWrappedAgent(spans, span.id)
   if (wrappedAgent) {
     const event: Extract<ConversationEvent, { kind: 'agent_call' }> = {
       kind: 'agent_call',

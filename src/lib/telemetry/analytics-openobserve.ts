@@ -33,7 +33,7 @@ export async function fetchOverview(p: OpenObserveProvider, opts?: OverviewOpts)
       COUNT(DISTINCT trace_id) AS runs,
       COUNT(DISTINCT CASE WHEN span_status = 'ERROR' THEN trace_id END) AS errored_runs,
       approx_percentile_cont(CASE WHEN gen_ai_operation_name = 'chat' THEN duration END, 0.95) / 1000 AS p95_chat_ms,
-      SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN llm_usage_cost_total ELSE 0 END) AS total_cost
+      SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN gen_ai_usage_cost_total ELSE 0 END) AS total_cost
     FROM "${p.stream}"
     WHERE gen_ai_operation_name IS NOT NULL
        OR operation_name LIKE 'execute_tool %'

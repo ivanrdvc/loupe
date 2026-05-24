@@ -8,8 +8,7 @@ export interface ToolCallResolution {
 
 // Index tool-call ids in a trace to their resolution (result + sub-agent
 // linkage). Builds the parent→children map once, then resolves each tool
-// span in O(1) — avoids the per-call `spans.find` that `findWrappedAgent`
-// would do (O(n²) in pathological traces).
+// span in O(1).
 export function resolveToolCalls(spans: Span[]): Map<string, ToolCallResolution> {
   const byParent = new Map<string | null, Span[]>()
   for (const s of spans) {
@@ -82,9 +81,19 @@ export interface Span {
   sessionSource?: 'attribute' | 'trace'
   agUiRunId?: string
   // Semantic purpose — e.g. "title_generation", "summarization". Set from
-  // `gen_ai.operation.purpose` (or the deployment's CUSTOM_LLM_PURPOSE_FIELD).
-  // Not `.operation.name`.
+  // `gen_ai.operation.purpose`. Distinct from `gen_ai.operation.name` which
+  // names the OTel op (chat/invoke_agent/...). This one is the agentops
+  // semantic tag (`title_generation`, `summarization`, ...).
   operationName?: string
+
+  // Run-graph identity per the convention spec. Producer-stamped via
+  // gen_ai.task.id / gen_ai.task.parent.id (Traceloop/OpenLLMetry convention)
+  // or via graph.node.* alias (OpenInference). When the producer omits them,
+  // normalizeRunGraph fills them from the span tree: taskId = span_id,
+  // taskParentId = nearest ancestor invoke_agent's taskId. Sub-agent detection
+  // throughout the codebase reads taskParentId rather than walking trees.
+  taskId?: string
+  taskParentId?: string
   // `gen_ai.output.type` — `text` by default; non-text values mark a
   // structured call so the UI doesn't render it as a chat reply.
   outputType?: string
@@ -141,6 +150,28 @@ export function propagateSessionInTrace(spans: Span[]): void {
   }
 }
 
+// Stamp gen_ai.task.id / gen_ai.task.parent.id on every invoke_agent span that
+// lacks them. Producer-emitted attrs win (pass-through). Without producer
+// support, fills from span-tree shape: taskId = span_id, parentTaskId = nearest
+// ancestor invoke_agent's taskId. Once stamped, sub-agent detection collapses
+// to `taskParentId != null` and orchestrator detection to its inverse.
+export function normalizeRunGraph(spans: Span[]): void {
+  const byId = new Map(spans.map((s) => [s.id, s]))
+  for (const s of spans) {
+    if (s.operation !== 'invoke_agent') continue
+    if (!s.taskId) s.taskId = s.id
+    if (s.taskParentId) continue
+    let cursor: Span | undefined = s.parentId ? byId.get(s.parentId) : undefined
+    while (cursor) {
+      if (cursor.operation === 'invoke_agent') {
+        s.taskParentId = cursor.taskId ?? cursor.id
+        break
+      }
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined
+    }
+  }
+}
+
 // SDKs set these attrs on a wrapping Activity (utility purpose, AG-UI run)
 // but don't re-stamp them on inner spans — inherit from the nearest ancestor.
 export function propagateInheritedAttrs(spans: Span[]): void {
@@ -182,9 +213,8 @@ export function buildAgentLabels(spans: Span[]): Map<string, string> {
 }
 
 // Side-channel LLM calls (title gen, summarization). Explicit signal:
-// `gen_ai.operation.purpose` (or the deployment's CUSTOM_LLM_PURPOSE_FIELD).
-// Fallback: in an AG-UI trace, conversation chats carry `ag_ui.run_id` and
-// utility chats don't.
+// `gen_ai.operation.purpose`. Fallback: in an AG-UI trace, conversation chats
+// carry `ag_ui.run_id` and utility chats don't.
 export function findUtilityChatIds(spans: Span[]): Set<string> {
   const traceHasAgUiRun = spans.some((s) => s.agUiRunId != null)
   const out = new Set<string>()
@@ -229,56 +259,32 @@ export function descendantSpans(spans: Span[], rootId: string): Span[] {
   return out
 }
 
-// Every top-level invoke_agent in the session is a turn. "Top-level" = no
-// invoke_agent in its ancestor chain. A single trace can legitimately contain
-// multiple sibling top-level runs (e.g. the .NET runtime re-invokes the agent
-// once per step within a single HTTP request); previously we picked only the
-// shallowest per trace and the others were misclassified as subagents.
+// Top-level invoke_agent spans — those with no invoke_agent ancestor. Read
+// directly off the normalised run-graph identity stamped by normalizeRunGraph
+// (or by a producer emitting gen_ai.task.parent.id / Traceloop convention).
 export function findOrchestratorIds(spans: Span[]): string[] {
-  const byId = new Map(spans.map((s) => [s.id, s]))
-  const top: Span[] = []
-  for (const s of spans) {
-    if (s.operation !== 'invoke_agent') continue
-    if (countAgentAncestors(s, byId) === 0) top.push(s)
-  }
-  return top.sort((a, b) => a.startMs - b.startMs).map((s) => s.id)
-}
-
-// "Non-orchestrator" chats: any chat that's nested under an agent but is NOT
-// a direct child of a top-level invoke_agent. Catches three shapes:
-//   1. invoke_agent → execute_tool → invoke_agent → chat  (canonical subagent)
-//   2. invoke_agent → execute_tool → chat                 (instrumentation that
-//      attributes the wrapped LLM call directly to the tool span)
-//   3. invoke_agent → … → invoke_agent → chat             (any deeper nesting)
-// A chat with no invoke_agent in its ancestor chain (raw chat, no agent
-// framework) is excluded — there's no orchestrator to compare it against.
-export function subagentChatSpans(spans: Span[]): Span[] {
-  const byId = new Map(spans.map((s) => [s.id, s]))
-  const orchestratorIds = new Set(findOrchestratorIds(spans))
-  return spans.filter((s) => {
-    if (s.operation !== 'chat') return false
-    if (s.parentId && orchestratorIds.has(s.parentId)) return false
-    return countAgentAncestors(s, byId) >= 1
-  })
-}
-
-export function countAgentAncestors(s: Span, byId: Map<string, Span>): number {
-  let cursor: Span | undefined = s.parentId ? byId.get(s.parentId) : undefined
-  let count = 0
-  while (cursor) {
-    if (cursor.operation === 'invoke_agent') count++
-    cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined
-  }
-  return count
+  return spans
+    .filter((s) => s.operation === 'invoke_agent' && !s.taskParentId)
+    .sort((a, b) => a.startMs - b.startMs)
+    .map((s) => s.id)
 }
 
 export function findOrchestratorId(spans: Span[]): string | null {
   return findOrchestratorIds(spans)[0] ?? null
 }
 
-// If a `tool` span wraps a sub-agent invocation (i.e. has an invoke_agent
-// child), return that wrapped agent span. This is how OpenAI-style "agent as
-// tool" patterns show up in real traces: execute_tool <name> → invoke_agent X.
-export function findWrappedAgent(spans: Span[], toolId: string): Span | undefined {
-  return spans.find((s) => s.parentId === toolId && s.operation === 'invoke_agent')
+// Chat spans whose nearest invoke_agent ancestor is itself a sub-agent
+// (taskParentId set). Excludes orchestrator chats and raw chats with no
+// agent ancestor.
+export function subagentChatSpans(spans: Span[]): Span[] {
+  const byId = new Map(spans.map((s) => [s.id, s]))
+  return spans.filter((s) => {
+    if (s.operation !== 'chat') return false
+    let cursor: Span | undefined = s.parentId ? byId.get(s.parentId) : undefined
+    while (cursor) {
+      if (cursor.operation === 'invoke_agent') return Boolean(cursor.taskParentId)
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined
+    }
+    return false
+  })
 }

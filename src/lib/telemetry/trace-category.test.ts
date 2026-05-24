@@ -4,15 +4,19 @@ import { classifyTraceCategory } from './trace-category'
 const base = {
   hasInvokeAgent: false,
   hasChat: false,
-  hasRootExecuteTool: false,
   hasSessionAttribute: false,
 }
 
 describe('classifyTraceCategory', () => {
-  it('returns sub-agent when a root execute_tool sits over an invoke_agent', () => {
-    expect(classifyTraceCategory({ ...base, hasRootExecuteTool: true, hasInvokeAgent: true, hasChat: true })).toBe(
-      'sub-agent',
-    )
+  it('returns sub-agent when the root operation is execute_tool over an invoke_agent', () => {
+    expect(
+      classifyTraceCategory({
+        ...base,
+        rootOperation: 'execute_tool explore',
+        hasInvokeAgent: true,
+        hasChat: true,
+      }),
+    ).toBe('sub-agent')
   })
 
   it('returns scheduled / webhook from the root trigger', () => {
@@ -82,7 +86,7 @@ describe('classifyTraceCategory', () => {
     expect(
       classifyTraceCategory({
         ...base,
-        hasRootExecuteTool: true,
+        rootOperation: 'execute_tool explore',
         hasInvokeAgent: true,
         // rootTriggerType absent — but if a scheduled fire kicked off the sub-agent,
         // 'scheduled' wins via the trigger switch above. Tested separately.
@@ -94,7 +98,7 @@ describe('classifyTraceCategory', () => {
     expect(
       classifyTraceCategory({
         ...base,
-        hasRootExecuteTool: true,
+        rootOperation: 'execute_tool explore',
         hasInvokeAgent: true,
         rootTriggerType: 'scheduled',
       }),

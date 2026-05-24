@@ -157,10 +157,9 @@ export function DataTable({
                         <div className="max-w-md space-y-1 text-center text-pretty text-muted-foreground">
                           <div>No sessions in this window.</div>
                           <div className="text-xs">
-                            Set <code className="rounded bg-muted px-1 py-0.5 font-mono">ag_ui.thread_id</code> (or your
-                            configured{' '}
-                            <code className="rounded bg-muted px-1 py-0.5 font-mono">CUSTOM_SESSION_ID_FIELDS</code>) on
-                            the producer to enable session grouping. Individual traces appear on{' '}
+                            Set <code className="rounded bg-muted px-1 py-0.5 font-mono">gen_ai.conversation.id</code>{' '}
+                            or <code className="rounded bg-muted px-1 py-0.5 font-mono">ag_ui.thread_id</code> on the
+                            producer to enable session grouping. Individual traces appear on{' '}
                             <Link to="/traces" className="underline">
                               /traces
                             </Link>

@@ -1,9 +1,8 @@
-// Single source of truth for OTel attribute aliasing. Providers (Logfire,
-// OpenLLMetry, OpenInference, Langfuse, AG-UI, …) emit overlapping but
-// renamed attributes for the same concept; previously the lists were
-// copy-pasted across classify-span, OO SQL, AI KQL, and the row aggregator.
-
-import { readFieldConfig } from './field-config'
+// OTel attribute aliasing for fields where producers legitimately use
+// different names (LLM tokens, cost, session id, model). The agentops
+// convention spec only pins agent-identity attrs; everything else stays
+// multi-alias so we can ingest from Langfuse / Pydantic / OpenLLMetry /
+// OpenInference / AG-UI without each producer having to conform.
 
 // Names use dotted (semconv) form. OO flattens to underscores at ingest;
 // AI keeps the dotted key inside customDimensions; in-memory lookups try
@@ -21,20 +20,10 @@ const ATTRS = {
   userName: ['user.name', 'enduser.name'],
   host: ['host.name'],
   model: ['gen_ai.request.model', 'gen_ai.response.model'],
-  totalTokens: ['gen_ai.usage.total_tokens', 'llm.usage.tokens.total'],
-  inputTokens: [
-    'gen_ai.usage.input_tokens',
-    'gen_ai.usage.prompt_tokens',
-    'llm.usage.tokens.input',
-    'llm.usage.prompt_tokens',
-  ],
-  outputTokens: [
-    'gen_ai.usage.output_tokens',
-    'gen_ai.usage.completion_tokens',
-    'llm.usage.tokens.output',
-    'llm.usage.completion_tokens',
-  ],
-  costUsd: ['gen_ai.usage.cost_total', 'llm.usage.cost_total'],
+  totalTokens: ['gen_ai.usage.total_tokens'],
+  inputTokens: ['gen_ai.usage.input_tokens'],
+  outputTokens: ['gen_ai.usage.output_tokens'],
+  costUsd: ['gen_ai.usage.cost_total'],
   provider: ['gen_ai.provider.name', 'gen_ai.system'],
   cacheReadTokens: [
     'gen_ai.usage.cache_read.input_tokens',
@@ -42,26 +31,12 @@ const ATTRS = {
     'llm.usage.cache_read_tokens',
   ],
   llmInput: ['gen_ai.input.messages', 'llm.input'],
-  // Not a published OTel semconv — the GenAI spec defines `gen_ai.operation.name`
-  // (chat/invoke_agent/execute_tool/...) but no `purpose`. We treat it as a
-  // gen_ai-namespaced extension that lets producers tag utility LLM calls
-  // (title generation, summarization, etc.) so the trace classifier can
-  // bucket them out of the main chat traffic. App-scoped purpose keys (e.g.
-  // a producer's own naming convention) plug in via CUSTOM_LLM_PURPOSE_FIELD.
+  // OTel-stable as of Q1 2026. CUSTOM_LLM_PURPOSE_FIELD plumbing is gone —
+  // producers must conform to this name.
   llmPurpose: ['gen_ai.operation.purpose'],
 } as const
 
 export type CanonicalField = keyof typeof ATTRS
-
-const EMPTY: readonly string[] = []
-
-function customExtras(field: CanonicalField): readonly string[] {
-  const cfg = readFieldConfig()
-  if (field === 'sessionId') return cfg.sessionIdFields
-  if (field === 'userId') return cfg.userIdFields
-  if (field === 'llmPurpose' && cfg.llmPurposeField) return [cfg.llmPurposeField]
-  return EMPTY
-}
 
 export function bothForms(keys: readonly string[]): string[] {
   const out: string[] = []
@@ -74,9 +49,7 @@ export function bothForms(keys: readonly string[]): string[] {
 }
 
 export function attrKeysFor(field: CanonicalField): readonly string[] {
-  const base = bothForms(ATTRS[field])
-  const extra = customExtras(field)
-  return extra.length ? [...base, ...extra] : base
+  return bothForms(ATTRS[field])
 }
 
 export function pickCanonical(attrs: Record<string, unknown>, field: CanonicalField): string | undefined {
@@ -109,9 +82,8 @@ export interface OoColumnOpts {
 
 export function ooColumns(field: CanonicalField, opts?: OoColumnOpts): string[] {
   const base = ATTRS[field].map((k) => k.replaceAll('.', '_'))
-  const extra = customExtras(field)
-  const explicit = opts?.extras ?? EMPTY
-  const cols = [...new Set([...base, ...extra, ...explicit])]
+  const explicit = opts?.extras ?? []
+  const cols = [...new Set([...base, ...explicit])]
   return opts?.known ? cols.filter((c) => opts.known?.has(c)) : cols
 }
 
@@ -124,12 +96,9 @@ export function ooCoalesceAs(field: CanonicalField, alias: string, opts?: OoColu
 
 // customDimensions is a single map column on AI, so column existence is N/A.
 // Both dotted and underscored forms must be checked: some .NET OTel
-// instrumentations (e.g. Microsoft Agent Framework / OpenLLMetry) write
-// `ag_ui_thread_id` into customDimensions, while others write `ag_ui.thread_id`.
-// In-memory lookups go through attrKeysFor() which already bothForms()s.
-export function aiCoalesce(field: CanonicalField, opts?: { includeCustom?: boolean }): string {
-  const dotted = ATTRS[field]
-  const custom = opts?.includeCustom ? customExtras(field) : EMPTY
-  const all = bothForms(custom.length ? [...dotted, ...custom] : [...dotted])
+// instrumentations write `ag_ui_thread_id` into customDimensions, while
+// others write `ag_ui.thread_id`.
+export function aiCoalesce(field: CanonicalField): string {
+  const all = bothForms([...ATTRS[field]])
   return `coalesce(${all.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
 }

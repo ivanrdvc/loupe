@@ -5,6 +5,7 @@ import type { JsonValue } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import {
   dedupeById,
+  normalizeRunGraph,
   normalizeTraceRoots,
   propagateInheritedAttrs,
   propagateSessionInTrace,
@@ -12,7 +13,6 @@ import {
   type SpanKind,
 } from '#/lib/spans'
 import { aiCoalesce, attrKeysFor } from './conventions'
-import { readFieldConfig } from './field-config'
 import {
   aggregateSessions,
   buildLogRecord,
@@ -50,10 +50,10 @@ const DEFAULT_BASE = 'https://api.applicationinsights.io'
 const DEFAULT_LIST_LIMIT = 50
 const DEFAULT_DURATION = 'P30D'
 
-const SESSION_ID_COALESCE = aiCoalesce('sessionId', { includeCustom: true })
+const SESSION_ID_COALESCE = aiCoalesce('sessionId')
 const SESSION_TITLE_COALESCE = aiCoalesce('sessionTitle')
 const USER_NAME_COALESCE = aiCoalesce('userName')
-const USER_ID_COALESCE = aiCoalesce('userId', { includeCustom: true })
+const USER_ID_COALESCE = aiCoalesce('userId')
 // cloud_RoleName is an AppInsights-specific column, not a custom dimension —
 // stitched on as a final fallback.
 const HOST_COALESCE = `coalesce(${aiCoalesce('host')}, tostring(cloud_RoleName))`
@@ -85,7 +85,6 @@ function resultToRows(result: LogsQueryResult): Array<Record<string, unknown>> {
 }
 
 export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsProvider {
-  const { llmPurposeField } = readFieldConfig()
   type Timespan = { startTime: Date; endTime: Date } | undefined
 
   let kql: (query: string, timespan?: Timespan) => Promise<Array<Record<string, unknown>>>
@@ -174,6 +173,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       normalizeTraceRoots(spans)
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
+      normalizeRunGraph(spans)
       return {
         spans,
         truncated: rows.length >= TRACE_FETCH_LIMIT,
@@ -188,13 +188,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;`
         : ''
       const userScope = userFilter ? '| where operation_Id in (_user_traces)' : ''
-      const llmPurposeExtend = llmPurposeField ? `llm_purpose = tostring(customDimensions["${llmPurposeField}"]),` : ''
-      const purposeAttr = llmPurposeField ?? 'gen_ai.operation.purpose'
       const q = `
         ${userCte}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-        | where (isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"])) or isnotempty(tostring(customDimensions["session.trigger_type"])))
+        | where (isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"])))
         | where name !startswith "tools/"
         ${userScope}
         | extend
@@ -210,7 +208,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             task_schedule = tostring(customDimensions["task.schedule"]),
             task_name = tostring(customDimensions["task.name"]),
             task_source = tostring(customDimensions["task.source"]),
-            ${llmPurposeExtend}
+            llm_purpose = tostring(customDimensions["gen_ai.operation.purpose"]),
             u_id = ${USER_ID_COALESCE},
             u_name = ${USER_NAME_COALESCE}
         | summarize
@@ -222,7 +220,6 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             has_error   = countif(success == false and (isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool ")) > 0,
             session_id  = take_any(sess),
             service_name = take_any(cloud_RoleName),
-            has_root_execute_tool = countif(is_root and name startswith "execute_tool ") > 0,
             has_invoke_agent = countif(name startswith "invoke_agent ") > 0,
             has_chat = countif(gen_op == "chat") > 0,
             root_trigger_type = coalesce(take_anyif(trigger_type, is_root), take_anyif(trigger_type, isnotempty(trigger_type) and name startswith "invoke_agent ")),
@@ -232,7 +229,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             root_task_schedule = take_anyif(task_schedule, is_root and isnotempty(task_schedule)),
             root_task_name = take_anyif(task_name, is_root and isnotempty(task_name)),
             root_task_source = take_anyif(task_source, is_root and isnotempty(task_source)),
-            ${llmPurposeField ? 'root_llm_purpose = take_anyif(llm_purpose, is_root),' : ''}
+            root_llm_purpose = take_anyif(llm_purpose, is_root),
             root_operation = take_anyif(name, is_root),
             trace_user_id = take_any(u_id),
             trace_user_name = take_any(u_name)
@@ -275,16 +272,15 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
     async listSpans(opts): Promise<SpanSummary[]> {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
       const userFilter = kqlIdentityFilter(opts)
-      const purposeAttr = llmPurposeField ?? 'gen_ai.operation.purpose'
       const q = `
         let execute_tool_ids = union dependencies, requests
         | where name startswith "execute_tool "
         | project tool_id = id;
         union dependencies, requests
-        | extend purpose = tostring(customDimensions["${purposeAttr}"])
+        | extend purpose = tostring(customDimensions["gen_ai.operation.purpose"])
         | extend is_utility = isnotempty(purpose) and isnotempty(operation_ParentId),
-                 is_agent = name startswith "invoke_agent "
-        | where is_utility or (is_agent and operation_ParentId in (execute_tool_ids))
+                 is_subagent = name startswith "invoke_agent " and operation_ParentId in (execute_tool_ids)
+        | where is_utility or is_subagent
         ${userFilter ? `| where ${userFilter}` : ''}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
@@ -316,12 +312,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
 
     async listSessions(opts) {
       const userFilter = kqlIdentityFilter(opts)
-      const purposeAttr = llmPurposeField ?? 'gen_ai.operation.purpose'
       const q = `
         ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
-        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["${purposeAttr}"])) or isnotempty(tostring(customDimensions["session.trigger_type"]))
+        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"]))
         ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
         | extend start_ms = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
         | project
@@ -337,12 +332,10 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             gen_ai_usage_input_tokens = toint(customDimensions["gen_ai.usage.input_tokens"]),
             gen_ai_usage_output_tokens = toint(customDimensions["gen_ai.usage.output_tokens"]),
             gen_ai_usage_cache_read_input_tokens = toint(customDimensions["gen_ai.usage.cache_read.input_tokens"]),
-            llm_usage_tokens_total = toint(customDimensions["gen_ai.usage.input_tokens"])
-                                   + toint(customDimensions["gen_ai.usage.output_tokens"]),
-            llm_usage_cost_total = coalesce(todouble(customDimensions["llm.usage.cost_total"]),
-                                            todouble(customDimensions["gen_ai.usage.cost_total"])),
-            llm_input = coalesce(tostring(customDimensions["gen_ai.input.messages"]),
-                                 tostring(customDimensions["llm.input"])),
+            gen_ai_usage_total_tokens = toint(customDimensions["gen_ai.usage.input_tokens"])
+                                      + toint(customDimensions["gen_ai.usage.output_tokens"]),
+            gen_ai_usage_cost_total = todouble(customDimensions["gen_ai.usage.cost_total"]),
+            gen_ai_input_messages = tostring(customDimensions["gen_ai.input.messages"]),
             span_status = iff(success == false, "ERROR", "OK"),
             trigger_type = tostring(customDimensions["session.trigger_type"]),
             ag_ui_thread_id = ${SESSION_ID_COALESCE},
@@ -389,6 +382,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         normalizeTraceRoots(trSpans)
         propagateSessionInTrace(trSpans)
         propagateInheritedAttrs(trSpans)
+        normalizeRunGraph(trSpans)
       }
 
       const source: 'attribute' | 'trace' = spans.some((s) => s.sessionSource === 'attribute') ? 'attribute' : 'trace'
@@ -586,9 +580,9 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
     hasError: Boolean(row.has_error),
     category: classifyTraceCategory({
       hasSessionAttribute: hasSession,
-      hasRootExecuteTool: Boolean(row.has_root_execute_tool),
       hasInvokeAgent: Boolean(row.has_invoke_agent),
       hasChat: Boolean(row.has_chat),
+      rootOperation: pickStringValue(row.root_operation),
       rootTriggerType: pickStringValue(row.root_trigger_type),
       rootExecution: pickStringValue(row.root_execution),
       rootLlmPurpose,

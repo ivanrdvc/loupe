@@ -8,7 +8,7 @@ describe('classifySpan — cost fallback', () => {
       'gen_ai.request.model': 'gpt-5.2',
       'gen_ai.usage.input_tokens': 169,
       'gen_ai.usage.output_tokens': 15,
-      llm_usage_cost_total: 0.999, // sentinel — fallback must not overwrite
+      'gen_ai.usage.cost_total': 0.999, // sentinel — fallback must not overwrite
     })
     expect(c.costUsd).toBe(0.999)
   })
