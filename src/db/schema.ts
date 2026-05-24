@@ -96,6 +96,7 @@ export const prompts = sqliteTable(
     folderId: integer('folder_id').references(() => promptFolders.id, { onDelete: 'set null' }),
     name: text().notNull(),
     description: text(),
+    runConfigJson: text('run_config_json', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
@@ -115,10 +116,38 @@ export const promptVersions = sqliteTable(
     toolsJson: text('tools_json', { mode: 'json' }).notNull().default(sql`'[]'`),
     responseFormatJson: text('response_format_json', { mode: 'json' }).notNull().default(sql`'{"type":"text"}'`),
     author: text().notNull(),
+    sourceRef: text('source_ref'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [
     uniqueIndex('prompt_version_prompt_version_idx').on(table.promptId, table.version),
     index('prompt_version_prompt_idx').on(table.promptId),
+  ],
+)
+
+export const promptTags = sqliteTable(
+  'prompt_tag',
+  {
+    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+    name: text().notNull(),
+    color: text().notNull().default('slate'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [uniqueIndex('prompt_tag_name_idx').on(table.name)],
+)
+
+export const promptTagLinks = sqliteTable(
+  'prompt_tag_link',
+  {
+    promptId: integer('prompt_id')
+      .notNull()
+      .references(() => prompts.id, { onDelete: 'cascade' }),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => promptTags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('prompt_tag_link_pk').on(table.promptId, table.tagId),
+    index('prompt_tag_link_tag_idx').on(table.tagId),
   ],
 )

@@ -16,7 +16,15 @@ import { Label } from '#/components/ui/label'
 import { Textarea } from '#/components/ui/textarea'
 import type { Tool } from '../-types'
 
-export function ToolsPanel({ tools, onChange }: { tools: Tool[]; onChange: (tools: Tool[]) => void }) {
+export function ToolsPanel({
+  tools,
+  onChange,
+  readOnly,
+}: {
+  tools: Tool[]
+  onChange?: (tools: Tool[]) => void
+  readOnly?: boolean
+}) {
   const [editing, setEditing] = useState<{ index: number; tool: Tool } | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -31,11 +39,11 @@ export function ToolsPanel({ tools, onChange }: { tools: Tool[]; onChange: (tool
   }
 
   const remove = (index: number) => {
-    onChange(tools.filter((_, i) => i !== index))
+    onChange?.(tools.filter((_, i) => i !== index))
   }
 
   const save = (tool: Tool) => {
-    if (!editing) return
+    if (!editing || !onChange) return
     if (editing.index < 0) onChange([...tools, tool])
     else {
       const copy = [...tools]
@@ -50,10 +58,12 @@ export function ToolsPanel({ tools, onChange }: { tools: Tool[]; onChange: (tool
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Tools</h3>
-        <Button variant="outline" size="sm" onClick={openCreate}>
-          <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-          Add
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={openCreate}>
+            <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+            Add
+          </Button>
+        )}
       </div>
       {tools.length === 0 ? (
         <p className="text-xs text-muted-foreground">No tools defined.</p>
@@ -69,28 +79,32 @@ export function ToolsPanel({ tools, onChange }: { tools: Tool[]; onChange: (tool
                     <span className="line-clamp-2 text-[11px] text-muted-foreground">{tool.description}</span>
                   )}
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(idx)} aria-label="Edit tool">
-                    <HugeiconsIcon icon={Edit02Icon} strokeWidth={2} />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => remove(idx)} aria-label="Delete tool">
-                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                  </Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(idx)} aria-label="Edit tool">
+                      <HugeiconsIcon icon={Edit02Icon} strokeWidth={2} />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => remove(idx)} aria-label="Delete tool">
+                      <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
-      <ToolDialog
-        open={open}
-        onOpenChange={(value) => {
-          setOpen(value)
-          if (!value) setEditing(null)
-        }}
-        initial={editing?.tool ?? null}
-        onSave={save}
-      />
+      {!readOnly && (
+        <ToolDialog
+          open={open}
+          onOpenChange={(value) => {
+            setOpen(value)
+            if (!value) setEditing(null)
+          }}
+          initial={editing?.tool ?? null}
+          onSave={save}
+        />
+      )}
     </div>
   )
 }

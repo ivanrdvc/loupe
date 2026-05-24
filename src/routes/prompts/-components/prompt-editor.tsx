@@ -7,27 +7,37 @@ import { MessageCard } from './message-card'
 export function PromptEditor({
   messages,
   onChange,
-  disabled,
+  readOnly,
 }: {
   messages: Message[]
-  onChange: (next: Message[]) => void
-  disabled?: boolean
+  onChange?: (next: Message[]) => void
+  readOnly?: boolean
 }) {
   const updateAt = (idx: number, next: Message) => {
+    if (!onChange) return
     const copy = [...messages]
     copy[idx] = next
     onChange(copy)
   }
 
   const deleteAt = (idx: number) => {
-    const copy = messages.filter((_, i) => i !== idx)
-    onChange(copy)
+    if (!onChange) return
+    onChange(messages.filter((_, i) => i !== idx))
   }
 
   const addMessage = () => {
+    if (!onChange) return
     const last = messages[messages.length - 1]
     const role = last?.role === 'user' ? 'assistant' : 'user'
     onChange([...messages, { role, content: '' }])
+  }
+
+  if (messages.length === 0 && readOnly) {
+    return (
+      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        No messages in this version.
+      </div>
+    )
   }
 
   return (
@@ -43,17 +53,20 @@ export function PromptEditor({
             key={idx}
             index={idx}
             message={message}
-            onChange={(next) => updateAt(idx, next)}
-            onDelete={() => deleteAt(idx)}
+            onChange={readOnly ? undefined : (next) => updateAt(idx, next)}
+            onDelete={readOnly ? undefined : () => deleteAt(idx)}
+            readOnly={readOnly}
           />
         ))
       )}
-      <div>
-        <Button variant="outline" size="sm" onClick={addMessage} disabled={disabled}>
-          <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-          Add message
-        </Button>
-      </div>
+      {!readOnly && (
+        <div>
+          <Button variant="outline" size="sm" onClick={addMessage}>
+            <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+            Add message
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

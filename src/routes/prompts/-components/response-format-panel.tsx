@@ -8,21 +8,26 @@ type Kind = ResponseFormat['type']
 export function ResponseFormatPanel({
   value,
   onChange,
+  readOnly,
 }: {
   value: ResponseFormat
-  onChange: (next: ResponseFormat) => void
+  onChange?: (next: ResponseFormat) => void
+  readOnly?: boolean
 }) {
+  const apply = (next: ResponseFormat) => {
+    if (!readOnly) onChange?.(next)
+  }
   const [schemaError, setSchemaError] = useState<string | null>(null)
 
   const handleKindChange = (next: Kind) => {
     setSchemaError(null)
     if (next === 'json_schema') {
       const existingSchema = value.type === 'json_schema' ? value.schema : ''
-      onChange({ type: 'json_schema', schema: existingSchema })
+      apply({ type: 'json_schema', schema: existingSchema })
     } else if (next === 'json_object') {
-      onChange({ type: 'json_object' })
+      apply({ type: 'json_object' })
     } else {
-      onChange({ type: 'text' })
+      apply({ type: 'text' })
     }
   }
 
@@ -43,7 +48,7 @@ export function ResponseFormatPanel({
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">Response format</h3>
-      <Select value={value.type} onValueChange={(v) => handleKindChange(v as Kind)}>
+      <Select value={value.type} onValueChange={(v) => handleKindChange(v as Kind)} disabled={readOnly}>
         <SelectTrigger size="sm">
           <SelectValue />
         </SelectTrigger>
@@ -59,11 +64,12 @@ export function ResponseFormatPanel({
         <>
           <Textarea
             value={value.schema}
-            onChange={(e) => onChange({ type: 'json_schema', schema: e.target.value })}
+            onChange={(e) => apply({ type: 'json_schema', schema: e.target.value })}
             onBlur={handleSchemaBlur}
             placeholder={'{"type":"object","properties":{...}}'}
             className="font-mono text-xs"
             rows={6}
+            readOnly={readOnly}
           />
           {schemaError && <p className="text-xs text-destructive">{schemaError}</p>}
         </>

@@ -1,14 +1,25 @@
-import { Add01Icon, FolderAddIcon, StickyNote01Icon } from '@hugeicons/core-free-icons'
+import { Add01Icon, LockedIcon, Refresh01Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { IconChevronRight, IconFile, IconFolder } from '@tabler/icons-react'
+import { IconSearch } from '@tabler/icons-react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  type ColumnFiltersState,
+  flexRender,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from '@tanstack/react-table'
+import { Fragment, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { Page } from '#/components/page'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -22,111 +33,273 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { queryKeys } from '#/lib/query-keys'
-import { createFolder, listFolders, listPrompts } from '#/server/prompts'
+import { cn } from '#/lib/utils'
+import { getSyncConfig, syncSystemPrompts } from '#/server/prompt-sync'
+import { createFolder, listFolders, listPrompts, listTags } from '#/server/prompts'
 import { NewPromptDialog } from './-components/new-prompt-dialog'
-import type { Prompt, PromptFolder } from './-types'
+import { buildPromptColumns } from './-components/prompts-columns'
+import type { PromptFolder } from './-types'
 
-const foldersQuery = () =>
-  queryOptions({
-    queryKey: queryKeys.prompts.folders(),
-    queryFn: () => listFolders(),
-  })
+const foldersQuery = queryOptions({
+  queryKey: queryKeys.prompts.folders(),
+  queryFn: () => listFolders(),
+})
 
-const promptsQuery = () =>
-  queryOptions({
-    queryKey: queryKeys.prompts.list(),
-    queryFn: () => listPrompts({ data: {} }),
-  })
+const promptsQuery = queryOptions({
+  queryKey: queryKeys.prompts.list(),
+  queryFn: () => listPrompts({ data: {} }),
+})
+
+const tagsQuery = queryOptions({
+  queryKey: queryKeys.prompts.tags(),
+  queryFn: () => listTags(),
+})
+
+const syncConfigQuery = queryOptions({
+  queryKey: ['prompts', 'sync-config'] as const,
+  queryFn: () => getSyncConfig(),
+  staleTime: 30_000,
+})
 
 export const Route = createFileRoute('/prompts/')({
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(foldersQuery()),
-      context.queryClient.ensureQueryData(promptsQuery()),
+      context.queryClient.ensureQueryData(foldersQuery),
+      context.queryClient.ensureQueryData(promptsQuery),
+      context.queryClient.ensureQueryData(tagsQuery),
+      context.queryClient.ensureQueryData(syncConfigQuery),
     ]),
   component: PromptsListPage,
 })
 
+const TYPE_OPTIONS = [
+  { label: 'System', value: 'system' },
+  { label: 'User', value: 'user' },
+]
+
+const UNFILED_KEY = '__unfiled__'
+
 function PromptsListPage() {
-  const { data: folders = [], isLoading: foldersLoading } = useQuery(foldersQuery())
-  const { data: prompts = [], isLoading: promptsLoading } = useQuery(promptsQuery())
-  const [tab, setTab] = useState<'snippets' | 'observed'>('snippets')
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { data: folders = [], isLoading: foldersLoading } = useQuery(foldersQuery)
+  const { data: prompts = [], isLoading: promptsLoading } = useQuery(promptsQuery)
+  const { data: tags = [] } = useQuery(tagsQuery)
+  const { data: syncConfig } = useQuery(syncConfigQuery)
+
   const [newPromptOpen, setNewPromptOpen] = useState(false)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [defaultFolderId, setDefaultFolderId] = useState<number | null>(null)
 
+  const folderById = useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders])
+  const tagsById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
+
+  const columns = useMemo(() => buildPromptColumns({ folderById, tagsById }), [folderById, tagsById])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'updatedAt', desc: true }])
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 100 })
+
+  const table = useReactTable({
+    data: prompts,
+    columns,
+    state: { sorting, columnFilters, pagination, columnVisibility: { kind: false, tagIds: false } },
+    getRowId: (row) => String(row.id),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+  })
+
+  const searchColumn = table.getColumn('name')
+  const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
+  const isFiltered = table.getState().columnFilters.length > 0
+
+  const syncMutation = useMutation({
+    mutationFn: () => syncSystemPrompts(),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
+      const parts: string[] = []
+      if (result.created) parts.push(`${result.created} created`)
+      if (result.updated) parts.push(`${result.updated} updated`)
+      if (result.skipped) parts.push(`${result.skipped} unchanged`)
+      if (result.errors.length) parts.push(`${result.errors.length} failed`)
+      toast.success(parts.length ? `Sync: ${parts.join(', ')}` : 'Sync ran. No prompts found.')
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
+
+  const tagFilterOptions = useMemo(() => tags.map((t) => ({ label: t.name, value: String(t.id) })), [tags])
+
+  const groupedRows = useMemo(() => {
+    const visible = table.getRowModel().rows
+    type Group = { key: string; folder: PromptFolder | null; rows: typeof visible }
+    const map = new Map<string, Group>()
+    for (const row of visible) {
+      const folderId = row.original.folderId
+      const folder = folderId != null ? (folderById.get(folderId) ?? null) : null
+      const key = folder ? `f-${folder.id}` : UNFILED_KEY
+      const existing = map.get(key)
+      if (existing) {
+        existing.rows.push(row)
+      } else {
+        map.set(key, { key, folder, rows: [row] })
+      }
+    }
+    const groups = [...map.values()]
+    groups.sort((a, b) => {
+      if (a.folder?.kind !== b.folder?.kind) {
+        if (a.folder?.kind === 'system') return -1
+        if (b.folder?.kind === 'system') return 1
+      }
+      if (!a.folder) return 1
+      if (!b.folder) return -1
+      return a.folder.name.localeCompare(b.folder.name)
+    })
+    return groups
+  }, [table, folderById])
+
   const isLoading = foldersLoading || promptsLoading
+  const columnCount = table.getVisibleLeafColumns().length
 
   return (
     <Page title="Prompts">
-      <div className="flex flex-col gap-4 px-4 lg:px-6">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <div className="flex items-center justify-between gap-2">
-            <TabsList>
-              <TabsTrigger value="snippets">Snippets</TabsTrigger>
-              <TabsTrigger value="observed">Observed</TabsTrigger>
-            </TabsList>
-            {tab === 'snippets' && (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setNewFolderOpen(true)}>
-                  <HugeiconsIcon icon={FolderAddIcon} strokeWidth={2} data-icon="inline-start" />
-                  New folder
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setDefaultFolderId(null)
-                    setNewPromptOpen(true)
-                  }}
-                >
-                  <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-                  New prompt
-                </Button>
-              </div>
+      <div className="flex min-w-0 flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 lg:px-6">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <div className="relative w-full min-w-0 sm:w-64">
+              <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search prompts…"
+                value={searchValue}
+                onChange={(e) => searchColumn?.setFilterValue(e.target.value)}
+                className="h-8 w-full pl-7"
+              />
+            </div>
+            {table.getColumn('kind') && (
+              <DataTableFacetedFilter column={table.getColumn('kind')} title="Type" options={TYPE_OPTIONS} />
+            )}
+            {tagFilterOptions.length > 0 && table.getColumn('tagIds') && (
+              <DataTableFacetedFilter column={table.getColumn('tagIds')} title="Tags" options={tagFilterOptions} />
+            )}
+            {isFiltered && (
+              <Button variant="ghost" size="sm" onClick={() => table.resetColumnFilters()}>
+                Clear
+              </Button>
             )}
           </div>
+          <div className="flex items-center gap-2">
+            <SyncFromCodeButton
+              configured={syncConfig?.configured ?? false}
+              repoPath={syncConfig?.repoPath ?? null}
+              pending={syncMutation.isPending}
+              onSync={() => syncMutation.mutate()}
+            />
+            <Button variant="outline" size="sm" onClick={() => setNewFolderOpen(true)}>
+              New folder
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setDefaultFolderId(null)
+                setNewPromptOpen(true)
+              }}
+            >
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+              New prompt
+            </Button>
+          </div>
+        </div>
 
-          <TabsContent value="snippets" className="pt-4">
-            {isLoading ? (
-              <TreeSkeleton />
-            ) : folders.length === 0 && prompts.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconFile />
-                  </EmptyMedia>
-                  <EmptyTitle>No prompts yet</EmptyTitle>
-                  <EmptyDescription>Create a folder to organise your prompts, or jump straight in.</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <FolderTree
-                folders={folders}
-                prompts={prompts}
-                onNewPromptInFolder={(folderId) => {
-                  setDefaultFolderId(folderId)
-                  setNewPromptOpen(true)
-                }}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="observed" className="pt-4">
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon icon={StickyNote01Icon} />
-                </EmptyMedia>
-                <EmptyTitle>Detected from your traces</EmptyTitle>
-                <EmptyDescription>
-                  Coming soon — agentops will fingerprint your real system prompts and show their change history here.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </TabsContent>
-        </Tabs>
+        {isLoading ? (
+          <div className="flex flex-col gap-2 p-4 lg:p-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : prompts.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon" />
+              <EmptyTitle>No prompts yet</EmptyTitle>
+              <EmptyDescription>Create one to get started, or sync from your agent repo.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <div className="border-t bg-background">
+            <Table>
+              <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground [&_button]:font-normal [&_button]:text-muted-foreground">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow
+                    key={headerGroup.id}
+                    className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                  >
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} colSpan={header.colSpan}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {groupedRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columnCount} className="h-32 text-center text-muted-foreground">
+                      No prompts match the current filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  groupedRows.map((group) => (
+                    <Fragment key={group.key}>
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={columnCount}
+                          className={cn(
+                            'bg-muted/20 py-3 pl-4 text-xs font-medium uppercase tracking-wider text-muted-foreground lg:pl-6',
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            {group.folder?.kind === 'system' ? (
+                              <HugeiconsIcon icon={LockedIcon} strokeWidth={2} className="size-3.5" />
+                            ) : group.folder ? null : (
+                              <HugeiconsIcon icon={StickyNote01Icon} strokeWidth={2} className="size-3.5" />
+                            )}
+                            <span>{group.folder?.name ?? 'Unfiled'}</span>
+                            <span className="font-mono normal-case text-muted-foreground">{group.rows.length}</span>
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                      {group.rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          className="cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                          onClick={() =>
+                            navigate({ to: '/prompts/$promptId', params: { promptId: String(row.original.id) } })
+                          }
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       <NewPromptDialog
@@ -140,142 +313,43 @@ function PromptsListPage() {
   )
 }
 
-type TreeNode =
-  | { type: 'folder'; folder: PromptFolder; children: TreeNode[]; prompts: Prompt[] }
-  | { type: 'prompt'; prompt: Prompt }
-
-function buildTree(folders: PromptFolder[], prompts: Prompt[]): { tree: TreeNode[]; unfiled: Prompt[] } {
-  const byParent = new Map<number | null, PromptFolder[]>()
-  for (const f of folders) {
-    const list = byParent.get(f.parentId) ?? []
-    list.push(f)
-    byParent.set(f.parentId, list)
-  }
-  const promptsByFolder = new Map<number | null, Prompt[]>()
-  for (const p of prompts) {
-    const list = promptsByFolder.get(p.folderId) ?? []
-    list.push(p)
-    promptsByFolder.set(p.folderId, list)
-  }
-  const build = (parentId: number | null): TreeNode[] => {
-    const children = (byParent.get(parentId) ?? []).sort((a, b) => a.name.localeCompare(b.name))
-    return children.map((folder): TreeNode => {
-      const folderPrompts = (promptsByFolder.get(folder.id) ?? []).sort((a, b) => a.name.localeCompare(b.name))
-      return {
-        type: 'folder',
-        folder,
-        children: build(folder.id),
-        prompts: folderPrompts,
-      }
-    })
-  }
-  const tree = build(null)
-  const unfiled = (promptsByFolder.get(null) ?? []).sort((a, b) => a.name.localeCompare(b.name))
-  return { tree, unfiled }
-}
-
-function FolderTree({
-  folders,
-  prompts,
-  onNewPromptInFolder,
+function SyncFromCodeButton({
+  configured,
+  repoPath,
+  pending,
+  onSync,
 }: {
-  folders: PromptFolder[]
-  prompts: Prompt[]
-  onNewPromptInFolder: (folderId: number | null) => void
+  configured: boolean
+  repoPath: string | null
+  pending: boolean
+  onSync: () => void
 }) {
-  const { tree, unfiled } = useMemo(() => buildTree(folders, prompts), [folders, prompts])
-
-  return (
-    <div className="rounded-lg border p-2 text-sm">
-      {tree.map((node) => (
-        <TreeNodeView
-          key={node.type === 'folder' ? `f-${node.folder.id}` : `p-${node.prompt.id}`}
-          node={node}
-          onNewPromptInFolder={onNewPromptInFolder}
-        />
-      ))}
-      {unfiled.length > 0 && (
-        <div className="mt-2">
-          <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Unfiled</div>
-          {unfiled.map((p) => (
-            <PromptLeaf key={p.id} prompt={p} />
-          ))}
-        </div>
-      )}
-    </div>
+  const button = (
+    <Button variant="outline" size="sm" onClick={onSync} disabled={!configured || pending}>
+      <HugeiconsIcon icon={Refresh01Icon} strokeWidth={2} data-icon="inline-start" />
+      {pending ? 'Syncing…' : 'Sync from code'}
+    </Button>
   )
-}
-
-function TreeNodeView({
-  node,
-  onNewPromptInFolder,
-}: {
-  node: TreeNode
-  onNewPromptInFolder: (folderId: number | null) => void
-}) {
-  if (node.type === 'prompt') {
-    return <PromptLeaf prompt={node.prompt} />
+  if (configured && repoPath) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          Reads system prompts from <span className="font-mono text-foreground">{repoPath}</span>
+        </TooltipContent>
+      </Tooltip>
+    )
   }
-
-  const { folder, children, prompts } = node
-  const count = children.length + prompts.length
-  const hasChildren = children.length + prompts.length > 0
   return (
-    <Collapsible defaultOpen className="group/folder">
-      <div className="flex items-center gap-0.5 pr-1">
-        <CollapsibleTrigger className="flex flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
-          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/folder:rotate-90" />
-          <IconFolder className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{folder.name}</span>
-          {folder.kind === 'system' && (
-            <Badge variant="outline" className="ml-1 text-[10px]">
-              system
-            </Badge>
-          )}
-          {count > 0 && <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">{count}</span>}
-        </CollapsibleTrigger>
-        {folder.kind !== 'system' && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="New prompt in this folder"
-            onClick={() => onNewPromptInFolder(folder.id)}
-          >
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        )}
-      </div>
-      {hasChildren && (
-        <CollapsibleContent>
-          <div className="ml-[13px] border-l border-border/70 pl-2">
-            {children.map((child) => (
-              <TreeNodeView
-                key={child.type === 'folder' ? `f-${child.folder.id}` : `p-${child.prompt.id}`}
-                node={child}
-                onNewPromptInFolder={onNewPromptInFolder}
-              />
-            ))}
-            {prompts.map((p) => (
-              <PromptLeaf key={p.id} prompt={p} />
-            ))}
-          </div>
-        </CollapsibleContent>
-      )}
-    </Collapsible>
-  )
-}
-
-function PromptLeaf({ prompt }: { prompt: Prompt }) {
-  return (
-    <Link
-      to="/prompts/$promptId"
-      params={{ promptId: String(prompt.id) }}
-      className="flex items-center gap-1.5 rounded-md py-1 pl-1.5 pr-2 text-left outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <IconFile className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="truncate">{prompt.name}</span>
-      {prompt.description && <span className="ml-2 truncate text-xs text-muted-foreground">{prompt.description}</span>}
-    </Link>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span>{button}</span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs">
+        Set <span className="font-mono text-foreground">AGENT_REPO_PATH</span> in{' '}
+        <span className="font-mono text-foreground">.env.local</span> to enable sync.
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -374,16 +448,5 @@ function NewFolderDialog({
         </form>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function TreeSkeleton() {
-  return (
-    <div className="flex flex-col gap-1">
-      {Array.from({ length: 4 }).map((_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton items have no stable key
-        <Skeleton key={i} className="h-7 w-full max-w-md" />
-      ))}
-    </div>
   )
 }

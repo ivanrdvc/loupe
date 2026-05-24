@@ -37,7 +37,13 @@ export type PromptVersion = {
   tools: Tool[]
   responseFormat: ResponseFormat
   author: string
+  sourceRef: string | null
   createdAt: number
+}
+
+export type RunConfig = {
+  endpointUrl?: string
+  agentName?: string
 }
 
 export type Prompt = {
@@ -45,13 +51,23 @@ export type Prompt = {
   folderId: number | null
   name: string
   description: string | null
+  runConfig: RunConfig | null
+  tagIds: number[]
   createdAt: number
   updatedAt: number
+}
+
+export type Tag = {
+  id: number
+  name: string
+  color: string
+  createdAt: number
 }
 
 export type PromptWithVersions = {
   prompt: Prompt
   versions: PromptVersion[]
+  folder: PromptFolder | null
 }
 
 export type CreatePromptInput = {

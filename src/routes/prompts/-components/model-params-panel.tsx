@@ -18,14 +18,25 @@ const MODELS_BY_PROVIDER: { provider: string; models: string[] }[] = [
   { provider: 'Google', models: ['gemini-2.5-pro'] },
 ]
 
-export function ModelParamsPanel({ value, onChange }: { value: ModelParams; onChange: (next: ModelParams) => void }) {
+export function ModelParamsPanel({
+  value,
+  onChange,
+  readOnly,
+}: {
+  value: ModelParams
+  onChange?: (next: ModelParams) => void
+  readOnly?: boolean
+}) {
+  const handle = (next: ModelParams) => {
+    if (!readOnly) onChange?.(next)
+  }
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-medium">Model</h3>
       <div className="flex flex-col gap-4">
         <div className="grid gap-3">
           <Label htmlFor="model-select">Model</Label>
-          <Select value={value.model} onValueChange={(model) => onChange({ ...value, model })}>
+          <Select value={value.model} onValueChange={(model) => handle({ ...value, model })} disabled={readOnly}>
             <SelectTrigger id="model-select">
               <SelectValue />
             </SelectTrigger>
@@ -54,7 +65,8 @@ export function ModelParamsPanel({ value, onChange }: { value: ModelParams; onCh
             max={2}
             step={0.1}
             value={[value.temperature ?? 0]}
-            onValueChange={([next]) => onChange({ ...value, temperature: next })}
+            onValueChange={([next]) => handle({ ...value, temperature: next })}
+            disabled={readOnly}
           />
         </div>
         <div className="grid gap-3">
@@ -68,7 +80,8 @@ export function ModelParamsPanel({ value, onChange }: { value: ModelParams; onCh
             max={1}
             step={0.05}
             value={[value.topP ?? 1]}
-            onValueChange={([next]) => onChange({ ...value, topP: next })}
+            onValueChange={([next]) => handle({ ...value, topP: next })}
+            disabled={readOnly}
           />
         </div>
         <div className="grid gap-3">
@@ -79,11 +92,12 @@ export function ModelParamsPanel({ value, onChange }: { value: ModelParams; onCh
             min="1"
             value={value.maxTokens ?? ''}
             onChange={(e) =>
-              onChange({
+              handle({
                 ...value,
                 maxTokens: e.target.value === '' ? undefined : Number(e.target.value),
               })
             }
+            disabled={readOnly}
           />
         </div>
       </div>
