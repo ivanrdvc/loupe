@@ -76,7 +76,7 @@ const MODES = [
 
 const COLORS: { value: ColorTheme; label: string; dot: string }[] = [
   { value: 'neutral', label: 'Neutral', dot: 'oklch(0.205 0 0)' },
-  { value: 'slack', label: 'Slack', dot: 'oklch(0.37 0.14 323.23)' },
+  { value: 'spotify', label: 'Spotify', dot: 'oklch(0.67 0.17 153.85)' },
   { value: 'vscode', label: 'VS Code', dot: 'oklch(0.71 0.15 239.07)' },
 ]
 

@@ -17,7 +17,7 @@ export function FiresTable({ data, onRowClick }: FiresTableProps) {
     <div className="flex min-h-0 flex-1 flex-col border-t">
       <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
         <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted">
+          <TableHeader className="sticky top-0 z-10 bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground [&_button]:font-normal [&_button]:text-muted-foreground">
             <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
               <TableHead>When</TableHead>
               <TableHead>Status</TableHead>

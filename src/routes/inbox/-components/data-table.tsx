@@ -58,8 +58,8 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
 
   return (
-    <div className="flex w-full flex-col gap-4 md:gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
+    <div className="flex w-full flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3 lg:px-6">
         <div className="relative w-full min-w-0 sm:w-64">
           <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -73,11 +73,14 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
           <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
         )}
       </div>
-      <div className="px-4 lg:px-6">
+      <div className="border-t bg-background">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground [&_button]:font-normal [&_button]:text-muted-foreground">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow
+                key={headerGroup.id}
+                className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+              >
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id} colSpan={header.colSpan}>
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
@@ -89,15 +92,18 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
           <TableBody>
             {table.getRowModel().rows.length > 0 ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="h-14 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
                   {isLoading ? (
                     <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="mx-auto size-4 animate-spin" />
                   ) : (
@@ -108,32 +114,27 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
             )}
           </TableBody>
         </Table>
-        {table.getPageCount() > 1 && (
-          <div className="flex items-center justify-end gap-2 pt-3">
-            <div className="text-xs text-muted-foreground tabular-nums">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-            </div>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <span className="sr-only">Previous page</span>
-              <IconChevronLeft />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <span className="sr-only">Next page</span>
-              <IconChevronRight />
-            </Button>
-          </div>
-        )}
       </div>
+      {table.getPageCount() > 1 && (
+        <div className="flex items-center justify-end gap-2 border-t bg-background px-4 py-3 lg:px-6">
+          <div className="text-xs text-muted-foreground tabular-nums">
+            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+          </div>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <span className="sr-only">Previous page</span>
+            <IconChevronLeft />
+          </Button>
+          <Button variant="outline" size="icon-sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+            <span className="sr-only">Next page</span>
+            <IconChevronRight />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
