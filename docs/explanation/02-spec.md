@@ -25,12 +25,12 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 | Concept | Attribute | Values | Source | Status |
 | ------- | --------- | ------ | ------ | ------ |
 | Scheduling identity (what fires) | `task.id` | string | agentops convention | read |
-| Scheduling kind | `task.kind` | `cron` \| `one_shot` \| `event` \| `webhook` \| `background` | agentops convention | read |
+| Scheduling kind | `task.kind` | `cron` \| `one_shot` \| `event` \| `webhook` | agentops convention | read |
 | Schedule descriptor | `task.schedule` | cron expression or ISO timestamp | agentops convention | read |
 | Human label | `task.name` | string | agentops convention | read |
 | Origin (URL, source) | `task.source` | string | agentops convention | read |
 | Trigger type | `session.trigger_type` | `scheduled` \| `event` \| `webhook` \| `user` | agentops convention | read |
-| Async execution flag | `session.execution` | `background` | agentops convention | read |
+| Async execution flag | `session.execution` | `background` | agentops convention | read (operational marker, not a task kind) |
 | Session id (multi-turn) | `gen_ai.conversation.id` | string | OTel GenAI semconv | read |
 | AG-UI thread id | `ag_ui.thread_id` | string | AG-UI | read (alias for conversation.id) |
 | User id | `user.id` | string | OTel | read |
@@ -66,9 +66,11 @@ What the **root span** of each trace category must carry. Child spans only need 
 | `scheduled` (one-shot) | `session.trigger_type=scheduled`; `task.id`; `task.kind=one_shot`; `task.schedule=<ISO timestamp>`; `task.name`; optional `task.source` |
 | `event` | `session.trigger_type=event`; `task.id`; `task.kind=event`; `task.source=<event source>`; `task.name=<event name>` |
 | `webhook` | `session.trigger_type=webhook`; `task.id`; `task.kind=webhook`; `task.source=<URL or route>`; `task.name=<route>` |
-| `background` | `session.trigger_type=user`; `session.execution=background`; `task.id`; `task.kind=background`; optional `task.source` |
+| `background` | `session.trigger_type=user`; `session.execution=background`. Operational marker — surfaces as a Traces filter only, **not** a task kind |
 | `utility` | `gen_ai.operation.purpose=<tag>` |
 | `orphan` | nothing — fallback bucket |
+
+`background` is an execution-mode marker, not a trigger. It lives on `/traces` as a filter and never rolls up on `/tasks`.
 
 ## Mechanism
 

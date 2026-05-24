@@ -33,7 +33,7 @@ const FILTERS: FacetedFilterSpec[] = [
       { label: 'Cron', value: 'cron' },
       { label: 'One-shot', value: 'one_shot' },
       { label: 'Event', value: 'event' },
-      { label: 'Background', value: 'background' },
+      { label: 'Webhook', value: 'webhook' },
     ],
   },
   {
