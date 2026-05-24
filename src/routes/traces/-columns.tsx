@@ -12,8 +12,9 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo, formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
+import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { TraceCategory, TraceSummary } from '#/lib/telemetry'
 import { cn } from '#/lib/utils'
 
@@ -66,13 +67,7 @@ export const traceColumns: ColumnDef<TraceSummary>[] = [
     accessorKey: 'startedAtMs',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
     cell: ({ row }) => (
-      <time
-        dateTime={new Date(row.original.startedAtMs).toISOString()}
-        title={new Date(row.original.startedAtMs).toLocaleString()}
-        className="whitespace-nowrap tabular-nums text-muted-foreground"
-      >
-        {formatAgo(row.original.startedAtMs)}
-      </time>
+      <RelativeTime ts={row.original.startedAtMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
     ),
   },
   {

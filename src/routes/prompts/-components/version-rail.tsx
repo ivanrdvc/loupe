@@ -1,5 +1,5 @@
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo } from '#/lib/format'
 import { cn } from '#/lib/utils'
 import type { PromptVersion } from '../-types'
 
@@ -38,7 +38,7 @@ export function VersionRail({
                 {isLatest && <Badge variant="secondary">latest</Badge>}
                 <span className="truncate text-muted-foreground">{v.author}</span>
               </div>
-              <span className="shrink-0 text-muted-foreground">{formatAgo(v.createdAt)}</span>
+              <RelativeTime ts={v.createdAt} className="shrink-0 text-muted-foreground" />
             </button>
           )
         })}

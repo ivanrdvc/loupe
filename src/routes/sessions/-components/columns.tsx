@@ -3,9 +3,10 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { formatAgo, formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
+import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import type { SessionSummary } from '#/lib/telemetry'
 import { getNoteFlagsForKind } from '#/server/notes'
@@ -73,13 +74,7 @@ export const sessionColumns: ColumnDef<SessionSummary>[] = [
     accessorKey: 'lastSeenMs',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
     cell: ({ row }) => (
-      <time
-        dateTime={new Date(row.original.lastSeenMs).toISOString()}
-        title={new Date(row.original.lastSeenMs).toLocaleString()}
-        className="whitespace-nowrap tabular-nums text-muted-foreground"
-      >
-        {formatAgo(row.original.lastSeenMs)}
-      </time>
+      <RelativeTime ts={row.original.lastSeenMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
     ),
   },
   {

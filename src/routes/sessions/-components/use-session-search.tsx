@@ -2,8 +2,8 @@ import { Clock01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 
 const MAX_AGENTS_SHOWN = 2
@@ -50,7 +50,7 @@ export function useSessionSearch({
               {metaParts.length > 0 && <span className="max-w-[220px] truncate">{metaParts.join(' · ')}</span>}
               <span className="inline-flex items-center gap-1 tabular-nums">
                 <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3" />
-                {formatAgo(session.lastSeenMs)}
+                <RelativeTime ts={session.lastSeenMs} />
               </span>
             </span>
           ),

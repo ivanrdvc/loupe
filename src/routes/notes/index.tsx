@@ -5,6 +5,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { Page } from '#/components/page'
+import { RelativeTime } from '#/components/relative-time'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -23,7 +24,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
 import { initialsFor } from '#/lib/current-user'
-import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { listAllNotes } from '#/server/notes'
@@ -272,13 +272,7 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
         <ItemDescription>{previewBody(note.body) || '—'}</ItemDescription>
       </ItemContent>
       <ItemActions className="gap-3 text-xs text-muted-foreground">
-        <time
-          dateTime={new Date(note.updatedAt).toISOString()}
-          title={new Date(note.updatedAt).toLocaleString()}
-          className="hidden tabular-nums sm:inline"
-        >
-          {formatAgo(note.updatedAt)}
-        </time>
+        <RelativeTime ts={note.updatedAt} className="hidden tabular-nums sm:inline" />
         <Avatar size="sm" className="hidden sm:flex" title={note.author}>
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>

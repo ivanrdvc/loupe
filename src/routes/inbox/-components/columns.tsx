@@ -2,8 +2,8 @@ import { ArrowTopRightOnSquareIcon } from '@heroicons/react/20/solid'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
-import { formatAgo } from '#/lib/format'
 import type { InboxRow } from '#/server/inbox'
 
 export interface InboxRowActions {
@@ -19,13 +19,7 @@ export function buildInboxColumns(actions: InboxRowActions): ColumnDef<InboxRow>
       accessorKey: 'firedAtMs',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fired" />,
       cell: ({ row }) => (
-        <time
-          dateTime={new Date(row.original.firedAtMs).toISOString()}
-          title={new Date(row.original.firedAtMs).toLocaleString()}
-          className="whitespace-nowrap tabular-nums text-muted-foreground"
-        >
-          {formatAgo(row.original.firedAtMs)}
-        </time>
+        <RelativeTime ts={row.original.firedAtMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
       ),
     },
     {

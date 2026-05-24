@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Markdown } from '#/components/markdown'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -18,7 +19,6 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useUser } from '#/hooks/use-user'
-import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/server/notes'
@@ -236,19 +236,15 @@ export function NoteEditor({
             <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
             Resolved
           </Badge>
-          {note.resolvedAt && (
-            <span className="text-[11px] text-muted-foreground" title={new Date(note.resolvedAt).toLocaleString()}>
-              {formatAgo(note.resolvedAt)}
-            </span>
-          )}
+          {note.resolvedAt && <RelativeTime ts={note.resolvedAt} className="text-[11px] text-muted-foreground" />}
         </div>
       )}
       <div className={cn(isResolved && 'text-muted-foreground')}>
         <Markdown>{note.body}</Markdown>
       </div>
       <div className="flex items-center justify-between gap-2 border-border border-t pt-2 text-[11px] text-muted-foreground">
-        <span title={new Date(note.updatedAt).toLocaleString()}>
-          by {note.author} · {formatAgo(note.updatedAt)}
+        <span>
+          by {note.author} · <RelativeTime ts={note.updatedAt} />
         </span>
         <div className="flex items-center gap-0.5">
           <Tooltip>

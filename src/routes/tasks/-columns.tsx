@@ -1,10 +1,11 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Area, AreaChart, ResponsiveContainer } from 'recharts'
+import { Area, AreaChart } from 'recharts'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import { formatAgo, formatDuration, formatPercent, metricTone } from '#/lib/format'
+import { formatDuration, formatPercent, metricTone } from '#/lib/format'
 import { KIND_META } from '#/lib/tasks/kind-meta'
 import type { TaskRow } from '#/lib/tasks/rollup'
 import { cn } from '#/lib/utils'
@@ -120,26 +121,22 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
       const r = row.original
       return (
         <div className="flex items-center justify-end gap-2">
-          <div className="h-6 w-14 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={r.spark}>
-                <defs>
-                  <linearGradient id={`spark-${r.key}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="currentColor" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="fires"
-                  stroke="currentColor"
-                  strokeWidth={1.2}
-                  fill={`url(#spark-${r.key})`}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <AreaChart width={56} height={24} data={r.spark} className="shrink-0">
+            <defs>
+              <linearGradient id={`spark-${r.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="currentColor" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <Area
+              type="monotone"
+              dataKey="fires"
+              stroke="currentColor"
+              strokeWidth={1.2}
+              fill={`url(#spark-${r.key})`}
+              isAnimationActive={false}
+            />
+          </AreaChart>
           <span className="tabular-nums">{r.fires.toLocaleString()}</span>
         </div>
       )
@@ -174,13 +171,7 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
     accessorKey: 'lastFireMs',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Last fire" />,
     cell: ({ row }) => (
-      <time
-        dateTime={new Date(row.original.lastFireMs).toISOString()}
-        title={new Date(row.original.lastFireMs).toLocaleString()}
-        className="whitespace-nowrap tabular-nums text-muted-foreground"
-      >
-        {formatAgo(row.original.lastFireMs)}
-      </time>
+      <RelativeTime ts={row.original.lastFireMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
     ),
   },
   {

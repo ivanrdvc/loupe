@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { RelativeTime } from '#/components/relative-time'
 import { formatAgo, formatDuration } from '#/lib/format'
 import type { TraceSummary } from '#/lib/telemetry'
 import { cn } from '#/lib/utils'
@@ -159,7 +160,7 @@ export function FireTimeline({ fires, fromMs, toMs, errorRate, expectedMarkers, 
               <span className="text-muted-foreground">·</span>
               <span>{formatDuration(hovered.fire.durationMs)}</span>
               <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">{formatAgo(hovered.fire.startedAtMs)}</span>
+              <RelativeTime ts={hovered.fire.startedAtMs} className="text-muted-foreground" />
             </div>
           </div>
         )}

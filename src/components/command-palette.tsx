@@ -182,7 +182,7 @@ export function CommandPaletteTrigger() {
     >
       <IconSearch data-icon="inline-start" />
       Search
-      <Kbd className="hidden sm:inline-flex" suppressHydrationWarning>
+      <Kbd className="hidden sm:inline-flex">
         <span className="text-xs">{isMac ? '⌘' : 'Ctrl'}</span>K
       </Kbd>
     </Button>

@@ -2,7 +2,8 @@ import { FlashIcon, Message01Icon, Robot01Icon } from '@hugeicons/core-free-icon
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import { useMemo } from 'react'
-import { formatAgo, formatDuration, formatRelative, shortId } from '#/lib/format'
+import { RelativeTime } from '#/components/relative-time'
+import { formatDuration, shortId } from '#/lib/format'
 import { KIND_META } from '#/lib/tasks/kind-meta'
 import type { TaskRow } from '#/lib/tasks/rollup'
 import type { TraceSummary } from '#/lib/telemetry'
@@ -112,7 +113,7 @@ function NodeChip({
 }: {
   label: string
   title?: string
-  hint?: string
+  hint?: React.ReactNode
   mono?: boolean
   hintMono?: boolean
   icon: IconSvgElement
@@ -135,7 +136,7 @@ function NodeChip({
       {hint && (
         <span
           className={cn('block w-full truncate text-center text-[10px] text-muted-foreground', hintMono && 'font-mono')}
-          title={hint}
+          title={typeof hint === 'string' ? hint : undefined}
         >
           {hint}
         </span>
@@ -190,7 +191,7 @@ function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefin
     return (
       <div className={wrap}>
         <span>
-          {verb} {formatAgo(lastFireMs)}
+          {verb} <RelativeTime ts={lastFireMs} />
         </span>
         <span>{formatDuration(avgDurationMs)}</span>
         <span className={errTone}>{errored === 1 ? 'errored' : 'OK'}</span>
@@ -207,7 +208,9 @@ function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefin
           {cadence.jitterPct > 0 && <span className="text-muted-foreground/60"> ±{cadence.jitterPct}%</span>}
         </span>
       )}
-      <span>last fire {formatAgo(lastFireMs)}</span>
+      <span>
+        last fire <RelativeTime ts={lastFireMs} />
+      </span>
       <span className={errTone}>{errString(errored, fires)}</span>
     </div>
   )
@@ -261,7 +264,7 @@ function buildExpectedMarkers(fires: TraceSummary[], medianMs: number | undefine
   return markers
 }
 
-function computeTaskHint(row: TaskRow): { text: string | undefined; mono: boolean } {
+function computeTaskHint(row: TaskRow): { text: React.ReactNode; mono: boolean } {
   // One-shot already fired — kind icon + status line carry the story; no chip hint.
   if (row.kind === 'one_shot' && row.fires > 0) return { text: undefined, mono: false }
   // Event / webhook / background — source if known, else kind icon suffices.
@@ -272,7 +275,15 @@ function computeTaskHint(row: TaskRow): { text: string | undefined; mono: boolea
   if (row.schedule) {
     if (looksLikeIsoDate(row.schedule)) {
       const t = Date.parse(row.schedule)
-      if (!Number.isNaN(t)) return { text: `due ${formatRelative(t)}`, mono: false }
+      if (!Number.isNaN(t))
+        return {
+          text: (
+            <>
+              due <RelativeTime ts={t} variant="relative" />
+            </>
+          ),
+          mono: false,
+        }
     }
     return { text: row.schedule, mono: true }
   }

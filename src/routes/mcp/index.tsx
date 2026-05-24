@@ -2,10 +2,10 @@ import { CubeTransparentIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Page } from '#/components/page'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { formatAgo } from '#/lib/format'
 import { mcpQuery } from './-data'
 
 export const Route = createFileRoute('/mcp/')({
@@ -24,7 +24,11 @@ function McpPage() {
       actions={
         <>
           {data?.partial && <Badge variant="warning">partial</Badge>}
-          {data && <span className="text-xs text-muted-foreground">fetched {formatAgo(data.fetchedAt)}</span>}
+          {data && (
+            <span className="text-xs text-muted-foreground">
+              fetched <RelativeTime ts={data.fetchedAt} />
+            </span>
+          )}
         </>
       }
     >

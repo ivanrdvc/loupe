@@ -1,11 +1,12 @@
 import { ArrowTopRightOnSquareIcon, ChevronDownIcon } from '@heroicons/react/20/solid'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
+import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { formatAgo, formatTokens } from '#/lib/format'
+import { formatTokens } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import type { InventoryRow } from '#/server/inbox'
 
@@ -189,7 +190,9 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
               <TableRow key={row.id}>
                 <TableCell className="font-mono text-xs">{row.name}</TableCell>
                 <TableCell>{row.namespace || 'unknown'}</TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">{formatAgo(row.firstSeenAtMs)}</TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  <RelativeTime ts={row.firstSeenAtMs} />
+                </TableCell>
                 <TableCell>
                   <OpenLink traceId={row.firstSeenTraceId} />
                 </TableCell>
@@ -222,8 +225,12 @@ export function NewAgentsTable({ rows }: { rows: InventoryRow[] }) {
             {visible.map((row) => (
               <TableRow key={row.id}>
                 <TableCell className="font-medium">{row.name}</TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">{formatAgo(row.firstSeenAtMs)}</TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">{formatAgo(row.lastSeenAtMs)}</TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  <RelativeTime ts={row.firstSeenAtMs} />
+                </TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  <RelativeTime ts={row.lastSeenAtMs} />
+                </TableCell>
                 <TableCell>
                   <OpenLink traceId={row.firstSeenTraceId} />
                 </TableCell>
