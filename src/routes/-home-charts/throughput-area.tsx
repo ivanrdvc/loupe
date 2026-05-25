@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
 import type { RunsPoint } from '#/lib/telemetry'
-import type { TimeRange } from '#/lib/time-range'
+import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { runsPerHourQuery } from '../-home-data'
 import { HomeChartCard } from './chart-card'
 
@@ -16,10 +16,10 @@ export function ThroughputAreaChart() {
 
 function ThroughputChart({ range }: { range: TimeRange }) {
   const { data = [] } = useQuery(runsPerHourQuery(range))
-  return <ThroughputChartInner data={data} />
+  return <ThroughputChartInner data={data} range={range} />
 }
 
-function ThroughputChartInner({ data }: { data: RunsPoint[] }) {
+function ThroughputChartInner({ data, range }: { data: RunsPoint[]; range: TimeRange }) {
   if (data.length === 0 || data.every((d) => d.runs === 0)) {
     return <div className="text-xs text-muted-foreground">No runs in this window.</div>
   }
@@ -39,7 +39,7 @@ function ThroughputChartInner({ data }: { data: RunsPoint[] }) {
           axisLine={false}
           tickMargin={8}
           minTickGap={32}
-          tickFormatter={(v: number) => new Date(v).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          tickFormatter={(v: number) => formatChartTick(v, range)}
         />
         <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} />
         <ChartTooltip

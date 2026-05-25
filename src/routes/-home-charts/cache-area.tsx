@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
 import type { CacheHitPoint } from '#/lib/telemetry'
-import type { TimeRange } from '#/lib/time-range'
+import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { cacheHitRateOverTimeQuery } from '../-home-data'
 import { HomeChartCard } from './chart-card'
 
@@ -16,10 +16,10 @@ export function CacheAreaChart() {
 
 function CacheChart({ range }: { range: TimeRange }) {
   const { data = [] } = useQuery(cacheHitRateOverTimeQuery(range))
-  return <CacheChartInner data={data} />
+  return <CacheChartInner data={data} range={range} />
 }
 
-function CacheChartInner({ data }: { data: CacheHitPoint[] }) {
+function CacheChartInner({ data, range }: { data: CacheHitPoint[]; range: TimeRange }) {
   if (data.length === 0 || data.every((d) => d.inputTokens === 0)) {
     return <div className="text-xs text-muted-foreground">No chat spans in this window.</div>
   }
@@ -39,7 +39,7 @@ function CacheChartInner({ data }: { data: CacheHitPoint[] }) {
           axisLine={false}
           tickMargin={8}
           minTickGap={32}
-          tickFormatter={(v: number) => new Date(v).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          tickFormatter={(v: number) => formatChartTick(v, range)}
         />
         <YAxis
           tickLine={false}

@@ -3,7 +3,7 @@ import { Area, Bar, CartesianGrid, ComposedChart, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
 import { formatDuration } from '#/lib/format'
 import type { LatencyPoint } from '#/lib/telemetry'
-import type { TimeRange } from '#/lib/time-range'
+import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { chatLatencyOverTimeQuery } from '../-home-data'
 import { HomeChartCard } from './chart-card'
 
@@ -23,10 +23,10 @@ export function LatencyAreaChart() {
 
 function LatencyChart({ range }: { range: TimeRange }) {
   const { data = [] } = useQuery(chatLatencyOverTimeQuery(range))
-  return <LatencyChartInner data={data} />
+  return <LatencyChartInner data={data} range={range} />
 }
 
-function LatencyChartInner({ data }: { data: LatencyPoint[] }) {
+function LatencyChartInner({ data, range }: { data: LatencyPoint[]; range: TimeRange }) {
   if (data.length === 0 || data.every((d) => d.count === 0)) {
     return <div className="text-xs text-muted-foreground">No chat spans in this window.</div>
   }
@@ -46,7 +46,7 @@ function LatencyChartInner({ data }: { data: LatencyPoint[] }) {
           axisLine={false}
           tickMargin={8}
           minTickGap={32}
-          tickFormatter={(v: number) => new Date(v).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          tickFormatter={(v: number) => formatChartTick(v, range)}
         />
         <YAxis
           yAxisId="ms"
