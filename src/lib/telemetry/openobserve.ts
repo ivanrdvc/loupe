@@ -474,6 +474,25 @@ function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
   // OpenObserve stores start_time/end_time in nanoseconds. Normalize to ms.
   const startMs = Math.floor(Number(h.start_time ?? 0) / 1_000_000)
   const endMs = Math.floor(Number(h.end_time ?? 0) / 1_000_000)
+  const failed = h.span_status === 'ERROR'
+  // OO indexers vary between dot and underscore field names — try both.
+  const cdErr = firstString(h, ['exception.type', 'exception_type', 'error.type', 'error_type'])
+  const cdMsg = firstString(h, ['exception.message', 'exception_message', 'error.message', 'error_message'])
+  const cdStack = firstString(h, ['exception.stacktrace', 'exception_stacktrace'])
+  const httpStatus = firstString(h, [
+    'http.response.status_code',
+    'http_response_status_code',
+    'http.status_code',
+    'http_status_code',
+  ])
+  let errorType: string | undefined
+  let errorMessage: string | undefined
+  if (cdErr) {
+    if (/^[1-5]\d{2}$/.test(cdErr)) errorMessage = `HTTP ${cdErr}`
+    else errorType = cdErr
+  }
+  if (!errorMessage && cdMsg) errorMessage = cdMsg
+  if (!errorMessage && failed && httpStatus && /^[1-5]\d{2}$/.test(httpStatus)) errorMessage = `HTTP ${httpStatus}`
   return {
     id: String(h.span_id),
     traceId: String(h.trace_id ?? ''),
@@ -483,7 +502,10 @@ function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
     name: operationName,
     startMs,
     endMs,
-    ...(h.span_status === 'ERROR' ? { hasError: true } : {}),
+    ...(failed ? { hasError: true } : {}),
+    ...(errorType ? { errorType } : {}),
+    ...(errorMessage ? { errorMessage } : {}),
+    ...(cdStack ? { errorStack: cdStack } : {}),
     ...classifySpan(operationName, h, startMs),
     rawAttributes: h as Record<string, JsonValue>,
   }

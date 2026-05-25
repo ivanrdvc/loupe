@@ -116,7 +116,7 @@ export function InspectLayout({
               <ScrollArea className="min-h-0 min-w-0 flex-1">
                 {inspectorTab === 'details' ? (
                   selectedSpan ? (
-                    <DetailPanel span={selectedSpan} spans={spans} />
+                    <DetailPanel span={selectedSpan} spans={spans} onSelect={onSelect} />
                   ) : (
                     <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
                       Select a span in the tree for details

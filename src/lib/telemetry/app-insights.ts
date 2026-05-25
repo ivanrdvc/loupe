@@ -140,6 +140,38 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
     }
   }
 
+  // Exception events land in `exceptions`, not on the span row — join by
+  // operation_ParentId == span.id.
+  async function attachExceptionsToSpans(spans: Span[], traceIds: string[], timespan: Timespan): Promise<void> {
+    const ids = traceIds.filter(isSafeId)
+    if (ids.length === 0 || spans.length === 0) return
+    const idList = ids.map((id) => `"${id}"`).join(',')
+    const q = `
+      exceptions
+      | where operation_Id in (${idList})
+      | summarize arg_min(timestamp, type, outerMessage, outerMethod, details) by operation_ParentId
+    `
+    const rows = await kql(q, timespan)
+    if (rows.length === 0) return
+    const bySpan = new Map<string, { type?: string; message?: string; stack?: string }>()
+    for (const r of rows) {
+      const sid = typeof r.operation_ParentId === 'string' ? r.operation_ParentId : ''
+      if (!sid) continue
+      bySpan.set(sid, {
+        type: typeof r.type === 'string' ? r.type : undefined,
+        message: typeof r.outerMessage === 'string' ? r.outerMessage : undefined,
+        stack: extractRawStack(r.details) ?? (typeof r.outerMethod === 'string' ? r.outerMethod : undefined),
+      })
+    }
+    for (const s of spans) {
+      const exc = bySpan.get(s.id)
+      if (!exc) continue
+      if (exc.type) s.errorType = exc.type
+      if (exc.message) s.errorMessage = exc.message
+      if (exc.stack) s.errorStack = exc.stack
+    }
+  }
+
   return {
     name: 'app-insights',
     fingerprint,
@@ -182,6 +214,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
       normalizeRunGraph(spans)
+      await attachExceptionsToSpans(spans, [realTraceId], timespanFromOpts(opts))
       return {
         spans,
         truncated: rows.length >= TRACE_FETCH_LIMIT,
@@ -393,6 +426,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         propagateInheritedAttrs(trSpans)
         normalizeRunGraph(trSpans)
       }
+      await attachExceptionsToSpans(spans, traceIds, timespanFromOpts(opts))
 
       const source: 'attribute' | 'trace' = spans.some((s) => s.sessionSource === 'attribute') ? 'attribute' : 'trace'
       let title: string | undefined
@@ -423,7 +457,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
           (exceptions
             | where operation_Id in (${idList})
             | extend message = strcat(type, ": ", outerMessage)
-            | extend severityLevel = 3
+            | extend severityLevel = toint(3)
             | project timestamp, severityLevel, message, cloud_RoleName, operation_Id, operation_ParentId, customDimensions, itemType="exception")
         | order by timestamp asc
         | take ${limit}
@@ -442,9 +476,13 @@ function isSafeId(id: string): boolean {
 function aiRowToLogRecord(r: Record<string, unknown>): LogRecord {
   const tsRaw = r.timestamp
   const tsMs = tsRaw instanceof Date ? tsRaw.getTime() : Number(new Date(String(tsRaw)))
+  // KQL `union` of `traces` (severityLevel:int) with `exceptions` (we extend
+  // severityLevel as `3` → long) splits the column into severityLevel_int
+  // and severityLevel_long. Read whichever the row carries.
+  const sev = r.severityLevel ?? r.severityLevel_int ?? r.severityLevel_long
   return buildLogRecord({
     timestampMs: Number.isFinite(tsMs) ? tsMs : 0,
-    level: aiSeverityToLevel(r.severityLevel, r.itemType),
+    level: aiSeverityToLevel(sev, r.itemType),
     message: typeof r.message === 'string' ? r.message : '',
     source: typeof r.cloud_RoleName === 'string' && r.cloud_RoleName ? r.cloud_RoleName : undefined,
     traceId: typeof r.operation_Id === 'string' ? r.operation_Id : undefined,
@@ -471,6 +509,19 @@ function parseDynamic(raw: unknown): unknown {
   } catch {
     return undefined
   }
+}
+
+// `details` is a JSON array of chained exception frames; the outermost frame's
+// `rawStack` is the full multi-line .NET stack.
+function extractRawStack(raw: unknown): string | undefined {
+  const parsed = parseDynamic(raw)
+  if (!Array.isArray(parsed) || parsed.length === 0) return undefined
+  const first = parsed[0]
+  if (first && typeof first === 'object' && 'rawStack' in first) {
+    const stack = (first as Record<string, unknown>).rawStack
+    if (typeof stack === 'string' && stack.length > 0) return stack
+  }
+  return undefined
 }
 
 function parseCustomDimensions(raw: unknown): Record<string, unknown> {
@@ -500,6 +551,18 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
   // Azure Monitor's .NET exporter sets operation_ParentId == operation_Id for
   // root spans; treat that as null so tree-walking sees a clean root.
   const parentId = rawParent && rawParent !== row.operation_Id ? rawParent : null
+  // .NET instrumentation puts HTTP status ("401") OR an exception class in
+  // `error.type`. Route to message vs type so we don't render "401: HTTP 401".
+  const cdErr = typeof cd['error.type'] === 'string' ? (cd['error.type'] as string) : undefined
+  const httpFromResultCode =
+    failed && typeof row.resultCode === 'string' && /^[1-5]\d{2}$/.test(row.resultCode) ? row.resultCode : undefined
+  let errorType: string | undefined
+  let errorMessage: string | undefined
+  if (cdErr) {
+    if (/^[1-5]\d{2}$/.test(cdErr)) errorMessage = `HTTP ${cdErr}`
+    else errorType = cdErr
+  }
+  if (!errorMessage && httpFromResultCode) errorMessage = `HTTP ${httpFromResultCode}`
   return {
     id: String(row.id ?? ''),
     traceId,
@@ -510,6 +573,8 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
     startMs,
     endMs,
     ...(failed ? { hasError: true } : {}),
+    ...(errorType ? { errorType } : {}),
+    ...(errorMessage ? { errorMessage } : {}),
     ...classifySpan(operationName, cd, startMs),
     rawAttributes: buildAiRawAttributes(row, cd),
   }

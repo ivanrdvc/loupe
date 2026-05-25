@@ -1,6 +1,6 @@
 import { ArrowDown01Icon, Edit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -16,8 +16,10 @@ import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import { buildAgentLabels, resolveToolCalls, type Span, type ToolCallResolution } from '#/lib/spans'
+import type { LogLevel } from '#/lib/telemetry/types'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
+import { fetchSessionLogs } from '#/server/logs'
 import { createPrompt } from '#/server/prompts'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
@@ -37,13 +39,37 @@ function extractPromptMessages(span: Span): PromptMessage[] {
   return out
 }
 
-export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
+export function DetailPanel({
+  span,
+  spans,
+  onSelect,
+}: {
+  span: Span
+  spans?: Span[]
+  onSelect?: (id: string) => void
+}) {
   const duration = span.endMs - span.startMs
   const agentLabels = useMemo(() => (spans ? buildAgentLabels(spans) : undefined), [spans])
   const display = displayFor(span, agentLabels)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useUser()
+  const nestedErrors = useMemo<Span[]>(() => {
+    if (!spans) return []
+    const out: Span[] = []
+    const queue: string[] = [span.id]
+    const visited = new Set<string>([span.id])
+    while (queue.length > 0 && out.length < 5) {
+      const pid = queue.shift()
+      for (const child of spans) {
+        if (child.parentId !== pid || visited.has(child.id)) continue
+        visited.add(child.id)
+        if (child.errorType || child.errorMessage) out.push(child)
+        queue.push(child.id)
+      }
+    }
+    return out
+  }, [spans, span.id])
 
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -109,6 +135,49 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
         )}
       </div>
 
+      {(span.errorMessage || span.errorType || nestedErrors.length > 0) && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+          {(span.errorMessage || span.errorType) && (
+            <>
+              <div className="text-[13px] font-medium leading-snug text-destructive">
+                {span.errorType && (
+                  <span className="font-mono">
+                    {span.errorType}
+                    {span.errorMessage ? ': ' : ''}
+                  </span>
+                )}
+                {span.errorMessage}
+              </div>
+              {span.errorStack && (
+                <pre className="mt-1.5 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
+                  {span.errorStack}
+                </pre>
+              )}
+            </>
+          )}
+          {nestedErrors.map((child) => (
+            <button
+              key={child.id}
+              type="button"
+              onClick={() => onSelect?.(child.id)}
+              disabled={!onSelect}
+              className="mt-2 block w-full rounded border-l-2 border-destructive/40 bg-destructive/5 px-2 py-1.5 text-left transition-colors enabled:cursor-pointer enabled:hover:bg-destructive/10 disabled:cursor-default"
+            >
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">caused by · {child.name}</div>
+              <div className="mt-0.5 text-[12px] leading-snug text-destructive">
+                {child.errorType && (
+                  <span className="font-mono">
+                    {child.errorType}
+                    {child.errorMessage ? ': ' : ''}
+                  </span>
+                )}
+                {child.errorMessage}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
         <Stat label="Duration" value={formatDuration(duration)} />
         {span.ttftMs != null && <Stat label="TTFT" value={formatDuration(span.ttftMs)} />}
@@ -139,8 +208,68 @@ export function DetailPanel({ span, spans }: { span: Span; spans?: Span[] }) {
       {(span.llmInput != null || span.llmOutput != null) && (
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} spans={spans} />
       )}
+      <SpanLogsBlock span={span} spans={spans} />
     </div>
   )
+}
+
+function SpanLogsBlock({ span, spans }: { span: Span; spans?: Span[] }) {
+  // Shares the React Query cache key with SessionLogsPanel so both panels
+  // dedupe the same fetch.
+  const traceIds = useMemo(() => {
+    const all = spans ?? [span]
+    return [...new Set(all.map((s) => s.traceId).filter(Boolean))].sort()
+  }, [spans, span])
+  const window = useMemo(() => {
+    const all = spans && spans.length > 0 ? spans : [span]
+    let from = all[0].startMs
+    let to = all[0].endMs
+    for (const s of all) {
+      if (s.startMs < from) from = s.startMs
+      if (s.endMs > to) to = s.endMs
+    }
+    return { fromUs: from * 1000, toUs: to * 1000 }
+  }, [spans, span])
+
+  const { data } = useQuery({
+    queryKey: queryKeys.logs.byTraceIds(traceIds),
+    queryFn: () => fetchSessionLogs({ data: { traceIds, ...window } }),
+    enabled: traceIds.length > 0,
+    staleTime: 30_000,
+  })
+
+  const spanLogs = useMemo(() => {
+    const logs = data?.logs ?? []
+    return logs.filter((l) => l.spanId === span.id)
+  }, [data?.logs, span.id])
+
+  if (spanLogs.length === 0) return null
+  return (
+    <section className="min-w-0">
+      <SectionLabel>Logs</SectionLabel>
+      <div className="mt-1.5 divide-y divide-border rounded-md border border-border">
+        {spanLogs.map((log) => (
+          <div key={log.id} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px]">
+            <Badge variant={LEVEL_BADGE[log.level]} className="shrink-0 font-mono text-[9px] uppercase">
+              {log.level}
+            </Badge>
+            <span className="min-w-0 flex-1 break-words font-mono text-foreground">
+              {log.message || '(no message)'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+const LEVEL_BADGE: Record<LogLevel, 'outline' | 'secondary' | 'warning' | 'destructive'> = {
+  trace: 'outline',
+  debug: 'outline',
+  info: 'secondary',
+  warn: 'warning',
+  error: 'destructive',
+  fatal: 'destructive',
 }
 
 function MessagesBlock({

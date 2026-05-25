@@ -69,6 +69,10 @@ export interface Span {
   // ORs this with tool-result error detection.
   hasError?: boolean
 
+  errorType?: string
+  errorMessage?: string
+  errorStack?: string
+
   // Present on execute_tool spans — pairing key and the tool's return value.
   toolCallId?: string
   toolResult?: JsonValue
