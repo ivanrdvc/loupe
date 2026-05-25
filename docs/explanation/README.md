@@ -7,9 +7,9 @@ doc, write it here.
 ## Read first (ordered)
 
 - [01 — Architecture](01-architecture.md) — how agentops reads OTel traces,
-  classifies spans, layers session / purpose / category / sub-agent inference
-  on top, and where every piece lives in the code. Includes the five trace
-  topologies and the fallback inference rules.
+  classifies spans, layers session / purpose / category / errors / sub-agent
+  inference on top, and where every piece lives in the code. Includes the five
+  trace topologies and the fallback inference rules.
 - [02 — Convention spec](02-spec.md) — the curated subset of OTel + extensions
   agentops operates on. What producers emit, what agentops reads, what gets
   stamped consumer-side. Includes the per-category producer emission

@@ -2,12 +2,12 @@
 title: Architecture
 type: explanation
 summary: How agentops reads OTel traces, normalizes them through one classifier,
-  layers session / purpose / category / sub-agent inference on top, and where
-  every piece lives in the code.
+  layers session / purpose / category / errors / sub-agent inference on top,
+  and where every piece lives in the code.
 status: current
 owner: Ivan
 audience: agentops-devs, AI assistants
-last-reviewed: 2026-05-24
+last-reviewed: 2026-05-25
 tags: [architecture, ingest, classification, entry-point]
 ---
 
@@ -175,6 +175,30 @@ The Spans tab is a flat-spans view fed by `provider.listSpans`, which
 returns nested purpose-attr spans plus nested sub-agent invocations
 (`invoke_agent` whose parent is `execute_tool`). Each row links to its
 parent trace.
+
+**Errors** — what failed and where, surfaced per span.
+
+```
+  Read from:    [App Insights] customDimensions['error.type'], resultCode (4xx/5xx),
+                              exceptions table joined by operation_ParentId
+                              (type, outerMessage, details[0].rawStack)
+                [OpenObserve] exception.type/message/stacktrace, error.type,
+                              http.response.status_code (dot AND underscore variants)
+  Populated on: Span.errorType, Span.errorMessage, Span.errorStack
+  Fallback:     "HTTP 4xx" synthesized from resultCode when no type/message exists
+  Routing rule: if error.type is a 3-digit HTTP status, store it as errorMessage
+                ("HTTP 401") rather than errorType, so the UI doesn't render "401: HTTP 401"
+```
+
+Rendered in the DetailPanel as a callout (type + message + stack) at the top of
+a selected span. Descendants of the selected span that also carry error info
+appear as "caused by" tiles under the primary error; clicking jumps to that
+span (BFS, capped at 5 entries with a visited-set cycle guard).
+
+Known gap: agent loops that recover from sub-span failures leave the root
+`span_status = OK`, so the run reads as successful at session level even when
+inner spans errored. The error is still visible on the inner span when
+selected in the tree.
 
 ## Trace topologies the inference handles
 
