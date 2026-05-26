@@ -160,7 +160,8 @@ export function buildInspectorView(spans: Span[]): InspectorView {
     orchestratorChats,
     allChats,
     get conversation() {
-      return (conversationCache ??= buildConversation(spans))
+      conversationCache ??= buildConversation(spans)
+      return conversationCache
     },
     callResolutions,
     toolGroups,
