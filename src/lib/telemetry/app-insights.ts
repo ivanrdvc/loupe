@@ -70,29 +70,20 @@ const USER_ID_COALESCE = aiCoalesce('userId')
 const HOST_COALESCE = `coalesce(${aiCoalesce('host')}, tostring(cloud_RoleName))`
 
 function resultToRows(result: LogsQueryResult): Array<Record<string, unknown>> {
-  if (result.status === LogsQueryResultStatus.Success) {
-    const table = result.tables[0]
-    if (!table) return []
-    return table.rows.map((row) => {
-      const out: Record<string, unknown> = {}
-      table.columnDescriptors.forEach((c, i) => {
-        out[c.name] = (row as unknown[])[i]
-      })
-      return out
+  const table =
+    result.status === LogsQueryResultStatus.Success
+      ? result.tables[0]
+      : result.status === LogsQueryResultStatus.PartialFailure
+        ? result.partialTables[0]
+        : undefined
+  if (!table) return []
+  return table.rows.map((row) => {
+    const out: Record<string, unknown> = {}
+    table.columnDescriptors.forEach((c, i) => {
+      out[c.name] = (row as unknown[])[i]
     })
-  }
-  if (result.status === LogsQueryResultStatus.PartialFailure) {
-    const table = result.partialTables[0]
-    if (!table) return []
-    return table.rows.map((row) => {
-      const out: Record<string, unknown> = {}
-      table.columnDescriptors.forEach((c, i) => {
-        out[c.name] = (row as unknown[])[i]
-      })
-      return out
-    })
-  }
-  return []
+    return out
+  })
 }
 
 export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsProvider {
@@ -543,13 +534,6 @@ function timeBounds(timestampIso: unknown, durationMs: unknown): { startMs: numb
   return { startMs, endMs: startMs + (Number.isFinite(dur) ? dur : 0) }
 }
 
-function kindFromAi(row: Record<string, unknown>): SpanKind {
-  if (row.itemType === 'request') return 'server'
-  const t = typeof row.type === 'string' ? row.type.toLowerCase() : ''
-  if (t.includes('http')) return 'client'
-  return 'internal'
-}
-
 function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
   const cd = parseCustomDimensions(row.customDimensions)
   const operationName = String(row.name ?? '?')
@@ -567,12 +551,21 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
     errorType: typeof cd['error.type'] === 'string' ? (cd['error.type'] as string) : undefined,
     httpStatus: typeof row.resultCode === 'string' ? row.resultCode : undefined,
   })
+  const typeStr = typeof row.type === 'string' ? row.type.toLowerCase() : ''
+  const kind: SpanKind = row.itemType === 'request' ? 'server' : typeStr.includes('http') ? 'client' : 'internal'
+  // customDimensions wins on key collisions — those are the canonical OTel attrs.
+  const rawAttributes: Record<string, JsonValue> = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (k === 'customDimensions') continue
+    rawAttributes[k] = v as JsonValue
+  }
+  for (const [k, v] of Object.entries(cd)) rawAttributes[k] = v as JsonValue
   return {
     id: String(row.id ?? ''),
     traceId,
     parentId,
     service: String(row.cloud_RoleName ?? 'unknown'),
-    kind: kindFromAi(row),
+    kind,
     name: operationName,
     startMs,
     endMs,
@@ -580,22 +573,8 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
     ...(errorType ? { errorType } : {}),
     ...(errorMessage ? { errorMessage } : {}),
     ...classifySpan(operationName, cd, startMs),
-    rawAttributes: buildAiRawAttributes(row, cd),
+    rawAttributes,
   }
-}
-
-// customDimensions wins on key collisions — those are the canonical OTel attrs.
-function buildAiRawAttributes(
-  row: Record<string, unknown>,
-  customDimensions: Record<string, unknown>,
-): Record<string, JsonValue> {
-  const out: Record<string, JsonValue> = {}
-  for (const [k, v] of Object.entries(row)) {
-    if (k === 'customDimensions') continue
-    out[k] = v as JsonValue
-  }
-  for (const [k, v] of Object.entries(customDimensions)) out[k] = v as JsonValue
-  return out
 }
 
 function costFromRow(row: Record<string, unknown>, spanStartMs: number | undefined): number | undefined {

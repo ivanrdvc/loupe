@@ -334,23 +334,31 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
                 </Badge>
               )}
           </div>
-          {!isAgent && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums text-[11px] text-muted-foreground">
-              <span>{formatDuration(durationMs)}</span>
-              {showTokens && (
-                <span>
-                  {fmtNum(span.inputTokens)} → {fmtNum(span.outputTokens)}
-                  {cached > 0 && <span className="text-success"> · {fmtNum(cached)} cached</span>}
-                </span>
-              )}
-              {subtreeTokens > 0 && !showTokens && (
-                <span>
-                  <span className="text-muted-foreground/70">∑</span> {fmtNum(subtreeTokens)} tok
-                </span>
-              )}
-              {showFinish && <span className={finishCls}>{finishReason}</span>}
-            </div>
-          )}
+          {(() => {
+            if (isAgent) return null
+            // Tool/MCP spans usually wrap a frontend handoff with no real backend work
+            // — duration is sub-millisecond and meaningless. Hide it unless the span
+            // actually did something (e.g. wraps a sub-agent or real backend execution).
+            const showDuration = !((isTool || span.operation === 'mcp') && durationMs < 1)
+            if (!showDuration && !showTokens && !(subtreeTokens > 0) && !showFinish) return null
+            return (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums text-[11px] text-muted-foreground">
+                {showDuration && <span>{formatDuration(durationMs)}</span>}
+                {showTokens && (
+                  <span>
+                    {fmtNum(span.inputTokens)} → {fmtNum(span.outputTokens)}
+                    {cached > 0 && <span className="text-success"> · {fmtNum(cached)} cached</span>}
+                  </span>
+                )}
+                {subtreeTokens > 0 && !showTokens && (
+                  <span>
+                    <span className="text-muted-foreground/70">∑</span> {fmtNum(subtreeTokens)} tok
+                  </span>
+                )}
+                {showFinish && <span className={finishCls}>{finishReason}</span>}
+              </div>
+            )
+          })()}
         </button>
       </div>
     </li>

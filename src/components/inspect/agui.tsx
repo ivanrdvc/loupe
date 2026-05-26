@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableRow } from '#/components/ui/table'
 import { type FrontendTool, type InspectorView, isShortValue } from '#/lib/inspector-view'
 import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import type { Span } from '#/lib/spans'
-import { ExpandableRow } from './context'
+import { ExpandableRow, ToolDetailView } from './context'
 
 const AG_UI_PREFIXES = ['ag_ui_', 'ag_ui.'] as const
 const AG_UI_SKIP = new Set(['ag_ui_thread_id', 'ag_ui.thread_id', 'ag_ui_run_id', 'ag_ui.run_id'])
@@ -165,7 +165,7 @@ function FrontendToolsSection({ tools }: { tools: FrontendTool[] }) {
             tokens={tool.tokens || undefined}
             content={() =>
               tool.raw != null ? (
-                <CodeBlock code={formatJson(tool.raw)} language="json" className="max-h-80" />
+                <ToolDetailView raw={tool.raw} />
               ) : (
                 <div className="text-xs text-muted-foreground">No schema captured.</div>
               )
