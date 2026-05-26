@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.3.0...agentops-v0.4.0) (2026-05-26)
+
+
+### Features
+
+* maf-sandbox skill + inspect/home-chart polish ([#32](https://github.com/ivanrdvc/agentops/issues/32)) ([994f3a7](https://github.com/ivanrdvc/agentops/commit/994f3a738168f5d98fcf465bed7e9a0b6c876f96))
+* notes workflow + prompts foundation ([#29](https://github.com/ivanrdvc/agentops/issues/29)) ([a93447d](https://github.com/ivanrdvc/agentops/commit/a93447d3bf9c9813493645576ee78e954df22b12))
+* truncation resilience, inspect polish, and prompt/palette improvements ([#33](https://github.com/ivanrdvc/agentops/issues/33)) ([79f87a2](https://github.com/ivanrdvc/agentops/commit/79f87a2a57f0fcd31b9e07f5db6d4819404a1e12))
+
+
+### Bug Fixes
+
+* **prompts:** row filtering + reset state on navigation ([#31](https://github.com/ivanrdvc/agentops/issues/31)) ([1e70c29](https://github.com/ivanrdvc/agentops/commit/1e70c29fd6fceabbff2985f900764230eddc2005))
+
 ## [0.3.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.2.0...agentops-v0.3.0) (2026-05-23)
 
 
