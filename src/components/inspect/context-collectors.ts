@@ -11,11 +11,11 @@ interface SystemBlock {
   tokens: number
 }
 
-// Group kinds drive layout: 'frontend' pins to the top, 'server' renders as a
-// named collapsible group, 'default' is the unnamed catch-all flat list.
-// Using a discriminator instead of comparing the display string avoids a
-// collision if a real MCP server is literally named 'frontend' or 'tools'.
-type ToolGroupKind = 'frontend' | 'server' | 'default'
+// Group kinds drive layout: 'server' renders as a named collapsible group,
+// 'default' is the unnamed catch-all flat list. Using a discriminator instead
+// of comparing the display string avoids a collision if a real MCP server is
+// literally named 'tools'.
+type ToolGroupKind = 'server' | 'default'
 
 export interface ToolDef {
   id: string
@@ -116,23 +116,21 @@ function aguiLabelFor(content: string): string {
   return 'Directive'
 }
 
-const FRONTEND_LABEL = 'frontend'
 const DEFAULT_LABEL = 'tools'
 
-export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): ToolGroup[] {
+export function collectToolGroups(spans: Span[]): ToolGroup[] {
   const byKey = new Map<string, ToolDef & { kind: ToolGroupKind }>()
   for (const span of spans) {
-    if (span.operation !== 'chat' || span.toolDefinitions == null) continue
+    // Union chat + invoke_agent — chat copy is often truncated.
+    if (span.operation !== 'chat' && span.operation !== 'invoke_agent') continue
+    if (span.toolDefinitions == null) continue
     for (const raw of flattenToolDefinitions(span.toolDefinitions)) {
       const name = toolName(raw)
       const description = toolDescription(raw)
-      const isFrontend = frontendNames?.has(name) ?? false
       const explicit = toolDomain(raw)
-      const kind: ToolGroupKind = isFrontend ? 'frontend' : explicit ? 'server' : 'default'
-      const domain = isFrontend ? FRONTEND_LABEL : (explicit ?? DEFAULT_LABEL)
+      const kind: ToolGroupKind = explicit ? 'server' : 'default'
+      const domain = explicit ?? DEFAULT_LABEL
       const text = formatJson(raw)
-      // Key includes kind so a hypothetical server literally named 'frontend'
-      // can't merge into the pinned frontend group.
       const key = `${kind}:${domain}:${name}:${description}`
       if (byKey.has(key)) continue
       byKey.set(key, {
@@ -145,6 +143,30 @@ export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): T
         raw,
       })
     }
+  }
+
+  // Name-only backfill from executed tool spans, so tools that fell off the
+  // truncated definitions list still appear in the registered-tools view.
+  const definedNames = new Set([...byKey.values()].map((t) => t.name))
+  for (const span of spans) {
+    if (span.operation !== 'tool' || !span.toolName) continue
+    const name = span.toolName
+    if (definedNames.has(name)) continue
+    definedNames.add(name)
+    const parts = name.split('.')
+    const explicit = parts.length > 2 ? parts.slice(0, -1).join('.') : undefined
+    const kind: ToolGroupKind = explicit ? 'server' : 'default'
+    const domain = explicit ?? DEFAULT_LABEL
+    const key = `${kind}:${domain}:${name}`
+    byKey.set(key, {
+      id: key,
+      name,
+      domain,
+      kind,
+      description: '',
+      tokens: 0,
+      raw: { type: 'function', name },
+    })
   }
 
   const groups = new Map<string, { domain: string; kind: ToolGroupKind; tools: ToolDef[] }>()
@@ -160,12 +182,7 @@ export function collectToolGroups(spans: Span[], frontendNames?: Set<string>): T
       tools: g.tools.sort((a, b) => a.name.localeCompare(b.name)),
       tokens: g.tools.reduce((sum, tool) => sum + tool.tokens, 0),
     }))
-    .sort((a, b) => {
-      // Frontend pinned first; everything else by token weight, alpha tiebreak.
-      if (a.kind === 'frontend') return -1
-      if (b.kind === 'frontend') return 1
-      return b.tokens - a.tokens || a.domain.localeCompare(b.domain)
-    })
+    .sort((a, b) => b.tokens - a.tokens || a.domain.localeCompare(b.domain))
 }
 
 // Tools that are defined in the chat span's toolDefinitions but never appear

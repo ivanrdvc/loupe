@@ -64,37 +64,6 @@ describe('collectFrontendTools', () => {
 })
 
 describe('collectToolGroups', () => {
-  // Frontend pinning, kind discriminator, magic-string immunity.
-
-  it('pins the frontend group first regardless of token weight', () => {
-    const spans: Span[] = [chatWithToolCalls('chat', [], ['setThemeColor', 'list_employees', 'generate_report'])]
-    const frontendNames = new Set(['setThemeColor'])
-    const groups = collectToolGroups(spans, frontendNames)
-    expect(groups.map((g) => g.kind)).toEqual(['frontend', 'default'])
-    expect(groups[0]?.domain).toBe('frontend')
-  })
-
-  it('separates a real server literally named "frontend" from the pinned frontend group', () => {
-    // The magic-string-comparison bug — pre-kind, an MCP server named
-    // "frontend" would have merged into the pinned section.
-    const spans: Span[] = [
-      span({
-        id: 'chat',
-        operation: 'chat',
-        toolDefinitions: [
-          { type: 'function', name: 'real_frontend_tool', description: 'd', server: 'frontend' },
-          { type: 'function', name: 'setThemeColor', description: 'd' },
-        ],
-      }),
-    ]
-    const groups = collectToolGroups(spans, new Set(['setThemeColor']))
-    const kinds = groups.map((g) => `${g.kind}:${g.domain}`)
-    // Both have domain string "frontend", but different kinds keep them apart.
-    expect(kinds).toContain('frontend:frontend')
-    expect(kinds).toContain('server:frontend')
-    expect(kinds[0]).toBe('frontend:frontend') // pinned first
-  })
-
   it('uses kind=server when the tool def carries an explicit server/namespace', () => {
     const spans: Span[] = [
       span({

@@ -50,6 +50,9 @@ const DEFAULT_BASE = 'https://api.applicationinsights.io'
 const DEFAULT_LIST_LIMIT = 50
 const DEFAULT_DURATION = 'P30D'
 
+// Collapses duplicate spans (same operation_Id + id) to their latest copy.
+const DEDUPE_SPANS_BY_ID_KQL = '| summarize arg_max(timestamp, *) by operation_Id, id'
+
 // Azure Monitor's .NET exporter writes `operation_ParentId == operation_Id`
 // for spans with no real parent instead of leaving it empty. Detect "root" by
 // either condition — same handling that Honeycomb / Grafana Tempo's Azure
@@ -236,6 +239,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         | where (isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"])))
         | where name !startswith "tools/"
         ${userScope}
+        ${DEDUPE_SPANS_BY_ID_KQL}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
             out_tok = toint(customDimensions["gen_ai.usage.output_tokens"]),
@@ -286,6 +290,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         union dependencies, requests
         | where tostring(customDimensions["gen_ai.operation.name"]) == "chat"
         ${userScope}
+        ${DEDUPE_SPANS_BY_ID_KQL}
         | extend
             in_tok    = toint(customDimensions["gen_ai.usage.input_tokens"]),
             out_tok   = toint(customDimensions["gen_ai.usage.output_tokens"]),
@@ -316,6 +321,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       const q = `
         let execute_tool_ids = union dependencies, requests
         | where name startswith "execute_tool "
+        ${DEDUPE_SPANS_BY_ID_KQL}
         | project tool_id = id;
         union dependencies, requests
         | extend purpose = tostring(customDimensions["gen_ai.operation.purpose"])
@@ -323,6 +329,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
                  is_subagent = name startswith "invoke_agent " and operation_ParentId in (execute_tool_ids)
         | where is_utility or is_subagent
         ${userFilter ? `| where ${userFilter}` : ''}
+        ${DEDUPE_SPANS_BY_ID_KQL}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
             out_tok = toint(customDimensions["gen_ai.usage.output_tokens"]),
@@ -360,6 +367,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         | extend sess = ${SESSION_ID_COALESCE}
         | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"])) or isnotempty(sess)
         ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
+        ${DEDUPE_SPANS_BY_ID_KQL}
         | extend start_ms = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
         | project
             trace_id = operation_Id,

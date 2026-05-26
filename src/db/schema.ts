@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { type AnySQLiteColumn, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const inventory = sqliteTable(
   'inventory',
@@ -149,5 +149,23 @@ export const promptTagLinks = sqliteTable(
   (table) => [
     uniqueIndex('prompt_tag_link_pk').on(table.promptId, table.tagId),
     index('prompt_tag_link_tag_idx').on(table.tagId),
+  ],
+)
+
+export const metricRollup = sqliteTable(
+  'metric_rollup',
+  {
+    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+    metric: text().notNull(),
+    bucketKey: text('bucket_key').notNull(),
+    value: real().notNull(),
+    periodStart: integer('period_start', { mode: 'timestamp_ms' }).notNull(),
+    periodEnd: integer('period_end', { mode: 'timestamp_ms' }).notNull(),
+    computedAt: integer('computed_at', { mode: 'timestamp_ms' }).notNull(),
+    sampleRef: text('sample_ref'),
+  },
+  (table) => [
+    index('metric_rollup_metric_period_idx').on(table.metric, table.periodEnd),
+    index('metric_rollup_metric_bucket_idx').on(table.metric, table.bucketKey),
   ],
 )

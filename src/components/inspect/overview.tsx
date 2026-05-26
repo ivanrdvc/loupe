@@ -39,7 +39,7 @@ import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
 import { cn } from '#/lib/utils'
 import { AgUiPanel } from './agui'
 import { ContextTools } from './context'
-import { collectFrontendTools, collectToolGroups } from './context-collectors'
+import { collectToolGroups } from './context-collectors'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { DetailPanel } from './detail-panel'
 import { SessionLogsPanel } from './logs'
@@ -145,21 +145,16 @@ export function InspectLayout({
 }
 
 function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Span | undefined }) {
-  // Frontend tools are determined session-wide (their backend-execution
-  // evidence doesn't move with the scope), so this is computed off the full
-  // span list and passed in even when the visible groups are scoped to a
-  // single agent.
-  const frontendNames = useMemo(() => new Set(collectFrontendTools(spans).map((t) => t.name)), [spans])
   const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
 
+  // Narrow only when an invoke_agent is selected; other selections keep the
+  // full session view so the Tools tab is a stable "registered tools" list.
+  const scopedToAgent = selectedSpan?.operation === 'invoke_agent' ? selectedSpan : undefined
+
   const groups = useMemo(() => {
-    const scope = selectedSpan
-      ? selectedSpan.operation === 'invoke_agent'
-        ? [selectedSpan, ...descendantSpans(spans, selectedSpan.id)]
-        : [selectedSpan]
-      : spans
-    return collectToolGroups(scope, frontendNames)
-  }, [spans, selectedSpan, frontendNames])
+    const scope = scopedToAgent ? [scopedToAgent, ...descendantSpans(spans, scopedToAgent.id)] : spans
+    return collectToolGroups(scope)
+  }, [spans, scopedToAgent])
 
   const totals = useMemo(() => {
     let count = 0
@@ -171,8 +166,8 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
     return { count, tokens }
   }, [groups])
 
-  const scopeLabel = selectedSpan
-    ? (agentLabels.get(selectedSpan.id) ?? displayFor(selectedSpan, agentLabels).name)
+  const scopeLabel = scopedToAgent
+    ? (agentLabels.get(scopedToAgent.id) ?? displayFor(scopedToAgent, agentLabels).name)
     : 'All agents'
 
   return (

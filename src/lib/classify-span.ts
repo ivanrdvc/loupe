@@ -135,6 +135,12 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     c.sessionSource = 'attribute'
   }
 
+  // Read on both chat and invoke_agent — chat copy is often truncated.
+  const toolDefs = parseJson(
+    pickString(attrs, ['gen_ai.tool.definitions', 'gen_ai_tool_definitions', 'llm_request_functions']),
+  )
+  if (toolDefs !== undefined) c.toolDefinitions = toolDefs
+
   if (operation === 'tool' || operation === 'mcp') {
     const toolName = pickToolName(name, attrs)
     if (toolName) c.toolName = toolName
@@ -142,8 +148,13 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     if (callId) c.toolCallId = callId
     const args = pickString(attrs, ['gen_ai.tool.call.arguments', 'gen_ai_tool_call_arguments'])
     if (args) c.inputParams = args
-    const result = parseJson(pickString(attrs, ['gen_ai.tool.call.result', 'gen_ai_tool_call_result']))
-    if (result !== undefined) c.toolResult = result
+    // Raw-string fallback when parse fails (truncated payloads). Check
+    // `undefined` not nullish so literal JSON `null` still passes through.
+    const rawResult = pickString(attrs, ['gen_ai.tool.call.result', 'gen_ai_tool_call_result'])
+    if (rawResult !== undefined) {
+      const parsed = parseJson(rawResult)
+      c.toolResult = parsed !== undefined ? parsed : rawResult
+    }
   }
 
   if (operation === 'chat') {
@@ -165,11 +176,6 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
 
     const cached = pickCanonicalNumber(attrs, 'cacheReadTokens')
     if (cached !== undefined) c.cachedTokens = cached
-
-    const toolDefs = parseJson(
-      pickString(attrs, ['gen_ai.tool.definitions', 'gen_ai_tool_definitions', 'llm_request_functions']),
-    )
-    if (toolDefs !== undefined) c.toolDefinitions = toolDefs
 
     const finish = pickStringArray(attrs, ['gen_ai.response.finish_reasons', 'gen_ai_response_finish_reasons'])
     if (finish && finish.length > 0) c.finishReasons = finish

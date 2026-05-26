@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CodeBlock } from '#/components/ai-elements/code-block'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
+import { formatTokens } from '#/lib/format'
 import { formatJson } from '#/lib/json'
 import type { ToolDef, ToolGroup } from './context-collectors'
 
@@ -39,10 +40,10 @@ export function ContextTools({ groups }: { groups: ToolGroup[] }) {
 function GroupSection({ group }: { group: ToolGroup }) {
   return (
     <section className="flex min-w-0 flex-col gap-2">
-      <header className="flex items-baseline justify-between gap-2 px-1 font-mono text-[11px] text-muted-foreground">
+      <header className="flex items-baseline justify-between gap-2 px-1 text-[11px] text-muted-foreground">
         <span className="truncate">{group.domain}</span>
-        <span className="tabular-nums">
-          {group.tools.length} · {group.tokens.toLocaleString()} tok
+        <span className="tabular-nums font-mono">
+          {group.tools.length} · {formatTokens(group.tokens)} tok
         </span>
       </header>
       <div className="overflow-hidden rounded-md border">
@@ -87,12 +88,12 @@ export function ExpandableRow({
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/50"
       >
         <div className="min-w-0 flex-1">
-          <div className="break-words font-medium text-foreground text-sm">{title}</div>
+          <div className="break-words font-mono text-foreground text-sm">{title}</div>
           {subtitle && <div className="mt-0.5 break-words text-xs text-muted-foreground">{subtitle}</div>}
         </div>
         {tokens != null && (
           <Badge variant="outline" className="tabular-nums">
-            {tokens.toLocaleString()} tok
+            {formatTokens(tokens)} tok
           </Badge>
         )}
         <HugeiconsIcon

@@ -378,16 +378,18 @@ function MessageCard({
           )}
         </div>
         <div className="min-w-0 space-y-2">
-          {msg.parts.map((part, i) => (
-            <MessagePartView
-              // biome-ignore lint/suspicious/noArrayIndexKey: part positions are stable for a frozen message
-              key={i}
-              part={part}
-              structured={isStructured}
-              role={msg.role}
-              callResolutions={callResolutions}
-            />
-          ))}
+          {msg.parts.map((part, i) => {
+            const partKey = 'id' in part ? part.id : `msg-part-${i}`
+            return (
+              <MessagePartView
+                key={partKey}
+                part={part}
+                structured={isStructured}
+                role={msg.role}
+                callResolutions={callResolutions}
+              />
+            )
+          })}
         </div>
       </CardContent>
     </Card>
