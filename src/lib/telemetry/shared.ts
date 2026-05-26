@@ -3,7 +3,8 @@ import { asMessages } from '#/lib/conversation'
 import { parseJson } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
-import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow } from './types'
+import { classifyTraceCategory } from './trace-category'
+import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow, TraceSummary } from './types'
 
 // Sessions are reconstructed from raw spans, so the scan has to pull every
 // row that could carry a session-identifying attribute. When the cap is hit
@@ -282,6 +283,81 @@ export function firstString(h: Record<string, unknown>, keys: readonly string[])
     if (typeof v === 'string' && v.length > 0) return v
   }
   return undefined
+}
+
+// Both providers see `error.type` carrying either an HTTP status code or an
+// exception class. HTTP codes render as `errorMessage = "HTTP 401"`; exception
+// classes render as `errorType`. A separate http-status candidate is the final
+// fallback when the message is otherwise empty.
+export function classifyError(opts: {
+  failed: boolean
+  errorType?: string
+  errorMessage?: string
+  httpStatus?: string
+}): { errorType?: string; errorMessage?: string } {
+  let errorType: string | undefined
+  let errorMessage: string | undefined
+  if (opts.errorType) {
+    if (/^[1-5]\d{2}$/.test(opts.errorType)) errorMessage = `HTTP ${opts.errorType}`
+    else errorType = opts.errorType
+  }
+  if (!errorMessage && opts.errorMessage) errorMessage = opts.errorMessage
+  if (!errorMessage && opts.failed && opts.httpStatus && /^[1-5]\d{2}$/.test(opts.httpStatus)) {
+    errorMessage = `HTTP ${opts.httpStatus}`
+  }
+  return { errorType, errorMessage }
+}
+
+// Builds the TraceSummary from a grouped-by-trace row. Both providers alias
+// their SQL columns to the same names (session_id, has_invoke_agent, root_*,
+// trace_user_*, ...) so this helper takes only the values that need
+// per-provider derivation (timing, error, agent, cost).
+export function buildTraceSummary(
+  row: Record<string, unknown>,
+  derived: {
+    id: string
+    startedAtMs: number
+    durationMs: number
+    hasError: boolean
+    agent?: string
+    totalCostUsd?: number
+  },
+): TraceSummary {
+  const hasSession = typeof row.session_id === 'string' && row.session_id.length > 0
+  const rootLlmPurpose = pickStringValue(row.root_llm_purpose)
+  const summary: TraceSummary = {
+    id: derived.id,
+    startedAtMs: derived.startedAtMs,
+    durationMs: derived.durationMs,
+    spanCount: Number(row.span_count ?? 0),
+    hasError: derived.hasError,
+    category: classifyTraceCategory({
+      hasSessionAttribute: hasSession,
+      hasInvokeAgent: Number(row.has_invoke_agent ?? 0) > 0,
+      hasChat: Number(row.has_chat ?? 0) > 0,
+      rootOperation: pickStringValue(row.root_operation),
+      rootTriggerType: pickStringValue(row.root_trigger_type),
+      rootExecution: pickStringValue(row.root_execution),
+      rootLlmPurpose,
+    }),
+  }
+  const tokens = num(row.total_tokens)
+  if (tokens) summary.totalTokens = tokens
+  if (derived.totalCostUsd && derived.totalCostUsd > 0) summary.totalCostUsd = derived.totalCostUsd
+  if (derived.agent) summary.agent = derived.agent
+  if (hasSession) summary.sessionId = String(row.session_id)
+  if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
+  const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
+  summary.serviceName = str(row.service_name)
+  summary.rootOperation = str(row.root_operation)
+  summary.userId = str(row.trace_user_id)
+  summary.userName = str(row.trace_user_name)
+  summary.taskId = str(row.root_task_id)
+  summary.taskKind = str(row.root_task_kind)
+  summary.taskSchedule = str(row.root_task_schedule)
+  summary.taskName = str(row.root_task_name)
+  summary.taskSource = str(row.root_task_source)
+  return summary
 }
 
 export function buildLogRecord(args: {

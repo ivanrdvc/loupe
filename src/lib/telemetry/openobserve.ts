@@ -13,16 +13,16 @@ import { ooCoalesceAs, ooColumns } from './conventions'
 import {
   aggregateSessions,
   buildLogRecord,
+  buildTraceSummary,
+  classifyError,
   classifySpanRow,
   firstString,
   groupBy,
   num,
   pickIdentityValue,
-  pickStringValue,
   SESSION_SCAN_LIMIT,
   TRACE_FETCH_LIMIT,
 } from './shared'
-import { classifyTraceCategory } from './trace-category'
 import type {
   GetTraceOpts,
   ListSpansOpts,
@@ -32,7 +32,6 @@ import type {
   OpenObserveProvider,
   SessionFetch,
   SpanSummary,
-  TraceSummary,
 } from './types'
 
 export interface OpenObserveConfig {
@@ -62,6 +61,22 @@ const LLM_COST_EXTRAS = ['_o2_llm_cost_details_total']
 // total when present, otherwise compute input+output. Returns '0' when none of
 // the columns exist in the stream schema, so a SUM over the expression stays
 // well-typed.
+// SQL helper: MAX() over any of the candidate columns, COALESCE'd. Returns
+// 'NULL' when none of the columns exist in the stream's schema.
+function maxOf(cols: readonly string[]): string {
+  if (cols.length === 0) return 'NULL'
+  if (cols.length === 1) return `MAX(${cols[0]})`
+  return `COALESCE(${cols.map((c) => `MAX(${c})`).join(', ')})`
+}
+
+// SUM() of `cols` restricted to chat-op rows. Returns '0' when no candidate
+// columns are present.
+function sumChatOf(cols: readonly string[]): string {
+  if (cols.length === 0) return '0'
+  const expr = cols.length === 1 ? cols[0] : `COALESCE(${cols.join(', ')})`
+  return `SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN ${expr} ELSE 0 END)`
+}
+
 function chatTokensExpr(known: ReadonlySet<string>): string {
   const total = ooColumns('totalTokens', { known })
   const input = ooColumns('inputTokens', { known })
@@ -270,18 +285,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         const costCols = ooColumns('costUsd', { known, extras: LLM_COST_EXTRAS })
         const uidCols = ooColumns('userId', { known })
         const unameCols = ooColumns('userName', { known })
-        const maxOf = (cols: readonly string[]) =>
-          cols.length === 0
-            ? 'NULL'
-            : cols.length === 1
-              ? `MAX(${cols[0]})`
-              : `COALESCE(${cols.map((c) => `MAX(${c})`).join(', ')})`
-        const sumChatOf = (cols: readonly string[]) =>
-          cols.length === 0
-            ? '0'
-            : `SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN ${
-                cols.length === 1 ? cols[0] : `COALESCE(${cols.join(', ')})`
-              } ELSE 0 END)`
         return `
         SELECT
           trace_id,
@@ -425,45 +428,17 @@ function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {
   return summary
 }
 
-function hitToSummary(h: Record<string, unknown>): TraceSummary {
+function hitToSummary(h: Record<string, unknown>): ReturnType<typeof buildTraceSummary> {
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? 0)
-  const hasSession = typeof h.session_id === 'string' && h.session_id.length > 0
-  const rootLlmPurpose = pickStringValue(h.root_llm_purpose)
-  const summary: TraceSummary = {
+  return buildTraceSummary(h, {
     id: String(h.trace_id),
     startedAtMs: Math.floor(firstSeenNs / 1_000_000),
     durationMs: Math.max(0, Math.floor((lastSeenNs - firstSeenNs) / 1_000_000)),
-    spanCount: Number(h.span_count ?? 0),
     hasError: Number(h.has_error ?? 0) === 1,
-    category: classifyTraceCategory({
-      hasSessionAttribute: hasSession,
-      hasInvokeAgent: Number(h.has_invoke_agent ?? 0) > 0,
-      hasChat: Number(h.has_chat ?? 0) > 0,
-      rootOperation: pickStringValue(h.root_operation),
-      rootTriggerType: pickStringValue(h.root_trigger_type),
-      rootExecution: pickStringValue(h.root_execution),
-      rootLlmPurpose,
-    }),
-  }
-  const tokens = num(h.total_tokens)
-  if (tokens) summary.totalTokens = tokens
-  const cost = num(h.total_cost)
-  if (cost) summary.totalCostUsd = cost
-  const agent = extractAgentName(String(h.sample_agent ?? ''))
-  if (agent) summary.agent = agent
-  if (hasSession) summary.sessionId = String(h.session_id)
-  if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
-  if (typeof h.service_name === 'string' && h.service_name) summary.serviceName = h.service_name
-  if (typeof h.root_operation === 'string' && h.root_operation) summary.rootOperation = h.root_operation
-  if (typeof h.trace_user_id === 'string' && h.trace_user_id) summary.userId = h.trace_user_id
-  if (typeof h.trace_user_name === 'string' && h.trace_user_name) summary.userName = h.trace_user_name
-  if (typeof h.root_task_id === 'string' && h.root_task_id) summary.taskId = h.root_task_id
-  if (typeof h.root_task_kind === 'string' && h.root_task_kind) summary.taskKind = h.root_task_kind
-  if (typeof h.root_task_schedule === 'string' && h.root_task_schedule) summary.taskSchedule = h.root_task_schedule
-  if (typeof h.root_task_name === 'string' && h.root_task_name) summary.taskName = h.root_task_name
-  if (typeof h.root_task_source === 'string' && h.root_task_source) summary.taskSource = h.root_task_source
-  return summary
+    agent: extractAgentName(String(h.sample_agent ?? '')) || undefined,
+    totalCostUsd: num(h.total_cost),
+  })
 }
 
 // OpenObserve flattens span attributes into top-level row fields (underscore
@@ -476,23 +451,18 @@ function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
   const endMs = Math.floor(Number(h.end_time ?? 0) / 1_000_000)
   const failed = h.span_status === 'ERROR'
   // OO indexers vary between dot and underscore field names — try both.
-  const cdErr = firstString(h, ['exception.type', 'exception_type', 'error.type', 'error_type'])
-  const cdMsg = firstString(h, ['exception.message', 'exception_message', 'error.message', 'error_message'])
   const cdStack = firstString(h, ['exception.stacktrace', 'exception_stacktrace'])
-  const httpStatus = firstString(h, [
-    'http.response.status_code',
-    'http_response_status_code',
-    'http.status_code',
-    'http_status_code',
-  ])
-  let errorType: string | undefined
-  let errorMessage: string | undefined
-  if (cdErr) {
-    if (/^[1-5]\d{2}$/.test(cdErr)) errorMessage = `HTTP ${cdErr}`
-    else errorType = cdErr
-  }
-  if (!errorMessage && cdMsg) errorMessage = cdMsg
-  if (!errorMessage && failed && httpStatus && /^[1-5]\d{2}$/.test(httpStatus)) errorMessage = `HTTP ${httpStatus}`
+  const { errorType, errorMessage } = classifyError({
+    failed,
+    errorType: firstString(h, ['exception.type', 'exception_type', 'error.type', 'error_type']),
+    errorMessage: firstString(h, ['exception.message', 'exception_message', 'error.message', 'error_message']),
+    httpStatus: firstString(h, [
+      'http.response.status_code',
+      'http_response_status_code',
+      'http.status_code',
+      'http_status_code',
+    ]),
+  })
   return {
     id: String(h.span_id),
     traceId: String(h.trace_id ?? ''),

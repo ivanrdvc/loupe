@@ -16,15 +16,15 @@ import { aiCoalesce, attrKeysFor } from './conventions'
 import {
   aggregateSessions,
   buildLogRecord,
+  buildTraceSummary,
+  classifyError,
   classifySpanRow,
   groupBy,
   num,
   pickIdentityValue,
-  pickStringValue,
   SESSION_SCAN_LIMIT,
   TRACE_FETCH_LIMIT,
 } from './shared'
-import { classifyTraceCategory } from './trace-category'
 import type {
   AppInsightsProvider,
   GetTraceOpts,
@@ -560,17 +560,13 @@ function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
   // root spans; treat that as null so tree-walking sees a clean root.
   const parentId = rawParent && rawParent !== row.operation_Id ? rawParent : null
   // .NET instrumentation puts HTTP status ("401") OR an exception class in
-  // `error.type`. Route to message vs type so we don't render "401: HTTP 401".
-  const cdErr = typeof cd['error.type'] === 'string' ? (cd['error.type'] as string) : undefined
-  const httpFromResultCode =
-    failed && typeof row.resultCode === 'string' && /^[1-5]\d{2}$/.test(row.resultCode) ? row.resultCode : undefined
-  let errorType: string | undefined
-  let errorMessage: string | undefined
-  if (cdErr) {
-    if (/^[1-5]\d{2}$/.test(cdErr)) errorMessage = `HTTP ${cdErr}`
-    else errorType = cdErr
-  }
-  if (!errorMessage && httpFromResultCode) errorMessage = `HTTP ${httpFromResultCode}`
+  // `error.type`. classifyError() routes to message vs type so we don't
+  // render "401: HTTP 401".
+  const { errorType, errorMessage } = classifyError({
+    failed,
+    errorType: typeof cd['error.type'] === 'string' ? (cd['error.type'] as string) : undefined,
+    httpStatus: typeof row.resultCode === 'string' ? row.resultCode : undefined,
+  })
   return {
     id: String(row.id ?? ''),
     traceId,
@@ -602,19 +598,23 @@ function buildAiRawAttributes(
   return out
 }
 
+function costFromRow(row: Record<string, unknown>, spanStartMs: number | undefined): number | undefined {
+  return estimateCostUsd({
+    model: typeof row.model_id === 'string' ? row.model_id : undefined,
+    inputTokens: num(row.in_tok),
+    outputTokens: num(row.out_tok),
+    cachedInputTokens: num(row.cache_tok),
+    provider: typeof row.provider === 'string' ? row.provider : undefined,
+    spanStartMs,
+  })
+}
+
 function sumCostByTrace(rows: Array<Record<string, unknown>>): Map<string, number> {
   const out = new Map<string, number>()
   for (const r of rows) {
     const id = typeof r.operation_Id === 'string' ? r.operation_Id : null
     if (!id) continue
-    const cost = estimateCostUsd({
-      model: typeof r.model_id === 'string' ? r.model_id : undefined,
-      inputTokens: num(r.in_tok),
-      outputTokens: num(r.out_tok),
-      cachedInputTokens: num(r.cache_tok),
-      provider: typeof r.provider === 'string' ? r.provider : undefined,
-      spanStartMs: num(r.ts_ms),
-    })
+    const cost = costFromRow(r, num(r.ts_ms))
     if (!cost) continue
     out.set(id, (out.get(id) ?? 0) + cost)
   }
@@ -637,14 +637,7 @@ function rowToSpanSummary(row: Record<string, unknown>): SpanSummary {
   }
   const tokens = (num(row.in_tok) ?? 0) + (num(row.out_tok) ?? 0)
   if (tokens > 0) summary.totalTokens = tokens
-  const cost = estimateCostUsd({
-    model: typeof row.model_id === 'string' ? row.model_id : undefined,
-    inputTokens: num(row.in_tok),
-    outputTokens: num(row.out_tok),
-    cachedInputTokens: num(row.cache_tok),
-    provider: typeof row.provider === 'string' ? row.provider : undefined,
-    spanStartMs: firstSeen,
-  })
+  const cost = costFromRow(row, firstSeen)
   if (cost) summary.totalCostUsd = cost
   if (typeof row.model_id === 'string' && row.model_id) summary.modelId = row.model_id
   if (row.has_error === true || row.has_error === 'True' || row.has_error === 'true') summary.hasError = true
@@ -656,41 +649,13 @@ function rowToSpanSummary(row: Record<string, unknown>): SpanSummary {
 function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : 0
-  const hasSession = typeof row.session_id === 'string' && row.session_id.length > 0
-  const rootLlmPurpose = pickStringValue(row.root_llm_purpose)
-  const summary: TraceSummary = {
+  return buildTraceSummary(row, {
     id: String(row.operation_Id ?? ''),
     startedAtMs: firstSeen,
     durationMs: Math.max(0, lastSeen - firstSeen),
-    spanCount: Number(row.span_count ?? 0),
     hasError: Boolean(row.has_error),
-    category: classifyTraceCategory({
-      hasSessionAttribute: hasSession,
-      hasInvokeAgent: Boolean(row.has_invoke_agent),
-      hasChat: Boolean(row.has_chat),
-      rootOperation: pickStringValue(row.root_operation),
-      rootTriggerType: pickStringValue(row.root_trigger_type),
-      rootExecution: pickStringValue(row.root_execution),
-      rootLlmPurpose,
-    }),
-  }
-  const tokens = num(row.total_tokens)
-  if (tokens) summary.totalTokens = tokens
-  const agent = extractAgentName(typeof row.agent_name === 'string' ? row.agent_name : '')
-  if (agent) summary.agent = agent
-  if (hasSession) summary.sessionId = String(row.session_id)
-  if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
-  if (typeof row.service_name === 'string' && row.service_name) summary.serviceName = row.service_name
-  if (typeof row.root_operation === 'string' && row.root_operation) summary.rootOperation = row.root_operation
-  if (typeof row.trace_user_id === 'string' && row.trace_user_id) summary.userId = row.trace_user_id
-  if (typeof row.trace_user_name === 'string' && row.trace_user_name) summary.userName = row.trace_user_name
-  if (typeof row.root_task_id === 'string' && row.root_task_id) summary.taskId = row.root_task_id
-  if (typeof row.root_task_kind === 'string' && row.root_task_kind) summary.taskKind = row.root_task_kind
-  if (typeof row.root_task_schedule === 'string' && row.root_task_schedule)
-    summary.taskSchedule = row.root_task_schedule
-  if (typeof row.root_task_name === 'string' && row.root_task_name) summary.taskName = row.root_task_name
-  if (typeof row.root_task_source === 'string' && row.root_task_source) summary.taskSource = row.root_task_source
-  return summary
+    agent: extractAgentName(typeof row.agent_name === 'string' ? row.agent_name : '') || undefined,
+  })
 }
 
 function kqlIdentityFilter(

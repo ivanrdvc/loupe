@@ -13,14 +13,13 @@ import {
 import { buildTurns, type Turn, turnTotals } from './turns'
 
 export type { ConversationEvent } from '#/lib/conversation'
-export { isAgentSpan, isChatSpan, isCollapsibleInfra, isLlmLike, isToolLike, spanHasError } from './predicates'
-export type { AguiItem } from './system'
+export { isCollapsibleInfra, isLlmLike, isToolLike, spanHasError } from './predicates'
 export { isShortValue } from './system'
 export type { FrontendTool, ToolCallResolution, ToolDef, ToolGroup } from './tools'
-export type { Turn, TurnTotals } from './turns'
+export type { Turn } from './turns'
 export { turnTotals } from './turns'
 
-export interface InspectorTotals {
+interface InspectorTotals {
   input: number
   output: number
   cached: number

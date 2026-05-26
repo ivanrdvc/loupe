@@ -118,15 +118,7 @@ export function DetailPanel({
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
           {(span.errorMessage || span.errorType) && (
             <>
-              <div className="text-[13px] font-medium leading-snug text-destructive">
-                {span.errorType && (
-                  <span className="font-mono">
-                    {span.errorType}
-                    {span.errorMessage ? ': ' : ''}
-                  </span>
-                )}
-                {span.errorMessage}
-              </div>
+              <ErrorLine type={span.errorType} message={span.errorMessage} size="md" />
               {span.errorStack && (
                 <pre className="mt-1.5 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
                   {span.errorStack}
@@ -143,15 +135,7 @@ export function DetailPanel({
               className="mt-2 block w-full rounded border-l-2 border-destructive/40 bg-destructive/5 px-2 py-1.5 text-left transition-colors enabled:cursor-pointer enabled:hover:bg-destructive/10 disabled:cursor-default"
             >
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">caused by · {child.name}</div>
-              <div className="mt-0.5 text-[12px] leading-snug text-destructive">
-                {child.errorType && (
-                  <span className="font-mono">
-                    {child.errorType}
-                    {child.errorMessage ? ': ' : ''}
-                  </span>
-                )}
-                {child.errorMessage}
-              </div>
+              <ErrorLine type={child.errorType} message={child.errorMessage} size="sm" />
             </button>
           ))}
         </div>
@@ -180,8 +164,8 @@ export function DetailPanel({
         {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
       </dl>
 
-      {span.agentDescription && <AgentDescriptionCard content={span.agentDescription} />}
-      {systemPrompt && <SystemPromptCard content={systemPrompt} />}
+      {span.agentDescription && <RoleCard kind="agent" label="description" content={span.agentDescription} />}
+      {systemPrompt && <RoleCard kind="system" label="system prompt" content={systemPrompt} />}
 
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
@@ -385,27 +369,13 @@ function RoleChip({ kind }: { kind: RoleKey }) {
   )
 }
 
-function AgentDescriptionCard({ content }: { content: string }) {
+function RoleCard({ kind, label, content }: { kind: RoleKey; label: string; content: string }) {
   return (
     <Card size="sm" className="min-w-0 gap-2">
       <CardContent className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center gap-2">
-          <RoleChip kind="agent" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">description</span>
-        </div>
-        <CollapsibleText content={content} />
-      </CardContent>
-    </Card>
-  )
-}
-
-function SystemPromptCard({ content }: { content: string }) {
-  return (
-    <Card size="sm" className="min-w-0 gap-2">
-      <CardContent className="flex min-w-0 flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <RoleChip kind="system" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">system prompt</span>
+          <RoleChip kind={kind} />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
         </div>
         <CollapsibleText content={content} />
       </CardContent>
@@ -530,6 +500,21 @@ function CollapsibleText({ content, previewChars = 240 }: { content: string; pre
         </button>
       </CollapsibleTrigger>
     </Collapsible>
+  )
+}
+
+function ErrorLine({ type, message, size }: { type?: string; message?: string; size: 'md' | 'sm' }) {
+  const cls = size === 'md' ? 'text-[13px] font-medium leading-snug' : 'mt-0.5 text-[12px] leading-snug'
+  return (
+    <div className={`${cls} text-destructive`}>
+      {type && (
+        <span className="font-mono">
+          {type}
+          {message ? ': ' : ''}
+        </span>
+      )}
+      {message}
+    </div>
   )
 }
 
