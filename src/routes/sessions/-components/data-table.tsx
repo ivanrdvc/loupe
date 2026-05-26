@@ -118,14 +118,17 @@ export function DataTable({
         onRefresh={onRefresh}
         refreshing={refreshing}
       />
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 md:pb-6 lg:px-6">
-        <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto rounded-lg border bg-background">
+      <div className="flex min-h-0 flex-1 flex-col border-t">
+        <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground [&_button]:font-normal [&_button]:text-muted-foreground">
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12">
+                <TableRow
+                  key={headerGroup.id}
+                  className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                >
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} colSpan={header.colSpan} className="h-12">
+                    <TableHead key={header.id} colSpan={header.colSpan}>
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   ))}
@@ -137,7 +140,11 @@ export function DataTable({
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className={cn('h-12', onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
+                    className={cn(
+                      'h-14 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
+                      onRowClick && 'cursor-pointer',
+                      rowClassName?.(row.original),
+                    )}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                   >
                     {row.getVisibleCells().map((cell) => (
