@@ -21,6 +21,7 @@ export function useSpanSearch({
     return {
       id: 'session-spans',
       group: 'Spans in this session',
+      exclusive: true,
       items: visible.map((span) => {
         const parent = span.parentId ? byId.get(span.parentId) : undefined
         const display = displayFor(span, agentLabels)

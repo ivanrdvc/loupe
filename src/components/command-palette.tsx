@@ -30,6 +30,8 @@ export interface SearchProvider {
   id: string
   group: string
   items: SearchItem[]
+  /** When any registered provider sets this, other non-exclusive providers are hidden — used so an open inspector narrows results to its spans. */
+  exclusive?: boolean
 }
 
 interface PaletteCtx {
@@ -103,7 +105,11 @@ function CommandPaletteDialog({ providers }: { providers: Record<string, SearchP
     [setOpen],
   )
 
-  const orderedProviders = useMemo(() => Object.values(providers).filter((p) => p.items.length > 0), [providers])
+  const orderedProviders = useMemo(() => {
+    const live = Object.values(providers).filter((p) => p.items.length > 0)
+    const exclusive = live.filter((p) => p.exclusive)
+    return exclusive.length > 0 ? exclusive : live
+  }, [providers])
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} title="Search">
