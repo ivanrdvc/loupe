@@ -113,7 +113,7 @@ export function buildInspectorView(spans: Span[]): InspectorView {
   const allChats = spans.filter(isChatSpan)
 
   const callResolutions = resolveToolCalls(spans, childrenByParent)
-  const conversation = buildConversation(spans)
+  let conversationCache: ConversationEvent[] | undefined
   const toolGroups = collectToolGroups(spans)
   const frontendTools = collectFrontendTools(spans)
   const { systemPromptByAgent, aguiItems } = collectSystemAndAgui(spans, childrenByParent)
@@ -159,7 +159,9 @@ export function buildInspectorView(spans: Span[]): InspectorView {
     subagentChatTokens,
     orchestratorChats,
     allChats,
-    conversation,
+    get conversation() {
+      return (conversationCache ??= buildConversation(spans))
+    },
     callResolutions,
     toolGroups,
     frontendTools,

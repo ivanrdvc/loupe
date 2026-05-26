@@ -33,8 +33,11 @@ export function collectSystemAndAgui(
       if (msg.role !== 'system') continue
       const content = textOf(msg.parts).trim()
       if (!content) continue
-      if (!firstSystemByChat.has(span.id)) firstSystemByChat.set(span.id, content)
-      if (classifySystemContent(content) === 'agui') {
+      const kind = classifySystemContent(content)
+      if (kind === 'prompt' && !firstSystemByChat.has(span.id)) {
+        firstSystemByChat.set(span.id, content)
+      }
+      if (kind === 'agui') {
         if (seenAgui.has(content)) continue
         seenAgui.add(content)
         aguiItems.push({
