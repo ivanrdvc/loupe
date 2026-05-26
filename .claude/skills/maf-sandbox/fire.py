@@ -42,9 +42,9 @@ def find_entity_id(name: str = "sandbox-agent") -> str | None:
     return None
 
 
-def wait_until_ready(timeout: int = 60) -> str:
+def wait_until_ready(name: str = "sandbox-agent", timeout: int = 60) -> str:
     for _ in range(timeout):
-        eid = find_entity_id()
+        eid = find_entity_id(name)
         if eid:
             return eid
         time.sleep(1)
@@ -62,9 +62,9 @@ def start() -> None:
         )
 
 
-def fire(prompt: str, eid: str, *, stream: bool) -> None:
+def fire(prompt: str, eid: str, *, stream: bool, agent: str) -> None:
     body = json.dumps({
-        "model": "sandbox-agent",
+        "model": agent,
         "input": [{
             "type": "message",
             "role": "user",
@@ -88,17 +88,27 @@ def fire(prompt: str, eid: str, *, stream: bool) -> None:
             sys.stdout.buffer.write(r.read())
 
 
+def _arg_value(args: list[str], flag: str, default: str) -> str:
+    if flag in args:
+        i = args.index(flag)
+        if i + 1 < len(args):
+            return args[i + 1]
+    return default
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args or args[0] in {"-h", "--help"}:
         sys.exit(__doc__)
     prompt = args[0]
-    stream = "--stream" in args[1:]
-    eid = find_entity_id()
+    rest = args[1:]
+    stream = "--stream" in rest
+    agent = _arg_value(rest, "--agent", "sandbox-agent")
+    eid = find_entity_id(agent)
     if eid is None:
         start()
-        eid = wait_until_ready()
-    fire(prompt, eid, stream=stream)
+        eid = wait_until_ready(agent)
+    fire(prompt, eid, stream=stream, agent=agent)
 
 
 if __name__ == "__main__":

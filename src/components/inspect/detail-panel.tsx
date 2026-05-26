@@ -15,7 +15,7 @@ import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from
 import { formatCost } from '#/lib/format'
 import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
-import { buildAgentLabels, resolveToolCalls, type Span, type ToolCallResolution } from '#/lib/spans'
+import { buildAgentLabels, descendantSpans, resolveToolCalls, type Span, type ToolCallResolution } from '#/lib/spans'
 import type { LogLevel } from '#/lib/telemetry/types'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
@@ -39,6 +39,28 @@ function extractPromptMessages(span: Span): PromptMessage[] {
   return out
 }
 
+// System prompt for an invoke_agent: take the first `role:system` message from
+// the earliest descendant chat span. The prompt is restamped on every chat
+// turn, so the first one is canonical and avoids AG-UI state-sync noise that
+// can creep in on later turns.
+function firstAgentSystemPrompt(span: Span, spans?: Span[]): string | undefined {
+  if (!spans || span.operation !== 'invoke_agent') return undefined
+  const chats = descendantSpans(spans, span.id)
+    .filter((s) => s.operation === 'chat')
+    .sort((a, b) => a.startMs - b.startMs)
+  for (const chat of chats) {
+    const sys = asMessages(chat.llmInput).find((m) => m.role === 'system')
+    if (!sys) continue
+    const text = sys.parts
+      .filter((p): p is Extract<MessagePart, { kind: 'text' }> => p.kind === 'text')
+      .map((p) => p.content)
+      .join('\n\n')
+      .trim()
+    if (text) return text
+  }
+  return undefined
+}
+
 export function DetailPanel({
   span,
   spans,
@@ -51,6 +73,7 @@ export function DetailPanel({
   const duration = span.endMs - span.startMs
   const agentLabels = useMemo(() => (spans ? buildAgentLabels(spans) : undefined), [spans])
   const display = displayFor(span, agentLabels)
+  const systemPrompt = useMemo(() => firstAgentSystemPrompt(span, spans), [span, spans])
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useUser()
@@ -202,6 +225,7 @@ export function DetailPanel({
       </dl>
 
       {span.agentDescription && <AgentDescriptionCard content={span.agentDescription} />}
+      {systemPrompt && <SystemPromptCard content={systemPrompt} />}
 
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
@@ -411,6 +435,20 @@ function AgentDescriptionCard({ content }: { content: string }) {
         <div className="flex items-center gap-2">
           <RoleChip kind="agent" />
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">description</span>
+        </div>
+        <CollapsibleText content={content} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function SystemPromptCard({ content }: { content: string }) {
+  return (
+    <Card size="sm" className="min-w-0 gap-2">
+      <CardContent className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <RoleChip kind="system" />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">system prompt</span>
         </div>
         <CollapsibleText content={content} />
       </CardContent>

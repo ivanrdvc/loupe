@@ -16,6 +16,10 @@ Test rig for generating agent telemetry into local OpenObserve so we can inspect
 
 `fire.py` handles everything: spawns `maf.py` via `uv` if not already running (logs → `/tmp/maf-sandbox.log`), discovers the entity_id, sends a correctly-shaped Responses API body, and returns the reply. The sandbox listens on `localhost:4280`, exports OTel to `http://localhost:5080/api/default` (OpenObserve), reads `OPENAI_API_KEY` from `agentops/.env.local`.
 
+## Optional: dual-emit to App Insights
+
+agentops reads from App Insights by default — so to make sandbox traces visible in the agentops UI, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` in `agentops/.env.local`. Without it, sandbox traces land only in OpenObserve and **agentops will not see them**; `maf.py`'s startup banner prints a warning in that case. AppInsights export is purely additive — OO emission continues either way.
+
 ## What the sandbox agent can do
 
 The agent (`sandbox-agent`) is wired to exercise these telemetry categories. **Pick a different one each session** — repeating the same payloads makes the rig pointless.

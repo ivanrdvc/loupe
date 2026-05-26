@@ -13,3 +13,6 @@ wants to be in `explanation/` or `guides/` instead.
   from each backend (OpenObserve, Application Insights, …), the row → Span
   mapping, and the trace-scope post-processing every provider runs before
   returning data.
+- [Application Insights quirks](app-insights-quirks.md) — provider-specific
+  behaviors that bite the agentops read path (attribute truncation, duplicate
+  ingestion) and the mitigations applied per file.

@@ -109,6 +109,8 @@ function resolveProviderId(): ProviderId {
     const status = listProviderStatus().find((p) => p.id === fromEnv)
     if (status?.configured) return fromEnv
   }
+  const ai = listProviderStatus().find((p) => p.id === 'app-insights')
+  if (ai?.configured) return 'app-insights'
   return 'openobserve'
 }
 

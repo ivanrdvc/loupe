@@ -147,14 +147,21 @@ export function InspectLayout({
 function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Span | undefined }) {
   const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
 
-  // Narrow only when an invoke_agent is selected; other selections keep the
-  // full session view so the Tools tab is a stable "registered tools" list.
-  const scopedToAgent = selectedSpan?.operation === 'invoke_agent' ? selectedSpan : undefined
+  // Scope rules: invoke_agent → that agent + descendants (all turns).
+  // chat → just that chat span (per-turn registry; surfaces dynamic
+  // mid-turn tool loading like load_tools(domain)). Otherwise → full session.
+  const scopeKind: 'agent' | 'turn' | 'session' =
+    selectedSpan?.operation === 'invoke_agent' ? 'agent' : selectedSpan?.operation === 'chat' ? 'turn' : 'session'
 
   const groups = useMemo(() => {
-    const scope = scopedToAgent ? [scopedToAgent, ...descendantSpans(spans, scopedToAgent.id)] : spans
-    return collectToolGroups(scope)
-  }, [spans, scopedToAgent])
+    if (scopeKind === 'agent' && selectedSpan) {
+      return collectToolGroups([selectedSpan, ...descendantSpans(spans, selectedSpan.id)])
+    }
+    if (scopeKind === 'turn' && selectedSpan) {
+      return collectToolGroups([selectedSpan])
+    }
+    return collectToolGroups(spans)
+  }, [spans, selectedSpan, scopeKind])
 
   const totals = useMemo(() => {
     let count = 0
@@ -166,9 +173,12 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
     return { count, tokens }
   }, [groups])
 
-  const scopeLabel = scopedToAgent
-    ? (agentLabels.get(scopedToAgent.id) ?? displayFor(scopedToAgent, agentLabels).name)
-    : 'All agents'
+  const scopeLabel =
+    scopeKind === 'agent' && selectedSpan
+      ? (agentLabels.get(selectedSpan.id) ?? displayFor(selectedSpan, agentLabels).name)
+      : scopeKind === 'turn' && selectedSpan
+        ? `Turn · ${displayFor(selectedSpan, agentLabels).name}`
+        : 'All agents'
 
   return (
     <div className="px-4 py-4">
