@@ -22,6 +22,7 @@ import {
 } from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
+import { buildInspectorView } from '#/lib/inspector-view'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
 import { sessionQuery } from './-data'
@@ -31,6 +32,8 @@ export const Route = createFileRoute('/sessions/$sessionId')({
     range: parse(search.range),
     view: parseSessionView(search.view) ?? 'conversation',
     span: parseSpanParam(search.span),
+    session: parseSpanParam(search.session),
+    trace: parseSpanParam(search.trace),
   }),
   loaderDeps: ({ search }) => ({ range: search.range }),
   loader: ({ context, params, deps }) =>
@@ -42,6 +45,10 @@ interface SessionSearch {
   range: TimeRange
   view: InspectView
   span?: string
+  // Pass-through for the root-level drawer (?session=, ?trace=) so clicking
+  // a Recent sidebar entry from inside this page actually opens the drawer.
+  session?: string
+  trace?: string
 }
 
 function parseSessionView(value: unknown): InspectView | undefined {
@@ -82,6 +89,7 @@ function SessionDetail() {
   const fingerprint = data?.fingerprint
   const crumbLabel = data?.title?.trim() || sessionId
 
+  const inspectorView = useMemo(() => buildInspectorView(spans), [spans])
   const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
   const isUtility = category === 'utility'
   const hiddenTabs = useMemo<InspectView[] | undefined>(() => (isUtility ? ['conversation'] : undefined), [isUtility])
@@ -110,7 +118,7 @@ function SessionDetail() {
   }
 
   useSpanSearch({
-    spans,
+    view: inspectorView,
     fullSpans,
     onSelect: (id) => {
       setSelectedId(id)
@@ -177,7 +185,7 @@ function SessionDetail() {
           }}
           refreshing={isFetching}
           hiddenTabs={hiddenTabs}
-          extras={inspectView === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : null}
+          extras={inspectView === 'conversation' && spans.length > 0 ? <ContextWindow view={inspectorView} /> : null}
         />
         <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {!data ? (
@@ -195,14 +203,14 @@ function SessionDetail() {
             </Empty>
           ) : inspectView === 'spans' ? (
             <InspectLayout
-              spans={spans}
+              view={inspectorView}
               loading={false}
               selectedId={selectedId}
               onSelect={setSelectedId}
               fullSpans={fullSpans}
             />
           ) : inspectView === 'conversation' ? (
-            <ConversationView spans={spans} onSelect={setSelectedId} />
+            <ConversationView view={inspectorView} onSelect={setSelectedId} />
           ) : null}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { InspectLayout } from '#/components/inspect/overview'
@@ -16,6 +16,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
+import { buildInspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 import { traceSpansQuery } from './-data'
 
@@ -36,6 +37,7 @@ function TraceDetail() {
 
   const total = spans.length > 0 ? Math.max(...spans.map((s) => s.endMs)) - Math.min(...spans.map((s) => s.startMs)) : 0
 
+  const inspectorView = useMemo(() => buildInspectorView(spans), [spans])
   const [view, setView] = useState<InspectView>('spans')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [fullSpans, setFullSpans] = useState(false)
@@ -56,7 +58,7 @@ function TraceDetail() {
   }, [spans, focusSpanId])
 
   useSpanSearch({
-    spans,
+    view: inspectorView,
     fullSpans,
     onSelect: (id) => {
       setSelectedId(id)
@@ -105,14 +107,14 @@ function TraceDetail() {
           onViewChange={setView}
           fullSpans={fullSpans}
           onFullSpansChange={setFullSpans}
-          extras={view === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : undefined}
+          extras={view === 'conversation' && spans.length > 0 ? <ContextWindow view={inspectorView} /> : undefined}
         />
         <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {view === 'conversation' ? (
-            <ConversationView spans={spans} onSelect={setSelectedId} />
+            <ConversationView view={inspectorView} onSelect={setSelectedId} />
           ) : spans.length > 0 ? (
             <InspectLayout
-              spans={spans}
+              view={inspectorView}
               loading={false}
               selectedId={selectedId}
               onSelect={setSelectedId}

@@ -1,34 +1,5 @@
 import type { JsonValue } from './json'
 
-export interface ToolCallResolution {
-  subAgent?: Span
-  result?: JsonValue
-  success: boolean
-}
-
-// Index tool-call ids in a trace to their resolution (result + sub-agent
-// linkage). Builds the parent→children map once, then resolves each tool
-// span in O(1).
-export function resolveToolCalls(spans: Span[]): Map<string, ToolCallResolution> {
-  const byParent = new Map<string | null, Span[]>()
-  for (const s of spans) {
-    const arr = byParent.get(s.parentId) ?? []
-    arr.push(s)
-    byParent.set(s.parentId, arr)
-  }
-  const map = new Map<string, ToolCallResolution>()
-  for (const t of spans) {
-    if (t.operation !== 'tool' || !t.toolCallId) continue
-    const subAgent = byParent.get(t.id)?.find((c) => c.operation === 'invoke_agent')
-    map.set(t.toolCallId, {
-      subAgent,
-      result: t.toolResult,
-      success: !spanHasError(t),
-    })
-  }
-  return map
-}
-
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
 export type Operation = 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent'
 
@@ -49,6 +20,8 @@ export interface Span {
   agentName?: string
   agentId?: string
   agentDescription?: string
+  // `gen_ai.system_instructions` — agent prompt outside `llmInput`. MAF.
+  systemInstructions?: string
   toolName?: string
   inputParams?: string
   model?: string
@@ -192,95 +165,4 @@ export function propagateInheritedAttrs(spans: Span[]): void {
     resolved.add(s.id)
   }
   for (const s of spans) resolve(s)
-}
-
-// Returns label overrides for invoke_agent spans whose agentName collides
-// with another agentId in the same session. Empty when no collisions.
-export function buildAgentLabels(spans: Span[]): Map<string, string> {
-  const idsByName = new Map<string, Set<string>>()
-  for (const s of spans) {
-    if (s.operation !== 'invoke_agent' || !s.agentName || !s.agentId) continue
-    let ids = idsByName.get(s.agentName)
-    if (!ids) {
-      ids = new Set()
-      idsByName.set(s.agentName, ids)
-    }
-    ids.add(s.agentId)
-  }
-  const out = new Map<string, string>()
-  for (const s of spans) {
-    if (s.operation !== 'invoke_agent' || !s.agentName || !s.agentId) continue
-    if ((idsByName.get(s.agentName)?.size ?? 0) <= 1) continue
-    out.set(s.id, `${s.agentName} · ${s.agentId.slice(0, 8)}`)
-  }
-  return out
-}
-
-// Side-channel LLM calls (title gen, summarization). Explicit signal:
-// `gen_ai.operation.purpose`. Fallback: in an AG-UI trace, conversation chats
-// carry `ag_ui.run_id` and utility chats don't.
-export function findUtilityChatIds(spans: Span[]): Set<string> {
-  const traceHasAgUiRun = spans.some((s) => s.agUiRunId != null)
-  const out = new Set<string>()
-  for (const s of spans) {
-    if (s.operation !== 'chat') continue
-    if (s.operationName) out.add(s.id)
-    else if (traceHasAgUiRun && !s.agUiRunId) out.add(s.id)
-  }
-  return out
-}
-
-export function spanHasError(span: Span): boolean {
-  if (span.hasError) return true
-  const r = span.toolResult
-  if (!r || typeof r !== 'object' || Array.isArray(r)) return false
-  return r.error === true || r.status === 'error'
-}
-
-export function descendantSpans(spans: Span[], rootId: string): Span[] {
-  const byParent = new Map<string | null, Span[]>()
-  for (const s of spans) {
-    const arr = byParent.get(s.parentId) ?? []
-    arr.push(s)
-    byParent.set(s.parentId, arr)
-  }
-  const out: Span[] = []
-  const walk = (id: string) => {
-    for (const c of byParent.get(id) ?? []) {
-      out.push(c)
-      walk(c.id)
-    }
-  }
-  walk(rootId)
-  return out
-}
-
-// Top-level invoke_agent spans — those with no invoke_agent ancestor. Read
-// directly off the normalised run-graph identity stamped by normalizeRunGraph
-// (or by a producer emitting gen_ai.task.parent.id / Traceloop convention).
-export function findOrchestratorIds(spans: Span[]): string[] {
-  return spans
-    .filter((s) => s.operation === 'invoke_agent' && !s.taskParentId)
-    .sort((a, b) => a.startMs - b.startMs)
-    .map((s) => s.id)
-}
-
-export function findOrchestratorId(spans: Span[]): string | null {
-  return findOrchestratorIds(spans)[0] ?? null
-}
-
-// Chat spans whose nearest invoke_agent ancestor is itself a sub-agent
-// (taskParentId set). Excludes orchestrator chats and raw chats with no
-// agent ancestor.
-export function subagentChatSpans(spans: Span[]): Span[] {
-  const byId = new Map(spans.map((s) => [s.id, s]))
-  return spans.filter((s) => {
-    if (s.operation !== 'chat') return false
-    let cursor: Span | undefined = s.parentId ? byId.get(s.parentId) : undefined
-    while (cursor) {
-      if (cursor.operation === 'invoke_agent') return Boolean(cursor.taskParentId)
-      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined
-    }
-    return false
-  })
 }

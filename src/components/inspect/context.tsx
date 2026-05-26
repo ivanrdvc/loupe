@@ -5,8 +5,8 @@ import { CodeBlock } from '#/components/ai-elements/code-block'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { formatTokens } from '#/lib/format'
+import type { ToolDef, ToolGroup } from '#/lib/inspector-view'
 import { formatJson } from '#/lib/json'
-import type { ToolDef, ToolGroup } from './context-collectors'
 
 export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   if (groups.length === 0) {

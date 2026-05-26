@@ -3,10 +3,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover
 import { Progress } from '#/components/ui/progress'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { formatCost } from '#/lib/format'
+import type { InspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 
 interface ContextWindowProps {
-  spans: Span[]
+  view: InspectorView
 }
 
 // Wrong values are worse than missing — return null when the model string
@@ -33,8 +34,8 @@ export function formatTokens(n: number): string {
   return n.toString()
 }
 
-export function ContextWindow({ spans }: ContextWindowProps) {
-  const chatSpans = useMemo(() => spans.filter((s) => s.operation === 'chat'), [spans])
+export function ContextWindow({ view }: ContextWindowProps) {
+  const chatSpans = view.allChats
   // Breakdown numbers only appear inside the popover panel — defer the fetch
   // until the user shows intent to open it (hover/focus/click on the trigger).
   const [primed, setPrimed] = useState(false)

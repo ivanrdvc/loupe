@@ -3,16 +3,10 @@ import { CodeBlock } from '#/components/ai-elements/code-block'
 import { Card, CardContent } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableRow } from '#/components/ui/table'
+import { type FrontendTool, type InspectorView, isShortValue } from '#/lib/inspector-view'
 import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { ExpandableRow } from './context'
-import {
-  collectAguiItems,
-  collectFrontendTools,
-  collectSystemHits,
-  type FrontendTool,
-  isShortValue,
-} from './context-collectors'
 
 const AG_UI_PREFIXES = ['ag_ui_', 'ag_ui.'] as const
 const AG_UI_SKIP = new Set(['ag_ui_thread_id', 'ag_ui.thread_id', 'ag_ui_run_id', 'ag_ui.run_id'])
@@ -50,17 +44,16 @@ interface PayloadBlock {
   tokens?: number
 }
 
-export function AgUiPanel({ span, spans }: { span?: Span; spans: Span[] }) {
+export function AgUiPanel({ span, view }: { span?: Span; view: InspectorView }) {
   const spanAttrs = useMemo(() => (span ? extractAgUiAttrs(span) : []), [span])
-  const systemHits = useMemo(() => collectSystemHits(spans), [spans])
-  const sessionItems = useMemo(() => collectAguiItems(spans, systemHits.agui), [spans, systemHits.agui])
-  const frontendTools = useMemo(() => collectFrontendTools(spans), [spans])
+  const sessionItems = view.aguiItems
+  const frontendTools = view.frontendTools
 
   const runIds = useMemo(() => {
     const ids = new Set<string>()
-    for (const s of spans) if (s.agUiRunId) ids.add(s.agUiRunId)
+    for (const s of view.spans) if (s.agUiRunId) ids.add(s.agUiRunId)
     return [...ids]
-  }, [spans])
+  }, [view.spans])
 
   const idRows: IdRow[] = []
   for (const id of runIds) idRows.push({ label: 'Run ID', value: id })

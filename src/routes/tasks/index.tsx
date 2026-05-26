@@ -13,9 +13,13 @@ import { TasksDataTable } from './-components/tasks-table'
 import { tasksTracesQuery } from './-data'
 
 export const Route = createFileRoute('/tasks/')({
-  validateSearch: (search: Record<string, unknown>): { trace?: string } => {
-    const raw = typeof search.trace === 'string' ? search.trace.trim() : ''
-    return raw ? { trace: raw } : {}
+  validateSearch: (search: Record<string, unknown>): { trace?: string; session?: string } => {
+    const trace = typeof search.trace === 'string' ? search.trace.trim() : ''
+    const session = typeof search.session === 'string' ? search.session.trim() : ''
+    return {
+      ...(trace ? { trace } : {}),
+      ...(session ? { session } : {}),
+    }
   },
   component: TasksPage,
 })

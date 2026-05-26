@@ -10,12 +10,14 @@ import { useSessionSearch } from './-components/use-session-search'
 import { sessionsQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/')({
-  validateSearch: (search: Record<string, unknown>): { userId?: string; session?: string } => {
+  validateSearch: (search: Record<string, unknown>): { userId?: string; session?: string; trace?: string } => {
     const userId = typeof search.userId === 'string' ? search.userId.trim() : ''
     const session = typeof search.session === 'string' ? search.session.trim() : ''
+    const trace = typeof search.trace === 'string' ? search.trace.trim() : ''
     return {
       ...(userId ? { userId } : {}),
       ...(session ? { session } : {}),
+      ...(trace ? { trace } : {}),
     }
   },
   component: Sessions,

@@ -1,5 +1,50 @@
 import { describe, expect, it } from 'vitest'
-import { asMessages } from './conversation'
+import { asMessages, findUtilityChatIds } from './conversation'
+import type { Span } from './spans'
+
+function span(overrides: Partial<Span> & Pick<Span, 'id' | 'operation'>): Span {
+  return {
+    traceId: 't1',
+    parentId: null,
+    service: 'svc',
+    kind: 'internal',
+    name: overrides.operation,
+    startMs: 0,
+    endMs: 100,
+    ...overrides,
+  }
+}
+
+describe('findUtilityChatIds', () => {
+  it('flags chat spans with an explicit operationName', () => {
+    const spans: Span[] = [
+      span({ id: 'a', operation: 'chat', operationName: 'title_generation' }),
+      span({ id: 'b', operation: 'chat' }),
+    ]
+    expect(findUtilityChatIds(spans)).toEqual(new Set(['a']))
+  })
+
+  it('flags AG-UI-trace chats missing an agUiRunId as utility', () => {
+    const spans: Span[] = [
+      span({ id: 'conv', operation: 'chat', agUiRunId: 'run-1' }),
+      span({ id: 'util', operation: 'chat' }),
+    ]
+    expect(findUtilityChatIds(spans)).toEqual(new Set(['util']))
+  })
+
+  it('does not flag missing-runId chats when the trace has no AG-UI spans', () => {
+    const spans: Span[] = [span({ id: 'chat1', operation: 'chat' }), span({ id: 'chat2', operation: 'chat' })]
+    expect(findUtilityChatIds(spans)).toEqual(new Set())
+  })
+
+  it('ignores non-chat operations', () => {
+    const spans: Span[] = [
+      span({ id: 'tool', operation: 'tool', operationName: 'title_generation' }),
+      span({ id: 'chat', operation: 'chat', operationName: 'summarization' }),
+    ]
+    expect(findUtilityChatIds(spans)).toEqual(new Set(['chat']))
+  })
+})
 
 describe('asMessages — content format support', () => {
   it('parses Logfire { role, parts: [...] } format', () => {

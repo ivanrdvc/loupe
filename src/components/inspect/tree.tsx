@@ -3,7 +3,8 @@ import { Clock01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '#/components/ui/badge'
-import { buildAgentLabels, type Span, spanHasError } from '#/lib/spans'
+import { type InspectorView, isCollapsibleInfra, isToolLike, spanHasError } from '#/lib/inspector-view'
+import type { Span } from '#/lib/spans'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 interface Row {
@@ -30,14 +31,15 @@ const NORMAL_FINISH = new Set(['stop', 'end_turn', 'complete', 'end', 'eos'])
 // All rails, elbow, and indicator share this single x-axis so nothing can drift.
 const railX = (depth: number) => depth * INDENT + INDENT / 2
 
-function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean): Row[] {
+function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: boolean): Row[] {
+  // Reuse the shared parent index; freshly sort each sibling list once.
   const byParent = new Map<string | null, Span[]>()
-  for (const span of spans) {
-    const siblings = byParent.get(span.parentId) ?? []
-    siblings.push(span)
-    byParent.set(span.parentId, siblings)
+  for (const [pid, kids] of view.childrenByParent) {
+    byParent.set(
+      pid,
+      [...kids].sort((a, b) => a.startMs - b.startMs),
+    )
   }
-  for (const siblings of byParent.values()) siblings.sort((a, b) => a.startMs - b.startMs)
 
   // Hide spans classified as plain http — those are the SDK-level transport
   // calls (POST /v1/chat/completions etc.). Children re-parent up so the
@@ -47,7 +49,7 @@ function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean)
     if (visibleChildren.has(parentId)) return visibleChildren.get(parentId) as Span[]
     const out: Span[] = []
     for (const span of byParent.get(parentId) ?? []) {
-      if (!fullSpans && (span.operation === 'http' || span.operation === 'mcp')) out.push(...collect(span.id))
+      if (!fullSpans && isCollapsibleInfra(span)) out.push(...collect(span.id))
       else out.push(span)
     }
     visibleChildren.set(parentId, out)
@@ -80,7 +82,7 @@ function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean)
     // the same time (dispatched concurrently by the framework). Only tool spans
     // can be parallel — LLM calls are always sequential in an agent loop.
     const parallelIds = new Set<string>()
-    const toolSiblings = siblings.filter((s) => s.operation === 'tool' || s.operation === 'mcp')
+    const toolSiblings = siblings.filter(isToolLike)
     for (let i = 0; i < toolSiblings.length; i++) {
       for (let j = i + 1; j < toolSiblings.length; j++) {
         const gap = Math.abs(toolSiblings[j].startMs - toolSiblings[i].startMs)
@@ -120,16 +122,15 @@ function buildRows(spans: Span[], collapsedIds: Set<string>, fullSpans: boolean)
 }
 
 interface SpanTreeListProps {
-  spans: Span[]
+  view: InspectorView
   selectedId: string | null
   onSelect: (id: string) => void
   fullSpans?: boolean
 }
 
-export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }: SpanTreeListProps) {
+export function SpanTreeList({ view, selectedId, onSelect, fullSpans = false }: SpanTreeListProps) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
-  const rows = useMemo(() => buildRows(spans, collapsedIds, fullSpans), [spans, collapsedIds, fullSpans])
-  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
+  const rows = useMemo(() => buildRows(view, collapsedIds, fullSpans), [view, collapsedIds, fullSpans])
 
   const toggleCollapsed = (id: string) => {
     setCollapsedIds((prev) => {
@@ -145,13 +146,12 @@ export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }:
   const lastRevealedRef = useRef<string | null>(null)
   useEffect(() => {
     if (!selectedId || selectedId === lastRevealedRef.current) return
-    const byId = new Map(spans.map((s) => [s.id, s]))
-    const target = byId.get(selectedId)
+    const target = view.byId.get(selectedId)
     if (!target) return
     lastRevealedRef.current = selectedId
 
     const ancestorIds: string[] = []
-    for (let pid = target.parentId; pid; pid = byId.get(pid)?.parentId ?? null) {
+    for (let pid = target.parentId; pid; pid = view.byId.get(pid)?.parentId ?? null) {
       ancestorIds.push(pid)
     }
     setCollapsedIds((prev) => {
@@ -163,7 +163,7 @@ export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }:
     requestAnimationFrame(() => {
       document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'center' })
     })
-  }, [selectedId, spans])
+  }, [selectedId, view])
 
   if (rows.length === 0) {
     return (
@@ -181,7 +181,7 @@ export function SpanTreeList({ spans, selectedId, onSelect, fullSpans = false }:
           selected={row.span.id === selectedId}
           onSelect={() => onSelect(row.span.id)}
           onToggleCollapse={() => toggleCollapsed(row.span.id)}
-          agentLabels={agentLabels}
+          agentLabels={view.agentLabels}
         />
       ))}
     </ul>

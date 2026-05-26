@@ -6,12 +6,11 @@ import { Markdown } from '#/components/markdown'
 import { ScaffoldGroup } from '#/components/scaffold-group'
 import { Badge } from '#/components/ui/badge'
 import { groupScaffolding } from '#/lib/agui-scaffolding'
-import { buildConversation, type ConversationEvent } from '#/lib/conversation'
 import { estimateTokens, formatTime, formatTokens, metricTone } from '#/lib/format'
-import { buildAgentLabels, type Span } from '#/lib/spans'
+import type { ConversationEvent, InspectorView } from '#/lib/inspector-view'
 
 interface ConversationViewProps {
-  spans: Span[]
+  view: InspectorView
   onSelect: (id: string) => void
 }
 
@@ -25,9 +24,9 @@ interface EventContext {
   toggle: (id: string) => void
 }
 
-export function ConversationView({ spans, onSelect }: ConversationViewProps) {
-  const events = useMemo(() => buildConversation(spans), [spans])
-  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
+export function ConversationView({ view, onSelect }: ConversationViewProps) {
+  const events = view.conversation
+  const agentLabels = view.agentLabels
 
   const { topLevel, childrenByParent, resultByCallId } = useMemo(() => {
     const top: ConversationEvent[] = []

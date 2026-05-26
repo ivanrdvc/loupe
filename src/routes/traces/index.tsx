@@ -13,12 +13,14 @@ import { TracesDataTable } from './-traces-data-table'
 type TabValue = 'traces' | 'spans'
 
 export const Route = createFileRoute('/traces/')({
-  validateSearch: (search: Record<string, unknown>): { tab?: TabValue; trace?: string } => {
+  validateSearch: (search: Record<string, unknown>): { tab?: TabValue; trace?: string; session?: string } => {
     const rawTab = typeof search.tab === 'string' ? search.tab : ''
     const rawTrace = typeof search.trace === 'string' ? search.trace.trim() : ''
+    const rawSession = typeof search.session === 'string' ? search.session.trim() : ''
     return {
       ...(rawTab === 'spans' ? { tab: 'spans' as const } : {}),
       ...(rawTrace ? { trace: rawTrace } : {}),
+      ...(rawSession ? { session: rawSession } : {}),
     }
   },
   component: TracesIndex,

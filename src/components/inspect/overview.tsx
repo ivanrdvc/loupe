@@ -27,19 +27,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { useIsMobile } from '#/hooks/use-mobile'
 import { formatCost } from '#/lib/format'
-import {
-  buildAgentLabels,
-  descendantSpans,
-  findOrchestratorIds,
-  type Span,
-  spanHasError,
-  subagentChatSpans,
-} from '#/lib/spans'
-import { extractTurns, type Turn, turnTotals } from '#/lib/turns'
+import { type InspectorView, spanHasError, type Turn, turnTotals } from '#/lib/inspector-view'
+import type { Span } from '#/lib/spans'
 import { cn } from '#/lib/utils'
 import { AgUiPanel } from './agui'
 import { ContextTools } from './context'
-import { collectToolGroups } from './context-collectors'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { DetailPanel } from './detail-panel'
 import { SessionLogsPanel } from './logs'
@@ -58,13 +50,13 @@ const INSPECTOR_TABS = [
 ] as const
 
 export function InspectLayout({
-  spans,
+  view,
   loading,
   selectedId,
   onSelect,
   fullSpans,
 }: {
-  spans: Span[]
+  view: InspectorView
   loading?: boolean
   selectedId: string | null
   onSelect: (id: string) => void
@@ -72,10 +64,7 @@ export function InspectLayout({
 }) {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('details')
   const isMobile = useIsMobile()
-  const selectedSpan = useMemo(
-    () => (selectedId ? spans.find((s) => s.id === selectedId) : undefined),
-    [spans, selectedId],
-  )
+  const selectedSpan = selectedId ? view.byId.get(selectedId) : undefined
 
   return (
     <ResizablePanelGroup
@@ -85,12 +74,12 @@ export function InspectLayout({
       <ResizablePanel id="tree" defaultSize="33%" minSize="20%" maxSize="60%">
         <section className="h-full overflow-hidden">
           <ScrollArea className="h-full">
-            {loading && spans.length === 0 ? (
+            {loading && view.spans.length === 0 ? (
               <div className="flex h-full items-center justify-center py-12 text-xs text-muted-foreground/70">
                 <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
               </div>
             ) : (
-              <SpanTreeList spans={spans} selectedId={selectedId} onSelect={onSelect} fullSpans={fullSpans} />
+              <SpanTreeList view={view} selectedId={selectedId} onSelect={onSelect} fullSpans={fullSpans} />
             )}
           </ScrollArea>
         </section>
@@ -98,13 +87,13 @@ export function InspectLayout({
       <ResizableHandle />
       <ResizablePanel id="inspector" defaultSize="67%" minSize="40%">
         <section className="flex h-full min-h-0 min-w-0 flex-col">
-          {loading && spans.length === 0 ? (
+          {loading && view.spans.length === 0 ? (
             <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground/70">
               <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
             </div>
           ) : (
             <>
-              <SessionStrip spans={spans} />
+              <SessionStrip view={view} />
               <div className="flex shrink-0 items-center border-border border-b bg-muted/30 px-3 py-2.5">
                 <IconTabs
                   tabs={INSPECTOR_TABS}
@@ -116,24 +105,24 @@ export function InspectLayout({
               <ScrollArea className="min-h-0 min-w-0 flex-1">
                 {inspectorTab === 'details' ? (
                   selectedSpan ? (
-                    <DetailPanel span={selectedSpan} spans={spans} onSelect={onSelect} />
+                    <DetailPanel span={selectedSpan} view={view} onSelect={onSelect} />
                   ) : (
                     <div className="flex min-h-[8rem] items-center justify-center px-4 text-center text-xs text-muted-foreground/70">
                       Select a span in the tree for details
                     </div>
                   )
                 ) : inspectorTab === 'tools' ? (
-                  <SessionTools spans={spans} selectedSpan={selectedSpan} />
+                  <SessionTools view={view} selectedSpan={selectedSpan} />
                 ) : inspectorTab === 'agui' ? (
                   <div className="px-4 py-4">
-                    <AgUiPanel span={selectedSpan} spans={spans} />
+                    <AgUiPanel span={selectedSpan} view={view} />
                   </div>
                 ) : inspectorTab === 'turns' ? (
-                  <SessionTurnsPanel spans={spans} selectedId={selectedId} onSelect={onSelect} />
+                  <SessionTurnsPanel view={view} selectedId={selectedId} onSelect={onSelect} />
                 ) : inspectorTab === 'attributes' ? (
                   <SpanAttributesPanel selectedSpan={selectedSpan} />
                 ) : (
-                  <SessionLogsPanel spans={spans} enabled={inspectorTab === 'logs'} />
+                  <SessionLogsPanel spans={view.spans} enabled={inspectorTab === 'logs'} />
                 )}
               </ScrollArea>
             </>
@@ -144,40 +133,24 @@ export function InspectLayout({
   )
 }
 
-function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Span | undefined }) {
-  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
-
+function SessionTools({ view, selectedSpan }: { view: InspectorView; selectedSpan: Span | undefined }) {
   // Scope rules: invoke_agent → that agent + descendants (all turns).
   // chat → just that chat span (per-turn registry; surfaces dynamic
   // mid-turn tool loading like load_tools(domain)). Otherwise → full session.
-  const scopeKind: 'agent' | 'turn' | 'session' =
-    selectedSpan?.operation === 'invoke_agent' ? 'agent' : selectedSpan?.operation === 'chat' ? 'turn' : 'session'
+  const groups = useMemo(() => view.toolGroupsFor(selectedSpan), [view, selectedSpan])
 
-  const groups = useMemo(() => {
-    if (scopeKind === 'agent' && selectedSpan) {
-      return collectToolGroups([selectedSpan, ...descendantSpans(spans, selectedSpan.id)])
-    }
-    if (scopeKind === 'turn' && selectedSpan) {
-      return collectToolGroups([selectedSpan])
-    }
-    return collectToolGroups(spans)
-  }, [spans, selectedSpan, scopeKind])
-
-  const totals = useMemo(() => {
-    let count = 0
-    let tokens = 0
-    for (const group of groups) {
-      count += group.tools.length
-      tokens += group.tokens
-    }
-    return { count, tokens }
-  }, [groups])
+  let count = 0
+  let tokens = 0
+  for (const group of groups) {
+    count += group.tools.length
+    tokens += group.tokens
+  }
 
   const scopeLabel =
-    scopeKind === 'agent' && selectedSpan
-      ? (agentLabels.get(selectedSpan.id) ?? displayFor(selectedSpan, agentLabels).name)
-      : scopeKind === 'turn' && selectedSpan
-        ? `Turn · ${displayFor(selectedSpan, agentLabels).name}`
+    selectedSpan?.operation === 'invoke_agent'
+      ? (view.agentLabels.get(selectedSpan.id) ?? displayFor(selectedSpan, view.agentLabels).name)
+      : selectedSpan?.operation === 'chat'
+        ? `Turn · ${displayFor(selectedSpan, view.agentLabels).name}`
         : 'All agents'
 
   return (
@@ -185,8 +158,7 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
       <header className="mb-3 flex items-baseline justify-between gap-2 text-sm">
         <span className="truncate font-medium text-foreground">{scopeLabel}</span>
         <span className="shrink-0 tabular-nums text-muted-foreground">
-          {totals.count} tool{totals.count === 1 ? '' : 's'} ·{' '}
-          {totals.tokens ? `${formatTokens(totals.tokens)} tokens` : '—'}
+          {count} tool{count === 1 ? '' : 's'} · {tokens ? `${formatTokens(tokens)} tokens` : '—'}
         </span>
       </header>
       <ContextTools groups={groups} />
@@ -194,57 +166,20 @@ function SessionTools({ spans, selectedSpan }: { spans: Span[]; selectedSpan: Sp
   )
 }
 
-function SessionStrip({ spans }: { spans: Span[] }) {
-  const orchestratorIds = useMemo(() => findOrchestratorIds(spans), [spans])
-  const turns = useMemo(() => extractTurns(spans, orchestratorIds), [spans, orchestratorIds])
-  const chatSpans = useMemo(() => turns.flatMap((turn) => turn.chats), [turns])
-  const { ready, total } = useBreakdowns(chatSpans)
-  const orchestrator = orchestratorIds[0] ? spans.find((span) => span.id === orchestratorIds[0]) : undefined
-  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
+function SessionStrip({ view }: { view: InspectorView }) {
+  const { ready, total } = useBreakdowns(view.orchestratorChats)
+  const orchestrator = view.orchestratorIds[0] ? view.byId.get(view.orchestratorIds[0]) : undefined
   const agent = orchestrator
-    ? (agentLabels.get(orchestrator.id) ?? orchestrator.agentName ?? orchestrator.name)
+    ? (view.agentLabels.get(orchestrator.id) ?? orchestrator.agentName ?? orchestrator.name)
     : 'Session'
 
-  const totals = useMemo(() => {
-    let input = 0
-    let output = 0
-    let cached = 0
-    let cost = 0
-    let errors = 0
-    let duration = 0
-    for (const turn of turns) {
-      const t = turnTotals(turn)
-      input += t.inputTokens
-      output += t.outputTokens
-      cached += t.cachedTokens
-      cost += t.costUsd
-      errors += turn.actions.filter(spanHasError).length
-      duration += t.durationMs
-    }
-    return { input, output, cached, cost, errors, duration }
-  }, [turns])
-
-  // Tracked separately for the breakdown bar's `subagent` segment only —
-  // turnTotals already folds these into per-turn (and thus session) totals,
-  // so we must NOT add them to totalCost / allTokens again.
-  const subagentTokens = useMemo(() => {
-    let tokens = 0
-    for (const span of subagentChatSpans(spans)) {
-      tokens += (span.inputTokens ?? 0) + (span.outputTokens ?? 0)
-    }
-    return tokens
-  }, [spans])
-
-  const inputTokens = total.inputTokens || totals.input
-  const outputTokens = total.outputTokens || totals.output
-  const cachedTokens = total.cachedTokens || totals.cached
+  const inputTokens = total.inputTokens || view.totals.input
+  const outputTokens = total.outputTokens || view.totals.output
+  const cachedTokens = total.cachedTokens || view.totals.cached
   const allTokens = inputTokens + outputTokens
   const cachePct = inputTokens > 0 ? Math.round((cachedTokens / inputTokens) * 100) : 0
-  const totalCost = totals.cost
 
-  if (orchestratorIds.length === 0) {
-    return null
-  }
+  if (view.orchestratorIds.length === 0) return null
 
   return (
     <section className="shrink-0 border-border border-b px-4 py-3">
@@ -252,10 +187,10 @@ function SessionStrip({ spans }: { spans: Span[] }) {
         <span className="truncate font-medium text-foreground">{agent}</span>
         <span className="text-muted-foreground/60">·</span>
         <span className="text-muted-foreground">
-          {turns.length} turn{turns.length === 1 ? '' : 's'}
+          {view.turns.length} turn{view.turns.length === 1 ? '' : 's'}
         </span>
         <span className="text-muted-foreground/60">·</span>
-        <span className="text-muted-foreground">{formatDuration(totals.duration)}</span>
+        <span className="text-muted-foreground">{formatDuration(view.totals.durationMs)}</span>
         <span className="text-muted-foreground/60">·</span>
         <span className="text-foreground">
           <span className="font-semibold">{allTokens ? formatTokens(allTokens) : '—'}</span>{' '}
@@ -276,10 +211,10 @@ function SessionStrip({ spans }: { spans: Span[] }) {
           </>
         )}
         <span className="text-muted-foreground/60">·</span>
-        <span className="text-foreground font-semibold">{formatCost(totalCost)}</span>
+        <span className="text-foreground font-semibold">{formatCost(view.totals.cost)}</span>
         <span className="text-muted-foreground/60">·</span>
-        <span className={totals.errors > 0 ? 'text-destructive' : 'text-muted-foreground'}>
-          {totals.errors > 0 ? `${totals.errors} err` : '0 err'}
+        <span className={view.totals.errors > 0 ? 'text-destructive' : 'text-muted-foreground'}>
+          {view.totals.errors > 0 ? `${view.totals.errors} err` : '0 err'}
         </span>
         {!ready && <span className="text-[11px] text-muted-foreground">counting…</span>}
       </div>
@@ -288,7 +223,7 @@ function SessionStrip({ spans }: { spans: Span[] }) {
           systemTokens={total.systemTokens}
           toolDefsTokens={total.toolDefsTokens}
           messagesTokens={total.messagesTokens}
-          subagentTokens={subagentTokens}
+          subagentTokens={view.subagentChatTokens}
         />
       </div>
     </section>
@@ -459,21 +394,16 @@ function formatAttrValue(v: unknown): string {
 }
 
 function SessionTurnsPanel({
-  spans,
+  view,
   selectedId,
   onSelect,
 }: {
-  spans: Span[]
+  view: InspectorView
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
-  const orchestratorIds = useMemo(() => findOrchestratorIds(spans), [spans])
-  const turns = useMemo(() => extractTurns(spans, orchestratorIds), [spans, orchestratorIds])
-  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
-  const errorCount = useMemo(
-    () => turns.reduce((sum, turn) => sum + turn.actions.filter(spanHasError).length, 0),
-    [turns],
-  )
+  const turns = view.turns
+  const errorCount = view.totals.errors
 
   if (turns.length === 0) {
     return (
@@ -526,7 +456,7 @@ function SessionTurnsPanel({
                   turn={turn}
                   prevTurn={prev}
                   index={index + 1}
-                  agentLabels={agentLabels}
+                  agentLabels={view.agentLabels}
                   selected={turn.run.id === selectedId}
                   onSelect={onSelect}
                 />

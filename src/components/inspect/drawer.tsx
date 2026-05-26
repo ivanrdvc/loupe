@@ -10,6 +10,7 @@ import { CopyButton } from '#/components/copy-button'
 import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { buildInspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
@@ -57,8 +58,10 @@ export function InspectDrawer({
   const [contentReady, setContentReady] = useState(false)
   const [fullSpans, setFullSpans] = useState(false)
 
+  const view = useMemo(() => buildInspectorView(open ? spans : []), [open, spans])
+
   useSpanSearch({
-    spans: open ? spans : [],
+    view,
     fullSpans,
     onSelect: (id) => {
       setSelectedId(id)
@@ -222,7 +225,7 @@ export function InspectDrawer({
           onFullSpansChange={setFullSpans}
           hiddenTabs={hiddenTabs}
           extras={
-            contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow spans={spans} /> : null
+            contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow view={view} /> : null
           }
         />
 
@@ -234,14 +237,14 @@ export function InspectDrawer({
                   <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
                 </div>
               ) : (
-                <ConversationView spans={spans} onSelect={setSelectedId} />
+                <ConversationView view={view} onSelect={setSelectedId} />
               )}
             </section>
           ) : (
             <div className="flex min-h-0 flex-1">
               <InspectLayout
                 key={inspectKey ?? undefined}
-                spans={contentReady ? spans : []}
+                view={view}
                 loading={showLoading}
                 selectedId={selectedId}
                 onSelect={setSelectedId}

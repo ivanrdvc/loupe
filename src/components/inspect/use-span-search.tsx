@@ -2,24 +2,22 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { Badge } from '#/components/ui/badge'
-import { buildAgentLabels, type Span } from '#/lib/spans'
+import { type InspectorView, isCollapsibleInfra } from '#/lib/inspector-view'
 import { displayFor } from './shared'
 
 export function useSpanSearch({
-  spans,
+  view,
   fullSpans,
   onSelect,
 }: {
-  spans: Span[]
+  view: InspectorView
   fullSpans: boolean
   onSelect: (id: string) => void
 }) {
-  const agentLabels = useMemo(() => buildAgentLabels(spans), [spans])
-
   const provider = useMemo<SearchProvider | null>(() => {
-    if (spans.length === 0) return null
-    const byId = new Map(spans.map((s) => [s.id, s]))
-    const visible = fullSpans ? spans : spans.filter((s) => s.operation !== 'http' && s.operation !== 'mcp')
+    if (view.spans.length === 0) return null
+    const { spans, byId, agentLabels } = view
+    const visible = fullSpans ? spans : spans.filter((s) => !isCollapsibleInfra(s))
     return {
       id: 'session-spans',
       group: 'Spans in this session',
@@ -62,7 +60,7 @@ export function useSpanSearch({
         }
       }),
     }
-  }, [spans, fullSpans, agentLabels, onSelect])
+  }, [view, fullSpans, onSelect])
 
   useRegisterSearchProvider(provider)
 }

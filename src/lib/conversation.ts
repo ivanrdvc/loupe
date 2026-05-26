@@ -1,5 +1,5 @@
 import { type JsonValue, parseJson } from './json'
-import { findUtilityChatIds, type Span } from './spans'
+import type { Span } from './spans'
 
 // Discriminated union for the conversation view. Each renderer pattern-
 // matches on `kind`; adding a new event type is one new arm. We deliberately
@@ -139,6 +139,20 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
 
   events.sort((a, b) => a.timestamp - b.timestamp)
   return events
+}
+
+// Side-channel LLM calls (title gen, summarization). Explicit signal:
+// `gen_ai.operation.purpose`. Fallback: in an AG-UI trace, conversation chats
+// carry `ag_ui.run_id` and utility chats don't.
+export function findUtilityChatIds(spans: Span[]): Set<string> {
+  const traceHasAgUiRun = spans.some((s) => s.agUiRunId != null)
+  const out = new Set<string>()
+  for (const s of spans) {
+    if (s.operation !== 'chat') continue
+    if (s.operationName) out.add(s.id)
+    else if (traceHasAgUiRun && !s.agUiRunId) out.add(s.id)
+  }
+  return out
 }
 
 function emitUtilityChat(span: Span, events: ConversationEvent[]): void {

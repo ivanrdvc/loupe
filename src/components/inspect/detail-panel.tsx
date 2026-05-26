@@ -13,22 +13,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/component
 import { useUser } from '#/hooks/use-user'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
+import { type InspectorView, isLlmLike, type ToolCallResolution } from '#/lib/inspector-view'
 import { formatJson, type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
-import { buildAgentLabels, descendantSpans, resolveToolCalls, type Span, type ToolCallResolution } from '#/lib/spans'
+import type { Span } from '#/lib/spans'
 import type { LogLevel } from '#/lib/telemetry/types'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
 import { fetchSessionLogs } from '#/server/logs'
 import { createPrompt } from '#/server/prompts'
 import { displayFor, fmtNum, formatDuration } from './shared'
-
-function isLlmSpan(span: Span): boolean {
-  if (span.operation === 'chat') return true
-  if (span.llmInput != null || span.llmOutput != null) return true
-  if (span.model) return true
-  return false
-}
 
 function extractPromptMessages(span: Span): PromptMessage[] {
   const out: PromptMessage[] = []
@@ -39,60 +33,22 @@ function extractPromptMessages(span: Span): PromptMessage[] {
   return out
 }
 
-// System prompt for an invoke_agent: take the first `role:system` message from
-// the earliest descendant chat span. The prompt is restamped on every chat
-// turn, so the first one is canonical and avoids AG-UI state-sync noise that
-// can creep in on later turns.
-function firstAgentSystemPrompt(span: Span, spans?: Span[]): string | undefined {
-  if (!spans || span.operation !== 'invoke_agent') return undefined
-  const chats = descendantSpans(spans, span.id)
-    .filter((s) => s.operation === 'chat')
-    .sort((a, b) => a.startMs - b.startMs)
-  for (const chat of chats) {
-    const sys = asMessages(chat.llmInput).find((m) => m.role === 'system')
-    if (!sys) continue
-    const text = sys.parts
-      .filter((p): p is Extract<MessagePart, { kind: 'text' }> => p.kind === 'text')
-      .map((p) => p.content)
-      .join('\n\n')
-      .trim()
-    if (text) return text
-  }
-  return undefined
-}
-
 export function DetailPanel({
   span,
-  spans,
+  view,
   onSelect,
 }: {
   span: Span
-  spans?: Span[]
+  view?: InspectorView
   onSelect?: (id: string) => void
 }) {
   const duration = span.endMs - span.startMs
-  const agentLabels = useMemo(() => (spans ? buildAgentLabels(spans) : undefined), [spans])
-  const display = displayFor(span, agentLabels)
-  const systemPrompt = useMemo(() => firstAgentSystemPrompt(span, spans), [span, spans])
+  const display = displayFor(span, view?.agentLabels)
+  const systemPrompt = view?.systemPromptByAgent.get(span.id)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useUser()
-  const nestedErrors = useMemo<Span[]>(() => {
-    if (!spans) return []
-    const out: Span[] = []
-    const queue: string[] = [span.id]
-    const visited = new Set<string>([span.id])
-    while (queue.length > 0 && out.length < 5) {
-      const pid = queue.shift()
-      for (const child of spans) {
-        if (child.parentId !== pid || visited.has(child.id)) continue
-        visited.add(child.id)
-        if (child.errorType || child.errorMessage) out.push(child)
-        queue.push(child.id)
-      }
-    }
-    return out
-  }, [spans, span.id])
+  const nestedErrors = useMemo<Span[]>(() => view?.descendantErrors(span.id) ?? [], [view, span.id])
 
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -145,7 +101,7 @@ export function DetailPanel({
           parentTraceId={span.traceId}
           parentSessionId={span.sessionId ?? null}
         />
-        {isLlmSpan(span) && (
+        {isLlmLike(span) && (
           <Button
             variant="outline"
             size="sm"
@@ -230,16 +186,17 @@ export function DetailPanel({
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
       {(span.llmInput != null || span.llmOutput != null) && (
-        <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} spans={spans} />
+        <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} view={view} />
       )}
-      <SpanLogsBlock span={span} spans={spans} />
+      <SpanLogsBlock span={span} view={view} />
     </div>
   )
 }
 
-function SpanLogsBlock({ span, spans }: { span: Span; spans?: Span[] }) {
+function SpanLogsBlock({ span, view }: { span: Span; view?: InspectorView }) {
   // Shares the React Query cache key with SessionLogsPanel so both panels
   // dedupe the same fetch.
+  const spans = view?.spans
   const traceIds = useMemo(() => {
     const all = spans ?? [span]
     return [...new Set(all.map((s) => s.traceId).filter(Boolean))].sort()
@@ -300,18 +257,18 @@ function MessagesBlock({
   input,
   output,
   outputType,
-  spans,
+  view,
 }: {
   input?: JsonValue
   output?: JsonValue
   outputType?: string
-  spans?: Span[]
+  view?: InspectorView
 }) {
   const inputMsgs = useMemo(() => asMessages(input), [input])
   const outputMsgs = useMemo(() => asMessages(output), [output])
   // Tool results live on the sibling execute_tool span — asMessages drops
   // tool-role messages — so we splice them back in keyed by tool_call id.
-  const callResolutions = useMemo(() => (spans ? resolveToolCalls(spans) : new Map()), [spans])
+  const callResolutions = view?.callResolutions ?? new Map<string, ToolCallResolution>()
   const structured = outputType && outputType !== 'text' ? outputType : undefined
 
   // If parser produced nothing usable, fall back to raw JSON so we don't hide data.

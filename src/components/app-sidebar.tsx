@@ -109,11 +109,7 @@ export function AppSidebar() {
                   {recentSessions.map((session) => (
                     <SidebarMenuItem key={session.sessionId}>
                       <SidebarMenuButton asChild>
-                        <Link
-                          to="/sessions/$sessionId"
-                          params={{ sessionId: session.sessionId }}
-                          search={{ range: DEFAULT, view: 'conversation' }}
-                        >
+                        <Link to="." search={(prev) => ({ ...(prev as object), session: session.sessionId })}>
                           <span className="truncate">{session.title ?? session.firstInput ?? session.sessionId}</span>
                         </Link>
                       </SidebarMenuButton>

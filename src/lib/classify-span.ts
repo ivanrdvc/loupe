@@ -13,6 +13,7 @@ export interface Classification {
   agentName?: string
   agentId?: string
   agentDescription?: string
+  systemInstructions?: string
   toolName?: string
   toolCallId?: string
   tokens?: number
@@ -99,6 +100,11 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     const description = pickString(attrs, ['gen_ai.agent.description', 'gen_ai_agent_description'])
     if (description) c.agentDescription = description
   }
+
+  const sysInstructions = parseSystemInstructions(
+    pickString(attrs, ['gen_ai.system_instructions', 'gen_ai_system_instructions']),
+  )
+  if (sysInstructions) c.systemInstructions = sysInstructions
 
   // Run-graph identity (top-level so producers stamping on non-invoke_agent
   // spans also flow through). graph.node.* is accepted as an alias.
@@ -204,6 +210,36 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
   })
 
   return c
+}
+
+// `gen_ai.system_instructions` is `[{type:"text",content:"..."}, ...]`.
+// Regex fallback handles App Insights' 8 KB customDimensions truncation
+// slicing mid-content (JSON parse fails on the partial array).
+function parseSystemInstructions(raw: string | undefined): string | undefined {
+  if (!raw) return undefined
+  const parsed = parseJson(raw)
+  if (Array.isArray(parsed)) {
+    const parts: string[] = []
+    for (const item of parsed) {
+      if (item && typeof item === 'object' && !Array.isArray(item) && item.type === 'text') {
+        const content = item.content
+        if (typeof content === 'string' && content) parts.push(content)
+      }
+    }
+    const joined = parts.join('\n\n').trim()
+    if (joined) return joined
+  }
+  // Truncation fallback: pull every `"content":"..."` string we can match.
+  const salvaged: string[] = []
+  for (const m of raw.matchAll(/"content"\s*:\s*"((?:[^"\\]|\\.)*)/g)) {
+    try {
+      salvaged.push(JSON.parse(`"${m[1]}"`))
+    } catch {
+      salvaged.push(m[1])
+    }
+  }
+  const joined = salvaged.join('\n\n').trim()
+  return joined || undefined
 }
 
 function pickOperation(name: string, attrs: Record<string, unknown>): Operation {
