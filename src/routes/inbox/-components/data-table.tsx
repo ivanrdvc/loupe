@@ -93,7 +93,7 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="h-14 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                  className="h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
