@@ -11,12 +11,11 @@ import {
   TableCellsIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo, useState } from 'react'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
+import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
@@ -78,7 +77,7 @@ export function InspectLayout({
           <ScrollArea className="h-full">
             {loading && view.spans.length === 0 ? (
               <div className="flex h-full items-center justify-center py-12 text-xs text-muted-foreground/70">
-                <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+                <Spinner />
               </div>
             ) : (
               <SpanTreeList view={view} selectedId={selectedId} onSelect={onSelect} fullSpans={fullSpans} />
@@ -91,7 +90,7 @@ export function InspectLayout({
         <section className="flex h-full min-h-0 min-w-0 flex-col">
           {loading && view.spans.length === 0 ? (
             <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground/70">
-              <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+              <Spinner />
             </div>
           ) : (
             <>

@@ -1,3 +1,4 @@
+import { formatPercent } from '#/lib/format'
 import type { RollupSummary } from '#/lib/tasks/rollup'
 import { cn } from '#/lib/utils'
 
@@ -34,11 +35,6 @@ function fmtCount(n: number): string {
   return n.toLocaleString()
 }
 
-function ratePct(numer: number, denom: number): string {
-  if (denom === 0) return '—'
-  return `${((numer / denom) * 100).toFixed(1)}%`
-}
-
 function rateTone(numer: number, denom: number, greenAt: number, amberAt: number): Tone {
   if (denom === 0) return 'muted'
   const ratio = numer / denom
@@ -58,13 +54,13 @@ function buildTiles(summary: RollupSummary): TileData[] {
   return [
     {
       label: 'Success rate',
-      value: ratePct(summary.success, summary.fires),
+      value: formatPercent(summary.success, summary.fires),
       caption: summary.fires === 0 ? '' : `${fmtCount(summary.success)}/${fmtCount(summary.fires)}`,
       tone: rateTone(summary.success, summary.fires, 0.99, 0.95),
     },
     {
       label: 'Healthy tasks',
-      value: ratePct(summary.healthyTasks, summary.taskCount),
+      value: formatPercent(summary.healthyTasks, summary.taskCount),
       caption: summary.taskCount === 0 ? '' : `${fmtCount(summary.healthyTasks)}/${fmtCount(summary.taskCount)}`,
       tone: rateTone(summary.healthyTasks, summary.taskCount, 0.95, 0.85),
     },

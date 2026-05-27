@@ -6,7 +6,7 @@ import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { formatTokens } from '#/lib/format'
+import { formatPercent, formatTokens } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import type { InventoryRow } from '#/server/inbox'
 
@@ -118,7 +118,7 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
                 <TableCell className="text-right tabular-nums">{row.errors}</TableCell>
                 <TableCell className="text-right tabular-nums">{row.total}</TableCell>
                 <TableCell className="text-right">
-                  <Badge variant="destructive">{(row.errorRate * 100).toFixed(1)}%</Badge>
+                  <Badge variant="destructive">{formatPercent(row.errorRate, 1)}</Badge>
                 </TableCell>
                 <TableCell>
                   <OpenLink traceId={row.lastErrorTraceId} />

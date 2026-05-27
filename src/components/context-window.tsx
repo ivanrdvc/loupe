@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Progress } from '#/components/ui/progress'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
-import { formatCost } from '#/lib/format'
+import { formatCost, formatPercent } from '#/lib/format'
 import type { InspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 
@@ -71,14 +71,14 @@ export function ContextWindow({ view }: ContextWindowProps) {
         className="inline-flex h-7 items-center gap-2 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/30"
         aria-label="Model context usage"
       >
-        <span className="tabular-nums">{limit ? `${(pct * 100).toFixed(1)}%` : formatTokens(peakInput)}</span>
+        <span className="tabular-nums">{limit ? formatPercent(pct, 1) : formatTokens(peakInput)}</span>
         <Ring pct={pct} />
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={6} className="w-64 p-0 text-xs">
         <div className="border-b px-3 py-2">
           <div className="flex items-baseline justify-between">
             <div className="font-medium tabular-nums text-foreground">
-              {limit ? `${(pct * 100).toFixed(1)}%` : formatTokens(peakInput)}
+              {limit ? formatPercent(pct, 1) : formatTokens(peakInput)}
             </div>
             <div className="tabular-nums text-muted-foreground">
               {limit ? `${formatTokens(peakInput)} / ${formatTokens(limit)}` : `${formatTokens(peakInput)} peak`}
@@ -131,7 +131,7 @@ function Ring({ pct }: { pct: number }) {
       height={20}
       style={{ color: 'currentcolor' }}
     >
-      <title>{`${(pct * 100).toFixed(1)}% of context used`}</title>
+      <title>{`${formatPercent(pct, 1)} of context used`}</title>
       <circle cx={12} cy={12} r={r} fill="none" opacity={0.25} stroke="currentColor" strokeWidth={2} />
       <circle
         cx={12}

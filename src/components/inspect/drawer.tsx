@@ -1,5 +1,3 @@
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { IconMaximize, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
@@ -7,6 +5,7 @@ import { toast } from 'sonner'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
+import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
@@ -235,7 +234,7 @@ export function InspectDrawer({
             <section className="min-h-0 flex-1 overflow-hidden">
               {!contentReady || (loading && spans.length === 0) ? (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+                  <Spinner />
                 </div>
               ) : (
                 <ConversationView view={view} onSelect={setSelectedId} />

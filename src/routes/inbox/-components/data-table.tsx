@@ -1,5 +1,3 @@
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { IconChevronLeft, IconChevronRight, IconSearch } from '@tabler/icons-react'
 import {
   type ColumnFiltersState,
@@ -15,6 +13,7 @@ import {
 } from '@tanstack/react-table'
 import * as React from 'react'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
+import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
@@ -104,11 +103,7 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
             ) : (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
-                  {isLoading ? (
-                    <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="mx-auto size-4 animate-spin" />
-                  ) : (
-                    'Inbox is clear.'
-                  )}
+                  {isLoading ? <Spinner size="md" className="mx-auto" /> : 'Inbox is clear.'}
                 </TableCell>
               </TableRow>
             )}

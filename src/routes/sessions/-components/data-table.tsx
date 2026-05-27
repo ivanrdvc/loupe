@@ -1,5 +1,3 @@
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -19,6 +17,7 @@ import {
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
+import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
@@ -157,11 +156,7 @@ export function DataTable({
                   <TableCell colSpan={columns.length} className="h-48">
                     <div className="flex h-full items-center justify-center">
                       {isLoading ? (
-                        <HugeiconsIcon
-                          icon={Loading03Icon}
-                          strokeWidth={2}
-                          className="size-4 animate-spin text-muted-foreground"
-                        />
+                        <Spinner size="md" className="text-muted-foreground" />
                       ) : scopeToMe && userId ? (
                         <div className="max-w-md space-y-1 text-center text-muted-foreground">
                           <div>

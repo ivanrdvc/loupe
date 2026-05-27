@@ -1,8 +1,7 @@
 import { ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/16/solid'
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Fragment, useMemo, useState } from 'react'
+import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
@@ -58,7 +57,7 @@ export function SessionLogsPanel({ spans, enabled }: { spans: Span[]; enabled: b
   if (isLoading) {
     return (
       <div className="flex items-center justify-center px-4 py-12 text-xs text-muted-foreground/70">
-        <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+        <Spinner />
       </div>
     )
   }
