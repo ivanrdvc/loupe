@@ -4,7 +4,7 @@ type: guide
 summary: <One sentence. What task this guide accomplishes and who would run it.>
 status: draft               # draft | stable | deprecated
 owner: "@ivan"
-audience: agentops-devs
+audience: loupe-devs
 last-reviewed: YYYY-MM-DD   # today
 tags: []
 ---

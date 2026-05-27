@@ -1,5 +1,5 @@
 // OTel attribute aliasing for fields where producers legitimately use
-// different names (LLM tokens, cost, session id, model). The agentops
+// different names (LLM tokens, cost, session id, model). The loupe
 // convention spec only pins agent-identity attrs; everything else stays
 // multi-alias so we can ingest from Langfuse / Pydantic / OpenLLMetry /
 // OpenInference / AG-UI without each producer having to conform.

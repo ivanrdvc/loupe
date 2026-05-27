@@ -52,7 +52,7 @@ async function postToolsList(endpoint: string): Promise<JsonRpcToolsList> {
         Accept: 'application/json, text/event-stream',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 'agentops-tools-list', method: 'tools/list', params: {} }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 'loupe-tools-list', method: 'tools/list', params: {} }),
       signal: controller.signal,
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)

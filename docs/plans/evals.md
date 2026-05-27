@@ -8,7 +8,7 @@ Status: draft. Ingestion shape is roughly settled (push + OTel + drop + manual).
 
 ### 1. Presentation & organization
 
-How does a user think about "evals" inside agentops? Pick the mental model first; the schema falls out of it.
+How does a user think about "evals" inside loupe? Pick the mental model first; the schema falls out of it.
 
 - **Flat list of runs, tagged?** Every ingested `ScenarioRunResult` is just another timestamped row; we filter by tag (`name=qa-bot-regression`, `env=ci`, `git_sha=…`). Cheapest. No "definition" concept at all — the eval *is* the set of runs that share a name.
 - **Definition + runs (two levels)?** A named eval definition (durable card) has a stream of runs underneath. Matches how Foundry / MEAI users think. Slightly more schema, much better landing page.
@@ -53,7 +53,7 @@ Assume sessions from other users are already visible to us (per `docs/plans/sess
 Tentative compromise: **we orchestrate, we don't evaluate.**
 
 1. User clicks "Run eval X against session Y" in the UI.
-2. agentops POSTs the session messages + eval criteria to a **user-registered evaluator endpoint** (an HTTP webhook the user owns — could be their CI, a Lambda, an LLM-judge service).
+2. loupe POSTs the session messages + eval criteria to a **user-registered evaluator endpoint** (an HTTP webhook the user owns — could be their CI, a Lambda, an LLM-judge service).
 3. The evaluator runs wherever the user wants and POSTs results back to the existing `/api/evals/ingest`, tagged with the source session id.
 4. The result row links to both the eval definition and the originating session.
 
@@ -72,7 +72,7 @@ Sub-questions:
 
 ## Feature overview
 
-Users run evals on their agents (MEAI in .NET, `agent_framework` in Python, or custom). agentops collects the results and shows them on an eval page with history and trace linkage. No outbound calls to Microsoft, no Foundry dependency.
+Users run evals on their agents (MEAI in .NET, `agent_framework` in Python, or custom). loupe collects the results and shows them on an eval page with history and trace linkage. No outbound calls to Microsoft, no Foundry dependency.
 
 ## Ingestion — four paths, one landing zone
 
@@ -86,11 +86,11 @@ Authorization: Bearer <project_api_key>
 Body: ScenarioRunResult JSON (single or batched)
 ```
 
-Idempotent on `(project_id, definition_name, run.external_id)`. Callers: a `agentops-upload` CLI, a GitHub Action, or a tiny `@agentops/evals` SDK they import in their test setup.
+Idempotent on `(project_id, definition_name, run.external_id)`. Callers: a `loupe-upload` CLI, a GitHub Action, or a tiny `@loupe/evals` SDK they import in their test setup.
 
 ### Path 2 — OTel piggyback (for users who already ship OTel to OpenObserve)
 
-When this lands, the `eval.*` attrs below should be declared in [`../explanation/02-spec.md`](../explanation/02-spec.md) alongside the existing `gen_ai.*` and `task.*` sets — agentops's convention spec is the canonical home for "what attrs agentops reads", and eval attrs are a natural spec extension. Cross-link both directions when the spec gets a new section.
+When this lands, the `eval.*` attrs below should be declared in [`../explanation/02-spec.md`](../explanation/02-spec.md) alongside the existing `gen_ai.*` and `task.*` sets — loupe's convention spec is the canonical home for "what attrs loupe reads", and eval attrs are a natural spec extension. Cross-link both directions when the spec gets a new section.
 
 Ship a small MEAI `IEvaluationResultStore` / Python equivalent that emits each result as an **OTel log record** with a known attribute schema:
 
@@ -105,7 +105,7 @@ eval.metric.passed     = true
 eval.metric.reason     = "..."
 ```
 
-The log inherits the parent agent span's trace context → trace linkage is free. agentops queries OpenObserve for `event.name = "agentops.eval"` on a cron (or lazily) and materializes into the same tables as Path 1.
+The log inherits the parent agent span's trace context → trace linkage is free. loupe queries OpenObserve for `event.name = "loupe.eval"` on a cron (or lazily) and materializes into the same tables as Path 1.
 
 ### Path 3 — Object-storage drop (no OTel, no outbound HTTP from CI)
 
@@ -151,7 +151,7 @@ Indexes: `(definition_id, started_at desc)` for history; `(project_id, name)` fo
 
 ## Non-goals (v1)
 
-- Authoring eval definitions inside agentops (we receive, we don't define).
+- Authoring eval definitions inside loupe (we receive, we don't define).
 - Running evals ourselves / hosting evaluator LLMs.
 - Foundry integration (skipped per current direction).
 - Real-time streaming of a long-running eval. Batch on completion is fine.

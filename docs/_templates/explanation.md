@@ -6,7 +6,7 @@ summary: <One sentence. Why this subsystem works the way it does and what it
          so be specific.>
 status: draft               # draft | stable | deprecated
 owner: "@ivan"
-audience: agentops-devs
+audience: loupe-devs
 last-reviewed: YYYY-MM-DD   # today
 tags: []
 ---

@@ -6,24 +6,12 @@ export function Logo({ className, ...props }: { className?: string } & React.Com
     <span
       data-slot="avatar"
       {...props}
-      className={clsx(
-        className,
-        'inline-grid shrink-0 place-items-center rounded-[20%] align-middle',
-        'outline -outline-offset-1 outline-border',
-        'bg-foreground text-background',
-      )}
+      className={clsx(className, 'inline-grid shrink-0 place-items-center align-middle')}
     >
-      <svg
-        viewBox="0 0 100 100"
-        className="size-full p-[22%]"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="10"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <polyline points="0,55 22,55 33,38 50,78 62,18 72,55 100,55" />
+      <svg viewBox="0 0 100 100" className="size-full" aria-hidden="true">
+        <rect width="100" height="100" rx="22" fill="#09090b" />
+        <rect x="22" y="30" width="64" height="18" rx="9" fill="#a78bfa" />
+        <rect x="14" y="54" width="64" height="18" rx="9" fill="#a78bfa" />
       </svg>
     </span>
   )

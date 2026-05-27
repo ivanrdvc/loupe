@@ -3,7 +3,7 @@ title: Session Sidebar Recent
 type: explanation
 summary: How the Sessions page and sidebar Recent list differ.
 status: current
-owner: agentops
+owner: loupe
 audience: engineers
 last-reviewed: 2026-05-15
 tags: [sessions, sidebar, telemetry]
@@ -21,7 +21,7 @@ comes from the current operator's identity and is applied server-side before
 returning up to five sessions.
 
 For now, identity is just a single user ID stored in browser `localStorage`
-(key `agentops:user-id`). Set it from the UI:
+(key `loupe:user-id`). Set it from the UI:
 
 1. Open Settings → Account.
 2. Enter your **User ID** — the same value emitted in telemetry as `user.id`,

@@ -1,6 +1,6 @@
 # TODO — HTTP API for LLM debugging
 
-agentops's value over raw OTel is the classification, conversation reconstruction, and aggregation we already do in `src/lib/`. The HTTP API exposes those same views over plain endpoints so an LLM-driven dev tool (Claude Code, Cursor, anything with a fetch) can pull run data while a developer is debugging — "why did my last run blow up" answered by the LLM itself, not by paste-and-pray.
+loupe's value over raw OTel is the classification, conversation reconstruction, and aggregation we already do in `src/lib/`. The HTTP API exposes those same views over plain endpoints so an LLM-driven dev tool (Claude Code, Cursor, anything with a fetch) can pull run data while a developer is debugging — "why did my last run blow up" answered by the LLM itself, not by paste-and-pray.
 
 Localhost only, read-only, no auth. A Claude Code skill discovers it; the API itself stays transport-agnostic. Explicitly *not* MCP — protocol tax not justified for in-house local access, and we don't want to ship the bloat we're already planning to lint against in `mcp.md`.
 
@@ -83,7 +83,7 @@ Search is **open** (see below). If included, it's:
 - [ ] `src/routes/api/runs/$runId/errors.ts` — errors-only markdown.
 - [ ] Verify dev + prod server binds `127.0.0.1` only.
 - [ ] `docs/reference/http-api.md` — endpoint reference table.
-- [ ] Follow-up (separate task, not in this plan): Claude Code skill at `.claude/skills/agentops/SKILL.md` that triggers on debug-shaped questions and knows the endpoint URLs.
+- [ ] Follow-up (separate task, not in this plan): Claude Code skill at `.claude/skills/loupe/SKILL.md` that triggers on debug-shaped questions and knows the endpoint URLs.
 
 ## Not in v1
 

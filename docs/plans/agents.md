@@ -38,7 +38,7 @@ The MCP registry can't see column 2; only an agent inventory can. The agent inve
 
 - **Workflows vs agents.** `/v1/entities` returns both. Each workflow has a non-empty `executors` field (nested nodes). v1 ingests them as agents (single `agents` row, type discriminator); rendering the executor tree is a follow-up.
 
-- **OTel-derived agents (future).** Every distinct `gen_ai.agent.name` that appears as a top-level `invoke_agent` (no `gen_ai.task.parent.id`) is an agent — agentops can derive a second inventory from telemetry alone, alongside DevUI. Especially useful for non-MEAI frameworks. `gen_ai.task.parent.id` (per [`../explanation/02-spec.md`](../explanation/02-spec.md)) also gives sub-agent linkage without manual lint rules.
+- **OTel-derived agents (future).** Every distinct `gen_ai.agent.name` that appears as a top-level `invoke_agent` (no `gen_ai.task.parent.id`) is an agent — loupe can derive a second inventory from telemetry alone, alongside DevUI. Especially useful for non-MEAI frameworks. `gen_ai.task.parent.id` (per [`../explanation/02-spec.md`](../explanation/02-spec.md)) also gives sub-agent linkage without manual lint rules.
 
 ## Source interface
 
@@ -136,8 +136,8 @@ The agent test repo (`agent-run-test/agent/Program.cs:84`) mounts DevUI via `app
 | Endpoint | Method | What it gives |
 |---|---|---|
 | `/v1/entities` | GET | Agent/workflow inventory. Used here. |
-| `/v1/responses` | POST | OpenAI-compatible Responses API. *Runs* the agent. Not in v1, but enables "send a test ping" from agentops. |
-| `/v1/conversations` | GET/POST | OpenAI Conversations API. Thread state. Useful if we later want to mirror DevUI's chat UI inside agentops. |
+| `/v1/responses` | POST | OpenAI-compatible Responses API. *Runs* the agent. Not in v1, but enables "send a test ping" from loupe. |
+| `/v1/conversations` | GET/POST | OpenAI Conversations API. Thread state. Useful if we later want to mirror DevUI's chat UI inside loupe. |
 | `/devui/` | GET | The DevUI SPA itself. Linked from `/agents/$id` as an external link in v1. |
 | `/health` | GET | Liveness. Used for `/agents` "last seen" sanity-check. |
 
@@ -155,7 +155,7 @@ There is no OpenAPI / Swagger spec, no per-entity detail endpoint (`/v1/entities
 
 ## Not in v1
 
-- Running agents from agentops (`POST /v1/responses` ping).
+- Running agents from loupe (`POST /v1/responses` ping).
 - Conversation/thread mirroring.
 - Executor tree rendering for workflows.
 - Tool provenance — which MCP server an attached tool came from.

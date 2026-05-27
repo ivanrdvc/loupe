@@ -1,22 +1,22 @@
 ---
-title: Agentops convention spec
+title: loupe convention spec
 type: explanation
-summary: The curated subset of OTel + extensions agentops operates on.
-  What producers emit, what agentops reads, what gets stamped consumer-side.
+summary: The curated subset of OTel + extensions loupe operates on.
+  What producers emit, what loupe reads, what gets stamped consumer-side.
 status: stable
 owner: "@ivan"
-audience: agent-instrumentation authors, agentops-devs
+audience: agent-instrumentation authors, loupe-devs
 last-reviewed: 2026-05-24
 tags: [convention, spec, ingest, attributes]
 ---
 
-# Agentops convention spec
+# loupe convention spec
 
-The curated operating set. [`reference/ai-attributes.md`](../reference/ai-attributes.md) catalogs every attribute that exists in OTel / Logfire / OpenInference; this doc lists only what agentops actually reads, stamps, or expects producers to emit, with values and intent.
+The curated operating set. [`reference/ai-attributes.md`](../reference/ai-attributes.md) catalogs every attribute that exists in OTel / Logfire / OpenInference; this doc lists only what loupe actually reads, stamps, or expects producers to emit, with values and intent.
 
 ## Decision
 
-Adopt OTel GenAI semconv for per-call attributes and run-graph identity (`gen_ai.task.id` / `gen_ai.task.parent.id`). Keep agentops-defined `task.*` and `session.*` namespaces for scheduling identity (no overlap with OTel). Consumer-side normalisation fills in missing run-graph attrs from span-tree shape.
+Adopt OTel GenAI semconv for per-call attributes and run-graph identity (`gen_ai.task.id` / `gen_ai.task.parent.id`). Keep loupe-defined `task.*` and `session.*` namespaces for scheduling identity (no overlap with OTel). Consumer-side normalisation fills in missing run-graph attrs from span-tree shape.
 
 No new vendor namespace. Where an existing convention covers a concept, use it.
 
@@ -24,13 +24,13 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 
 | Concept | Attribute | Values | Source | Status |
 | ------- | --------- | ------ | ------ | ------ |
-| Scheduling identity (what fires) | `task.id` | string | agentops convention | read |
-| Scheduling kind | `task.kind` | `cron` \| `one_shot` \| `event` \| `webhook` | agentops convention | read |
-| Schedule descriptor | `task.schedule` | cron expression or ISO timestamp | agentops convention | read |
-| Human label | `task.name` | string | agentops convention | read |
-| Origin (URL, source) | `task.source` | string | agentops convention | read |
-| Trigger type | `session.trigger_type` | `scheduled` \| `event` \| `webhook` \| `user` | agentops convention | read |
-| Async execution flag | `session.execution` | `background` | agentops convention | read (operational marker, not a task kind) |
+| Scheduling identity (what fires) | `task.id` | string | loupe convention | read |
+| Scheduling kind | `task.kind` | `cron` \| `one_shot` \| `event` \| `webhook` | loupe convention | read |
+| Schedule descriptor | `task.schedule` | cron expression or ISO timestamp | loupe convention | read |
+| Human label | `task.name` | string | loupe convention | read |
+| Origin (URL, source) | `task.source` | string | loupe convention | read |
+| Trigger type | `session.trigger_type` | `scheduled` \| `event` \| `webhook` \| `user` | loupe convention | read |
+| Async execution flag | `session.execution` | `background` | loupe convention | read (operational marker, not a task kind) |
 | Session id (multi-turn) | `gen_ai.conversation.id` | string | OTel GenAI semconv | read |
 | AG-UI thread id | `ag_ui.thread_id` | string | AG-UI | read (alias for conversation.id) |
 | User id | `user.id` | string | OTel | read |
@@ -78,7 +78,7 @@ Consumer-side normalisation at fetch time. The single pass in `src/lib/spans.ts`
 
 Pass-through: when a span arrives already carrying these attrs (Traceloop producers, LangGraph via the `graph.node.*` alias, anyone emitting them natively), the normaliser trusts the producer and skips its own stamping.
 
-Why the work runs in agentops rather than producer-side or in an OTel Collector: OTTL transform processors are strictly per-span (can't dereference `parent_span_id` to walk ancestors), and we don't want to ship a producer-side SDK processor in two languages. Fallback inference rules + topology shapes: [`01-architecture.md`](01-architecture.md).
+Why the work runs in loupe rather than producer-side or in an OTel Collector: OTTL transform processors are strictly per-span (can't dereference `parent_span_id` to walk ancestors), and we don't want to ship a producer-side SDK processor in two languages. Fallback inference rules + topology shapes: [`01-architecture.md`](01-architecture.md).
 
 ## Rendering
 

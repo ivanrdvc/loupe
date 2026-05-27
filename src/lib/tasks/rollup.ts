@@ -12,7 +12,7 @@ export interface TaskIdentity {
 // Resolve a trace's task identity in priority order:
 //   1. task.id — primary key, set by the app on the root span
 //   2. Cloud OTel semconv on rootOperation — cloud.scheduler.job.name,
-//      messaging.destination.name, http.route. agentops doesn't lift these
+//      messaging.destination.name, http.route. loupe doesn't lift these
 //      into TraceSummary today; the rootOperation field already carries the
 //      span name, which is what OO/AI emit for these (e.g. KEDA produces
 //      `process queueitem`). Treated as the same family for grouping.

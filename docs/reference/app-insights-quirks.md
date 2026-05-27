@@ -2,7 +2,7 @@
 title: Application Insights quirks
 type: reference
 summary: Provider-specific behaviors of Azure Monitor / Application Insights
-  that bite the agentops read path — attribute truncation, duplicate
+  that bite the loupe read path — attribute truncation, duplicate
   ingestion — and the mitigations applied per file.
 status: stable
 owner: "@ivan"

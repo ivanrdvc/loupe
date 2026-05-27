@@ -1,5 +1,5 @@
 {
-  "projectName": "agentops",
+  "projectName": "loupe",
   "mode": "file-router",
   "typescript": true,
   "packageManager": "npm",

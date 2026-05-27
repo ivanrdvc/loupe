@@ -6,8 +6,8 @@
 - Compare two runs side-by-side — `docs/plans/compare-runs.md`
 - MCP — `docs/plans/mcp.md`
 - Prompt registry → trace linkage (revisit). Two paths discussed: span-attribute
-  convention (`agentops.prompt.name`, `agentops.prompt.version_hash` set by the
-  user's app, agentops links automatically on ingest) vs a C# SDK package that
+  convention (`loupe.prompt.name`, `loupe.prompt.version_hash` set by the
+  user's app, loupe links automatically on ingest) vs a C# SDK package that
   injects them. Code-as-source-of-truth preferred — don't move prompts out of
   `.cs` files. Park until after Playground + Notes ship. See
   `PLAYGROUND_PROMPTS_RESEARCH.md` for the rejected detection-by-fuzzy-match

@@ -9,10 +9,10 @@ wants to be in `explanation/` or `guides/` instead.
 - [AI / LLM trace attributes](ai-attributes.md) — OTel GenAI semconv plus the
   Logfire / OpenInference / vendor extensions seen in real traces. Lookup
   table for what each attribute key means when reading a span.
-- [Telemetry providers](telemetry-providers.md) — how agentops reads spans
+- [Telemetry providers](telemetry-providers.md) — how loupe reads spans
   from each backend (OpenObserve, Application Insights, …), the row → Span
   mapping, and the trace-scope post-processing every provider runs before
   returning data.
 - [Application Insights quirks](app-insights-quirks.md) — provider-specific
-  behaviors that bite the agentops read path (attribute truncation, duplicate
+  behaviors that bite the loupe read path (attribute truncation, duplicate
   ingestion) and the mitigations applied per file.

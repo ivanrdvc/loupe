@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Agentops debug query — pulls trace/session diagnostics from whichever
-telemetry provider the agentops .env points at, and prints lean JSON.
+loupe debug query — pulls trace/session diagnostics from whichever
+telemetry provider the loupe .env points at, and prints lean JSON.
 
 Usage:
     query.py <session-or-trace-id>          # per-session diagnostic
@@ -25,8 +25,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-AGENTOPS_DIR = Path(__file__).resolve().parents[3].parent  # skill is in agentops/.agents/skills/probe/scripts
-ENV_FILE = AGENTOPS_DIR / ".env"
+LOUPE_DIR = Path(__file__).resolve().parents[3].parent  # skill is in loupe/.agents/skills/probe/scripts
+ENV_FILE = LOUPE_DIR / ".env"
 
 # What we consider session/user attrs across all OTel/AG-UI/MAF variants.
 SESSION_KEYS = [
@@ -59,7 +59,7 @@ ENV_IDENT_REGEX = re.compile(r"^[A-Za-z0-9_.]+$")
 
 
 def load_env() -> dict[str, str]:
-    """Read agentops .env. Returns a dict; missing file = empty dict."""
+    """Read loupe .env. Returns a dict; missing file = empty dict."""
     env: dict[str, str] = {}
     if not ENV_FILE.exists():
         return env
@@ -77,7 +77,7 @@ def detect_provider(env: dict[str, str]) -> str:
 
 
 def recognized_keys(env: dict[str, str]) -> dict[str, set[str]]:
-    """Keys agentops will actually look at, given conventions.ts + .env overrides."""
+    """Keys loupe will actually look at, given conventions.ts + .env overrides."""
     sess = set(SESSION_KEYS)
     usr = set(USER_KEYS)
     purp = set(PURPOSE_KEYS)
@@ -258,7 +258,7 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
             t["timeline"].append(entry_tl)
         t["span_count"] += 1
 
-    # Detect "purpose tag on ancestor, not on the chat LLM span" — agentops
+    # Detect "purpose tag on ancestor, not on the chat LLM span" — loupe
     # propagateInheritedAttrs lifts it, but only if the key is recognized.
     def find_ancestor_purpose(span_id: str) -> str | None:
         cur = spans_by_id.get(span_id)
@@ -288,12 +288,12 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
         drift = {}
         if len(sk) > 1: drift["sessionId"] = sk
         if len(pk) > 1: drift["purpose"] = pk
-        # Keys the producer emitted but agentops won't recognize given current config.
+        # Keys the producer emitted but loupe won't recognize given current config.
         unrec_sess = [k for k in sk if k not in recog["session"]]
         unrec_purp = [k for k in pk if k not in recog["purpose"]]
         if unrec_sess: drift["unrecognized_session_keys"] = unrec_sess
         if unrec_purp: drift["unrecognized_purpose_keys"] = unrec_purp
-        # Also flag agentops-style mismatch: only underscore form present, no dotted
+        # Also flag loupe-style mismatch: only underscore form present, no dotted
         all_dotted = [k for k in sk if "." in k]
         all_under = [k for k in sk if "_" in k and "." not in k]
         if all_under and not all_dotted:
@@ -405,7 +405,7 @@ def audit_app_insights(env: dict[str, str]) -> dict[str, Any]:
     """
     rows = query_app_insights(env, kql)
     # Distinct keys appearing in customDimensions on AI-relevant spans, grouped
-    # by whether agentops will look at them under current config.
+    # by whether loupe will look at them under current config.
     keys_kql = """
         union dependencies, requests
         | where timestamp > ago(3d)
@@ -428,7 +428,7 @@ def audit_app_insights(env: dict[str, str]) -> dict[str, Any]:
     all_recog = recog["session"] | recog["user"] | recog["purpose"]
     seen = [(r["k"], int(r.get("n") or 0)) for r in key_rows if r.get("k")]
     # Categorize: only flag a key as "unrecognized" if it LOOKS like a session/
-    # user/purpose concept (the things agentops needs to match on) but isn't in
+    # user/purpose concept (the things loupe needs to match on) but isn't in
     # the recognized set. Generic OTel keys like gen_ai.request.model aren't
     # visibility-blocking and shouldn't show up as problems.
     def concept(k: str) -> str | None:

@@ -3,25 +3,25 @@ import { parseChangelog } from './-changelog-data'
 
 const SAMPLE = `# Changelog
 
-## [0.2.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.1.1...agentops-v0.2.0) (2026-05-20)
+## [0.2.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.1.1...loupe-v0.2.0) (2026-05-20)
 
 
 ### Features
 
-* **shadcn:** migrate UI from Catalyst to shadcn ([#13](https://github.com/ivanrdvc/agentops/issues/13)) ([7716c1f](https://github.com/ivanrdvc/agentops/commit/7716c1f9540edae9ce16cb232d04cc7dfa00048d))
-* **traces:** traces view + home charts ([#18](https://github.com/ivanrdvc/agentops/issues/18)) ([4a740ba](https://github.com/ivanrdvc/agentops/commit/4a740ba16c18038962e1e7f22ab53477366aff18))
+* **shadcn:** migrate UI from Catalyst to shadcn ([#13](https://github.com/ivanrdvc/loupe/issues/13)) ([7716c1f](https://github.com/ivanrdvc/loupe/commit/7716c1f9540edae9ce16cb232d04cc7dfa00048d))
+* **traces:** traces view + home charts ([#18](https://github.com/ivanrdvc/loupe/issues/18)) ([4a740ba](https://github.com/ivanrdvc/loupe/commit/4a740ba16c18038962e1e7f22ab53477366aff18))
 
 
 ### Bug Fixes
 
-* tighten span filter ([abc1234](https://github.com/ivanrdvc/agentops/commit/abc1234))
+* tighten span filter ([abc1234](https://github.com/ivanrdvc/loupe/commit/abc1234))
 
 ## 0.1.0 (2026-05-17)
 
 
 ### Features
 
-* initial release ([4f90c85](https://github.com/ivanrdvc/agentops/commit/4f90c85))
+* initial release ([4f90c85](https://github.com/ivanrdvc/loupe/commit/4f90c85))
 `
 
 describe('parseChangelog', () => {
@@ -33,7 +33,7 @@ describe('parseChangelog', () => {
   it('captures the full compare url and date', () => {
     const [first] = parseChangelog(SAMPLE)
     expect(first.date).toBe('2026-05-20')
-    expect(first.url).toBe('https://github.com/ivanrdvc/agentops/compare/agentops-v0.1.1...agentops-v0.2.0')
+    expect(first.url).toBe('https://github.com/ivanrdvc/loupe/compare/loupe-v0.1.1...loupe-v0.2.0')
   })
 
   it('handles plain header without compare url', () => {

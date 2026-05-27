@@ -1,6 +1,6 @@
 # docs
 
-In-repo engineering docs for agentops.
+In-repo engineering docs for loupe.
 
 ## Map
 

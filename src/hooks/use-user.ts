@@ -1,8 +1,8 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { buildCurrentUser, type CurrentUser } from '#/lib/current-user'
 
-const USER_ID_KEY = 'agentops:user-id'
-const SCOPE_TO_ME_KEY = 'agentops:scope-to-me'
+const USER_ID_KEY = 'loupe:user-id'
+const SCOPE_TO_ME_KEY = 'loupe:scope-to-me'
 
 function makeStore(key: string) {
   const listeners = new Set<() => void>()

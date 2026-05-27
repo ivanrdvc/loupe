@@ -23,7 +23,7 @@ from typing import Annotated, Any
 
 from dotenv import load_dotenv
 
-# Load OPENAI_API_KEY (and anything else) from the agentops repo .env.local — gitignored.
+# Load OPENAI_API_KEY (and anything else) from the loupe repo .env.local — gitignored.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_REPO_ROOT / ".env.local")
 load_dotenv(_REPO_ROOT / ".env")
@@ -59,7 +59,7 @@ from agent_framework.openai import OpenAIChatClient  # noqa: E402
 configure_otel_providers(enable_sensitive_data=True)
 
 # Dual-emit to App Insights when configured — exercises the 8 KB
-# customDimensions truncation that the agentops truncation-resilience branch
+# customDimensions truncation that the loupe truncation-resilience branch
 # is meant to handle. Silently skipped when the connection string isn't set,
 # so the sandbox still works against OO alone.
 _AI_CONN = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
@@ -411,7 +411,7 @@ if __name__ == "__main__":
         print(f"  OTel → {_ingest}  (AppInsights)")
     else:
         print("  ⚠  AppInsights export OFF — set APPLICATIONINSIGHTS_CONNECTION_STRING in")
-        print(f"     {_REPO_ROOT / '.env.local'} to enable. Without it, agentops")
+        print(f"     {_REPO_ROOT / '.env.local'} to enable. Without it, loupe")
         print("     (which reads AppInsights by default) will NOT see these traces.")
     serve(
         entities=[main_agent, weather_subagent],

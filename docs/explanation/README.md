@@ -1,17 +1,17 @@
 # Explanation
 
-The "why" of agentops subsystems. Mental models, architecture, trade-offs.
+The "why" of loupe subsystems. Mental models, architecture, trade-offs.
 Longer-form prose. The highest-leverage section — if you can only write one
 doc, write it here.
 
 ## Read first (ordered)
 
-- [01 — Architecture](01-architecture.md) — how agentops reads OTel traces,
+- [01 — Architecture](01-architecture.md) — how loupe reads OTel traces,
   classifies spans, layers session / purpose / category / errors / sub-agent
   inference on top, and where every piece lives in the code. Includes the five
   trace topologies and the fallback inference rules.
 - [02 — Convention spec](02-spec.md) — the curated subset of OTel + extensions
-  agentops operates on. What producers emit, what agentops reads, what gets
+  loupe operates on. What producers emit, what loupe reads, what gets
   stamped consumer-side. Includes the per-category producer emission
   checklist.
 - [03 — Span classification](03-classify-span.md) — one function owns every
@@ -20,7 +20,7 @@ doc, write it here.
 
 ## Subsystems
 
-- [MCP read-through registry](mcp-read-through.md) — how agentops reads MCP
+- [MCP read-through registry](mcp-read-through.md) — how loupe reads MCP
   registry references, fetches live server capabilities, and keeps SQLite
   limited to local app state.
 - [Sessions vs Runs](sessions-vs-live.md) — two top-level UI entries, two

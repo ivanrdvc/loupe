@@ -82,7 +82,7 @@ Thresholds are constants in `lint.ts`. Tune later.
 
 - Runtime health (errors, latency, unused tools).
 - Approving / blocking registrations.
-- Editing the registry from agentops.
+- Editing the registry from loupe.
 - Auto-fix for lint findings.
 - Slack/email alerting.
 - Snapshot-vs-snapshot compare view (could live under `/mcp/changes` later; v1 shows the delta from `first_seen` / `last_seen`).

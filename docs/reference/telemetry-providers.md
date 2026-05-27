@@ -1,7 +1,7 @@
 ---
 title: Telemetry providers
 type: reference
-summary: How agentops reads spans from each backend (OpenObserve, Application
+summary: How loupe reads spans from each backend (OpenObserve, Application
   Insights, ...), the row → Span mapping, and the trace-scope
   post-processing every provider runs before returning data.
 status: stable
@@ -13,7 +13,7 @@ tags: [telemetry, openobserve, app-insights, normalization]
 
 # Telemetry providers
 
-agentops doesn't store telemetry. Every read goes through a provider in
+loupe doesn't store telemetry. Every read goes through a provider in
 `src/lib/telemetry/` that translates the backend's row shape into the internal
 `Span` type. The rest of the codebase — drawers, trees, conversation views,
 query keys — only ever sees `Span[]`. Provider-specific knowledge stops at the

@@ -59,7 +59,7 @@ export interface Span {
   agUiRunId?: string
   // Semantic purpose — e.g. "title_generation", "summarization". Set from
   // `gen_ai.operation.purpose`. Distinct from `gen_ai.operation.name` which
-  // names the OTel op (chat/invoke_agent/...). This one is the agentops
+  // names the OTel op (chat/invoke_agent/...). This one is the loupe
   // semantic tag (`title_generation`, `summarization`, ...).
   operationName?: string
 

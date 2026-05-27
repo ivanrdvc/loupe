@@ -34,7 +34,7 @@ Spec: <https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/>
 
 Tag side-channel LLM calls (title gen, summarization, etc.) so the trace classifier buckets them as `utility` instead of `chat`. The span tree renders the value as a badge after the span name.
 
-Not a published OTel semconv attribute — `gen_ai.*` is OTel's GenAI namespace but only `gen_ai.operation.name` is standardized. `gen_ai.operation.purpose` is a vendor-neutral extension we picked because (a) it sits in the right namespace and (b) it's the canonical key agentops reads. Deployments that already emit a different key set `CUSTOM_LLM_PURPOSE_FIELD=<their.key>` and agentops picks it up alongside.
+Not a published OTel semconv attribute — `gen_ai.*` is OTel's GenAI namespace but only `gen_ai.operation.name` is standardized. `gen_ai.operation.purpose` is a vendor-neutral extension we picked because (a) it sits in the right namespace and (b) it's the canonical key loupe reads. Deployments that already emit a different key set `CUSTOM_LLM_PURPOSE_FIELD=<their.key>` and loupe picks it up alongside.
 
 `gen_ai.operation.name` is set by the SDK instrumentation (e.g. MEAI's `OpenTelemetryChatClient`) and drives span classification — do **not** override it.
 
@@ -157,7 +157,7 @@ Stamped on the **root span** of a fire so the trace classifier and the Tasks pag
 
 Identity priority on the read side (for grouping fires into task rows): `task.id` → cloud semconv (`cloud.scheduler.job.name`, `messaging.destination.name`, `http.route`) → derived `(service.name, gen_ai.agent.name, trigger_type)` as a lossy fallback.
 
-`task.*` is a vendor-neutral namespace defined by agentops — same posture as `gen_ai.operation.purpose`. Bare `task.*`, not `agentops.task.*`.
+`task.*` is a vendor-neutral namespace defined by loupe — same posture as `gen_ai.operation.purpose`. Bare `task.*`, not `loupe.task.*`.
 
 ## AG-UI (CopilotKit)
 

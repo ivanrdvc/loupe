@@ -5,7 +5,7 @@ summary: What the Tasks page shows — machine-driven agent runs (scheduled, eve
   webhook, background) rolled up by task identity.
 status: draft
 owner: "@ivan"
-audience: agentops-devs
+audience: loupe-devs
 last-reviewed: 2026-05-23
 tags: [tasks, otel, telemetry]
 ---
@@ -14,7 +14,7 @@ tags: [tasks, otel, telemetry]
 
 A view over fires — individual executions of machine-driven agent runs. Each row in the table is a task definition; the count column is how many times it fired in the window.
 
-Same posture as the rest of agentops: read-only over OTel, no local mirror, no provider-specific code. The Tasks page is a different query shape over the existing `TelemetryProvider`, not a new backend.
+Same posture as the rest of loupe: read-only over OTel, no local mirror, no provider-specific code. The Tasks page is a different query shape over the existing `TelemetryProvider`, not a new backend.
 
 ## Where a fire comes from
 
@@ -56,7 +56,7 @@ Tasks rows are scheduling-identity by definition (`task.*`); the run-graph attrs
 ### Identity priority (what becomes the row key)
 
 1. **`task.id`** — primary key. One row per stable id.
-2. **Root span operation name** — for fires emitted by cloud-native runtimes that don't stamp `task.id` (KEDA, Cloud Scheduler, etc.), the span name typically encodes the trigger source (e.g. `process queueitem`). agentops uses this as the cloud-semconv fallback identity. *Not a direct read of `cloud.scheduler.job.name` / `messaging.destination.name` / `http.route` today — those are the upstream attrs, but the span name is what reaches `TraceSummary.rootOperation`.*
+2. **Root span operation name** — for fires emitted by cloud-native runtimes that don't stamp `task.id` (KEDA, Cloud Scheduler, etc.), the span name typically encodes the trigger source (e.g. `process queueitem`). loupe uses this as the cloud-semconv fallback identity. *Not a direct read of `cloud.scheduler.job.name` / `messaging.destination.name` / `http.route` today — those are the upstream attrs, but the span name is what reaches `TraceSummary.rootOperation`.*
 3. **Derived `(service.name, gen_ai.agent.name, trigger_type)`** — last resort. Lossy: all fires sharing the same service+agent+trigger collapse into one row. Flagged with a `derived` badge so you know the rollup isn't authoritative.
 
 ## What the detail hero shows
@@ -85,7 +85,7 @@ In short: the **Task** chip is the *schedule registration* (the cron/event subsc
 ## Non-goals
 
 - Storing task definitions locally. Definitions live in the observed app.
-- Editing tasks from agentops (pause / cancel / re-run). Read-only.
+- Editing tasks from loupe (pause / cancel / re-run). Read-only.
 - Parsing `task.schedule` cron expressions to compute exact expected-fire times. We use empirical median interval instead — works for cron, interval, and event-driven cadences with one path.
 - Cross-provider identity normalization beyond the priority order above. Apps that emit `cloud.scheduler.job.name` and apps that emit `task.id` show up as separate rows even if they're conceptually the same job.
 

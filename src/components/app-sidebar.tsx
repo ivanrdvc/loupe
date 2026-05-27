@@ -69,7 +69,7 @@ export function AppSidebar() {
               <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
                 <Link to="/">
                   <Logo className="size-5!" />
-                  <span className="text-base font-semibold">agentops</span>
+                  <span className="text-base font-semibold">loupe</span>
                   <span className="ml-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px]/4 font-medium text-muted-foreground">
                     {APP_VERSION}
                   </span>

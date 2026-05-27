@@ -4,7 +4,7 @@ type: explanation
 summary: Folder tree of editable prompt snippets that run against a configured agent endpoint.
 status: draft
 owner: "@ivan"
-audience: agentops-devs
+audience: loupe-devs
 last-reviewed: 2026-05-24
 tags: [prompts]
 ---

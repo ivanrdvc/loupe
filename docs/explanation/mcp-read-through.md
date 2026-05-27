@@ -1,7 +1,7 @@
 ---
 title: MCP read-through registry
 type: explanation
-summary: How agentops reads MCP registry references, fetches live server capabilities, and keeps SQLite limited to local app state.
+summary: How loupe reads MCP registry references, fetches live server capabilities, and keeps SQLite limited to local app state.
 status: current
 owner: Ivan
 audience: engineers
@@ -13,10 +13,10 @@ tags: [mcp, registry, telemetry, sqlite]
 
 `/mcp` is a live registry view, not a SQLite mirror.
 
-The remote registry only gives agentops references to MCP servers. A reference
+The remote registry only gives loupe references to MCP servers. A reference
 is enough to know that a server exists and how to reach it, but it is not the
 tool catalog. To render tool quality, counts, descriptions, and schemas,
-agentops must call each referenced MCP server and ask for its live capabilities.
+loupe must call each referenced MCP server and ask for its live capabilities.
 
 ## Ownership boundaries
 
@@ -26,7 +26,7 @@ Three systems own different data:
   endpoint, transport, source metadata, and maybe owner metadata.
 - **MCP servers** own live capabilities: tools, descriptions, input schemas,
   and whatever else `tools/list` returns.
-- **SQLite** owns agentops-local state: observed telemetry inventory, inbox
+- **SQLite** owns loupe-local state: observed telemetry inventory, inbox
   alerts, user dismissals/snoozes, alert rules, and discovery cursors.
 
 Do not store `mcp_servers` or `mcp_tools` as canonical SQLite tables in v1.

@@ -16,7 +16,7 @@ choices, immutable log).
   view them in a split layout that surfaces what diverged.
 - [Evals](evals.md) — ingestion shape for eval results plus the open
   questions on data model and UI.
-- [HTTP API for LLM debugging](http-api.md) — expose agentops's
+- [HTTP API for LLM debugging](http-api.md) — expose loupe's
   classification / reconstruction / aggregation views over plain endpoints so
   an LLM-driven dev tool can pull run data while a developer is debugging.
 - [MCP](mcp.md) — registry of MCP servers and tools so non-AI teams can ship

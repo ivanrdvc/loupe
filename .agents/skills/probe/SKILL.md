@@ -1,11 +1,11 @@
 ---
 name: probe
-description: Diagnose what the agentops dashboard sees for a session or trace — empty Sessions page, missing trace, wrong user, missing attributes. Use when the user pastes a session/trace UUID, a `localhost:<port>/sessions/<id>` URL, or asks "why is this empty / why doesn't it show / what attributes are on this span". Trigger on bare UUIDs in the agentops repo without asking — the user expects a lookup.
+description: Diagnose what the loupe dashboard sees for a session or trace — empty Sessions page, missing trace, wrong user, missing attributes. Use when the user pastes a session/trace UUID, a `localhost:<port>/sessions/<id>` URL, or asks "why is this empty / why doesn't it show / what attributes are on this span". Trigger on bare UUIDs in the loupe repo without asking — the user expects a lookup.
 ---
 
-# Agentops probe
+# loupe probe
 
-This skill diagnoses what the agentops dashboard sees (or doesn't see) for a given session, trace, or the data stream as a whole. It's about debugging the _consumer side_ — "why is X empty / wrong / missing" — by comparing what the producer actually emitted against what agentops looks for.
+This skill diagnoses what the loupe dashboard sees (or doesn't see) for a given session, trace, or the data stream as a whole. It's about debugging the _consumer side_ — "why is X empty / wrong / missing" — by comparing what the producer actually emitted against what loupe looks for.
 
 ## When this fires
 
@@ -19,7 +19,7 @@ User says:
 - "this session doesn't appear"
 - "check session X" / "look at trace X"
 
-If you're in the agentops repo and see a bare UUID, treat it as a session/trace id and look it up. Don't ask for confirmation.
+If you're in the loupe repo and see a bare UUID, treat it as a session/trace id and look it up. Don't ask for confirmation.
 
 ## How to run it
 
@@ -76,11 +76,11 @@ The JSON has this shape — focus on the diagnostic fields, not the timeline:
 | `trace_ids: []` (empty)                                             | No data for this id. Wrong id, wrong env, or outside the time window (3d AI / 7d OO).                                                                                                                                                                                    |
 | `timeline`                                                          | Quick agent flow — invoke_agent, chat models, tool calls, purposes. Filters out generic HTTP / DB / queue spans by default.                                                                                                                                              |
 | `errors`                                                            | Spans with `success=false`. Cite the span name.                                                                                                                                                                                                                          |
-| `key_drift.sessionId` (multiple entries)                            | Same concept (`thread_id`) appears under multiple key names. App Insights customDimensions can carry both `ag_ui.thread_id` (dotted) and `ag_ui_thread_id` (underscore) depending on which SDK wrote it; agentops' `aiCoalesce` must check both forms via `bothForms()`. |
-| `key_drift.session_only_underscore`                                 | Trace has only underscore form, no dotted. If agentops looks for dotted-only, the trace won't appear on the Sessions page.                                                                                                                                               |
+| `key_drift.sessionId` (multiple entries)                            | Same concept (`thread_id`) appears under multiple key names. App Insights customDimensions can carry both `ag_ui.thread_id` (dotted) and `ag_ui_thread_id` (underscore) depending on which SDK wrote it; loupe' `aiCoalesce` must check both forms via `bothForms()`. |
+| `key_drift.session_only_underscore`                                 | Trace has only underscore form, no dotted. If loupe looks for dotted-only, the trace won't appear on the Sessions page.                                                                                                                                               |
 | `purpose` field on a span                                           | Standard key: `gen_ai.operation.purpose`. Legacy data may show `teammate.llm.purpose` (pre-refactor); new producer emits the standard key.                                                                                                                               |
 | `key_drift.purpose_on_ancestor_not_on_chat`                         | Purpose lives on parent Activity, not on the `chat` span. `propagateInheritedAttrs` lifts it down automatically for the standard key.                                                                                                                                    |
-| `key_drift.unrecognized_session_keys` / `unrecognized_purpose_keys` | Producer emitted these keys but agentops won't read them under current config. Either add to `conventions.ts` (if standard) or set the matching `CUSTOM_*_FIELD` env var.                                                                                                |
+| `key_drift.unrecognized_session_keys` / `unrecognized_purpose_keys` | Producer emitted these keys but loupe won't read them under current config. Either add to `conventions.ts` (if standard) or set the matching `CUSTOM_*_FIELD` env var.                                                                                                |
 | `env_health` (per-session output)                                   | Non-empty means a `CUSTOM_*_FIELD` env value contains chars that `field-config.ts` `ident()` silently drops (anything outside `[A-Za-z0-9_.]`). Fix the env value or relax the regex.                                                                                    |
 | `tokens`                                                            | Per-trace LLM token total. Useful for "why is this run so expensive".                                                                                                                                                                                                    |
 
@@ -90,8 +90,8 @@ The JSON has this shape — focus on the diagnostic fields, not the timeline:
 
 1. Run `query.py --audit` first.
 2. Check `env_health` — silent drops from `field-config.ts ident()` mean a `CUSTOM_*` override isn't taking effect even though it's set.
-3. Check `emitted_keys_unrecognized_for_concept` — these are session/user/purpose keys the producer is emitting that agentops doesn't recognize. Top of that list is your fix target (add to `conventions.ts` or `CUSTOM_*_FIELD`).
-4. Compare `traces_with_dotted` to `traces_with_only_underscore`. If underscore dominates, agentops' KQL coalesce is missing the underscore form — fix `aiCoalesce` in `src/lib/telemetry/conventions.ts` to run keys through `bothForms()`.
+3. Check `emitted_keys_unrecognized_for_concept` — these are session/user/purpose keys the producer is emitting that loupe doesn't recognize. Top of that list is your fix target (add to `conventions.ts` or `CUSTOM_*_FIELD`).
+4. Compare `traces_with_dotted` to `traces_with_only_underscore`. If underscore dominates, loupe' KQL coalesce is missing the underscore form — fix `aiCoalesce` in `src/lib/telemetry/conventions.ts` to run keys through `bothForms()`.
 5. If `traces_in_listSessions_filter` is 0, the producer isn't emitting `gen_ai.operation.name`, `invoke_agent`, `execute_tool`, or `session.trigger_type` on any span — producer-side instrumentation issue.
 
 ### "This specific session/trace doesn't show"

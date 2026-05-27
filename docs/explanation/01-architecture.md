@@ -1,22 +1,22 @@
 ---
 title: Architecture
 type: explanation
-summary: How agentops reads OTel traces, normalizes them through one classifier,
+summary: How loupe reads OTel traces, normalizes them through one classifier,
   layers session / purpose / category / errors / sub-agent inference on top,
   and where every piece lives in the code.
 status: current
 owner: Ivan
-audience: agentops-devs, AI assistants
+audience: loupe-devs, AI assistants
 last-reviewed: 2026-05-25
 tags: [architecture, ingest, classification, entry-point]
 ---
 
 # Architecture
 
-agentops reads OTel traces emitted by agent frameworks, classifies the spans,
+loupe reads OTel traces emitted by agent frameworks, classifies the spans,
 and renders agent activity. Read-only — no local telemetry mirror.
 
-For the canonical list of attributes producers emit and agentops reads, see [`02-spec.md`](02-spec.md).
+For the canonical list of attributes producers emit and loupe reads, see [`02-spec.md`](02-spec.md).
 
 ## Mental model
 
@@ -38,7 +38,7 @@ For the canonical list of attributes producers emit and agentops reads, see [`02
               └── orchestrate_tools           ← producer-specific Activity
 ```
 
-Session is the only level agentops *adds*. Trace and Span are OTel.
+Session is the only level loupe *adds*. Trace and Span are OTel.
 Span names shown above are the ones we recognize and route through the
 classifier; full vocabulary in [`../reference/ai-attributes.md`](../reference/ai-attributes.md).
 
@@ -54,7 +54,7 @@ We do not instrument; we read.
    LangGraph, raw OpenAI/Anthropic …)
         │ OTel exporter                          │
         ▼                                        ▼
-        ─────────────────────────────────────────►  agentops
+        ─────────────────────────────────────────►  loupe
                 producer's choice                       (this repo)
 ```
 
@@ -118,9 +118,9 @@ column names); they never decide *field meaning*. That decision lives in
   Span.rawAttributes   full bag, for the raw-fields inspector
 ```
 
-## What agentops layers on top of OTel
+## What loupe layers on top of OTel
 
-These are agentops-specific concepts. OTel GenAI semconv defines none of them. The canonical convention list is in [`02-spec.md`](02-spec.md); the rules below are the consumer-side derivation when producers don't stamp the attrs themselves.
+These are loupe-specific concepts. OTel GenAI semconv defines none of them. The canonical convention list is in [`02-spec.md`](02-spec.md); the rules below are the consumer-side derivation when producers don't stamp the attrs themselves.
 
 **Session** — roll-up of traces sharing a conversation id.
 
@@ -273,7 +273,7 @@ Raw LLM calls — no agent framework involved. Some sessions are entirely this. 
 
 ## Fallback inference rules
 
-When producers don't stamp `gen_ai.task.parent.id` natively, agentops infers topology from span-tree shape. **Primary path is reading the stamped convention** ([`02-spec.md`](02-spec.md)); these rules run only as fallback.
+When producers don't stamp `gen_ai.task.parent.id` natively, loupe infers topology from span-tree shape. **Primary path is reading the stamped convention** ([`02-spec.md`](02-spec.md)); these rules run only as fallback.
 
 One count grounds every rule:
 
@@ -337,7 +337,7 @@ Rules:
 
 | Topic | Doc |
 | ----- | --- |
-| Convention spec (what producers emit, what agentops reads) | [`02-spec.md`](02-spec.md) |
+| Convention spec (what producers emit, what loupe reads) | [`02-spec.md`](02-spec.md) |
 | Classifier rules | [`03-classify-span.md`](03-classify-span.md) |
 | Sessions roll-up logic | [`sessions-vs-live.md`](sessions-vs-live.md) |
 | Attribute catalog (full OTel + extensions) | [`../reference/ai-attributes.md`](../reference/ai-attributes.md) |

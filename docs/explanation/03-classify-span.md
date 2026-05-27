@@ -6,7 +6,7 @@ summary: One function owns every rule for turning raw OTel attributes
          what it handles, and how to add a new provider.
 status: stable
 owner: "@ivan"
-audience: agentops-devs
+audience: loupe-devs
 last-reviewed: 2026-05-12
 tags: [ingest, span-classification]
 ---
