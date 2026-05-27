@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const COLOR_THEMES = ['neutral', 'spotify', 'vscode'] as const
+const COLOR_THEMES = ['tremor', 'neutral', 'spotify'] as const
 const APP_FONTS = ['pretendard', 'inter'] as const
 
 export type ColorTheme = (typeof COLOR_THEMES)[number]
@@ -8,7 +8,7 @@ export type AppFont = (typeof APP_FONTS)[number]
 
 const COLOR_STORAGE_KEY = 'color-theme'
 const FONT_STORAGE_KEY = 'app-font'
-const DEFAULT_COLOR: ColorTheme = 'neutral'
+const DEFAULT_COLOR: ColorTheme = 'tremor'
 const DEFAULT_FONT: AppFont = 'pretendard'
 
 function isColorTheme(value: string | undefined): value is ColorTheme {
@@ -32,13 +32,8 @@ export function useAppTheme() {
   const setColorTheme = (next: ColorTheme) => {
     setColorThemeState(next)
     const root = document.documentElement
-    if (next === DEFAULT_COLOR) {
-      delete root.dataset.theme
-      localStorage.removeItem(COLOR_STORAGE_KEY)
-    } else {
-      root.dataset.theme = next
-      localStorage.setItem(COLOR_STORAGE_KEY, next)
-    }
+    root.dataset.theme = next
+    localStorage.setItem(COLOR_STORAGE_KEY, next)
   }
 
   const setFont = (next: AppFont) => {

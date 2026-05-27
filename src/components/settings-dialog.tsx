@@ -78,6 +78,7 @@ const COLORS: { value: ColorTheme; label: string; dot: string }[] = [
   { value: 'neutral', label: 'Neutral', dot: 'oklch(0.205 0 0)' },
   { value: 'spotify', label: 'Spotify', dot: 'oklch(0.67 0.17 153.85)' },
   { value: 'vscode', label: 'VS Code', dot: 'oklch(0.71 0.15 239.07)' },
+  { value: 'tremor', label: 'Tremor', dot: 'oklch(0.623 0.214 259.815)' },
 ]
 
 const FONTS: { value: AppFont; label: string; family: string }[] = [
