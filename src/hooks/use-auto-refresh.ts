@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import {
   type AutoRefreshInterval,
   DEFAULT_AUTO_REFRESH_INTERVAL,
@@ -11,15 +11,36 @@ function isInterval(v: unknown): v is AutoRefreshInterval {
   return typeof v === 'string' && (LIST_AUTO_REFRESH_OPTIONS as readonly string[]).includes(v)
 }
 
-export function useAutoRefresh(): [AutoRefreshInterval, (next: AutoRefreshInterval) => void] {
-  const [interval, setState] = useState<AutoRefreshInterval>(DEFAULT_AUTO_REFRESH_INTERVAL)
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (isInterval(stored)) setState(stored)
-  }, [])
-  const setInterval = (next: AutoRefreshInterval) => {
-    setState(next)
-    window.localStorage.setItem(STORAGE_KEY, next)
+const listeners = new Set<() => void>()
+
+function subscribe(cb: () => void) {
+  listeners.add(cb)
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) cb()
   }
-  return [interval, setInterval]
+  window.addEventListener('storage', onStorage)
+  return () => {
+    listeners.delete(cb)
+    window.removeEventListener('storage', onStorage)
+  }
+}
+
+function notify() {
+  for (const listener of listeners) listener()
+}
+
+function read(): AutoRefreshInterval {
+  if (typeof window === 'undefined') return DEFAULT_AUTO_REFRESH_INTERVAL
+  const stored = window.localStorage.getItem(STORAGE_KEY)
+  return isInterval(stored) ? stored : DEFAULT_AUTO_REFRESH_INTERVAL
+}
+
+export function useAutoRefresh(): [AutoRefreshInterval, (next: AutoRefreshInterval) => void] {
+  const value = useSyncExternalStore(subscribe, read, () => DEFAULT_AUTO_REFRESH_INTERVAL)
+  const setValue = useCallback((next: AutoRefreshInterval) => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(STORAGE_KEY, next)
+    notify()
+  }, [])
+  return [value, setValue]
 }
