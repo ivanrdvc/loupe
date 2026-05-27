@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { CodeBlock } from '#/components/ai-elements/code-block'
+import { JsonView } from '#/components/ai-elements/json-view'
 import { Card, CardContent } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableRow } from '#/components/ui/table'
 import { type FrontendTool, type InspectorView, isShortValue } from '#/lib/inspector-view'
-import { formatJson, type JsonValue, parseJson } from '#/lib/json'
+import { type JsonValue, parseJson } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { ExpandableRow, ToolDetailView } from './context'
 
@@ -130,15 +130,7 @@ export function AgUiPanel({ span, view }: { span?: Span; view: InspectorView }) 
                   key={p.id}
                   title={p.label}
                   tokens={p.tokens}
-                  content={() =>
-                    p.parsed !== undefined ? (
-                      <CodeBlock code={formatJson(p.parsed)} language="json" className="max-h-80" />
-                    ) : (
-                      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
-                        {p.raw}
-                      </pre>
-                    )
-                  }
+                  content={() => <JsonView value={p.parsed ?? p.raw} className="max-h-80" />}
                 />
               ))}
             </div>

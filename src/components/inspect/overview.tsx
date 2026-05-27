@@ -14,7 +14,7 @@ import {
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
-import { CodeBlock } from '#/components/ai-elements/code-block'
+import { JsonView } from '#/components/ai-elements/json-view'
 import { formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
 import { Badge } from '#/components/ui/badge'
@@ -28,6 +28,7 @@ import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { useIsMobile } from '#/hooks/use-mobile'
 import { formatCost } from '#/lib/format'
 import { type InspectorView, spanHasError, type Turn, turnTotals } from '#/lib/inspector-view'
+import { formatJson } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { cn } from '#/lib/utils'
 import { AgUiPanel } from './agui'
@@ -173,9 +174,13 @@ function SessionStrip({ view }: { view: InspectorView }) {
     ? (view.agentLabels.get(orchestrator.id) ?? orchestrator.agentName ?? orchestrator.name)
     : 'Session'
 
-  const inputTokens = total.inputTokens || view.totals.input
-  const outputTokens = total.outputTokens || view.totals.output
-  const cachedTokens = total.cachedTokens || view.totals.cached
+  // Grand total = orchestrator + all subagent chats. view.totals already includes both
+  // via turnTotals(). Do NOT use total.inputTokens from useBreakdowns here — that only
+  // covers orchestratorChats and would make the header inconsistent with the context bar
+  // (whose denominator includes subagentChatTokens).
+  const inputTokens = view.totals.input
+  const outputTokens = view.totals.output
+  const cachedTokens = view.totals.cached || total.cachedTokens
   const allTokens = inputTokens + outputTokens
   const cachePct = inputTokens > 0 ? Math.round((cachedTokens / inputTokens) * 100) : 0
 
@@ -341,7 +346,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
           <div className="min-w-0 flex-1">
             {isLong ? (
               expanded ? (
-                <CodeBlock code={formatted} language="json" className="max-h-64" />
+                <JsonView value={value} className="max-h-64" />
               ) : (
                 <span className="block truncate text-muted-foreground/90" title={formatted.slice(0, 400)}>
                   {formatted.slice(0, ATTR_PREVIEW_LIMIT)}…
@@ -384,13 +389,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
 
 function formatAttrValue(v: unknown): string {
   if (v == null) return ''
-  if (typeof v === 'string') return v
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  try {
-    return JSON.stringify(v, null, 2)
-  } catch {
-    return String(v)
-  }
+  return formatJson(v)
 }
 
 function SessionTurnsPanel({
@@ -548,6 +547,7 @@ function SessionTurnRow({
   const ctxIn = chats[0]?.inputTokens
   const prevCtxIn = prevTurn?.chats[0]?.inputTokens
   const delta = ctxIn != null && prevCtxIn != null ? ctxIn - prevCtxIn : undefined
+  const subTok = subagentChats.reduce((acc, c) => acc + (c.inputTokens ?? 0) + (c.outputTokens ?? 0), 0)
 
   return (
     <TableRow
@@ -582,7 +582,11 @@ function SessionTurnRow({
       </TableCell>
       <TableCell className="py-1.5 text-right tabular-nums">
         <span className="text-foreground">{chats.length}</span>
-        {subagentChats.length > 0 && <span className="ml-1 text-muted-foreground">+{subagentChats.length} sub</span>}
+        {subagentChats.length > 0 && (
+          <span className="ml-1 text-muted-foreground">
+            +{subagentChats.length} sub{subTok > 0 ? ` · ${formatTokens(subTok)}` : ''}
+          </span>
+        )}
       </TableCell>
       <TableCell className="py-1.5 text-right tabular-nums text-foreground">{formatCost(totals.costUsd)}</TableCell>
     </TableRow>

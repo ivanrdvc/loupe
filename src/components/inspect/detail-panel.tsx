@@ -4,17 +4,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { CodeBlock } from '#/components/ai-elements/code-block'
+import { JsonView } from '#/components/ai-elements/json-view'
 import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
+import { formatTokens } from '#/components/context-window'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
+import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { useUser } from '#/hooks/use-user'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
-import { type InspectorView, isLlmLike, type ToolCallResolution } from '#/lib/inspector-view'
-import { formatJson, type JsonValue, parseJson } from '#/lib/json'
+import { type InspectorView, isChatSpan, isLlmLike, type ToolCallResolution } from '#/lib/inspector-view'
+import { type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import type { LogLevel } from '#/lib/telemetry/types'
@@ -22,6 +24,7 @@ import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import type { Message as PromptMessage } from '#/routes/prompts/-types'
 import { fetchSessionLogs } from '#/server/logs'
 import { createPrompt } from '#/server/prompts'
+import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 function extractPromptMessages(span: Span): PromptMessage[] {
@@ -164,15 +167,67 @@ export function DetailPanel({
         {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
       </dl>
 
+      {isChatSpan(span) && <SpanContextBreakdown span={span} />}
+
       {span.agentDescription && <RoleCard kind="agent" label="description" content={span.agentDescription} />}
       {systemPrompt && <RoleCard kind="system" label="system prompt" content={systemPrompt} />}
 
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
+      {isChatSpan(span) && span.llmInput == null && span.inputTokens != null && span.inputTokens > 0 && (
+        <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+          Input messages not available — context too large to store in telemetry ({fmtNum(span.inputTokens)} tokens).
+          Tool results returned by subagent calls are the most likely cause of the large context.
+        </div>
+      )}
       {(span.llmInput != null || span.llmOutput != null) && (
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} view={view} />
       )}
       <SpanLogsBlock span={span} view={view} />
+    </div>
+  )
+}
+
+function SpanContextBreakdown({ span }: { span: Span }) {
+  const { ready, total } = useBreakdowns([span])
+  const hasSignal = span.llmInput != null || span.toolDefinitions != null
+  if (!hasSignal) return null
+  if (!ready) return null
+  if (!total.inputTokens) return null
+
+  const segments = computeContextSegments({
+    systemTokens: total.systemTokens,
+    toolDefsTokens: total.toolDefsTokens,
+    messagesTokens: total.messagesTokens,
+    subagentTokens: 0,
+  })
+  const hasAny = segments.some((s) => s.tokens > 0)
+  if (!hasAny) return null
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Context breakdown</div>
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        {segments.map((s) => (
+          <div
+            key={s.key}
+            className={`${SEGMENT_COLORS[s.key]} transition-opacity duration-75`}
+            style={{ width: `${(s.tokens / total.inputTokens) * 100}%` }}
+          />
+        ))}
+      </div>
+      <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums">
+        {segments.map((s) =>
+          s.tokens > 0 ? (
+            <li key={s.key} className="inline-flex items-center gap-1">
+              <span className={`size-1.5 rounded-full ${SEGMENT_COLORS[s.key]}`} />
+              <span className="text-muted-foreground">{s.label}</span>
+              <span className="text-foreground">{formatTokens(s.tokens)}</span>
+              <span className="text-muted-foreground">· {s.pct}%</span>
+            </li>
+          ) : null,
+        )}
+      </ul>
     </div>
   )
 }
@@ -446,17 +501,11 @@ function MessagePartView({
       </Collapsible>
     )
   }
-  return <CodeBlock code={formatJson(part.response)} language="json" />
+  return <JsonView value={part.response} />
 }
 
 function StructuredText({ content }: { content: string }) {
-  const parsed = (() => {
-    try {
-      return JSON.parse(content) as unknown
-    } catch {
-      return undefined
-    }
-  })()
+  const parsed = parseJson(content)
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const entries = Object.entries(parsed as Record<string, unknown>)
     if (entries.length === 1 && typeof entries[0][1] === 'string') {
@@ -470,7 +519,7 @@ function StructuredText({ content }: { content: string }) {
     }
   }
   if (parsed !== undefined) {
-    return <CodeBlock code={formatJson(parsed)} language="json" />
+    return <JsonView value={parsed} />
   }
   return <pre className="whitespace-pre-wrap break-words text-xs leading-snug text-foreground">{content}</pre>
 }
@@ -520,23 +569,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?: string }) {
-  const resolved = raw != null ? (parseJson(raw) ?? raw) : value
-  const scalar =
-    typeof resolved === 'string'
-      ? resolved
-      : typeof resolved === 'number' || typeof resolved === 'boolean'
-        ? String(resolved)
-        : null
   return (
     <div className="min-w-0 max-w-full">
       <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      {scalar != null ? (
-        <pre className="not-prose max-h-96 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">
-          {scalar}
-        </pre>
-      ) : (
-        <CodeBlock code={raw ?? formatJson(value)} language="json" className="max-h-96" />
-      )}
+      <JsonView value={raw ?? value} className="max-h-96" />
     </div>
   )
 }

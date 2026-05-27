@@ -13,9 +13,10 @@ import {
 import { buildTurns, type Turn, turnTotals } from './turns'
 
 export type { ConversationEvent } from '#/lib/conversation'
-export { isCollapsibleInfra, isLlmLike, isToolLike, spanHasError } from './predicates'
+export { isAgentSpan, isChatSpan, isCollapsibleInfra, isLlmLike, isToolLike, spanHasError } from './predicates'
 export { isShortValue } from './system'
 export type { FrontendTool, ToolCallResolution, ToolDef, ToolGroup } from './tools'
+export { collectToolGroups } from './tools'
 export type { Turn } from './turns'
 export { turnTotals } from './turns'
 

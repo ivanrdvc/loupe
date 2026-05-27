@@ -19,6 +19,9 @@ interface Row {
   subtreeTokens: number
   subtreeCost: number
   isParallel: boolean
+  // Input token delta vs the previous chat sibling in the same parent scope.
+  // Non-zero only on chat spans where context grew significantly between calls.
+  ctxDelta?: number
 }
 
 const INDENT = 22
@@ -99,10 +102,20 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: bo
         }
       }
     }
+    // Track previous chat span's input tokens to compute per-call context deltas.
+    let prevChatInputTokens: number | null = null
     siblings.forEach((span, i) => {
       const isLast = i === siblings.length - 1
       const totals = agg(span)
       const children = collect(span.id)
+      const isChat = span.operation === 'chat'
+      let ctxDelta: number | undefined
+      if (isChat && span.inputTokens != null && prevChatInputTokens != null) {
+        const delta = span.inputTokens - prevChatInputTokens
+        // Only surface significant growth — small deltas are normal reply overhead.
+        if (delta > 5_000) ctxDelta = delta
+      }
+      if (isChat && span.inputTokens != null) prevChatInputTokens = span.inputTokens
       rows.push({
         span,
         depth: ancestorHasNext.length,
@@ -113,6 +126,7 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: bo
         subtreeTokens: totals.tokens,
         subtreeCost: totals.cost,
         isParallel: parallelIds.has(span.id),
+        ctxDelta,
       })
       if (!collapsedIds.has(span.id)) walk(span.id, [...ancestorHasNext, !isLast])
     })
@@ -197,7 +211,7 @@ interface SpanTreeRowProps {
 }
 
 function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }: SpanTreeRowProps) {
-  const { span, depth, railHasNext, isLastChild, childCount, isCollapsed, subtreeTokens, isParallel } = row
+  const { span, depth, railHasNext, isLastChild, childCount, isCollapsed, subtreeTokens, isParallel, ctxDelta } = row
   // Column ends right at chevron's right edge — no trailing whitespace inside the indent area.
   const indentWidth = railX(depth) + HANDLE / 2
   // All three indicator-axis decorations (below-circle vertical, handle button, leaf dot) anchor here.
@@ -348,6 +362,11 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
                   <span>
                     {fmtNum(span.inputTokens)} → {fmtNum(span.outputTokens)}
                     {cached > 0 && <span className="text-success"> · {fmtNum(cached)} cached</span>}
+                    {ctxDelta != null && (
+                      <span className="ml-1.5 rounded bg-warning/15 px-1 py-0.5 text-[10px] font-semibold text-warning">
+                        +{fmtNum(ctxDelta)} ctx
+                      </span>
+                    )}
                   </span>
                 )}
                 {subtreeTokens > 0 && !showTokens && (

@@ -55,8 +55,15 @@ export function Expandable<T>({ rows, children }: { rows: T[]; children: (visibl
   )
 }
 
-export function OpenLink({ traceId }: { traceId?: string | null }) {
+export function OpenLink({ traceId, sessionId }: { traceId?: string | null; sessionId?: string | null }) {
   const cls = 'inline-flex items-center text-muted-foreground hover:text-foreground'
+  if (sessionId) {
+    return (
+      <Link to="/sessions" search={{ session: sessionId }} className={cls} aria-label="Open session">
+        <ArrowTopRightOnSquareIcon className="size-3.5" />
+      </Link>
+    )
+  }
   if (traceId) {
     return (
       <Link to="." search={(prev) => ({ ...(prev as object), trace: traceId })} className={cls} aria-label="Open trace">
@@ -139,7 +146,7 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
               <TableHead className="w-20 text-right tabular-nums">Avg</TableHead>
               <TableHead className="w-20 text-right tabular-nums">p95 ▼</TableHead>
               <TableHead className="w-20 text-right tabular-nums">Max</TableHead>
-              <TableHead className="w-8" />
+              <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -157,8 +164,8 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
                 <TableCell className="text-right tabular-nums">
                   <Chars chars={row.maxChars} />
                 </TableCell>
-                <TableCell>
-                  <OpenLink traceId={row.sampleTraceId} />
+                <TableCell className="flex items-center gap-1">
+                  <OpenLink traceId={row.sampleTraceId} sessionId={row.sampleSessionId} />
                 </TableCell>
               </TableRow>
             ))}

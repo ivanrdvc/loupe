@@ -130,6 +130,7 @@ export interface ToolPayloadRow {
   maxChars: number
   count: number
   sampleTraceId?: string
+  sampleSessionId?: string
 }
 
 export type TopOpts = ListOpts

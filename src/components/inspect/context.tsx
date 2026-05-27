@@ -1,12 +1,12 @@
 import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
-import { CodeBlock } from '#/components/ai-elements/code-block'
+import { JsonView } from '#/components/ai-elements/json-view'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { formatTokens } from '#/lib/format'
 import type { ToolDef, ToolGroup } from '#/lib/inspector-view'
-import { formatJson, type JsonValue } from '#/lib/json'
+import type { JsonValue } from '#/lib/json'
 
 export function ContextTools({ groups }: { groups: ToolGroup[] }) {
   if (groups.length === 0) {
@@ -67,7 +67,7 @@ function ToolRow({ tool }: { tool: ToolDef }) {
 }
 
 export function ToolDetailView({ raw }: { raw: JsonValue }) {
-  return <CodeBlock code={formatJson(raw)} language="json" className="max-h-80" />
+  return <JsonView value={raw} className="max-h-80" />
 }
 
 export function ExpandableRow({
@@ -79,7 +79,7 @@ export function ExpandableRow({
   title: string
   subtitle?: string
   tokens?: number
-  // Render-prop so heavy work (formatJson, Shiki) only runs when expanded.
+  // Render-prop so heavy work (stringify, syntax tokenization) only runs when expanded.
   content: () => React.ReactNode
 }) {
   const [open, setOpen] = useState(false)

@@ -3,7 +3,7 @@ import { isValidElement } from 'react'
 
 import { cn } from '#/lib/utils'
 
-import { CodeBlock } from './code-block'
+import { JsonView } from './json-view'
 
 type ToolInputProps = ComponentProps<'div'> & {
   input: unknown
@@ -13,7 +13,7 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn('space-y-2 overflow-hidden', className)} {...props}>
     <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Parameters</h4>
     <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+      <JsonView value={input} />
     </div>
   </div>
 )
@@ -26,12 +26,9 @@ type ToolOutputProps = ComponentProps<'div'> & {
 export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutputProps) => {
   if (output == null && !errorText) return null
 
-  let Output: ReactNode = <div>{output as ReactNode}</div>
-
-  if (typeof output === 'object' && !isValidElement(output)) {
-    Output = <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
-  } else if (typeof output === 'string') {
-    Output = <CodeBlock code={output} language="json" />
+  let Output: ReactNode = null
+  if (output != null) {
+    Output = isValidElement(output) ? <div>{output}</div> : <JsonView value={output} />
   }
 
   return (

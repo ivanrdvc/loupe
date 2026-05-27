@@ -14,14 +14,17 @@ export function useBreakdowns(
     queryKey: ['breakdowns', ids],
     queryFn: () =>
       fetchBreakdowns({
-        data: chatSpans.map(({ model, llmInput, inputTokens, outputTokens, cachedTokens, toolDefinitions }) => ({
-          model,
-          llmInput,
-          inputTokens,
-          outputTokens,
-          cachedTokens,
-          toolDefinitions,
-        })),
+        data: chatSpans.map(
+          ({ model, llmInput, inputTokens, outputTokens, cachedTokens, toolDefinitions, systemInstructions }) => ({
+            model,
+            llmInput,
+            inputTokens,
+            outputTokens,
+            cachedTokens,
+            toolDefinitions,
+            systemInstructions,
+          }),
+        ),
       }),
     enabled: enabled && chatSpans.length > 0,
     staleTime: Infinity,

@@ -8,6 +8,7 @@ import { Badge } from '#/components/ui/badge'
 import { groupScaffolding } from '#/lib/agui-scaffolding'
 import { estimateTokens, formatTime, formatTokens, metricTone } from '#/lib/format'
 import type { ConversationEvent, InspectorView } from '#/lib/inspector-view'
+import { prettyJson } from '#/lib/json'
 
 interface ConversationViewProps {
   view: InspectorView
@@ -400,10 +401,5 @@ function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
 }
 
 function formatValue(v: unknown): string {
-  if (typeof v === 'string') return v
-  try {
-    return JSON.stringify(v, null, 2)
-  } catch {
-    return String(v)
-  }
+  return prettyJson(v)
 }

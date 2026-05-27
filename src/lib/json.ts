@@ -15,13 +15,38 @@ export function parseJson(v: unknown): JsonValue | undefined {
   }
 }
 
-// Format any value for inspector display. Strings pass through; everything
-// else stringifies with indentation. Survives circular refs without throwing.
+// Circular refs become `[Circular]` instead of throwing.
 export function formatJson(value: unknown): string {
   if (typeof value === 'string') return value
   try {
-    return JSON.stringify(value, null, 2)
+    const seen = new WeakSet<object>()
+    return JSON.stringify(
+      value,
+      (_k, v) => {
+        if (typeof v === 'object' && v !== null) {
+          if (seen.has(v)) return '[Circular]'
+          seen.add(v)
+        }
+        return v
+      },
+      2,
+    )
   } catch {
     return String(value)
   }
+}
+
+export function looksLikeJson(v: string): boolean {
+  const t = v.trimStart()
+  return t.startsWith('{') || t.startsWith('[')
+}
+
+// Like formatJson, but unwraps a JSON-encoded string into its parsed value.
+export function prettyJson(value: unknown): string {
+  if (typeof value === 'string') {
+    const parsed = parseJson(value)
+    if (parsed !== null && typeof parsed === 'object') return formatJson(parsed)
+    return value
+  }
+  return formatJson(value)
 }

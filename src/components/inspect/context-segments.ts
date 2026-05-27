@@ -22,7 +22,7 @@ export function computeContextSegments(input: {
 }): ContextSegment[] {
   const raw = [
     { key: 'system' as const, label: 'System', tokens: input.systemTokens },
-    { key: 'tools' as const, label: 'Tools', tokens: input.toolDefsTokens },
+    { key: 'tools' as const, label: 'Tool defs', tokens: input.toolDefsTokens },
     { key: 'messages' as const, label: 'Messages', tokens: input.messagesTokens },
     { key: 'subagents' as const, label: 'Subagents', tokens: input.subagentTokens },
   ]

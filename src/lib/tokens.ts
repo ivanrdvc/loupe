@@ -4,7 +4,7 @@ import type { Span } from './spans'
 
 export type SpanInput = Pick<
   Span,
-  'model' | 'llmInput' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'toolDefinitions'
+  'model' | 'llmInput' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'toolDefinitions' | 'systemInstructions'
 >
 
 export interface ChatBreakdown {
@@ -102,18 +102,52 @@ function toolDefsCount(defs: JsonValue | undefined): number {
 
 export async function breakdownChat(span: SpanInput): Promise<ChatBreakdown> {
   const enc = await resolveEncoder(span.model)
+  const inputTokens = span.inputTokens ?? 0
+
+  // --- Compute systemTokens ---
+  // Prefer direct tokenization of systemInstructions when present (survives
+  // even when llmInput is absent or truncated). Fall back to counting the
+  // system role messages inside llmInput.
   const messages = asMessages(span.llmInput)
   const systemMsgs = messages.filter((m) => m.role === 'system')
   const otherMsgs = messages.filter((m) => m.role !== 'system')
-  const systemTokens = countMessages(systemMsgs, enc)
-  const messagesTokens = countMessages(otherMsgs, enc)
-  const inputTokens = span.inputTokens ?? 0
-  const toolDefsTokens = Math.max(0, inputTokens - systemTokens - messagesTokens)
+  const systemTokensFromInput = countMessages(systemMsgs, enc)
+  const systemTokensFromAttr = span.systemInstructions ? enc.count(span.systemInstructions) : 0
+  const systemTokens = Math.max(systemTokensFromInput, systemTokensFromAttr)
+
+  // --- Compute toolDefsTokens ---
+  // When the raw definitions are available, tokenize them directly — far more
+  // accurate than the residual approach and works even without llmInput.
+  const toolDefsTokens = span.toolDefinitions != null ? enc.count(JSON.stringify(span.toolDefinitions)) : null // signals "use residual below"
+
+  // --- messagesTokens and toolDefsTokens (residual logic) ---
+  // • If llmInput is present: messagesTokens = direct count; toolDefsTokens = residual if not computed above.
+  // • If llmInput is absent but toolDefs are present: toolDefsTokens = direct count; messagesTokens = residual.
+  // • If neither: everything collapses into the residual bucket (toolDefsTokens) — caller should hide the bar.
+  const messagesTokensFromInput = countMessages(otherMsgs, enc)
+
+  let finalToolDefs: number
+  let finalMessages: number
+
+  if (toolDefsTokens !== null && span.llmInput != null) {
+    // Best case: have both. Trust direct counts.
+    finalToolDefs = toolDefsTokens
+    finalMessages = messagesTokensFromInput
+  } else if (toolDefsTokens !== null) {
+    // Have tool defs but no llmInput — messages is the residual.
+    finalToolDefs = toolDefsTokens
+    finalMessages = Math.max(0, inputTokens - systemTokens - toolDefsTokens)
+  } else {
+    // No tool defs — fall back to original residual approach.
+    finalToolDefs = Math.max(0, inputTokens - systemTokens - messagesTokensFromInput)
+    finalMessages = messagesTokensFromInput
+  }
+
   return {
     systemTokens,
-    toolDefsTokens,
+    toolDefsTokens: finalToolDefs,
     toolDefsCount: toolDefsCount(span.toolDefinitions),
-    messagesTokens,
+    messagesTokens: finalMessages,
     cachedTokens: span.cachedTokens ?? 0,
     inputTokens,
     outputTokens: span.outputTokens ?? 0,
