@@ -46,6 +46,9 @@ export async function fetchToolErrorRates(p: OpenObserveProvider, opts?: TopOpts
 
 export async function fetchToolPayloadSizes(p: OpenObserveProvider, opts?: TopOpts): Promise<ToolPayloadRow[]> {
   const limit = opts?.limit ?? 5
+  const known = await p.getKnownColumns()
+  const sessionCols = ooColumns('sessionId', { known })
+  const sessionExpr = sessionCols.length === 0 ? 'NULL' : `MAX(COALESCE(${sessionCols.join(', ')}))`
   const sql = `
     SELECT
       operation_name AS name,
@@ -53,7 +56,8 @@ export async function fetchToolPayloadSizes(p: OpenObserveProvider, opts?: TopOp
       approx_percentile_cont(LENGTH(gen_ai_tool_call_result), 0.95) AS p95_chars,
       MAX(LENGTH(gen_ai_tool_call_result)) AS max_chars,
       COUNT(*) AS count,
-      MAX(trace_id) AS sample_trace_id
+      MAX(trace_id) AS sample_trace_id,
+      ${sessionExpr} AS sample_session_id
     FROM "${p.stream}"
     WHERE operation_name LIKE 'execute_tool %'
       AND gen_ai_tool_call_result IS NOT NULL

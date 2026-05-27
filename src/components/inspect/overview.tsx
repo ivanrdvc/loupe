@@ -13,7 +13,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { formatTokens } from '#/components/context-window'
 import { IconTabs } from '#/components/icon-tabs'
@@ -25,6 +25,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '#/componen
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
+import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 import { useIsMobile } from '#/hooks/use-mobile'
 import { formatCost } from '#/lib/format'
 import { type InspectorView, spanHasError, type Turn, turnTotals } from '#/lib/inspector-view'
@@ -317,24 +318,8 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
   const formatted = formatAttrValue(value)
   const isLong = formatted.length > ATTR_PREVIEW_LIMIT || formatted.includes('\n')
   const [expanded, setExpanded] = useState(false)
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-
-  useEffect(() => {
-    if (copyState === 'idle') return
-    const t = window.setTimeout(() => setCopyState('idle'), 1200)
-    return () => window.clearTimeout(t)
-  }, [copyState])
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(formatted)
-      setCopyState('copied')
-    } catch {
-      setCopyState('failed')
-    }
-  }
-  const copied = copyState === 'copied'
-  const failed = copyState === 'failed'
+  const { copied, failed, copy } = useCopyToClipboard()
+  const onCopy = () => copy(formatted)
 
   return (
     <TableRow className="group align-top">
@@ -372,12 +357,12 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
             size="icon-sm"
             className={cn(
               'shrink-0 transition-opacity focus-visible:opacity-100',
-              copyState === 'idle' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100',
+              copied || failed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
               failed && 'text-destructive',
             )}
             aria-label={copied ? 'Copied' : failed ? 'Copy failed' : `Copy ${attrKey}`}
             title={copied ? 'Copied' : failed ? 'Copy failed — clipboard unavailable' : 'Copy value'}
-            onClick={copy}
+            onClick={onCopy}
           >
             {copied ? <CheckIcon /> : failed ? <ExclamationTriangleIcon /> : <ClipboardIcon />}
           </Button>

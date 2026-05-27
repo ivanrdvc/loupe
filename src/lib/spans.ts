@@ -78,7 +78,19 @@ export interface Span {
   // All provider attributes for the raw-fields inspector view. JsonValue so it
   // survives the SSR serialization boundary.
   rawAttributes?: Record<string, JsonValue>
+
+  truncatedAttrs?: TruncatedAttrSet
 }
+
+export type TruncatableField =
+  | 'llmInput'
+  | 'llmOutput'
+  | 'toolDefinitions'
+  | 'systemInstructions'
+  | 'toolResult'
+  | 'inputParams'
+
+export type TruncatedAttrSet = Partial<Record<TruncatableField, true>>
 
 // Defend against producer-side exporter retries that ingest the same span_id
 // multiple times. First occurrence wins.

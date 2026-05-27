@@ -1,7 +1,20 @@
 import { type JsonValue, parseJson } from './json'
 import { estimateCostUsd } from './llm-pricing'
-import type { Operation } from './spans'
+import type { Operation, TruncatableField, TruncatedAttrSet } from './spans'
 import { pickCanonical, pickCanonicalNumber } from './telemetry/conventions'
+
+// Backends (e.g. App Insights customDimensions) clamp string values around 8 KB.
+const TRUNCATION_THRESHOLD = 8000
+
+function parseOrFlag(raw: string | undefined, c: Classification, field: TruncatableField): JsonValue | undefined {
+  if (raw === undefined) return undefined
+  const parsed = parseJson(raw)
+  if (parsed === undefined && raw.length >= TRUNCATION_THRESHOLD) {
+    c.truncatedAttrs ??= {}
+    c.truncatedAttrs[field] = true
+  }
+  return parsed
+}
 
 // GenAI-shaped fields extracted from a span's OTel attributes and span name.
 // Every ingest path (push endpoint, OpenObserve, App Insights, ...) hands an
@@ -51,6 +64,7 @@ export interface Classification {
   // when the producer stamped it; consumer-side normaliser fills the rest.
   taskId?: string
   taskParentId?: string
+  truncatedAttrs?: TruncatedAttrSet
 }
 
 export function classifySpan(name: string, attrs: Record<string, unknown>, spanStartMs?: number): Classification {
@@ -101,10 +115,10 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     if (description) c.agentDescription = description
   }
 
-  const sysInstructions = parseSystemInstructions(
-    pickString(attrs, ['gen_ai.system_instructions', 'gen_ai_system_instructions']),
-  )
+  const sysRaw = pickString(attrs, ['gen_ai.system_instructions', 'gen_ai_system_instructions'])
+  const sysInstructions = parseSystemInstructions(sysRaw)
   if (sysInstructions) c.systemInstructions = sysInstructions
+  parseOrFlag(sysRaw, c, 'systemInstructions')
 
   // Run-graph identity (top-level so producers stamping on non-invoke_agent
   // spans also flow through). graph.node.* is accepted as an alias.
@@ -142,9 +156,8 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
   }
 
   // Read on both chat and invoke_agent — chat copy is often truncated.
-  const toolDefs = parseJson(
-    pickString(attrs, ['gen_ai.tool.definitions', 'gen_ai_tool_definitions', 'llm_request_functions']),
-  )
+  const toolDefsRaw = pickString(attrs, ['gen_ai.tool.definitions', 'gen_ai_tool_definitions', 'llm_request_functions'])
+  const toolDefs = parseOrFlag(toolDefsRaw, c, 'toolDefinitions')
   if (toolDefs !== undefined) c.toolDefinitions = toolDefs
 
   if (operation === 'tool' || operation === 'mcp') {
@@ -153,31 +166,33 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     const callId = pickString(attrs, ['gen_ai.tool.call.id', 'gen_ai_tool_call_id'])
     if (callId) c.toolCallId = callId
     const args = pickString(attrs, ['gen_ai.tool.call.arguments', 'gen_ai_tool_call_arguments'])
-    if (args) c.inputParams = args
-    // Raw-string fallback when parse fails (truncated payloads). Check
-    // `undefined` not nullish so literal JSON `null` still passes through.
+    if (args) {
+      c.inputParams = args
+      parseOrFlag(args, c, 'inputParams')
+    }
+    // Raw-string fallback when parse fails — `undefined` check (not nullish)
+    // so literal JSON `null` still passes through.
     const rawResult = pickString(attrs, ['gen_ai.tool.call.result', 'gen_ai_tool_call_result'])
     if (rawResult !== undefined) {
-      const parsed = parseJson(rawResult)
+      const parsed = parseOrFlag(rawResult, c, 'toolResult')
       c.toolResult = parsed !== undefined ? parsed : rawResult
     }
   }
 
   if (operation === 'chat') {
     // `_o2_llm_input` / `_o2_llm_output` are OO's alternate column form for
-    // payloads that conflicted with reserved names — kept here as a fallback
-    // when reading from OO-shaped attribute bags.
-    const input = parseJson(pickCanonical(attrs, 'llmInput') ?? pickString(attrs, ['_o2_llm_input']))
+    // payloads that conflicted with reserved names.
+    const inputRaw = pickCanonical(attrs, 'llmInput') ?? pickString(attrs, ['_o2_llm_input'])
+    const input = parseOrFlag(inputRaw, c, 'llmInput')
     if (input !== undefined) c.llmInput = input
-    const output = parseJson(
-      pickString(attrs, [
-        'gen_ai.output.messages',
-        'gen_ai_output_messages',
-        'llm_output',
-        'llm.output',
-        '_o2_llm_output',
-      ]),
-    )
+    const outputRaw = pickString(attrs, [
+      'gen_ai.output.messages',
+      'gen_ai_output_messages',
+      'llm_output',
+      'llm.output',
+      '_o2_llm_output',
+    ])
+    const output = parseOrFlag(outputRaw, c, 'llmOutput')
     if (output !== undefined) c.llmOutput = output
 
     const cached = pickCanonicalNumber(attrs, 'cacheReadTokens')
@@ -213,8 +228,8 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
 }
 
 // `gen_ai.system_instructions` is `[{type:"text",content:"..."}, ...]`.
-// Regex fallback handles App Insights' 8 KB customDimensions truncation
-// slicing mid-content (JSON parse fails on the partial array).
+// Regex fallback handles 8 KB customDimensions truncation slicing
+// mid-content (JSON parse fails on the partial array).
 function parseSystemInstructions(raw: string | undefined): string | undefined {
   if (!raw) return undefined
   const parsed = parseJson(raw)

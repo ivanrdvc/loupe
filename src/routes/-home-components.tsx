@@ -164,7 +164,7 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
                 <TableCell className="text-right tabular-nums">
                   <Chars chars={row.maxChars} />
                 </TableCell>
-                <TableCell className="flex items-center gap-1">
+                <TableCell>
                   <OpenLink traceId={row.sampleTraceId} sessionId={row.sampleSessionId} />
                 </TableCell>
               </TableRow>

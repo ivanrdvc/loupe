@@ -26,6 +26,7 @@ import { fetchSessionLogs } from '#/server/logs'
 import { createPrompt } from '#/server/prompts'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
+import { TruncatedAttrFallback } from './truncated-attr-fallback'
 
 function extractPromptMessages(span: Span): PromptMessage[] {
   const out: PromptMessage[] = []
@@ -175,10 +176,7 @@ export function DetailPanel({
       {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
       {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
       {isChatSpan(span) && span.llmInput == null && span.inputTokens != null && span.inputTokens > 0 && (
-        <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-          Input messages not available — context too large to store in telemetry ({fmtNum(span.inputTokens)} tokens).
-          Tool results returned by subagent calls are the most likely cause of the large context.
-        </div>
+        <TruncatedAttrFallback span={span} field="llmInput" tokens={span.inputTokens} />
       )}
       {(span.llmInput != null || span.llmOutput != null) && (
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} view={view} />
@@ -204,6 +202,8 @@ function SpanContextBreakdown({ span }: { span: Span }) {
   const hasAny = segments.some((s) => s.tokens > 0)
   if (!hasAny) return null
 
+  const denom = segments.reduce((acc, s) => acc + s.tokens, 0) || 1
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Context breakdown</div>
@@ -212,7 +212,7 @@ function SpanContextBreakdown({ span }: { span: Span }) {
           <div
             key={s.key}
             className={`${SEGMENT_COLORS[s.key]} transition-opacity duration-75`}
-            style={{ width: `${(s.tokens / total.inputTokens) * 100}%` }}
+            style={{ width: `${(s.tokens / denom) * 100}%` }}
           />
         ))}
       </div>

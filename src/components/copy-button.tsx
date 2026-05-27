@@ -1,5 +1,5 @@
 import { CheckIcon, ClipboardIcon } from '@heroicons/react/16/solid'
-import { useEffect, useRef, useState } from 'react'
+import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 
 interface CopyButtonProps {
   value: string
@@ -8,26 +8,11 @@ interface CopyButtonProps {
 }
 
 export function CopyButton({ value, className, label = 'Copy' }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false)
-  const timerRef = useRef<number | null>(null)
-
-  useEffect(
-    () => () => {
-      if (timerRef.current != null) window.clearTimeout(timerRef.current)
-    },
-    [],
-  )
+  const { copied, copy } = useCopyToClipboard()
 
   const onClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-      if (timerRef.current != null) window.clearTimeout(timerRef.current)
-      timerRef.current = window.setTimeout(() => setCopied(false), 1200)
-    } catch {
-      // Clipboard unavailable (e.g. http://). Fail silently — nothing to recover.
-    }
+    await copy(value)
   }
 
   return (

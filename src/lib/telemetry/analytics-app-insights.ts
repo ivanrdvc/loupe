@@ -38,14 +38,16 @@ export async function fetchToolPayloadSizes(p: AppInsightsProvider, opts?: TopOp
   const q = `
     union dependencies, requests
     | where name startswith "execute_tool "
-    | extend result_len = strlen(tostring(customDimensions["gen_ai.tool.call.result"]))
+    | extend result_len = strlen(tostring(customDimensions["gen_ai.tool.call.result"])),
+             sess = ${aiCoalesce('sessionId')}
     | where isnotnull(result_len) and result_len > 0
     | summarize
         avg_chars = avg(result_len),
         p95_chars = percentile(result_len, 95),
         max_chars = max(result_len),
         count = count(),
-        sample_trace_id = take_any(operation_Id)
+        sample_trace_id = take_any(operation_Id),
+        sample_session_id = take_anyif(sess, isnotempty(sess))
       by name
     | top ${limit} by p95_chars desc
   `

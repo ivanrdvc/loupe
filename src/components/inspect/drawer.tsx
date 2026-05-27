@@ -10,6 +10,7 @@ import { CopyButton } from '#/components/copy-button'
 import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 import { buildInspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
@@ -259,17 +260,15 @@ export function InspectDrawer({
 }
 
 function ShareLinkButton({ url }: { url: string }) {
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-      toast.success('Link copied')
-    } catch {
-      toast.error('Could not copy')
-    }
+  const { copy } = useCopyToClipboard()
+  const onClick = async () => {
+    const ok = await copy(url)
+    if (ok) toast.success('Link copied')
+    else toast.error('Could not copy')
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" onClick={copy}>
+    <Button type="button" variant="outline" size="sm" onClick={onClick}>
       <IconShare2 />
       Share Link
     </Button>

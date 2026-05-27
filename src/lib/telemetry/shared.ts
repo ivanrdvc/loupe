@@ -52,6 +52,7 @@ export function mapToolPayloadRow(row: Record<string, unknown>): ToolPayloadRow 
     return Number.isFinite(n) && n > 0 ? n : 0
   }
   const sample = row.sample_trace_id
+  const session = row.sample_session_id
   return {
     name: String(row.name ?? row.operation_name ?? '?'),
     avgChars: toChars(row.avg_chars),
@@ -59,6 +60,7 @@ export function mapToolPayloadRow(row: Record<string, unknown>): ToolPayloadRow 
     maxChars: toChars(row.max_chars),
     count: Number(row.count ?? 0),
     sampleTraceId: typeof sample === 'string' && sample ? sample : undefined,
+    sampleSessionId: typeof session === 'string' && session ? session : undefined,
   }
 }
 

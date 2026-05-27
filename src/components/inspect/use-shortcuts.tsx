@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { CommandShortcut } from '#/components/ui/command'
+import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 import { formatShortcut, useIsMac } from '#/hooks/use-is-mac'
 
 interface Options {
@@ -15,26 +16,21 @@ export function useInspectShortcuts({ entityId, link, enabled = true }: Options)
   const id = entityId ?? ''
   const hasId = id.length > 0
   const hasLink = !!link
+  const { copy } = useCopyToClipboard()
 
   const copyId = useCallback(async () => {
     if (!hasId) return
-    try {
-      await navigator.clipboard.writeText(id)
-      toast.success('ID copied')
-    } catch {
-      toast.error('Could not copy')
-    }
-  }, [id, hasId])
+    const ok = await copy(id)
+    if (ok) toast.success('ID copied')
+    else toast.error('Could not copy')
+  }, [id, hasId, copy])
 
   const copyLink = useCallback(async () => {
     if (!link) return
-    try {
-      await navigator.clipboard.writeText(link)
-      toast.success('Link copied')
-    } catch {
-      toast.error('Could not copy')
-    }
-  }, [link])
+    const ok = await copy(link)
+    if (ok) toast.success('Link copied')
+    else toast.error('Could not copy')
+  }, [link, copy])
 
   useEffect(() => {
     if (!enabled) return
