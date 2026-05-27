@@ -5,19 +5,13 @@ import { Badge } from '#/components/ui/badge'
 import { type InspectorView, isCollapsibleInfra } from '#/lib/inspector-view'
 import { displayFor } from './shared'
 
-export function useSpanSearch({
-  view,
-  fullSpans,
-  onSelect,
-}: {
-  view: InspectorView
-  fullSpans: boolean
-  onSelect: (id: string) => void
-}) {
+export function useSpanSearch({ view, onSelect }: { view: InspectorView; onSelect: (id: string) => void }) {
   const provider = useMemo<SearchProvider | null>(() => {
     if (view.spans.length === 0) return null
     const { spans, byId, agentLabels } = view
-    const visible = fullSpans ? spans : spans.filter((s) => !isCollapsibleInfra(s))
+    // Palette skips infra (http/mcp) spans so search stays focused on meaningful
+    // nodes. Per-trace raw toggle in the tree is the way to see them.
+    const visible = spans.filter((s) => !isCollapsibleInfra(s))
     return {
       id: 'session-spans',
       group: 'Spans in this session',
@@ -61,7 +55,7 @@ export function useSpanSearch({
         }
       }),
     }
-  }, [view, fullSpans, onSelect])
+  }, [view, onSelect])
 
   useRegisterSearchProvider(provider)
 }

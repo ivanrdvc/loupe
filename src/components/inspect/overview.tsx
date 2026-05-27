@@ -55,13 +55,17 @@ export function InspectLayout({
   loading,
   selectedId,
   onSelect,
-  fullSpans,
+  rawRoots,
+  onToggleRawRoot,
+  onEnsureRawRoot,
 }: {
   view: InspectorView
   loading?: boolean
   selectedId: string | null
   onSelect: (id: string) => void
-  fullSpans?: boolean
+  rawRoots: Set<string>
+  onToggleRawRoot: (id: string) => void
+  onEnsureRawRoot: (id: string) => void
 }) {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('details')
   const isMobile = useIsMobile()
@@ -80,7 +84,14 @@ export function InspectLayout({
                 <Spinner />
               </div>
             ) : (
-              <SpanTreeList view={view} selectedId={selectedId} onSelect={onSelect} fullSpans={fullSpans} />
+              <SpanTreeList
+                view={view}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                rawRoots={rawRoots}
+                onToggleRawRoot={onToggleRawRoot}
+                onEnsureRawRoot={onEnsureRawRoot}
+              />
             )}
           </ScrollArea>
         </section>

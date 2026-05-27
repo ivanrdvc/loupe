@@ -15,6 +15,7 @@ import type { Span } from '#/lib/spans'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
 import { InspectLayout } from './overview'
+import { useRawRoots } from './use-raw-roots'
 import { useInspectShortcuts } from './use-shortcuts'
 import { useSpanSearch } from './use-span-search'
 import { type InspectView, InspectViewBar } from './view-bar'
@@ -56,13 +57,12 @@ export function InspectDrawer({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerView, setDrawerView] = useState<DrawerView>('spans')
   const [contentReady, setContentReady] = useState(false)
-  const [fullSpans, setFullSpans] = useState(false)
 
   const view = useMemo(() => buildInspectorView(open ? spans : []), [open, spans])
+  const raw = useRawRoots(view)
 
   useSpanSearch({
     view,
-    fullSpans,
     onSelect: (id) => {
       setSelectedId(id)
       setDrawerView('spans')
@@ -221,8 +221,8 @@ export function InspectDrawer({
         <InspectViewBar
           view={drawerView}
           onViewChange={setDrawerView}
-          fullSpans={fullSpans}
-          onFullSpansChange={setFullSpans}
+          rawAllOn={raw.rawAllOn}
+          onToggleRawAll={raw.toggleAll}
           hiddenTabs={hiddenTabs}
           extras={
             contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow view={view} /> : null
@@ -248,7 +248,9 @@ export function InspectDrawer({
                 loading={showLoading}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                fullSpans={fullSpans}
+                rawRoots={raw.rawRoots}
+                onToggleRawRoot={raw.toggleRoot}
+                onEnsureRawRoot={raw.ensureRoot}
               />
             </div>
           )}

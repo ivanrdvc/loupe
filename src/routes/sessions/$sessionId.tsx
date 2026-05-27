@@ -7,6 +7,7 @@ import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
 import { InspectLayout } from '#/components/inspect/overview'
+import { useRawRoots } from '#/components/inspect/use-raw-roots'
 import { useInspectShortcuts } from '#/components/inspect/use-shortcuts'
 import { useSpanSearch } from '#/components/inspect/use-span-search'
 import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
@@ -75,7 +76,6 @@ function SessionDetail() {
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     search.view === 'spans' && search.span ? search.span : null,
   )
-  const [fullSpans, setFullSpans] = useState(false)
 
   useEffect(() => {
     setSelectedId(search.view === 'spans' && search.span ? search.span : null)
@@ -90,6 +90,7 @@ function SessionDetail() {
   const crumbLabel = data?.title?.trim() || sessionId
 
   const inspectorView = useMemo(() => buildInspectorView(spans), [spans])
+  const raw = useRawRoots(inspectorView)
   const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
   const isUtility = category === 'utility'
   const hiddenTabs = useMemo<InspectView[] | undefined>(() => (isUtility ? ['conversation'] : undefined), [isUtility])
@@ -119,7 +120,6 @@ function SessionDetail() {
 
   useSpanSearch({
     view: inspectorView,
-    fullSpans,
     onSelect: (id) => {
       setSelectedId(id)
       navigate({ search: (prev) => ({ range: prev.range, view: 'spans' as const, span: id }) })
@@ -176,8 +176,8 @@ function SessionDetail() {
         <InspectViewBar
           view={inspectView}
           onViewChange={setInspectView}
-          fullSpans={fullSpans}
-          onFullSpansChange={setFullSpans}
+          rawAllOn={raw.rawAllOn}
+          onToggleRawAll={raw.toggleAll}
           autoRefresh={autoRefresh}
           onAutoRefreshChange={setAutoRefresh}
           onRefresh={() => {
@@ -207,7 +207,9 @@ function SessionDetail() {
               loading={false}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              fullSpans={fullSpans}
+              rawRoots={raw.rawRoots}
+              onToggleRawRoot={raw.toggleRoot}
+              onEnsureRawRoot={raw.ensureRoot}
             />
           ) : inspectView === 'conversation' ? (
             <ConversationView view={inspectorView} onSelect={setSelectedId} />

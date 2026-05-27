@@ -17,8 +17,10 @@ const INSPECT_VIEW_TABS = [
 interface InspectViewBarProps {
   view: InspectView
   onViewChange: (view: InspectView) => void
-  fullSpans?: boolean
-  onFullSpansChange?: (value: boolean) => void
+  /** Bulk raw-spans control across every trace in the session. Per-row toggles
+   * still work independently — this just flips them all together. */
+  rawAllOn?: boolean
+  onToggleRawAll?: () => void
   autoRefresh?: AutoRefreshInterval
   onAutoRefreshChange?: (value: AutoRefreshInterval) => void
   onRefresh?: () => void
@@ -32,8 +34,8 @@ interface InspectViewBarProps {
 export function InspectViewBar({
   view,
   onViewChange,
-  fullSpans,
-  onFullSpansChange,
+  rawAllOn,
+  onToggleRawAll,
   autoRefresh,
   onAutoRefreshChange,
   onRefresh,
@@ -44,25 +46,24 @@ export function InspectViewBar({
   const visibleTabs = hiddenTabs?.length
     ? INSPECT_VIEW_TABS.filter((t) => !hiddenTabs.includes(t.id))
     : INSPECT_VIEW_TABS
-  const showSpansActions = view === 'spans'
-  const hasModifierGroup = showSpansActions && onFullSpansChange
-  const hasActionGroup = (autoRefresh != null && onAutoRefreshChange != null && onRefresh != null) || extras != null
+  const showRawAll = view === 'spans' && onToggleRawAll
+  const hasRefreshGroup = autoRefresh != null && onAutoRefreshChange != null && onRefresh != null
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-4 py-2">
       <IconTabs tabs={visibleTabs} value={view} onChange={onViewChange} aria-label="Inspect view" />
       <div className="flex flex-wrap items-center gap-1">
-        {showSpansActions && onFullSpansChange && (
+        {showRawAll && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle size="sm" pressed={fullSpans} onPressedChange={onFullSpansChange} aria-label="Show raw spans">
+              <Toggle size="sm" pressed={rawAllOn} onPressedChange={onToggleRawAll} aria-label="Show raw spans">
                 <IconBraces />
               </Toggle>
             </TooltipTrigger>
-            <TooltipContent>{fullSpans ? 'Hide raw spans' : 'Show raw spans'}</TooltipContent>
+            <TooltipContent>{rawAllOn ? 'Hide raw spans (all traces)' : 'Show raw spans (all traces)'}</TooltipContent>
           </Tooltip>
         )}
-        {hasModifierGroup && hasActionGroup && <Separator orientation="vertical" className="mx-1 h-5" />}
-        {autoRefresh != null && onAutoRefreshChange != null && onRefresh != null && (
+        {showRawAll && (hasRefreshGroup || extras != null) && <Separator orientation="vertical" className="mx-1 h-5" />}
+        {hasRefreshGroup && (
           <AutoRefreshSelect
             value={autoRefresh}
             onChange={onAutoRefreshChange}

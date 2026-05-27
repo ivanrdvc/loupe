@@ -1,10 +1,12 @@
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
 import { Clock01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Badge } from '#/components/ui/badge'
+import { IconBraces } from '@tabler/icons-react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { type InspectorView, isCollapsibleInfra, isToolLike, spanHasError } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
+import { cn } from '#/lib/utils'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
 interface Row {
@@ -22,19 +24,21 @@ interface Row {
   // Input token delta vs the previous chat sibling in the same parent scope.
   // Non-zero only on chat spans where context grew significantly between calls.
   ctxDelta?: number
+  // Id of the depth-0 ancestor — keyed for the per-trace raw-spans toggle.
+  rootId: string
 }
 
 const INDENT = 22
 const HANDLE = 16
-const LEAF_DOT = 8
-const TREE_LINE = 'bg-border'
+const LEAF_DOT = 7
+const TREE_LINE = 'bg-border/60'
 // Normal completions — don't surface these on the row, they're just noise.
 const NORMAL_FINISH = new Set(['stop', 'end_turn', 'complete', 'end', 'eos'])
 
 // All rails, elbow, and indicator share this single x-axis so nothing can drift.
 const railX = (depth: number) => depth * INDENT + INDENT / 2
 
-function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: boolean): Row[] {
+function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoots: Set<string>): Row[] {
   // Reuse the shared parent index; freshly sort each sibling list once.
   const byParent = new Map<string | null, Span[]>()
   for (const [pid, kids] of view.childrenByParent) {
@@ -46,26 +50,33 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: bo
 
   // Hide spans classified as plain http — those are the SDK-level transport
   // calls (POST /v1/chat/completions etc.). Children re-parent up so the
-  // tree stays connected. In full mode, render them as real nodes.
-  const visibleChildren = new Map<string | null, Span[]>()
-  const collect = (parentId: string | null): Span[] => {
-    if (visibleChildren.has(parentId)) return visibleChildren.get(parentId) as Span[]
+  // tree stays connected. When raw is enabled for a trace, its subtree shows
+  // them as real nodes. Cache key includes rootId so different traces with
+  // different raw settings stay independent.
+  const visibleChildren = new Map<string, Span[]>()
+  const collect = (parentId: string | null, rootId: string | null): Span[] => {
+    const key = `${parentId ?? ''}|${rootId ?? ''}`
+    if (visibleChildren.has(key)) return visibleChildren.get(key) as Span[]
+    const showRaw = rootId != null && rawRoots.has(rootId)
     const out: Span[] = []
     for (const span of byParent.get(parentId) ?? []) {
-      if (!fullSpans && isCollapsibleInfra(span)) out.push(...collect(span.id))
+      if (!showRaw && isCollapsibleInfra(span)) out.push(...collect(span.id, rootId))
       else out.push(span)
     }
-    visibleChildren.set(parentId, out)
+    visibleChildren.set(key, out)
     return out
   }
 
+  // Aggregation walks the full byParent tree (not visibleChildren) so totals
+  // are invariant to which traces have raw on — otherwise the same span would
+  // get different tokens/cost depending on which root it was viewed from.
   const aggCache = new Map<string, { tokens: number; cost: number }>()
   const agg = (span: Span): { tokens: number; cost: number } => {
     const cached = aggCache.get(span.id)
     if (cached) return cached
     let tokens = span.tokens ?? 0
     let cost = span.costUsd ?? 0
-    for (const child of collect(span.id)) {
+    for (const child of byParent.get(span.id) ?? []) {
       const sub = agg(child)
       tokens += sub.tokens
       cost += sub.cost
@@ -79,8 +90,8 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: bo
   // `ancestorHasNext[i]` is "the ancestor at depth i is not the last sibling."
   // We slice(1) when constructing each row because the depth-0 entry (root's
   // own last-status) doesn't correspond to a rail column — roots have no shared rail.
-  const walk = (parentId: string | null, ancestorHasNext: boolean[]) => {
-    const siblings = collect(parentId)
+  const walk = (parentId: string | null, ancestorHasNext: boolean[], rootId: string | null) => {
+    const siblings = collect(parentId, rootId)
     // Detect parallel execution: tool siblings that started at approximately
     // the same time (dispatched concurrently by the framework). Only tool spans
     // can be parallel — LLM calls are always sequential in an agent loop.
@@ -107,7 +118,8 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: bo
     siblings.forEach((span, i) => {
       const isLast = i === siblings.length - 1
       const totals = agg(span)
-      const children = collect(span.id)
+      const effectiveRootId = rootId ?? span.id
+      const children = collect(span.id, effectiveRootId)
       const isChat = span.operation === 'chat'
       let ctxDelta: number | undefined
       if (isChat && span.inputTokens != null && prevChatInputTokens != null) {
@@ -127,11 +139,12 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, fullSpans: bo
         subtreeCost: totals.cost,
         isParallel: parallelIds.has(span.id),
         ctxDelta,
+        rootId: effectiveRootId,
       })
-      if (!collapsedIds.has(span.id)) walk(span.id, [...ancestorHasNext, !isLast])
+      if (!collapsedIds.has(span.id)) walk(span.id, [...ancestorHasNext, !isLast], effectiveRootId)
     })
   }
-  walk(null, [])
+  walk(null, [], null)
   return rows
 }
 
@@ -139,24 +152,50 @@ interface SpanTreeListProps {
   view: InspectorView
   selectedId: string | null
   onSelect: (id: string) => void
-  fullSpans?: boolean
+  /** Controlled per-trace raw-spans state (provide via useRawRoots). */
+  rawRoots: Set<string>
+  onToggleRawRoot: (id: string) => void
+  /** Imperative reveal: ensures the given root id has raw on (used when the
+   * selected span is an infra descendant). */
+  onEnsureRawRoot: (id: string) => void
 }
 
-export function SpanTreeList({ view, selectedId, onSelect, fullSpans = false }: SpanTreeListProps) {
+export function SpanTreeList({
+  view,
+  selectedId,
+  onSelect,
+  rawRoots,
+  onToggleRawRoot,
+  onEnsureRawRoot,
+}: SpanTreeListProps) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
-  const rows = useMemo(() => buildRows(view, collapsedIds, fullSpans), [view, collapsedIds, fullSpans])
+  const rows = useMemo(() => {
+    if (import.meta.env.DEV) {
+      const t0 = performance.now()
+      const out = buildRows(view, collapsedIds, rawRoots)
+      const dt = performance.now() - t0
+      if (dt > 5) console.debug(`[tree] buildRows: ${out.length} rows, ${dt.toFixed(1)}ms`)
+      return out
+    }
+    return buildRows(view, collapsedIds, rawRoots)
+  }, [view, collapsedIds, rawRoots])
 
-  const toggleCollapsed = (id: string) => {
+  // Stable callbacks so memoized rows whose props are content-equal don't
+  // re-render when the parent re-renders for unrelated reasons (e.g. only one
+  // root's rawRoots flipped, but every row was getting fresh closures before).
+  const toggleCollapsed = useCallback((id: string) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
   // When selection changes (e.g. from the command palette or URL), expand any
-  // collapsed ancestors and scroll the row into view.
+  // collapsed ancestors and scroll the row into view. If the target is an
+  // infra span hidden by default, flip raw on for its root so it actually
+  // appears in the tree.
   const lastRevealedRef = useRef<string | null>(null)
   useEffect(() => {
     if (!selectedId || selectedId === lastRevealedRef.current) return
@@ -165,8 +204,15 @@ export function SpanTreeList({ view, selectedId, onSelect, fullSpans = false }: 
     lastRevealedRef.current = selectedId
 
     const ancestorIds: string[] = []
-    for (let pid = target.parentId; pid; pid = view.byId.get(pid)?.parentId ?? null) {
+    let rootId: string = target.id
+    let hasInfraOnPath = isCollapsibleInfra(target)
+    for (let pid = target.parentId; pid; ) {
+      const parent = view.byId.get(pid)
+      if (!parent) break
       ancestorIds.push(pid)
+      if (isCollapsibleInfra(parent)) hasInfraOnPath = true
+      rootId = pid
+      pid = parent.parentId ?? null
     }
     setCollapsedIds((prev) => {
       if (!ancestorIds.some((id) => prev.has(id))) return prev
@@ -174,10 +220,11 @@ export function SpanTreeList({ view, selectedId, onSelect, fullSpans = false }: 
       for (const id of ancestorIds) next.delete(id)
       return next
     })
+    if (hasInfraOnPath) onEnsureRawRoot(rootId)
     requestAnimationFrame(() => {
       document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'center' })
     })
-  }, [selectedId, view])
+  }, [selectedId, view, onEnsureRawRoot])
 
   if (rows.length === 0) {
     return (
@@ -193,9 +240,11 @@ export function SpanTreeList({ view, selectedId, onSelect, fullSpans = false }: 
           key={row.span.id}
           row={row}
           selected={row.span.id === selectedId}
-          onSelect={() => onSelect(row.span.id)}
-          onToggleCollapse={() => toggleCollapsed(row.span.id)}
+          rawOn={row.depth === 0 ? rawRoots.has(row.span.id) : false}
           agentLabels={view.agentLabels}
+          onSelect={onSelect}
+          onToggleCollapse={toggleCollapsed}
+          onToggleRaw={onToggleRawRoot}
         />
       ))}
     </ul>
@@ -205,12 +254,54 @@ export function SpanTreeList({ view, selectedId, onSelect, fullSpans = false }: 
 interface SpanTreeRowProps {
   row: Row
   selected: boolean
-  onSelect: () => void
-  onToggleCollapse: () => void
+  rawOn: boolean
   agentLabels?: Map<string, string>
+  onSelect: (id: string) => void
+  onToggleCollapse: (id: string) => void
+  onToggleRaw: (id: string) => void
 }
 
-function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }: SpanTreeRowProps) {
+function rowPropsEqual(a: SpanTreeRowProps, b: SpanTreeRowProps): boolean {
+  if (a.selected !== b.selected) return false
+  if (a.rawOn !== b.rawOn) return false
+  if (a.agentLabels !== b.agentLabels) return false
+  if (a.onSelect !== b.onSelect) return false
+  if (a.onToggleCollapse !== b.onToggleCollapse) return false
+  if (a.onToggleRaw !== b.onToggleRaw) return false
+  const ra = a.row
+  const rb = b.row
+  if (ra === rb) return true
+  if (ra.span !== rb.span) return false
+  if (
+    ra.depth !== rb.depth ||
+    ra.isLastChild !== rb.isLastChild ||
+    ra.childCount !== rb.childCount ||
+    ra.isCollapsed !== rb.isCollapsed ||
+    ra.subtreeTokens !== rb.subtreeTokens ||
+    ra.subtreeCost !== rb.subtreeCost ||
+    ra.isParallel !== rb.isParallel ||
+    ra.ctxDelta !== rb.ctxDelta ||
+    ra.rootId !== rb.rootId
+  )
+    return false
+  if (ra.railHasNext.length !== rb.railHasNext.length) return false
+  for (let i = 0; i < ra.railHasNext.length; i++) {
+    if (ra.railHasNext[i] !== rb.railHasNext[i]) return false
+  }
+  return true
+}
+
+const SpanTreeRow = memo(SpanTreeRowImpl, rowPropsEqual)
+
+function SpanTreeRowImpl({
+  row,
+  selected,
+  rawOn,
+  agentLabels,
+  onSelect,
+  onToggleCollapse,
+  onToggleRaw,
+}: SpanTreeRowProps) {
   const { span, depth, railHasNext, isLastChild, childCount, isCollapsed, subtreeTokens, isParallel, ctxDelta } = row
   // Column ends right at chevron's right edge — no trailing whitespace inside the indent area.
   const indentWidth = railX(depth) + HANDLE / 2
@@ -234,11 +325,12 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
   return (
     <li data-span-id={span.id}>
       <div
-        className={[
-          'relative flex min-h-10 w-full cursor-pointer items-stretch pl-2 text-left text-xs',
+        className={cn(
+          'group/row relative flex min-h-10 w-full cursor-pointer items-stretch pl-2 text-left text-xs',
           selected ? 'bg-accent' : errored ? 'bg-destructive/5 hover:bg-destructive/10' : 'hover:bg-muted',
-        ].join(' ')}
+        )}
       >
+        {errored && <div className="absolute inset-y-0 left-0 w-0.5 bg-destructive" aria-hidden />}
         <div className="relative shrink-0" style={{ width: indentWidth }} aria-hidden>
           {railHasNext.map((hasNext, i) =>
             hasNext ? (
@@ -274,7 +366,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
               type="button"
               onClick={(event) => {
                 event.stopPropagation()
-                onToggleCollapse()
+                onToggleCollapse(span.id)
               }}
               aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${display.name}`}
               title={isCollapsed ? 'Expand children' : 'Collapse children'}
@@ -293,7 +385,7 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
             </button>
           ) : (
             <div
-              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full ${TREE_LINE}`}
+              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-border"
               style={{ ...indicatorAnchor, width: LEAF_DOT, height: LEAF_DOT }}
             />
           )}
@@ -301,51 +393,34 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
 
         <button
           type="button"
-          onClick={onSelect}
+          onClick={() => onSelect(span.id)}
           className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-1 pr-2 pl-1 text-left leading-tight focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/80"
         >
           <div className="flex min-w-0 items-center gap-2">
             {display.tagLabel && (
-              <Badge variant="outline" className="px-1.5 text-muted-foreground">
+              <span className={cn('inline-flex shrink-0 items-center gap-1 text-[11px] font-medium', display.tagColor)}>
                 {display.tagIcon && (
-                  <HugeiconsIcon
-                    icon={display.tagIcon}
-                    strokeWidth={1.5}
-                    className={`size-3 ${display.tagColor ?? ''}`}
-                    aria-hidden
-                  />
+                  <HugeiconsIcon icon={display.tagIcon} strokeWidth={1.75} className="size-3.5" aria-hidden />
                 )}
                 {display.tagLabel}
-              </Badge>
+              </span>
             )}
             <span className="truncate font-medium text-foreground">{display.name}</span>
             {display.purposeLabel && (
-              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
+              <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
                 {display.purposeLabel}
               </span>
             )}
-            {errored && (
-              <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
-                error
-              </span>
-            )}
             {isParallel && (
-              <span className="shrink-0 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
-                ⫽ parallel
-              </span>
+              <span className="shrink-0 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">⫽ parallel</span>
             )}
             {depth === 0 &&
               (span.rawAttributes?.session_trigger_type ?? span.rawAttributes?.['session.trigger_type']) ===
                 'scheduled' && (
-                <Badge variant="outline" className="px-1.5 text-muted-foreground">
-                  <HugeiconsIcon
-                    icon={Clock01Icon}
-                    strokeWidth={1.5}
-                    className="size-3 text-amber-500 dark:text-amber-400"
-                    aria-hidden
-                  />
-                  Scheduled
-                </Badge>
+                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                  <HugeiconsIcon icon={Clock01Icon} strokeWidth={1.75} className="size-3" aria-hidden />
+                  scheduled
+                </span>
               )}
           </div>
           {(() => {
@@ -359,11 +434,12 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums text-[11px] text-muted-foreground">
                 {showDuration && <span>{formatDuration(durationMs)}</span>}
                 {showTokens && (
-                  <span>
-                    {fmtNum(span.inputTokens)} → {fmtNum(span.outputTokens)}
-                    {cached > 0 && <span className="text-success"> · {fmtNum(cached)} cached</span>}
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>↑{fmtNum(span.inputTokens)}</span>
+                    <span>↓{fmtNum(span.outputTokens)}</span>
+                    {cached > 0 && <span className="text-success">· {fmtNum(cached)} cached</span>}
                     {ctxDelta != null && (
-                      <span className="ml-1.5 rounded bg-warning/15 px-1 py-0.5 text-[10px] font-semibold text-warning">
+                      <span className="ml-0.5 rounded bg-warning/15 px-1 py-0.5 text-[10px] font-semibold text-warning">
                         +{fmtNum(ctxDelta)} ctx
                       </span>
                     )}
@@ -379,6 +455,31 @@ function SpanTreeRow({ row, selected, onSelect, onToggleCollapse, agentLabels }:
             )
           })()}
         </button>
+        {depth === 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onToggleRaw(span.id)
+                }}
+                aria-pressed={rawOn}
+                aria-label={rawOn ? 'Hide raw spans for this trace' : 'Show raw spans for this trace'}
+                className={cn(
+                  'mr-2 inline-flex size-6 shrink-0 self-center items-center justify-center rounded-md transition-opacity',
+                  'focus:outline-hidden focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/80',
+                  rawOn
+                    ? 'bg-muted text-foreground opacity-100'
+                    : 'text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover/row:opacity-100',
+                )}
+              >
+                <IconBraces className="size-3.5" stroke={1.5} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{rawOn ? 'Hide raw spans' : 'Show raw spans'}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </li>
   )

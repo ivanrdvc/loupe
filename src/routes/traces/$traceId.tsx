@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { InspectLayout } from '#/components/inspect/overview'
+import { useRawRoots } from '#/components/inspect/use-raw-roots'
 import { useSpanSearch } from '#/components/inspect/use-span-search'
 import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
 import { SiteHeader } from '#/components/site-header'
@@ -38,9 +39,9 @@ function TraceDetail() {
   const total = spans.length > 0 ? Math.max(...spans.map((s) => s.endMs)) - Math.min(...spans.map((s) => s.startMs)) : 0
 
   const inspectorView = useMemo(() => buildInspectorView(spans), [spans])
+  const raw = useRawRoots(inspectorView)
   const [view, setView] = useState<InspectView>('spans')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [fullSpans, setFullSpans] = useState(false)
 
   // Auto-select once per (trace, focusSpanId) — don't clobber the user's pick on refetch.
   const lastAutoSelectKey = useRef<string | null>(null)
@@ -59,7 +60,6 @@ function TraceDetail() {
 
   useSpanSearch({
     view: inspectorView,
-    fullSpans,
     onSelect: (id) => {
       setSelectedId(id)
       setView('spans')
@@ -105,8 +105,8 @@ function TraceDetail() {
         <InspectViewBar
           view={view}
           onViewChange={setView}
-          fullSpans={fullSpans}
-          onFullSpansChange={setFullSpans}
+          rawAllOn={raw.rawAllOn}
+          onToggleRawAll={raw.toggleAll}
           extras={view === 'conversation' && spans.length > 0 ? <ContextWindow view={inspectorView} /> : undefined}
         />
         <div className="min-h-0 flex-1 overflow-hidden bg-background">
@@ -118,7 +118,9 @@ function TraceDetail() {
               loading={false}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              fullSpans={fullSpans}
+              rawRoots={raw.rawRoots}
+              onToggleRawRoot={raw.toggleRoot}
+              onEnsureRawRoot={raw.ensureRoot}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
