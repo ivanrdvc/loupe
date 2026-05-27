@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.4.0...loupe-v0.5.0) (2026-05-27)
+
+
+### Features
+
+* **tools:** tool drawer + catalog + home rework ([#41](https://github.com/ivanrdvc/loupe/issues/41)) ([0f077d3](https://github.com/ivanrdvc/loupe/commit/0f077d35fbd8155d787a4cb630a56f1fa49e7568))
+
+
+### Bug Fixes
+
+* share auto-refresh interval across consumers ([#37](https://github.com/ivanrdvc/loupe/issues/37)) ([c7e811e](https://github.com/ivanrdvc/loupe/commit/c7e811eaf11833467fdf520105ebaa9407cfd2c7))
+
 ## [0.4.0](https://github.com/ivanrdvc/loupe/compare/agentops-v0.3.0...agentops-v0.4.0) (2026-05-26)
 
 
