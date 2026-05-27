@@ -12,6 +12,9 @@ import type {
   LatencyPoint,
   RunsPoint,
   TelemetryProvider,
+  ToolCallSample,
+  ToolCatalogRow,
+  ToolDetail,
   ToolErrorRow,
   ToolPayloadRow,
   TopOpts,
@@ -60,6 +63,41 @@ export async function fetchRunsPerHour(p: TelemetryProvider, opts?: WindowOpts):
       return oo.fetchRunsPerHour(p, opts)
     case 'app-insights':
       return ai.fetchRunsPerHour(p, opts)
+  }
+}
+
+export async function fetchAllTools(p: TelemetryProvider, opts?: TopOpts): Promise<ToolCatalogRow[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchAllTools(p, opts)
+    case 'app-insights':
+      return ai.fetchAllTools(p, opts)
+  }
+}
+
+export async function fetchToolDetail(
+  p: TelemetryProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<ToolDetail | null> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchToolDetail(p, name, opts)
+    case 'app-insights':
+      return ai.fetchToolDetail(p, name, opts)
+  }
+}
+
+export async function fetchToolRecentCalls(
+  p: TelemetryProvider,
+  name: string,
+  opts?: WindowOpts & { limit?: number },
+): Promise<ToolCallSample[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchToolRecentCalls(p, name, opts)
+    case 'app-insights':
+      return ai.fetchToolRecentCalls(p, name, opts)
   }
 }
 

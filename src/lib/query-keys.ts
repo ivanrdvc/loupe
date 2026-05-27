@@ -27,6 +27,12 @@ export const queryKeys = {
   mcp: {
     all: () => ['mcp'] as const,
   },
+  tools: {
+    all: () => ['tools'] as const,
+    catalog: (range: string) => ['tools', 'catalog', { range }] as const,
+    detail: (name: string) => ['tools', 'detail', name] as const,
+    recent: (name: string) => ['tools', 'recent', name] as const,
+  },
   providers: {
     all: () => ['providers'] as const,
   },

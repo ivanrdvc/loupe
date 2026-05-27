@@ -240,6 +240,7 @@ function ProviderRow() {
         qc.invalidateQueries({ queryKey: queryKeys.traces.all() }),
         qc.invalidateQueries({ queryKey: queryKeys.home.all() }),
         qc.invalidateQueries({ queryKey: queryKeys.inbox.all() }),
+        qc.invalidateQueries({ queryKey: queryKeys.tools.all() }),
       ])
     },
   })

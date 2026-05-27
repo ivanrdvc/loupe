@@ -9,11 +9,16 @@ import type {
   InventoryObservation,
   LatencyPoint,
   RunsPoint,
+  ToolCallSample,
+  ToolCatalogRow,
+  ToolDetail,
   ToolErrorRow,
   ToolPayloadRow,
   TopOpts,
   WindowOpts,
 } from './types'
+
+const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
 
 export async function fetchToolErrorRates(p: AppInsightsProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {
   const limit = opts?.limit ?? 5
@@ -53,6 +58,119 @@ export async function fetchToolPayloadSizes(p: AppInsightsProvider, opts?: TopOp
   `
   const rows = await p.query(q, opts ?? {})
   return rows.map(mapToolPayloadRow)
+}
+
+export async function fetchAllTools(p: AppInsightsProvider, opts?: TopOpts): Promise<ToolCatalogRow[]> {
+  const limit = opts?.limit ?? 1000
+  const q = `
+    union dependencies, requests
+    | where name startswith "execute_tool "
+    | extend result_len = strlen(tostring(customDimensions["gen_ai.tool.call.result"]))
+    | extend result_len_nz = iif(result_len > 0, todouble(result_len), real(null))
+    | summarize
+        calls = count(),
+        errors = countif(success == false),
+        avg_chars = avg(result_len_nz),
+        p95_chars = percentile(result_len_nz, 95),
+        p50_ms = percentile(duration, 50),
+        p95_ms = percentile(duration, 95),
+        last_seen = max(timestamp)
+      by name
+    | top ${limit} by calls desc
+  `
+  const rows = await p.query(q, opts ?? {})
+  return rows.map((r) => {
+    const calls = Number(r.calls ?? 0)
+    const errors = Number(r.errors ?? 0)
+    const raw = String(r.name ?? '')
+    return {
+      name: raw.startsWith('execute_tool ') ? raw.slice('execute_tool '.length) : raw,
+      calls,
+      errors,
+      errorRate: calls > 0 ? errors / calls : 0,
+      avgChars: Math.round(num(r.avg_chars) ?? 0),
+      p95Chars: Math.round(num(r.p95_chars) ?? 0),
+      p50Ms: Math.round(num(r.p50_ms) ?? 0),
+      p95Ms: Math.round(num(r.p95_ms) ?? 0),
+      lastSeenMs: typeof r.last_seen === 'string' ? Date.parse(r.last_seen) : 0,
+    }
+  })
+}
+
+export async function fetchToolDetail(
+  p: AppInsightsProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<ToolDetail | null> {
+  if (!TOOL_NAME_RE.test(name)) return null
+  const q = `
+    union dependencies, requests
+    | where name == "execute_tool ${name}"
+    | extend result_len = strlen(tostring(customDimensions["gen_ai.tool.call.result"]))
+    | extend result_len_nz = iif(result_len > 0, todouble(result_len), real(null))
+    | summarize
+        calls = count(),
+        errors = countif(success == false),
+        avg_chars = avg(result_len_nz),
+        p95_chars = percentile(result_len_nz, 95),
+        max_chars = max(result_len_nz),
+        p50_ms = percentile(duration, 50),
+        p95_ms = percentile(duration, 95),
+        first_seen = min(timestamp),
+        last_seen = max(timestamp)
+  `
+  const rows = await p.query(q, opts ?? {})
+  const r = rows[0]
+  const calls = Number(r?.calls ?? 0)
+  if (!r || calls === 0) return null
+  const errors = Number(r.errors ?? 0)
+  return {
+    name,
+    calls,
+    errors,
+    errorRate: errors / calls,
+    avgChars: Math.round(num(r.avg_chars) ?? 0),
+    p95Chars: Math.round(num(r.p95_chars) ?? 0),
+    maxChars: Math.round(num(r.max_chars) ?? 0),
+    p50Ms: Math.round(num(r.p50_ms) ?? 0),
+    p95Ms: Math.round(num(r.p95_ms) ?? 0),
+    firstSeenMs: typeof r.first_seen === 'string' ? Date.parse(r.first_seen) : 0,
+    lastSeenMs: typeof r.last_seen === 'string' ? Date.parse(r.last_seen) : 0,
+  }
+}
+
+export async function fetchToolRecentCalls(
+  p: AppInsightsProvider,
+  name: string,
+  opts?: WindowOpts & { limit?: number },
+): Promise<ToolCallSample[]> {
+  if (!TOOL_NAME_RE.test(name)) return []
+  const limit = opts?.limit ?? 50
+  const q = `
+    union dependencies, requests
+    | where name == "execute_tool ${name}"
+    | extend sess = ${aiCoalesce('sessionId')}
+    | order by timestamp desc
+    | take ${limit}
+    | project trace_id = operation_Id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false)
+  `
+  const rows = await p.query(q, opts ?? {})
+  return rows
+    .map((r) => {
+      const traceId = typeof r.trace_id === 'string' ? r.trace_id : ''
+      if (!traceId) return null
+      const sessionId = typeof r.session_id === 'string' && r.session_id ? r.session_id : undefined
+      const started = typeof r.started_at === 'string' ? Date.parse(r.started_at) : 0
+      const sample: ToolCallSample = {
+        traceId,
+        startedAtMs: started,
+        durationMs: Math.round(num(r.duration_ms) ?? 0),
+        hasError: r.has_error === true || r.has_error === 'true',
+      }
+      if (sessionId) sample.sessionId = sessionId
+      return sample
+    })
+    .filter((s): s is ToolCallSample => s !== null)
 }
 
 export async function fetchChatLatencyOverTime(p: AppInsightsProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

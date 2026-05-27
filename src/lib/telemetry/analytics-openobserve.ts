@@ -9,11 +9,16 @@ import type {
   LatencyPoint,
   OpenObserveProvider,
   RunsPoint,
+  ToolCallSample,
+  ToolCatalogRow,
+  ToolDetail,
   ToolErrorRow,
   ToolPayloadRow,
   TopOpts,
   WindowOpts,
 } from './types'
+
+const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
 
 // 20004 = column not in stream yet (fresh ingest). Treat as empty.
 async function emptyOn20004<T>(run: () => Promise<T[]>): Promise<T[]> {
@@ -67,6 +72,127 @@ export async function fetchToolPayloadSizes(p: OpenObserveProvider, opts?: TopOp
   `
   const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
   return hits.map(mapToolPayloadRow)
+}
+
+export async function fetchAllTools(p: OpenObserveProvider, opts?: TopOpts): Promise<ToolCatalogRow[]> {
+  const limit = opts?.limit ?? 1000
+  const sql = `
+    SELECT
+      operation_name AS name,
+      COUNT(*) AS calls,
+      SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS errors,
+      AVG(NULLIF(LENGTH(gen_ai_tool_call_result), 0)) AS avg_chars,
+      approx_percentile_cont(NULLIF(LENGTH(gen_ai_tool_call_result), 0), 0.95) AS p95_chars,
+      approx_percentile_cont(duration, 0.5) / 1000 AS p50_ms,
+      approx_percentile_cont(duration, 0.95) / 1000 AS p95_ms,
+      MAX(start_time) AS last_seen_ns
+    FROM "${p.stream}"
+    WHERE operation_name LIKE 'execute_tool %'
+    GROUP BY operation_name
+    ORDER BY calls DESC
+    LIMIT ${limit}
+  `
+  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
+  return hits.map((h) => {
+    const calls = Number(h.calls ?? 0)
+    const errors = Number(h.errors ?? 0)
+    const raw = String(h.name ?? '')
+    const lastNs = Number(h.last_seen_ns ?? 0)
+    return {
+      name: raw.startsWith('execute_tool ') ? raw.slice('execute_tool '.length) : raw,
+      calls,
+      errors,
+      errorRate: calls > 0 ? errors / calls : 0,
+      avgChars: Math.round(num(h.avg_chars) ?? 0),
+      p95Chars: Math.round(num(h.p95_chars) ?? 0),
+      p50Ms: Math.round(num(h.p50_ms) ?? 0),
+      p95Ms: Math.round(num(h.p95_ms) ?? 0),
+      lastSeenMs: lastNs > 0 ? Math.floor(lastNs / 1_000_000) : 0,
+    }
+  })
+}
+
+export async function fetchToolDetail(
+  p: OpenObserveProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<ToolDetail | null> {
+  if (!TOOL_NAME_RE.test(name)) return null
+  const sql = `
+    SELECT
+      COUNT(*) AS calls,
+      SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS errors,
+      AVG(NULLIF(LENGTH(gen_ai_tool_call_result), 0)) AS avg_chars,
+      approx_percentile_cont(NULLIF(LENGTH(gen_ai_tool_call_result), 0), 0.95) AS p95_chars,
+      MAX(LENGTH(gen_ai_tool_call_result)) AS max_chars,
+      approx_percentile_cont(duration, 0.5) / 1000 AS p50_ms,
+      approx_percentile_cont(duration, 0.95) / 1000 AS p95_ms,
+      MIN(start_time) AS first_seen_ns,
+      MAX(start_time) AS last_seen_ns
+    FROM "${p.stream}"
+    WHERE operation_name = 'execute_tool ${name}'
+  `
+  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 1 }))
+  const h = hits[0]
+  const calls = Number(h?.calls ?? 0)
+  if (!h || calls === 0) return null
+  const errors = Number(h.errors ?? 0)
+  const firstNs = Number(h.first_seen_ns ?? 0)
+  const lastNs = Number(h.last_seen_ns ?? 0)
+  return {
+    name,
+    calls,
+    errors,
+    errorRate: errors / calls,
+    avgChars: Math.round(num(h.avg_chars) ?? 0),
+    p95Chars: Math.round(num(h.p95_chars) ?? 0),
+    maxChars: Math.round(num(h.max_chars) ?? 0),
+    p50Ms: Math.round(num(h.p50_ms) ?? 0),
+    p95Ms: Math.round(num(h.p95_ms) ?? 0),
+    firstSeenMs: firstNs > 0 ? Math.floor(firstNs / 1_000_000) : 0,
+    lastSeenMs: lastNs > 0 ? Math.floor(lastNs / 1_000_000) : 0,
+  }
+}
+
+export async function fetchToolRecentCalls(
+  p: OpenObserveProvider,
+  name: string,
+  opts?: WindowOpts & { limit?: number },
+): Promise<ToolCallSample[]> {
+  if (!TOOL_NAME_RE.test(name)) return []
+  const limit = opts?.limit ?? 50
+  const known = await p.getKnownColumns()
+  const sessionCols = ooColumns('sessionId', { known })
+  const sessionExpr = sessionCols.length === 0 ? 'NULL' : `COALESCE(${sessionCols.join(', ')})`
+  const sql = `
+    SELECT
+      trace_id,
+      ${sessionExpr} AS session_id,
+      start_time,
+      duration,
+      span_status
+    FROM "${p.stream}"
+    WHERE operation_name = 'execute_tool ${name}'
+    ORDER BY start_time DESC
+    LIMIT ${limit}
+  `
+  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
+  return hits
+    .map((h) => {
+      const traceId = typeof h.trace_id === 'string' ? h.trace_id : ''
+      if (!traceId) return null
+      const sessionId = typeof h.session_id === 'string' && h.session_id ? h.session_id : undefined
+      const startNs = Number(h.start_time ?? 0)
+      const sample: ToolCallSample = {
+        traceId,
+        startedAtMs: startNs > 0 ? Math.floor(startNs / 1_000_000) : 0,
+        durationMs: Math.round((num(h.duration) ?? 0) / 1000),
+        hasError: h.span_status === 'ERROR',
+      }
+      if (sessionId) sample.sessionId = sessionId
+      return sample
+    })
+    .filter((s): s is ToolCallSample => s !== null)
 }
 
 export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

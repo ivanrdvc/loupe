@@ -133,6 +133,40 @@ export interface ToolPayloadRow {
   sampleSessionId?: string
 }
 
+export interface ToolCatalogRow {
+  name: string
+  calls: number
+  errors: number
+  errorRate: number
+  avgChars: number
+  p95Chars: number
+  p50Ms: number
+  p95Ms: number
+  lastSeenMs: number
+}
+
+export interface ToolDetail {
+  name: string
+  calls: number
+  errors: number
+  errorRate: number
+  avgChars: number
+  p95Chars: number
+  maxChars: number
+  p50Ms: number
+  p95Ms: number
+  firstSeenMs: number
+  lastSeenMs: number
+}
+
+export interface ToolCallSample {
+  traceId: string
+  sessionId?: string
+  startedAtMs: number
+  durationMs: number
+  hasError: boolean
+}
+
 export type TopOpts = ListOpts
 
 export interface LatencyPoint {

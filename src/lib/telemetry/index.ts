@@ -18,6 +18,9 @@ import type {
   SessionSummary,
   SpanSummary,
   TelemetryProvider,
+  ToolCallSample,
+  ToolCatalogRow,
+  ToolDetail,
   ToolErrorRow,
   ToolPayloadRow,
   TopOpts,
@@ -215,6 +218,21 @@ export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]
 
 export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
   return analytics.fetchToolPayloadSizes(getActiveProvider(), opts)
+}
+
+export async function listAllTools(opts?: TopOpts): Promise<ToolCatalogRow[]> {
+  return analytics.fetchAllTools(getActiveProvider(), opts)
+}
+
+export async function getToolDetail(name: string, opts?: WindowOpts): Promise<ToolDetail | null> {
+  return analytics.fetchToolDetail(getActiveProvider(), name, opts)
+}
+
+export async function listToolRecentCalls(
+  name: string,
+  opts?: WindowOpts & { limit?: number },
+): Promise<ToolCallSample[]> {
+  return analytics.fetchToolRecentCalls(getActiveProvider(), name, opts)
 }
 
 export async function listChatLatencyOverTime(opts?: WindowOpts): Promise<LatencyPoint[]> {

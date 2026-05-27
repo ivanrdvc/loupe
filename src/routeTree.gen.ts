@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TracesIndexRouteImport } from './routes/traces/index'
+import { Route as ToolsIndexRouteImport } from './routes/tools/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks/index'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as PromptsIndexRouteImport } from './routes/prompts/index'
@@ -32,6 +33,11 @@ const IndexRoute = IndexRouteImport.update({
 const TracesIndexRoute = TracesIndexRouteImport.update({
   id: '/traces/',
   path: '/traces/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsIndexRoute = ToolsIndexRouteImport.update({
+  id: '/tools/',
+  path: '/tools/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TasksIndexRoute = TasksIndexRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/prompts/': typeof PromptsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/prompts': typeof PromptsIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/tasks': typeof TasksIndexRoute
+  '/tools': typeof ToolsIndexRoute
   '/traces': typeof TracesIndexRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/prompts/': typeof PromptsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/prompts/'
     | '/sessions/'
     | '/tasks/'
+    | '/tools/'
     | '/traces/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/prompts'
     | '/sessions'
     | '/tasks'
+    | '/tools'
     | '/traces'
   id:
     | '__root__'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/prompts/'
     | '/sessions/'
     | '/tasks/'
+    | '/tools/'
     | '/traces/'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   PromptsIndexRoute: typeof PromptsIndexRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
+  ToolsIndexRoute: typeof ToolsIndexRoute
   TracesIndexRoute: typeof TracesIndexRoute
 }
 
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/traces'
       fullPath: '/traces/'
       preLoaderRoute: typeof TracesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/': {
+      id: '/tools/'
+      path: '/tools'
+      fullPath: '/tools/'
+      preLoaderRoute: typeof ToolsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tasks/': {
@@ -329,6 +349,7 @@ const rootRouteChildren: RootRouteChildren = {
   PromptsIndexRoute: PromptsIndexRoute,
   SessionsIndexRoute: SessionsIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
+  ToolsIndexRoute: ToolsIndexRoute,
   TracesIndexRoute: TracesIndexRoute,
 }
 export const routeTree = rootRouteImport

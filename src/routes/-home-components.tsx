@@ -1,24 +1,56 @@
 import { ArrowTopRightOnSquareIcon, ChevronDownIcon } from '@heroicons/react/20/solid'
+import { IconInfoCircle } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
+import { ToolLink } from '#/components/tool-link'
 import { Badge } from '#/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { formatPercent, formatTokens } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import type { InventoryRow } from '#/server/inbox'
 
 const PREVIEW_ROWS = 5
 
-export function Section({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
+export function Section({
+  title,
+  description,
+  action,
+  children,
+  wide,
+}: {
+  title: string
+  description?: string
+  action?: React.ReactNode
+  children: React.ReactNode
+  wide?: boolean
+}) {
   return (
-    <Card className={`gap-4 py-4 ${wide ? 'xl:col-span-2' : ''}`}>
-      <CardHeader className="flex flex-row items-center gap-2 px-4 [.border-b]:pb-4">
-        <CardTitle className="text-base font-semibold">{title}</CardTitle>
+    <Card className={wide ? 'xl:col-span-2' : ''}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-1.5">
+          {title}
+          {description && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`About ${title}`}
+                  className="cursor-help text-muted-foreground hover:text-foreground"
+                >
+                  <IconInfoCircle className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{description}</TooltipContent>
+            </Tooltip>
+          )}
+        </CardTitle>
+        {action && <CardAction>{action}</CardAction>}
       </CardHeader>
-      <CardContent className="px-4">{children}</CardContent>
+      <CardContent>{children}</CardContent>
     </Card>
   )
 }
@@ -78,12 +110,15 @@ export function OpenLink({ traceId, sessionId }: { traceId?: string | null; sess
   )
 }
 
+const CHARS_PER_TOKEN = 4
+
 function Chars({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
+  const tokens = Math.ceil(chars / CHARS_PER_TOKEN)
   return (
-    <span title={`${chars.toLocaleString()} chars`}>
-      {formatTokens(chars)}
-      <span className="text-muted-foreground"> ch</span>
+    <span title={`${chars.toLocaleString()} chars · ≈${tokens.toLocaleString()} tokens`}>
+      {formatTokens(tokens)}
+      <span className="text-muted-foreground"> tok</span>
     </span>
   )
 }
@@ -112,8 +147,8 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
           <TableBody>
             {visible.map((row) => (
               <TableRow key={row.name}>
-                <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
-                  {stripPrefix(row.name, 'execute_tool')}
+                <TableCell className="max-w-0 truncate" title={row.name}>
+                  <ToolLink name={stripPrefix(row.name, 'execute_tool')} />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{row.errors}</TableCell>
                 <TableCell className="text-right tabular-nums">{row.total}</TableCell>
@@ -152,8 +187,8 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
           <TableBody>
             {visible.map((row) => (
               <TableRow key={row.name}>
-                <TableCell className="max-w-0 truncate font-mono text-xs" title={row.name}>
-                  {stripPrefix(row.name, 'execute_tool')}
+                <TableCell className="max-w-0 truncate" title={row.name}>
+                  <ToolLink name={stripPrefix(row.name, 'execute_tool')} />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   <Chars chars={row.avgChars} />
@@ -180,35 +215,34 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No new MCP tools" description="Nothing newly observed in this window." />
   }
+  const visible = rows.slice(0, PREVIEW_ROWS)
   return (
-    <Expandable rows={rows}>
-      {(visible) => (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tool</TableHead>
-              <TableHead>Server</TableHead>
-              <TableHead>First seen</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs">{row.name}</TableCell>
-                <TableCell>{row.namespace || 'unknown'}</TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">
-                  <RelativeTime ts={row.firstSeenAtMs} />
-                </TableCell>
-                <TableCell>
-                  <OpenLink traceId={row.firstSeenTraceId} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Expandable>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Tool</TableHead>
+          <TableHead>Server</TableHead>
+          <TableHead>First seen</TableHead>
+          <TableHead />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {visible.map((row) => (
+          <TableRow key={row.id}>
+            <TableCell>
+              <ToolLink name={row.name} />
+            </TableCell>
+            <TableCell>{row.namespace || 'unknown'}</TableCell>
+            <TableCell className="tabular-nums text-muted-foreground">
+              <RelativeTime ts={row.firstSeenAtMs} />
+            </TableCell>
+            <TableCell>
+              <OpenLink traceId={row.firstSeenTraceId} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 

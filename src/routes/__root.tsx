@@ -3,6 +3,7 @@ import { createRootRouteWithContext, HeadContent, Link, Scripts, useNavigate, us
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
+import { ToolInspectDrawer } from '#/components/inspect/tool-drawer'
 import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
@@ -95,6 +96,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                   <SidebarInset>{children}</SidebarInset>
                   <SessionDrawerMount />
                   <TraceDrawerMount />
+                  <ToolDrawerMount />
                   <Toaster />
                 </ShortcutsDialogProvider>
               </CommandPaletteProvider>
@@ -139,6 +141,20 @@ function SessionDrawerMount() {
       previewSessionId={previewSessionId}
       onClose={() => {
         void navigate({ search: clearKey('session') as never, replace: true })
+      }}
+    />
+  )
+}
+
+function ToolDrawerMount() {
+  const search = useSearch({ strict: false }) as { tool?: string; trace?: string; session?: string }
+  const navigate = useNavigate()
+  const tool = !search.trace && !search.session && typeof search.tool === 'string' && search.tool ? search.tool : null
+  return (
+    <ToolInspectDrawer
+      toolName={tool}
+      onClose={() => {
+        void navigate({ search: clearKey('tool') as never, replace: true })
       }}
     />
   )
