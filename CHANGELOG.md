@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/ivanrdvc/agentops/compare/agentops-v0.4.0...agentops-v0.4.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* share auto-refresh interval across consumers ([#37](https://github.com/ivanrdvc/agentops/issues/37)) ([c7e811e](https://github.com/ivanrdvc/agentops/commit/c7e811eaf11833467fdf520105ebaa9407cfd2c7))
+
 ## [0.4.0](https://github.com/ivanrdvc/agentops/compare/agentops-v0.3.0...agentops-v0.4.0) (2026-05-26)
 
 
