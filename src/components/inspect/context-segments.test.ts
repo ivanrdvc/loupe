@@ -22,7 +22,7 @@ describe('computeContextSegments', () => {
     })
     expect(segments).toEqual([
       { key: 'system', label: 'System', tokens: 0, pct: 0 },
-      { key: 'tools', label: 'Tools', tokens: 16000, pct: 94 },
+      { key: 'tools', label: 'Tool defs', tokens: 16000, pct: 94 },
       { key: 'messages', label: 'Messages', tokens: 1000, pct: 6 },
       { key: 'subagents', label: 'Subagents', tokens: 0, pct: 0 },
     ])
