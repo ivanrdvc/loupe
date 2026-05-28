@@ -7,7 +7,6 @@ import {
   INSPECT_AUTO_REFRESH_OPTIONS,
 } from '#/components/auto-refresh-select'
 import { IconTabs } from '#/components/icon-tabs'
-import { Separator } from '#/components/ui/separator'
 import { Toggle } from '#/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 
@@ -73,7 +72,6 @@ export function InspectViewBar({
             </TooltipContent>
           </Tooltip>
         )}
-        {showRawAll && (hasRefreshGroup || extras != null) && <Separator orientation="vertical" className="mx-1 h-5" />}
         {hasRefreshGroup && (
           <AutoRefreshSelect
             value={autoRefresh}
