@@ -14,8 +14,8 @@ choices, immutable log).
   which tools are actually attached. The demand-side counterpart to `mcp.md`.
 - [Compare two runs side-by-side](compare-runs.md) — pick any two runs and
   view them in a split layout that surfaces what diverged.
-- [Evals](evals.md) — ingestion shape for eval results plus the open
-  questions on data model and UI.
+- [Evaluation](evaluation.md) — scores, human annotations, datasets, and an
+  in-app LLM-judge runner, built emitter-agnostic on OTel `gen_ai.evaluation.*`.
 - [HTTP API for LLM debugging](http-api.md) — expose loupe's
   classification / reconstruction / aggregation views over plain endpoints so
   an LLM-driven dev tool can pull run data while a developer is debugging.

@@ -57,7 +57,7 @@ Goal: pick any two runs (same agent, different agents, regression vs main, etc.)
 - [ ] Permalink that captures view mode + selection.
 - [ ] "Pick a third run" → N-way compare (probably never; 2 covers 95% of regression workflows).
 - [ ] Diff rules editor: ignore timing drift under X ms, ignore certain attribute keys.
-- [ ] Save a comparison as a "baseline" — ties into the evals comparison story in `docs/plans/evals.md`.
+- [ ] Save a comparison as a "baseline" — ties into the evals comparison story in `docs/plans/evaluation.md`.
 
 ## Non-goals (v1)
 
