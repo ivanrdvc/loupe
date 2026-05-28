@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { InspectDrawer } from '#/components/inspect/drawer'
+import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import type { Span } from '#/lib/spans'
 import { sessionQuery } from '../-data'
 
@@ -23,10 +25,12 @@ interface SessionsDrawerHostProps {
 export function SessionsDrawerHost({ previewSessionId, onClose }: SessionsDrawerHostProps) {
   const open = previewSessionId !== null
   const queryId = previewSessionId ?? SESSION_DRAWER_PLACEHOLDER
+  const [autoRefresh, setAutoRefresh] = useInspectAutoRefresh()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     ...sessionQuery(queryId, DRAWER_LOOKUP_RANGE),
     enabled: open,
+    refetchInterval: open ? AUTO_REFRESH_MS[autoRefresh] : false,
   })
   const [retainedPreview, setRetainedPreview] = useState<RetainedSessionPreview | null>(null)
 
@@ -60,6 +64,12 @@ export function SessionsDrawerHost({ previewSessionId, onClose }: SessionsDrawer
       service={service}
       hasError={hasError}
       expandSession={displayPreview ? { sessionId: displayPreview.sessionId, range: DRAWER_LOOKUP_RANGE } : undefined}
+      autoRefresh={autoRefresh}
+      onAutoRefreshChange={setAutoRefresh}
+      onRefresh={() => {
+        void refetch()
+      }}
+      refreshing={isFetching}
     />
   )
 }

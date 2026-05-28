@@ -2,6 +2,7 @@ import { IconMaximize, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
@@ -40,6 +41,10 @@ interface InspectDrawerProps {
   expandTrace?: { traceId: string }
   /** Stable id for the inspected entity — resets picker state when it changes while `open`. */
   inspectKey?: string | null
+  autoRefresh?: AutoRefreshInterval
+  onAutoRefreshChange?: (value: AutoRefreshInterval) => void
+  onRefresh?: () => void
+  refreshing?: boolean
 }
 
 export function InspectDrawer({
@@ -53,6 +58,10 @@ export function InspectDrawer({
   expandSession,
   expandTrace,
   inspectKey,
+  autoRefresh,
+  onAutoRefreshChange,
+  onRefresh,
+  refreshing,
 }: InspectDrawerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerView, setDrawerView] = useState<DrawerView>('spans')
@@ -223,6 +232,10 @@ export function InspectDrawer({
           onViewChange={setDrawerView}
           rawAllOn={raw.rawAllOn}
           onToggleRawAll={raw.toggleAll}
+          autoRefresh={autoRefresh}
+          onAutoRefreshChange={onAutoRefreshChange}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
           hiddenTabs={hiddenTabs}
           extras={
             contentReady && drawerView === 'conversation' && spans.length > 0 ? <ContextWindow view={view} /> : null

@@ -1,7 +1,11 @@
 import { ChatBubbleLeftRightIcon, QueueListIcon } from '@heroicons/react/24/outline'
 import { IconBraces } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
-import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
+import {
+  type AutoRefreshInterval,
+  AutoRefreshSelect,
+  INSPECT_AUTO_REFRESH_OPTIONS,
+} from '#/components/auto-refresh-select'
 import { IconTabs } from '#/components/icon-tabs'
 import { Separator } from '#/components/ui/separator'
 import { Toggle } from '#/components/ui/toggle'
@@ -69,6 +73,7 @@ export function InspectViewBar({
             onChange={onAutoRefreshChange}
             onRefresh={onRefresh}
             loading={refreshing}
+            options={INSPECT_AUTO_REFRESH_OPTIONS}
           />
         )}
         {extras}

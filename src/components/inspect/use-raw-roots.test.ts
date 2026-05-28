@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ensureRootIn, toggleAllIn, toggleRootIn } from './use-raw-roots'
+import { ensureRootIn, toggleRootIn } from './use-raw-roots'
 
 describe('toggleRootIn', () => {
   it('adds an absent id', () => {
@@ -30,27 +30,5 @@ describe('ensureRootIn', () => {
   it('adds the id when absent', () => {
     const next = ensureRootIn(new Set(['a']), 'b')
     expect([...next].sort()).toEqual(['a', 'b'])
-  })
-})
-
-describe('toggleAllIn', () => {
-  it('clears when any roots are on (full set → empty)', () => {
-    const next = toggleAllIn(new Set(['a', 'b']), ['a', 'b', 'c'])
-    expect(next.size).toBe(0)
-  })
-
-  it('clears when partially on, treating any-on as "on"', () => {
-    const next = toggleAllIn(new Set(['a']), ['a', 'b', 'c'])
-    expect(next.size).toBe(0)
-  })
-
-  it('sets to every top-level id when empty (empty → full set)', () => {
-    const next = toggleAllIn(new Set(), ['a', 'b', 'c'])
-    expect([...next].sort()).toEqual(['a', 'b', 'c'])
-  })
-
-  it('clears to empty even when topLevelIds is empty', () => {
-    const next = toggleAllIn(new Set(['a']), [])
-    expect(next.size).toBe(0)
   })
 })

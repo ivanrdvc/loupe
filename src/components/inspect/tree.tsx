@@ -467,7 +467,7 @@ function SpanTreeRowImpl({
                 aria-pressed={rawOn}
                 aria-label={rawOn ? 'Hide raw spans for this trace' : 'Show raw spans for this trace'}
                 className={cn(
-                  'mr-2 inline-flex size-6 shrink-0 self-center items-center justify-center rounded-md transition-opacity',
+                  'mr-3 inline-flex size-6 shrink-0 self-center items-center justify-center rounded-md transition-opacity',
                   'focus:outline-hidden focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/80',
                   rawOn
                     ? 'bg-muted text-foreground opacity-100'

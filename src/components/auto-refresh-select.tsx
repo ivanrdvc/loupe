@@ -36,6 +36,14 @@ export const LIST_AUTO_REFRESH_OPTIONS = [
   '15m',
 ] as const satisfies readonly AutoRefreshInterval[]
 
+export const INSPECT_AUTO_REFRESH_OPTIONS = [
+  'off',
+  '5s',
+  '30s',
+  '1m',
+  '5m',
+] as const satisfies readonly AutoRefreshInterval[]
+
 export const DEFAULT_AUTO_REFRESH_INTERVAL: AutoRefreshInterval = '30s'
 
 interface AutoRefreshSelectProps {

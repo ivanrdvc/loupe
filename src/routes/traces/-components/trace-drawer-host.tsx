@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { InspectDrawer } from '#/components/inspect/drawer'
+import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import type { Span } from '#/lib/spans'
 import { traceSpansQuery } from '../-data'
 
@@ -21,10 +23,12 @@ interface TraceInspectDrawerHostProps {
 export function TraceInspectDrawerHost({ previewTraceId, onClose }: TraceInspectDrawerHostProps) {
   const open = previewTraceId !== null
   const queryId = previewTraceId ?? TRACE_DRAWER_PLACEHOLDER
+  const [autoRefresh, setAutoRefresh] = useInspectAutoRefresh()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     ...traceSpansQuery(queryId),
     enabled: open,
+    refetchInterval: open ? AUTO_REFRESH_MS[autoRefresh] : false,
   })
   const [retainedPreview, setRetainedPreview] = useState<RetainedTracePreview | null>(null)
 
@@ -58,6 +62,12 @@ export function TraceInspectDrawerHost({ previewTraceId, onClose }: TraceInspect
       service={service}
       hasError={hasError}
       expandTrace={displayPreview ? { traceId: displayPreview.traceId } : undefined}
+      autoRefresh={autoRefresh}
+      onAutoRefreshChange={setAutoRefresh}
+      onRefresh={() => {
+        void refetch()
+      }}
+      refreshing={isFetching}
     />
   )
 }

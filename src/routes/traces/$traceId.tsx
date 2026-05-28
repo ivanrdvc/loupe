@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { InspectLayout } from '#/components/inspect/overview'
@@ -17,6 +18,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
+import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import { buildInspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 import { traceSpansQuery } from './-data'
@@ -28,7 +30,12 @@ export const Route = createFileRoute('/traces/$traceId')({
 
 function TraceDetail() {
   const { traceId } = Route.useParams()
-  const { data: loaderData } = useQuery(traceSpansQuery(traceId))
+  const [autoRefresh, setAutoRefresh] = useInspectAutoRefresh()
+  const {
+    data: loaderData,
+    refetch,
+    isFetching,
+  } = useQuery({ ...traceSpansQuery(traceId), refetchInterval: AUTO_REFRESH_MS[autoRefresh] })
 
   const spans: Span[] = loaderData?.spans ?? []
   const provider = loaderData?.provider
@@ -107,6 +114,12 @@ function TraceDetail() {
           onViewChange={setView}
           rawAllOn={raw.rawAllOn}
           onToggleRawAll={raw.toggleAll}
+          autoRefresh={autoRefresh}
+          onAutoRefreshChange={setAutoRefresh}
+          onRefresh={() => {
+            void refetch()
+          }}
+          refreshing={isFetching}
           extras={view === 'conversation' && spans.length > 0 ? <ContextWindow view={inspectorView} /> : undefined}
         />
         <div className="min-h-0 flex-1 overflow-hidden bg-background">

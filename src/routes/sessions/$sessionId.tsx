@@ -22,7 +22,7 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
-import { useAutoRefresh } from '#/hooks/use-auto-refresh'
+import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import { buildInspectorView } from '#/lib/inspector-view'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
@@ -68,7 +68,7 @@ function SessionDetail() {
   const { sessionId } = Route.useParams()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const [autoRefresh, setAutoRefresh] = useAutoRefresh()
+  const [autoRefresh, setAutoRefresh] = useInspectAutoRefresh()
   const { data, refetch, isFetching } = useQuery({
     ...sessionQuery(sessionId, search.range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
