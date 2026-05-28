@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { CommandPaletteTrigger } from '#/components/command-palette'
+import { NotificationBell } from '#/components/notification-bell'
 import { Separator } from '#/components/ui/separator'
 import { SidebarTrigger } from '#/components/ui/sidebar'
 
@@ -13,6 +14,7 @@ export function SiteHeader({ title, actions }: { title: ReactNode; actions?: Rea
         <div className="ml-auto flex items-center gap-2">
           {actions}
           <CommandPaletteTrigger />
+          <NotificationBell />
         </div>
       </div>
     </header>

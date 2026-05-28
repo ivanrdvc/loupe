@@ -18,6 +18,7 @@ export const queryKeys = {
   },
   inbox: {
     all: () => ['inbox'] as const,
+    recent: () => ['inbox', 'recent'] as const,
     unreadCount: () => ['inbox', 'unread-count'] as const,
   },
   home: {

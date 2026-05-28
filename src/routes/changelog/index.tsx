@@ -1,10 +1,12 @@
 import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { Markdown } from '#/components/markdown'
 import { Page } from '#/components/page'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
+import { markChangelogSeen } from '#/lib/changelog-seen'
 import changelogRaw from '../../../CHANGELOG.md?raw'
 import { type ChangelogVersion, parseChangelog } from './-changelog-data'
 
@@ -16,6 +18,9 @@ export const Route = createFileRoute('/changelog/')({
 })
 
 function ChangelogPage() {
+  useEffect(() => {
+    markChangelogSeen(APP_VERSION)
+  }, [])
   return (
     <Page title="Changelog">
       <div className="px-4 lg:px-6">

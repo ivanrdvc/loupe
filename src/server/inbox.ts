@@ -44,8 +44,29 @@ export async function countOpenInboxItems(): Promise<number> {
   return row?.value ?? 0
 }
 
+// Recent items regardless of dismissal (drives the "All" tab); future-snoozed stay hidden.
+export async function listRecentInboxItems(limit = 100): Promise<InboxRow[]> {
+  const now = new Date()
+  const rows = await db
+    .select()
+    .from(inboxItems)
+    .where(or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now)))
+    .orderBy(desc(inboxItems.firedAt))
+    .limit(limit)
+
+  return rows.map(toInboxRow)
+}
+
 export async function dismissInboxItem(id: number): Promise<void> {
   await db.update(inboxItems).set({ dismissedAt: new Date() }).where(eq(inboxItems.id, id))
+}
+
+export async function markAllInboxRead(): Promise<void> {
+  const now = new Date()
+  await db
+    .update(inboxItems)
+    .set({ dismissedAt: now })
+    .where(and(isNull(inboxItems.dismissedAt), or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now))))
 }
 
 export async function snoozeInboxItem(id: number, until: Date): Promise<void> {

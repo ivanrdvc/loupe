@@ -1,5 +1,4 @@
 import {
-  InboxIcon,
   KeyboardIcon,
   Logout01Icon,
   Moon01Icon,
@@ -41,9 +40,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '#/components/ui/sidebar'
+import { useChangelogUnseen } from '#/hooks/use-changelog-unseen'
 import { useUser, useUserId } from '#/hooks/use-user'
 import { DEFAULT } from '#/lib/time-range'
-import { inboxUnreadCountQuery } from '#/routes/inbox/-data'
 import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 
 const APP_VERSION = `v${__APP_VERSION__}`
@@ -54,7 +53,7 @@ const WORKBENCH_NAV = NAV_ITEMS.filter((n) => n.group === 'workbench')
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const { data: unreadCount = 0 } = useQuery(inboxUnreadCountQuery())
+  const changelogUnseen = useChangelogUnseen(__APP_VERSION__)
   const [userId] = useUserId()
   const { data: recentData } = useQuery(currentUserSessionsQuery(DEFAULT, userId))
   const recentSessions = recentData?.sessions ?? []
@@ -138,22 +137,18 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith('/inbox')}>
-                    <Link to="/inbox">
-                      <span className="relative shrink-0">
-                        <HugeiconsIcon icon={InboxIcon} className="size-4 shrink-0" />
-                        {unreadCount > 0 && (
-                          <span className="pointer-events-none absolute -top-1 -right-1 flex">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-60" />
-                            <span className="relative inline-flex min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-center text-[9px]/3.5 font-semibold text-destructive-foreground shadow-sm">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                          </span>
-                        )}
-                      </span>
-                      <span>Inbox</span>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith('/changelog')}>
+                    <Link to="/changelog">
+                      <HugeiconsIcon icon={News01Icon} className="size-4 shrink-0" />
+                      <span>Changelog</span>
                     </Link>
                   </SidebarMenuButton>
+                  {changelogUnseen && (
+                    <SidebarMenuBadge className="pointer-events-none" title="New release">
+                      <span className="size-2 rounded-full bg-primary" />
+                      <span className="sr-only">New release</span>
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
@@ -250,12 +245,6 @@ function NavUser() {
               <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
                 <HugeiconsIcon icon={KeyboardIcon} />
                 Keyboard shortcuts
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/changelog">
-                  <HugeiconsIcon icon={News01Icon} />
-                  Changelog
-                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
