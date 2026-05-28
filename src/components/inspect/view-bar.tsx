@@ -59,11 +59,18 @@ export function InspectViewBar({
         {showRawAll && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle size="sm" pressed={rawAllOn} onPressedChange={onToggleRawAll} aria-label="Show raw spans">
+              <Toggle
+                size="sm"
+                pressed={rawAllOn}
+                onPressedChange={onToggleRawAll}
+                aria-label="Toggle raw spans on every trace"
+              >
                 <IconBraces />
               </Toggle>
             </TooltipTrigger>
-            <TooltipContent>{rawAllOn ? 'Hide raw spans (all traces)' : 'Show raw spans (all traces)'}</TooltipContent>
+            <TooltipContent>
+              {rawAllOn ? 'Close raw spans on every trace' : 'Open raw spans on every trace'}
+            </TooltipContent>
           </Tooltip>
         )}
         {showRawAll && (hasRefreshGroup || extras != null) && <Separator orientation="vertical" className="mx-1 h-5" />}

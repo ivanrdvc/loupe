@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { InspectorView } from '#/lib/inspector-view'
 
 export interface RawRootsControl {
@@ -46,6 +46,20 @@ export function useRawRoots(view: InspectorView): RawRootsControl {
       return next
     })
   }, [topLevelIds])
+
+  useEffect(() => {
+    if (!rawAllOn) return
+    setRawRoots((prev) => {
+      let next: Set<string> | null = null
+      for (const id of topLevelIds) {
+        if (!prev.has(id)) {
+          if (!next) next = new Set(prev)
+          next.add(id)
+        }
+      }
+      return next ?? prev
+    })
+  }, [rawAllOn, topLevelIds])
 
   return {
     rawRoots,
