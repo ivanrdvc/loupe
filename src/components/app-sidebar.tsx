@@ -1,4 +1,5 @@
 import {
+  ArrowRight01Icon,
   KeyboardIcon,
   Logout01Icon,
   Moon01Icon,
@@ -12,12 +13,13 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useTheme } from 'next-themes'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Logo } from '#/components/logo'
-import { NAV_ITEMS, type NavItem, navMatches } from '#/components/nav-items'
+import { INVENTORY_GROUP, NAV_ITEMS, type NavItem, navMatches } from '#/components/nav-items'
 import { SettingsDialog } from '#/components/settings-dialog'
 import { useShortcutsDialog } from '#/components/shortcuts-dialog'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +41,9 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from '#/components/ui/sidebar'
 import { useChangelogUnseen } from '#/hooks/use-changelog-unseen'
 import { useUser, useUserId } from '#/hooks/use-user'
@@ -49,6 +54,7 @@ const APP_VERSION = `v${__APP_VERSION__}`
 
 const OBSERVE_NAV = NAV_ITEMS.filter((n) => n.group === 'observe')
 const WORKBENCH_NAV = NAV_ITEMS.filter((n) => n.group === 'workbench')
+const INVENTORY_NAV = NAV_ITEMS.filter((n) => n.group === 'inventory')
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -83,7 +89,10 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {OBSERVE_NAV.map((item) => (
-                  <NavRow key={item.to} item={item} pathname={pathname} />
+                  <Fragment key={item.to}>
+                    <NavRow item={item} pathname={pathname} />
+                    {item.to === '/tasks' && <InventoryNav pathname={pathname} />}
+                  </Fragment>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -187,6 +196,39 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
+  )
+}
+
+function InventoryNav({ pathname }: { pathname: string }) {
+  const sectionActive = pathname.startsWith(INVENTORY_GROUP.basePath)
+  return (
+    <Collapsible asChild defaultOpen={sectionActive} className="group/collapsible">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton>
+            <HugeiconsIcon icon={INVENTORY_GROUP.icon} />
+            <span>{INVENTORY_GROUP.label}</span>
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+            />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {INVENTORY_NAV.map((item) => (
+              <SidebarMenuSubItem key={item.to}>
+                <SidebarMenuSubButton asChild isActive={navMatches(item, pathname)}>
+                  <Link to={item.to}>
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
   )
 }
 

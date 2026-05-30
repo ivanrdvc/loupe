@@ -26,6 +26,8 @@ import { Route as TasksTaskKeyRouteImport } from './routes/tasks/$taskKey'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as PromptsPromptIdRouteImport } from './routes/prompts/$promptId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
+import { Route as InventorySystemPromptsIndexRouteImport } from './routes/inventory/system-prompts/index'
+import { Route as InventorySystemPromptsPromptIdRouteImport } from './routes/inventory/system-prompts/$promptId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +114,18 @@ const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
   path: '/datasets/$datasetId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InventorySystemPromptsIndexRoute =
+  InventorySystemPromptsIndexRouteImport.update({
+    id: '/inventory/system-prompts/',
+    path: '/inventory/system-prompts/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const InventorySystemPromptsPromptIdRoute =
+  InventorySystemPromptsPromptIdRouteImport.update({
+    id: '/inventory/system-prompts/$promptId',
+    path: '/inventory/system-prompts/$promptId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +145,8 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof TasksIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
+  '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,6 +166,8 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/traces': typeof TracesIndexRoute
+  '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/inventory/system-prompts': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,6 +188,8 @@ export interface FileRoutesById {
   '/tasks/': typeof TasksIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
+  '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,6 +211,8 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/tools/'
     | '/traces/'
+    | '/inventory/system-prompts/$promptId'
+    | '/inventory/system-prompts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -210,6 +232,8 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/tools'
     | '/traces'
+    | '/inventory/system-prompts/$promptId'
+    | '/inventory/system-prompts'
   id:
     | '__root__'
     | '/'
@@ -229,6 +253,8 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/tools/'
     | '/traces/'
+    | '/inventory/system-prompts/$promptId'
+    | '/inventory/system-prompts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,6 +275,8 @@ export interface RootRouteChildren {
   TasksIndexRoute: typeof TasksIndexRoute
   ToolsIndexRoute: typeof ToolsIndexRoute
   TracesIndexRoute: typeof TracesIndexRoute
+  InventorySystemPromptsPromptIdRoute: typeof InventorySystemPromptsPromptIdRoute
+  InventorySystemPromptsIndexRoute: typeof InventorySystemPromptsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -372,6 +400,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsDatasetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inventory/system-prompts/': {
+      id: '/inventory/system-prompts/'
+      path: '/inventory/system-prompts'
+      fullPath: '/inventory/system-prompts/'
+      preLoaderRoute: typeof InventorySystemPromptsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory/system-prompts/$promptId': {
+      id: '/inventory/system-prompts/$promptId'
+      path: '/inventory/system-prompts/$promptId'
+      fullPath: '/inventory/system-prompts/$promptId'
+      preLoaderRoute: typeof InventorySystemPromptsPromptIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -393,6 +435,8 @@ const rootRouteChildren: RootRouteChildren = {
   TasksIndexRoute: TasksIndexRoute,
   ToolsIndexRoute: ToolsIndexRoute,
   TracesIndexRoute: TracesIndexRoute,
+  InventorySystemPromptsPromptIdRoute: InventorySystemPromptsPromptIdRoute,
+  InventorySystemPromptsIndexRoute: InventorySystemPromptsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
