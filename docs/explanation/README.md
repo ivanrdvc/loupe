@@ -20,6 +20,9 @@ doc, write it here.
 
 ## Subsystems
 
+- [Datasets](datasets.md) — named, versioned sets of questions fired at the
+  agent over HTTP; answers link back to their traces and compare across runs.
+  Why Examples and Runs are separate and how trace linkage reuses session ids.
 - [MCP read-through registry](mcp-read-through.md) — how loupe reads MCP
   registry references, fetches live server capabilities, and keeps SQLite
   limited to local app state.

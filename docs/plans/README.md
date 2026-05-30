@@ -12,10 +12,11 @@ choices, immutable log).
 
 - [Agents](agents.md) — what agents we run, what they're configured with, and
   which tools are actually attached. The demand-side counterpart to `mcp.md`.
-- [Compare two runs side-by-side](compare-runs.md) — pick any two runs and
-  view them in a split layout that surfaces what diverged.
-- [Evaluation](evaluation.md) — scores, human annotations, datasets, and an
-  in-app LLM-judge runner, built emitter-agnostic on OTel `gen_ai.evaluation.*`.
+- [Compare two traces side-by-side](compare-traces.md) — pick any two traces and
+  view them in a split layout that surfaces what diverged (formerly "compare runs").
+- [Datasets](datasets.md) — named, versioned sets of questions fired at your
+  agent over HTTP, with answers linked back to their traces and compared across
+  runs.
 - [HTTP API for LLM debugging](http-api.md) — expose loupe's
   classification / reconstruction / aggregation views over plain endpoints so
   an LLM-driven dev tool can pull run data while a developer is debugging.
