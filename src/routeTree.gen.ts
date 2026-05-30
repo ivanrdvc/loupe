@@ -19,11 +19,13 @@ import { Route as NotesIndexRouteImport } from './routes/notes/index'
 import { Route as McpIndexRouteImport } from './routes/mcp/index'
 import { Route as InboxIndexRouteImport } from './routes/inbox/index'
 import { Route as EvalsIndexRouteImport } from './routes/evals/index'
+import { Route as DatasetsIndexRouteImport } from './routes/datasets/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as TasksTaskKeyRouteImport } from './routes/tasks/$taskKey'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as PromptsPromptIdRouteImport } from './routes/prompts/$promptId'
+import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -75,6 +77,11 @@ const EvalsIndexRoute = EvalsIndexRouteImport.update({
   path: '/evals/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsIndexRoute = DatasetsIndexRouteImport.update({
+  id: '/datasets/',
+  path: '/datasets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
   id: '/changelog/',
   path: '/changelog/',
@@ -100,14 +107,21 @@ const PromptsPromptIdRoute = PromptsPromptIdRouteImport.update({
   path: '/prompts/$promptId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
+  id: '/datasets/$datasetId',
+  path: '/datasets/$datasetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/changelog/': typeof ChangelogIndexRoute
+  '/datasets/': typeof DatasetsIndexRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/mcp/': typeof McpIndexRoute
@@ -120,11 +134,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/changelog': typeof ChangelogIndexRoute
+  '/datasets': typeof DatasetsIndexRoute
   '/evals': typeof EvalsIndexRoute
   '/inbox': typeof InboxIndexRoute
   '/mcp': typeof McpIndexRoute
@@ -138,11 +154,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/prompts/$promptId': typeof PromptsPromptIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
   '/changelog/': typeof ChangelogIndexRoute
+  '/datasets/': typeof DatasetsIndexRoute
   '/evals/': typeof EvalsIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/mcp/': typeof McpIndexRoute
@@ -157,11 +175,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/datasets/$datasetId'
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
     | '/changelog/'
+    | '/datasets/'
     | '/evals/'
     | '/inbox/'
     | '/mcp/'
@@ -174,11 +194,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/datasets/$datasetId'
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
     | '/changelog'
+    | '/datasets'
     | '/evals'
     | '/inbox'
     | '/mcp'
@@ -191,11 +213,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/datasets/$datasetId'
     | '/prompts/$promptId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
     | '/changelog/'
+    | '/datasets/'
     | '/evals/'
     | '/inbox/'
     | '/mcp/'
@@ -209,11 +233,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRoute
   PromptsPromptIdRoute: typeof PromptsPromptIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   TasksTaskKeyRoute: typeof TasksTaskKeyRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
+  DatasetsIndexRoute: typeof DatasetsIndexRoute
   EvalsIndexRoute: typeof EvalsIndexRoute
   InboxIndexRoute: typeof InboxIndexRoute
   McpIndexRoute: typeof McpIndexRoute
@@ -297,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvalsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets/': {
+      id: '/datasets/'
+      path: '/datasets'
+      fullPath: '/datasets/'
+      preLoaderRoute: typeof DatasetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/changelog/': {
       id: '/changelog/'
       path: '/changelog'
@@ -332,16 +365,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PromptsPromptIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets/$datasetId': {
+      id: '/datasets/$datasetId'
+      path: '/datasets/$datasetId'
+      fullPath: '/datasets/$datasetId'
+      preLoaderRoute: typeof DatasetsDatasetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DatasetsDatasetIdRoute: DatasetsDatasetIdRoute,
   PromptsPromptIdRoute: PromptsPromptIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   TasksTaskKeyRoute: TasksTaskKeyRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
+  DatasetsIndexRoute: DatasetsIndexRoute,
   EvalsIndexRoute: EvalsIndexRoute,
   InboxIndexRoute: InboxIndexRoute,
   McpIndexRoute: McpIndexRoute,
