@@ -23,6 +23,14 @@
   that bypasses OTel and violates the read-only / OTel-first stance).
 - Historic data across agent versions (compare runs over time)
 
+## Datasets
+
+- Run execution is synchronous — `runDataset` fires every example in one request and
+  blocks on a fixed trace-ingest wait. Fine for the dumb-target cut / small datasets;
+  move to a background job + polling before large or slow datasets. (`src/server/datasets.ts`)
+- `server/prompts.ts` keeps create/update/delete/version mutations that are now unwired
+  (System Prompts is display-only) — prune if editing isn't coming back.
+
 ## Stash (sister-project producer work)
 
 - Agent-run-test (`agent/Demos.cs`) — emit producer-side per [`docs/explanation/02-spec.md`](docs/explanation/02-spec.md) producer emission checklist: cron scenario (`task.kind=cron` + `task.schedule`), `task.name` on scheduled/event/webhook/background, `task.source` on event/webhook/background. Optional: stamp `gen_ai.task.id` / `gen_ai.task.parent.id` on `invoke_agent` spans (normaliser fills them otherwise).

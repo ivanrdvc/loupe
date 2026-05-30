@@ -299,8 +299,6 @@ export const deleteExamples = createServerFn({ method: 'POST' })
     await bumpVersion(data.datasetId, new Date())
   })
 
-// TODO(datasets): synchronous — fires every example in one request. Fine for the dumb-target
-// cut / small datasets; move to a background job + polling before large or slow datasets.
 const TRACE_RESOLVE_DELAY_MS = 1_500
 const TRACE_RESOLVE_WINDOW_MS = 10 * 60_000
 
