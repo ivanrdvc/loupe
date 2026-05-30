@@ -27,10 +27,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { buildPromptColumns } from '#/routes/prompts/-components/prompts-columns'
-import type { PromptFolder } from '#/routes/prompts/-types'
 import { getSyncConfig, syncSystemPrompts } from '#/server/prompt-sync'
 import { listFolders, listPrompts, listTags } from '#/server/prompts'
+import { buildPromptColumns } from './-components/prompts-columns'
+import type { PromptFolder } from './-types'
 
 const foldersQuery = queryOptions({
   queryKey: queryKeys.prompts.folders(),

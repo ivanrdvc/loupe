@@ -1,4 +1,10 @@
-import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  type Table as TanstackTable,
+  useReactTable,
+} from '@tanstack/react-table'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { cn } from '#/lib/utils'
 
@@ -10,25 +16,12 @@ declare module '@tanstack/react-table' {
   }
 }
 
-interface DataGridProps<T> {
-  columns: ColumnDef<T, unknown>[]
-  data: T[]
-  getRowId: (row: T) => string
-  onRowClick?: (row: T) => void
-}
-
 /**
- * Column-def / flexRender table, styled to match the Traces & Sessions tables:
- * full-bleed, border-t, sticky muted header, h-12 rows — no card or surrounding padding.
+ * Renders a TanStack table with the shared Table primitives, styled to match the
+ * Traces & Sessions tables: full-bleed, border-t, sticky muted header, h-12 rows.
+ * Takes a table instance so the caller can own filtering/sorting state.
  */
-export function DataGrid<T>({ columns, data, getRowId, onRowClick }: DataGridProps<T>) {
-  const table = useReactTable({
-    data,
-    columns,
-    getRowId,
-    getCoreRowModel: getCoreRowModel(),
-  })
-
+export function DataGridBody<T>({ table, onRowClick }: { table: TanstackTable<T>; onRowClick?: (row: T) => void }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col border-t">
       <div className="min-h-0 flex-1 overflow-auto bg-background">
@@ -73,4 +66,20 @@ export function DataGrid<T>({ columns, data, getRowId, onRowClick }: DataGridPro
       </div>
     </div>
   )
+}
+
+/** Convenience wrapper for tables that don't need external state (just columns + data). */
+export function DataGrid<T>({
+  columns,
+  data,
+  getRowId,
+  onRowClick,
+}: {
+  columns: ColumnDef<T, unknown>[]
+  data: T[]
+  getRowId: (row: T) => string
+  onRowClick?: (row: T) => void
+}) {
+  const table = useReactTable({ data, columns, getRowId, getCoreRowModel: getCoreRowModel() })
+  return <DataGridBody table={table} onRowClick={onRowClick} />
 }

@@ -62,20 +62,20 @@ agents honor them; dumb agents ignore them and still work.
 POST <target endpoint>
 {
   "input": <example.input>,
-  "metadata": {            // loupe correlation, so we can find the resulting trace
-    "loupe_run_id":   "...",
-    "loupe_example_id":"...",
-    "dataset_id":     "..."
-  }
+  // ride the SAME key loupe already groups traces on — no bespoke loupe_* namespace.
+  // we mint one id per (run, example) call; the agent echoes it onto its spans.
+  "conversation_id": "<gen_ai.conversation.id / ag_ui.thread_id>"
 }
 ```
 
 **Response** — Responses-compatible; loupe reads the output text into `RunItem.output`.
 
-**Trace linkage** — the agent emits OTel spans as usual; loupe matches the run's trace by
-the correlation id in `metadata` and stores it on `RunItem.traceId`. So every answer in the
-grid is one click from its full trace. (This is the Langfuse `DatasetRunItem.traceId` model,
-triggered by our HTTP call instead of an SDK loop.)
+**Trace linkage — reuse existing session grouping, don't invent metadata.** loupe already
+groups traces by `gen_ai.conversation.id` / `ag_ui.thread_id`. For a run we mint a unique id
+per (run, example) call and pass it as that conversation/thread id; **the agent sets it on its
+spans on their side** (same as any normal request). loupe then links the resulting trace to
+the run-item by the id it *already* groups on — `RunItem.traceId`. We still need *an* id (to
+map each answer to its trace), but it's the existing mechanism, not a new `loupe_*` field.
 
 **This cut: dumb target only.** POST `{input}`, agent answers. The agent's model/tools/
 prompt live inside the agent; loupe just records what comes back.

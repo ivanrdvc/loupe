@@ -224,7 +224,7 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
     } else if (note.targetKind === 'trace') {
       void navigate({ to: '/traces/$traceId', params: { traceId: note.targetId } })
     } else if (note.targetKind === 'prompt') {
-      void navigate({ to: '/prompts/$promptId', params: { promptId: note.targetId } })
+      void navigate({ to: '/inventory/system-prompts/$promptId', params: { promptId: note.targetId } })
     } else if (note.targetKind === 'span') {
       if (note.parentSessionId) {
         void navigate({

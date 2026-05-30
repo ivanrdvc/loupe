@@ -152,6 +152,95 @@ export const promptTagLinks = sqliteTable(
   ],
 )
 
+// A named, versioned collection of examples fired at the user's agent over HTTP.
+// See docs/plans/datasets.md. Versioning is auto-per-mutation: every add/edit/delete
+// of an example bumps `dataset.version`; a run pins the version it ran against.
+
+export const datasets = sqliteTable('dataset', {
+  id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  description: text(),
+  tagsJson: text('tags_json', { mode: 'json' }).notNull().default(sql`'[]'`),
+  // per-dataset endpoint override; null = use the global default (env / GLOBAL_DEFAULT_ENDPOINT)
+  endpointOverride: text('endpoint_override'),
+  // current version — bumped on every example mutation; runs pin the version they ran against
+  version: integer().notNull().default(1),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})
+
+export const datasetExamples = sqliteTable(
+  'dataset_example',
+  {
+    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+    datasetId: integer('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    // ExampleInput: a single string OR a ChatMessage[] transcript
+    inputJson: text('input_json', { mode: 'json' }).notNull().default(sql`'""'`),
+    expected: text(),
+    metadataJson: text('metadata_json', { mode: 'json' }).notNull().default(sql`'{}'`),
+    // backlink to where this example was captured from (capture-from-trace)
+    sourceTraceId: text('source_trace_id'),
+    sourceSpanId: text('source_span_id'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [index('dataset_example_dataset_idx').on(table.datasetId)],
+)
+
+export const datasetRuns = sqliteTable(
+  'dataset_run',
+  {
+    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+    datasetId: integer('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    // the dataset version this run was fired against (pinned at run time)
+    datasetVersion: integer('dataset_version').notNull(),
+    label: text().notNull(),
+    // the agent endpoint this run hit (resolved override ?? global default at run time)
+    endpointUrl: text('endpoint_url').notNull(),
+    status: text({ enum: ['running', 'complete', 'error'] })
+      .notNull()
+      .default('complete'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [index('dataset_run_dataset_idx').on(table.datasetId)],
+)
+
+export const datasetRunItems = sqliteTable(
+  'dataset_run_item',
+  {
+    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+    runId: integer('run_id')
+      .notNull()
+      .references(() => datasetRuns.id, { onDelete: 'cascade' }),
+    exampleId: integer('example_id')
+      .notNull()
+      .references(() => datasetExamples.id, { onDelete: 'cascade' }),
+    output: text().notNull().default(''),
+    // execution status only ('changed' is derived at read time vs the prior run)
+    status: text({ enum: ['ok', 'error', 'pending'] })
+      .notNull()
+      .default('pending'),
+    latencyMs: integer('latency_ms').notNull().default(0),
+    tokens: integer().notNull().default(0),
+    // the id we minted and passed to the agent as conversation_id — the durable linkage
+    // key loupe already groups traces on; traceId is resolved best-effort from it
+    conversationId: text('conversation_id'),
+    traceId: text('trace_id'),
+    errorText: text('error_text'),
+    rawJson: text('raw_json'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    index('dataset_run_item_run_idx').on(table.runId),
+    index('dataset_run_item_example_idx').on(table.exampleId),
+    uniqueIndex('dataset_run_item_run_example_idx').on(table.runId, table.exampleId),
+  ],
+)
+
 export const metricRollup = sqliteTable(
   'metric_rollup',
   {

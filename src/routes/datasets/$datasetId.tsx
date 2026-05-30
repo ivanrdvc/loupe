@@ -3,16 +3,20 @@ import {
   Alert02Icon,
   AlertCircleIcon,
   CheckmarkCircle02Icon,
+  Delete02Icon,
   Download01Icon,
   Link01Icon,
   PlayCircleIcon,
+  SlidersHorizontalIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
+import { Badge } from '#/components/ui/badge'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -21,7 +25,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Input } from '#/components/ui/input'
@@ -36,31 +39,55 @@ import {
   SheetHeader,
   SheetTitle,
 } from '#/components/ui/sheet'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Slider } from '#/components/ui/slider'
+import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
+import { deleteExamples, runDataset, updateDataset, upsertExample } from '#/server/datasets'
 import { DataGrid } from './-components/data-grid'
 import {
   type ChatMessage,
+  type ChatRole,
   type DatasetDetail,
   type DatasetExample,
   type DatasetRun,
   type DatasetRunItem,
+  datasetDetailQuery,
+  datasetRunDefaultsQuery,
+  type ExampleInput,
   GLOBAL_DEFAULT_ENDPOINT,
-  getDatasetDetail,
   inputPreview,
   inputTurns,
   type RunItemStatus,
 } from './-data'
 
 export const Route = createFileRoute('/datasets/$datasetId')({
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(datasetDetailQuery(params.datasetId)),
+      context.queryClient.ensureQueryData(datasetRunDefaultsQuery()),
+    ]),
   component: DatasetDetailPage,
 })
 
 function DatasetDetailPage() {
   const { datasetId } = Route.useParams()
-  const detail = getDatasetDetail(datasetId)
+  const { data: detail, isLoading } = useQuery(datasetDetailQuery(datasetId))
+
+  if (isLoading) {
+    return (
+      <Page title={<DatasetBreadcrumb />}>
+        <div className="flex flex-col gap-4 px-4 py-4 lg:px-6">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </Page>
+    )
+  }
 
   if (!detail) {
     return (
@@ -101,14 +128,54 @@ function DatasetBreadcrumb({ name }: { name?: string }) {
 
 function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const { dataset, examples, runs, items } = detail
+  const queryClient = useQueryClient()
+  const { data: runDefaults } = useQuery(datasetRunDefaultsQuery())
   const [tab, setTab] = useState('examples')
   const [activeExample, setActiveExample] = useState<DatasetExample | null>(null)
+  const [creating, setCreating] = useState(false)
   const [activeItem, setActiveItem] = useState<DatasetRunItem | null>(null)
-  const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? GLOBAL_DEFAULT_ENDPOINT)
+  const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? runDefaults?.endpointUrl ?? '')
+  const latestId = runs[0]?.id ?? null
+  const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
 
-  const latestRun = runs[0] ?? null
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.datasets.detail(dataset.id) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list() }),
+    ])
+
+  const runMutation = useMutation({
+    mutationFn: () => runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined } }),
+    onSuccess: async ({ runId }) => {
+      await invalidate()
+      setSelectedIds([runId])
+      setTab('runs')
+      toast.success('Run complete')
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
+
+  const persistEndpoint = useMutation({
+    mutationFn: (url: string) =>
+      updateDataset({ data: { datasetId: dataset.id, endpointOverride: url.trim() || null } }),
+    onSuccess: () => invalidate(),
+  })
+  const commitEndpoint = () => {
+    if ((dataset.endpointOverride ?? '') !== endpoint.trim()) persistEndpoint.mutate(endpoint)
+  }
+
   const itemFor = (runId: string, exampleId: string) =>
     items.find((it) => it.runId === runId && it.exampleId === exampleId) ?? null
+
+  const versions = useMemo(() => {
+    const set = new Set<number>([dataset.version, ...runs.map((r) => r.version)])
+    return [...set].sort((a, b) => b - a)
+  }, [dataset.version, runs])
+
+  const closeSheet = () => {
+    setActiveExample(null)
+    setCreating(false)
+  }
 
   return (
     <Page title={<DatasetBreadcrumb name={dataset.name} />}>
@@ -126,18 +193,26 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           <div className="ml-auto flex items-center gap-2">
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground">Version</span>
-              <Select defaultValue={dataset.version}>
+              <Select
+                value={`v${dataset.version}`}
+                onValueChange={(v) => {
+                  if (v !== `v${dataset.version}`)
+                    toast.info("Example history isn't snapshotted yet — showing the current version")
+                }}
+              >
                 <SelectTrigger size="sm" className="h-8 font-mono text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={dataset.version}>{dataset.version}</SelectItem>
-                  <SelectItem value="older">May 30 18:12</SelectItem>
-                  <SelectItem value="oldest">May 29 11:40</SelectItem>
+                  {versions.map((v) => (
+                    <SelectItem key={v} value={`v${v}`}>
+                      v{v}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info('Download CSV — UI mock')}>
+            <Button variant="outline" size="sm" onClick={() => downloadCsv(dataset.name, examples)}>
               <HugeiconsIcon icon={Download01Icon} strokeWidth={2} data-icon="inline-start" />
               CSV
             </Button>
@@ -159,9 +234,16 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           <TabsContent value="examples" className="min-h-0 flex-1">
             <ExamplesTab
               examples={examples}
-              latestRunId={latestRun?.id ?? null}
+              latestRunId={latestId}
               itemFor={itemFor}
-              onOpen={setActiveExample}
+              onOpen={(e) => {
+                setCreating(false)
+                setActiveExample(e)
+              }}
+              onAdd={() => {
+                setActiveExample(null)
+                setCreating(true)
+              }}
             />
           </TabsContent>
 
@@ -170,14 +252,30 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               detail={detail}
               endpoint={endpoint}
               onEndpointChange={setEndpoint}
+              onEndpointCommit={commitEndpoint}
+              selectedIds={selectedIds}
+              onSelectedChange={setSelectedIds}
               itemFor={itemFor}
               onOpenItem={setActiveItem}
+              onRun={() => runMutation.mutate()}
+              running={runMutation.isPending}
             />
           </TabsContent>
         </Tabs>
       </div>
 
-      <ExampleSheet example={activeExample} onClose={() => setActiveExample(null)} />
+      {(activeExample || creating) && (
+        <ExampleSheet
+          key={activeExample?.id ?? 'new'}
+          datasetId={dataset.id}
+          example={activeExample}
+          onClose={closeSheet}
+          onSaved={async () => {
+            await invalidate()
+            closeSheet()
+          }}
+        />
+      )}
       <ResultSheet
         item={activeItem}
         example={activeItem ? (examples.find((e) => e.id === activeItem.exampleId) ?? null) : null}
@@ -187,18 +285,18 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   )
 }
 
-// ─── Examples tab ──────────────────────────────────────────────────────────
-
 function ExamplesTab({
   examples,
   latestRunId,
   itemFor,
   onOpen,
+  onAdd,
 }: {
   examples: DatasetExample[]
   latestRunId: string | null
   itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
   onOpen: (e: DatasetExample) => void
+  onAdd: () => void
 }) {
   const columns = useMemo<ColumnDef<DatasetExample, unknown>[]>(
     () => [
@@ -259,41 +357,64 @@ function ExamplesTab({
         <p className="text-xs text-muted-foreground">
           The questions. Edit input / expected / metadata here — that's what every run is graded against.
         </p>
-        <Button size="sm" variant="outline" onClick={() => toast.info('Add example — UI mock')}>
+        <Button size="sm" variant="outline" onClick={onAdd}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
           Example
         </Button>
       </div>
-      <DataGrid columns={columns} data={examples} getRowId={(e) => e.id} onRowClick={onOpen} />
+      {examples.length === 0 ? (
+        <div className="px-4 lg:px-6">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
+              </EmptyMedia>
+              <EmptyTitle>No examples yet</EmptyTitle>
+              <EmptyDescription>Add a question by hand, or capture one from a trace.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
+      ) : (
+        <DataGrid columns={columns} data={examples} getRowId={(e) => e.id} onRowClick={onOpen} />
+      )}
     </div>
   )
 }
-
-// ─── Runs tab ──────────────────────────────────────────────────────────────
 
 function RunsTab({
   detail,
   endpoint,
   onEndpointChange,
+  onEndpointCommit,
+  selectedIds,
+  onSelectedChange,
   itemFor,
   onOpenItem,
+  onRun,
+  running,
 }: {
   detail: DatasetDetail
   endpoint: string
   onEndpointChange: (v: string) => void
+  onEndpointCommit: () => void
+  selectedIds: string[]
+  onSelectedChange: (ids: string[]) => void
   itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
   onOpenItem: (it: DatasetRunItem) => void
+  onRun: () => void
+  running: boolean
 }) {
   const { examples, runs } = detail
   const latestId = runs[0]?.id ?? null
-  // which runs are shown — defaults to just the latest; add more to compare
-  const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
+  const [overridesOpen, setOverridesOpen] = useState(false)
 
-  const toggle = (id: string) =>
-    setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.length > 1 ? prev.filter((x) => x !== id) : prev
-      return [...prev, id]
-    })
+  const toggle = (id: string) => {
+    if (selectedIds.includes(id)) {
+      if (selectedIds.length > 1) onSelectedChange(selectedIds.filter((x) => x !== id))
+    } else {
+      onSelectedChange([...selectedIds, id])
+    }
+  }
 
   const selectedRuns = runs.filter((r) => selectedIds.includes(r.id))
 
@@ -308,19 +429,14 @@ function RunsTab({
           id="ds-endpoint"
           value={endpoint}
           onChange={(e) => onEndpointChange(e.target.value)}
+          onBlur={onEndpointCommit}
           placeholder={GLOBAL_DEFAULT_ENDPOINT}
           className="h-8 max-w-sm font-mono text-xs"
         />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <Button variant="outline" size="sm" disabled className="opacity-60">
-                Model ▾
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Agent-behavior overrides — coming later</TooltipContent>
-        </Tooltip>
+        <Button variant="outline" size="sm" onClick={() => setOverridesOpen(true)}>
+          <HugeiconsIcon icon={SlidersHorizontalIcon} strokeWidth={2} data-icon="inline-start" />
+          Overrides
+        </Button>
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
@@ -331,16 +447,13 @@ function RunsTab({
           </TooltipTrigger>
           <TooltipContent>Scoring — coming later</TooltipContent>
         </Tooltip>
-        <Button
-          className="ml-auto"
-          size="sm"
-          onClick={() => toast.info('Run on all — UI mock')}
-          disabled={!endpoint.trim()}
-        >
+        <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
           <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
-          Run on all
+          {running ? 'Running…' : 'Run on all'}
         </Button>
       </div>
+
+      <AgentOverridesDrawer open={overridesOpen} onClose={() => setOverridesOpen(false)} />
 
       {runs.length === 0 ? (
         <div className="px-4 lg:px-6">
@@ -449,7 +562,7 @@ function RunResultsGrid({
           <div className="flex flex-col gap-0.5 py-1">
             <span className="font-mono text-xs text-foreground">{run.label}</span>
             <span className="text-[10px] text-muted-foreground">
-              {run.createdAt}
+              v{run.version}
               {run.passRate != null && ` · ${Math.round(run.passRate * 100)}% (mock)`}
             </span>
           </div>
@@ -494,7 +607,7 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
       className="flex w-full flex-col gap-1 rounded-md p-1 text-left hover:bg-muted/50"
       onClick={() => onOpenItem(it)}
     >
-      <span className="line-clamp-3 text-xs">{it.output}</span>
+      <span className="line-clamp-3 text-xs">{it.status === 'error' ? '⚠ run failed' : it.output}</span>
       <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <StatusIcon status={it.status} />
         {it.status === 'changed' && <span className="text-warning">changed</span>}
@@ -504,8 +617,6 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
     </button>
   )
 }
-
-// ─── shared bits ─────────────────────────────────────────────────────────
 
 function StatusIcon({ status }: { status: RunItemStatus }) {
   if (status === 'ok')
@@ -517,60 +628,113 @@ function StatusIcon({ status }: { status: RunItemStatus }) {
   return <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
 }
 
-function ExampleSheet({ example, onClose }: { example: DatasetExample | null; onClose: () => void }) {
+function ExampleSheet({
+  datasetId,
+  example,
+  onClose,
+  onSaved,
+}: {
+  datasetId: string
+  example: DatasetExample | null
+  onClose: () => void
+  onSaved: () => void | Promise<void>
+}) {
+  const [input, setInput] = useState<ExampleInput>(example?.input ?? '')
+  const [expected, setExpected] = useState(example?.expected ?? '')
+  const [metaPairs, setMetaPairs] = useState<Array<[string, string]>>(Object.entries(example?.metadata ?? {}))
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const metadata: Record<string, string> = {}
+      for (const [k, v] of metaPairs) if (k.trim()) metadata[k.trim()] = v
+      return upsertExample({
+        data: {
+          datasetId,
+          exampleId: example?.id ?? null,
+          input,
+          expected: expected.trim() ? expected : null,
+          metadata,
+          sourceTraceId: example?.sourceTraceId ?? null,
+        },
+      })
+    },
+    onSuccess: async () => {
+      toast.success(example ? 'Example saved' : 'Example added')
+      await onSaved()
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteExamples({ data: { datasetId, exampleIds: example ? [example.id] : [] } }),
+    onSuccess: async () => {
+      toast.success('Example deleted')
+      await onSaved()
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
+
   return (
-    <Sheet open={!!example} onOpenChange={(o) => !o && onClose()}>
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Example</SheetTitle>
+          <SheetTitle>{example ? 'Example' : 'New example'}</SheetTitle>
           <SheetDescription>
             Edit the question and its expected answer. Filling Expected makes it golden.
           </SheetDescription>
         </SheetHeader>
-        {example && (
-          <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-2">
-            <Field label="Input">
-              <InputEditor input={example.input} />
+        <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-2">
+          <Field label="Input">
+            <InputEditor input={input} onChange={setInput} />
+          </Field>
+          <Field label="Expected">
+            <Textarea
+              value={expected}
+              onChange={(e) => setExpected(e.target.value)}
+              rows={2}
+              placeholder="Reference answer, a tool-call assertion, or a judge rubric…"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              For variable / tool-using answers this is a criterion, checked by the (later) judge — not an exact string
+              match.
+            </p>
+          </Field>
+          <Field label="Metadata">
+            <MetadataEditor pairs={metaPairs} onChange={setMetaPairs} />
+          </Field>
+          {example?.sourceTraceId && (
+            <Field label="Source">
+              <Link
+                to="/traces/$traceId"
+                params={{ traceId: example.sourceTraceId }}
+                className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
+              >
+                trace {example.sourceTraceId}
+                <HugeiconsIcon icon={Link01Icon} className="size-3" strokeWidth={2} />
+              </Link>
             </Field>
-            <Field label="Expected">
-              <Textarea
-                defaultValue={example.expected ?? ''}
-                rows={2}
-                placeholder="Reference answer, a tool-call assertion, or a judge rubric…"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                For variable / tool-using answers this is a criterion, checked by the (later) judge — not an exact
-                string match.
-              </p>
-            </Field>
-            <Field label="Metadata">
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(example.metadata).map(([k, v]) => (
-                  <Badge key={k} variant="secondary" className="font-mono text-[10px]">
-                    {k}:{v}
-                  </Badge>
-                ))}
-              </div>
-            </Field>
-            {example.sourceTraceId && (
-              <Field label="Source">
-                <Link
-                  to="/traces/$traceId"
-                  params={{ traceId: example.sourceTraceId }}
-                  className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
-                >
-                  trace {example.sourceTraceId}
-                  <HugeiconsIcon icon={Link01Icon} className="size-3" strokeWidth={2} />
-                </Link>
-              </Field>
+          )}
+        </div>
+        <SheetFooter>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              Save
+            </Button>
+            <SheetClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </SheetClose>
+            {example && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto text-muted-foreground hover:text-destructive"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+              >
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+              </Button>
             )}
           </div>
-        )}
-        <SheetFooter>
-          <Button onClick={() => toast.info('Save — UI mock')}>Save</Button>
-          <SheetClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </SheetClose>
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -605,7 +769,9 @@ function ResultSheet({
               <p className="text-muted-foreground">{example?.expected ?? '—'}</p>
             </Field>
             <Field label="Answer">
-              <p className="rounded-md border bg-card/40 p-2">{item.output}</p>
+              <p className="rounded-md border bg-card/40 p-2">
+                {item.status === 'error' ? '— (run failed)' : item.output}
+              </p>
             </Field>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <StatusIcon status={item.status} />
@@ -646,35 +812,96 @@ const ROLE_STYLE: Record<ChatMessage['role'], string> = {
   tool: 'text-warning',
 }
 
-/** Editable multi-turn input (mock) or a single textarea for string inputs. */
-function InputEditor({ input }: { input: DatasetExample['input'] }) {
+/** Controlled multi-turn input, or a single textarea for string inputs. */
+function InputEditor({ input, onChange }: { input: ExampleInput; onChange: (next: ExampleInput) => void }) {
   const turns = inputTurns(input)
-  if (!turns) return <Textarea defaultValue={input as string} rows={3} />
+  if (!turns) {
+    return <Textarea value={input as string} onChange={(e) => onChange(e.target.value)} rows={3} />
+  }
+  const setTurn = (i: number, content: string) => onChange(turns.map((t, idx) => (idx === i ? { ...t, content } : t)))
+  const removeTurn = (i: number) => {
+    const next = turns.filter((_, idx) => idx !== i)
+    onChange(next.length > 0 ? next : '')
+  }
+  const addTurn = (role: ChatRole) => onChange([...turns, { role, content: '' }])
+
   return (
     <div className="flex flex-col gap-2">
       {turns.map((m, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: static mock transcript
+        // biome-ignore lint/suspicious/noArrayIndexKey: transcript turns are positional
         <div key={i} className="rounded-md border bg-card/40 p-2">
           <div className="mb-1 flex items-center justify-between">
             <span className={cn('font-mono text-[10px] uppercase tracking-wider', ROLE_STYLE[m.role])}>{m.role}</span>
+            <button
+              type="button"
+              className="text-[10px] text-muted-foreground hover:text-destructive"
+              onClick={() => removeTurn(i)}
+            >
+              remove
+            </button>
           </div>
           <Textarea
-            defaultValue={m.content}
+            value={m.content}
+            onChange={(e) => setTurn(i, e.target.value)}
             rows={1}
             className="min-h-0 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
           />
         </div>
       ))}
       <div className="flex gap-1.5">
-        <Button variant="outline" size="sm" onClick={() => toast.info('Add turn — UI mock')}>
+        <Button variant="outline" size="sm" onClick={() => addTurn('user')}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
           user
         </Button>
-        <Button variant="outline" size="sm" onClick={() => toast.info('Add turn — UI mock')}>
+        <Button variant="outline" size="sm" onClick={() => addTurn('assistant')}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
           assistant
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** Compact key/value editor for example metadata. */
+function MetadataEditor({
+  pairs,
+  onChange,
+}: {
+  pairs: Array<[string, string]>
+  onChange: (next: Array<[string, string]>) => void
+}) {
+  const setPair = (i: number, key: string, value: string) =>
+    onChange(pairs.map((p, idx) => (idx === i ? [key, value] : p)))
+  return (
+    <div className="flex flex-col gap-1.5">
+      {pairs.map(([k, v], i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: metadata rows are positional
+        <div key={i} className="flex items-center gap-1.5">
+          <Input
+            value={k}
+            onChange={(e) => setPair(i, e.target.value, v)}
+            placeholder="key"
+            className="h-8 font-mono text-xs"
+          />
+          <Input
+            value={v}
+            onChange={(e) => setPair(i, k, e.target.value)}
+            placeholder="value"
+            className="h-8 font-mono text-xs"
+          />
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => onChange(pairs.filter((_, idx) => idx !== i))}
+          >
+            <HugeiconsIcon icon={Delete02Icon} className="size-4" strokeWidth={2} />
+          </button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" className="self-start" onClick={() => onChange([...pairs, ['', '']])}>
+        <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+        Field
+      </Button>
     </div>
   )
 }
@@ -684,7 +911,7 @@ function TranscriptView({ turns }: { turns: ChatMessage[] }) {
   return (
     <div className="flex flex-col gap-1.5">
       {turns.map((m, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: static mock transcript
+        // biome-ignore lint/suspicious/noArrayIndexKey: static transcript view
         <div key={i} className="text-sm">
           <span className={cn('mr-1.5 font-mono text-[10px] uppercase tracking-wider', ROLE_STYLE[m.role])}>
             {m.role}
@@ -696,6 +923,107 @@ function TranscriptView({ turns }: { turns: ChatMessage[] }) {
   )
 }
 
+const MOCK_TOOLS = [
+  { name: 'schedule_task', on: true },
+  { name: 'web_search', on: true },
+  { name: 'send_email', on: false },
+  { name: 'create_ticket', on: false },
+]
+
+// Mock agent-behavior overrides. Deferred per docs/plans/datasets.md — wired visually only.
+function AgentOverridesDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [temperature, setTemperature] = useState(0.2)
+  const [topP, setTopP] = useState(1)
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Agent overrides</SheetTitle>
+          <SheetDescription>
+            Sent to your agent on each run. Ignored by agents that don't support overrides.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-1 flex-col gap-5 overflow-auto px-4 py-3">
+          <Field label="Model">
+            <Select defaultValue="default">
+              <SelectTrigger className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Agent default</SelectItem>
+                <SelectItem value="gpt-4o">gpt-4o</SelectItem>
+                <SelectItem value="gpt-4o-mini">gpt-4o-mini</SelectItem>
+                <SelectItem value="claude-sonnet-4-6">claude-sonnet-4-6</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="System prompt">
+            <Textarea rows={3} placeholder="Override the agent's system prompt…" />
+          </Field>
+
+          <Field label="Tools">
+            <div className="flex flex-col divide-y rounded-md border">
+              {MOCK_TOOLS.map((t) => (
+                <div key={t.name} className="flex items-center justify-between px-3 py-2">
+                  <span className="font-mono text-xs">{t.name}</span>
+                  <Switch defaultChecked={t.on} />
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" className="self-start" onClick={() => toast.info('Add tool — UI mock')}>
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+              Tool
+            </Button>
+          </Field>
+
+          <Field label="Sampling">
+            <div className="flex flex-col gap-4">
+              <SliderRow label="Temperature" value={temperature} max={2} step={0.1} onChange={setTemperature} />
+              <SliderRow label="Top-p" value={topP} max={1} step={0.05} onChange={setTopP} />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">Max tokens</span>
+                <Input defaultValue="1024" className="h-8 w-28 font-mono text-xs" />
+              </div>
+            </div>
+          </Field>
+        </div>
+        <SheetFooter>
+          <Button onClick={() => toast.info('Save overrides — UI mock')}>Save</Button>
+          <SheetClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function SliderRow({
+  label,
+  value,
+  max,
+  step,
+  onChange,
+}: {
+  label: string
+  value: number
+  max: number
+  step: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="font-mono text-xs tabular-nums">{value}</span>
+      </div>
+      <Slider value={[value]} max={max} step={step} onValueChange={([v]) => onChange(v)} />
+    </div>
+  )
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -703,4 +1031,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   )
+}
+
+// Client-side CSV export of the dataset's examples (input · expected · metadata · source).
+function downloadCsv(name: string, examples: DatasetExample[]) {
+  const cell = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const rows = [['input', 'expected', 'metadata', 'sourceTraceId']]
+  for (const e of examples) {
+    const input = typeof e.input === 'string' ? e.input : JSON.stringify(e.input)
+    rows.push([input, e.expected ?? '', JSON.stringify(e.metadata), e.sourceTraceId ?? ''])
+  }
+  const csv = rows.map((r) => r.map(cell).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }

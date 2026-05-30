@@ -17,7 +17,7 @@ import type {
   Tag,
   Tool,
   UpdatePromptMetaInput,
-} from '#/routes/prompts/-types'
+} from '#/routes/inventory/system-prompts/-types'
 
 function toFolder(row: typeof promptFolders.$inferSelect): PromptFolder {
   return {

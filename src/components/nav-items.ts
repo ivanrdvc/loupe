@@ -19,7 +19,6 @@ type NavTo =
   | '/tasks'
   | '/mcp'
   | '/notes'
-  | '/prompts'
   | '/inventory/system-prompts'
   | '/datasets'
   | '/evals'
@@ -42,9 +41,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/tasks', label: 'Tasks', icon: Task01Icon, group: 'observe' },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, group: 'observe', soon: true },
   { to: '/notes', label: 'Notes', icon: StickyNote01Icon, group: 'workbench' },
-  // Legacy combined prompts page — hidden from the sidebar; system prompts now live under
-  // Inventory › System Prompts. Route files at src/routes/prompts/* stay reachable by URL.
-  // { to: '/prompts', label: 'Prompts', icon: Edit02Icon, group: 'workbench' },
   { to: '/datasets', label: 'Datasets', icon: Database01Icon, group: 'workbench' },
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, group: 'workbench', soon: true },
   { to: '/inventory/system-prompts', label: 'System Prompts', icon: Edit02Icon, group: 'inventory' },

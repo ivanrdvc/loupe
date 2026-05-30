@@ -14,11 +14,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Skeleton } from '#/components/ui/skeleton'
 import { queryKeys } from '#/lib/query-keys'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
-import { PromptDetailMeta } from '#/routes/prompts/-components/prompt-detail-header'
-import { PromptEditor } from '#/routes/prompts/-components/prompt-editor'
-import { VersionList } from '#/routes/prompts/-components/version-list'
-import type { PromptWithVersions } from '#/routes/prompts/-types'
 import { getPrompt } from '#/server/prompts'
+import { PromptDetailMeta } from './-components/prompt-detail-header'
+import { PromptEditor } from './-components/prompt-editor'
+import { VersionList } from './-components/version-list'
+import type { PromptWithVersions } from './-types'
 
 const promptQuery = (id: number) =>
   queryOptions({

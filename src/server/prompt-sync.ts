@@ -5,7 +5,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { promptFolders, prompts, promptVersions } from '#/db/schema'
-import type { Message, ModelParams } from '#/routes/prompts/-types'
+import type { Message, ModelParams } from '#/routes/inventory/system-prompts/-types'
 
 export type SyncConfig = {
   repoPath: string | null

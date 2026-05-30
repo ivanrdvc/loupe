@@ -1,41 +1,26 @@
-import { ArrowDown01Icon, Edit02Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
 import { formatTokens } from '#/components/context-window'
 import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
-import { useUser } from '#/hooks/use-user'
 import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/conversation'
 import { formatCost } from '#/lib/format'
-import { type InspectorView, isChatSpan, isLlmLike, type ToolCallResolution } from '#/lib/inspector-view'
+import { type InspectorView, isChatSpan, type ToolCallResolution } from '#/lib/inspector-view'
 import { type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import type { LogLevel } from '#/lib/telemetry/types'
 import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
-import type { Message as PromptMessage } from '#/routes/prompts/-types'
 import { fetchSessionLogs } from '#/server/logs'
-import { createPrompt } from '#/server/prompts'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
 import { TruncatedAttrFallback } from './truncated-attr-fallback'
-
-function extractPromptMessages(span: Span): PromptMessage[] {
-  const out: PromptMessage[] = []
-  for (const msg of asMessages(span.llmInput)) {
-    const text = msg.parts.find((p): p is Extract<MessagePart, { kind: 'text' }> => p.kind === 'text')?.content
-    if (text) out.push({ role: msg.role, content: text })
-  }
-  return out
-}
 
 export function DetailPanel({
   span,
@@ -49,33 +34,7 @@ export function DetailPanel({
   const duration = span.endMs - span.startMs
   const display = displayFor(span, view?.agentLabels)
   const systemPrompt = view?.systemPromptByAgent.get(span.id)
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const user = useUser()
   const nestedErrors = useMemo<Span[]>(() => view?.descendantErrors(span.id) ?? [], [view, span.id])
-
-  const importMutation = useMutation({
-    mutationFn: async () => {
-      const messages = extractPromptMessages(span)
-      const promptName = `imported-from-${span.id.slice(0, 8)}`
-      const result = await createPrompt({
-        data: {
-          folderId: null,
-          name: promptName,
-          description: `Imported from span ${span.id}`,
-          initialMessages: messages.length > 0 ? messages : undefined,
-          initialModelParams: span.model ? { model: span.model } : undefined,
-          author: user.name,
-        },
-      })
-      return { result, extractedAny: messages.length > 0 }
-    },
-    onSuccess: async ({ result, extractedAny }) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
-      toast.success(extractedAny ? 'Prompt created — opening editor' : 'Imported (no messages found in span)')
-      void navigate({ to: '/prompts/$promptId', params: { promptId: String(result.prompt.id) } })
-    },
-  })
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-4 px-4 py-4">
@@ -105,17 +64,6 @@ export function DetailPanel({
           parentTraceId={span.traceId}
           parentSessionId={span.sessionId ?? null}
         />
-        {isLlmLike(span) && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending}
-          >
-            <HugeiconsIcon icon={Edit02Icon} data-icon="inline-start" strokeWidth={2} />
-            {importMutation.isPending ? 'Creating…' : 'Make prompt'}
-          </Button>
-        )}
       </div>
 
       {(span.errorMessage || span.errorType || nestedErrors.length > 0) && (

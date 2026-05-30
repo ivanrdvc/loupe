@@ -53,6 +53,12 @@ export const queryKeys = {
     byTarget: (kind: string, id: string) => ['notes', 'target', kind, id] as const,
     flagsForKind: (kind: string) => ['notes', 'flags', kind] as const,
   },
+  datasets: {
+    all: () => ['datasets'] as const,
+    list: () => ['datasets', 'list'] as const,
+    detail: (id: string) => ['datasets', 'detail', id] as const,
+    runDefaults: () => ['datasets', 'run-defaults'] as const,
+  },
 }
 
 export const STALE_LIVE_MS = 15_000
