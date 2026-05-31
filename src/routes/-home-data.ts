@@ -18,7 +18,9 @@ import {
 import { DEFAULT, parse, serialize, type TimeRange, windowMs, windowUs } from '#/lib/time-range'
 import { runDetection } from '#/server/detection'
 import { runToolErrorRateDetection, runToolPayloadDetection } from '#/server/detection/anomalies'
+import { recoverStuckEvalRuns } from '#/server/evals'
 import { type InventoryRow, listHomeInventory } from '#/server/inbox'
+import { runOnlineEvals } from '#/server/online-evals'
 
 export type HomeInbox = {
   newTools: InventoryRow[]
@@ -55,6 +57,8 @@ const fetchInbox = createServerFn({ method: 'GET' })
       runDetection('new_agent'),
       runToolErrorRateDetection({ fromUs, toUs }),
       runToolPayloadDetection({ fromUs, toUs }),
+      recoverStuckEvalRuns(),
+      runOnlineEvals(),
     ])
     const [inventory, toolErrors, toolPayloads] = await Promise.all([
       listHomeInventory(from, to),

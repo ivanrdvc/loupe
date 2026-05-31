@@ -133,6 +133,8 @@ describe('scorePassFail', () => {
   it('classifies boolean and numeric, excluding null-valued numeric', () => {
     expect(scorePassFail({ dataType: 'boolean', value: 0, label: null })).toBe('fail')
     expect(scorePassFail({ dataType: 'boolean', value: 1, label: null })).toBe('pass')
+    expect(scorePassFail({ dataType: 'boolean', value: 0.5, label: null })).toBeNull()
+    expect(scorePassFail({ dataType: 'boolean', value: null, label: null })).toBeNull()
     expect(scorePassFail({ dataType: 'numeric', value: 4, label: null }, { minValue: 1, maxValue: 5 })).toBe('pass')
     expect(scorePassFail({ dataType: 'numeric', value: 1, label: null }, { minValue: 1, maxValue: 5 })).toBe('fail')
     expect(scorePassFail({ dataType: 'numeric', value: null, label: null })).toBeNull()

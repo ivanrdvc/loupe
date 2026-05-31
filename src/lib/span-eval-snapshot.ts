@@ -1,8 +1,6 @@
 import type { JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 
-// A snapshot of the eval-relevant normalized Span fields a judge reads, used as
-// the dataset-item `input` and spread into the judge case `fields`.
 export function spanEvalSnapshot(span: Span): Record<string, JsonValue> {
   const out: Record<string, JsonValue> = {}
   const put = (key: string, value: JsonValue | string | undefined | null) => {

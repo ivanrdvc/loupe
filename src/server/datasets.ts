@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { createServerFn } from '@tanstack/react-start'
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
-import { datasetExamples, datasetRunItems, datasetRuns, datasets } from '#/db/schema'
+import { datasetExamples, datasetRunItems, datasetRuns, datasets, scores } from '#/db/schema'
+import { scorePassFail } from '#/lib/evaluation'
 import { getSession } from '#/lib/telemetry'
 import {
   type CreateDatasetInput,
@@ -165,9 +166,44 @@ export const getDatasetDetail = createServerFn({ method: 'GET' })
       }
     }
 
-    const items = itemRows.map((it) => toRunItem(it, derivedStatus.get(`${it.runId}:${it.exampleId}`) ?? it.status))
+    const itemIds = itemRows.map((it) => it.id)
+    const scoreRows = itemIds.length
+      ? await db
+          .select()
+          .from(scores)
+          .where(and(inArray(scores.datasetRunItemId, itemIds), isNull(scores.runId)))
+          .orderBy(desc(scores.createdAt))
+      : []
+    const passByItem = new Map<number, boolean | null>()
+    for (const s of scoreRows) {
+      if (s.datasetRunItemId == null || passByItem.has(s.datasetRunItemId)) continue
+      if (s.errorType != null) {
+        passByItem.set(s.datasetRunItemId, null)
+        continue
+      }
+      const pf = scorePassFail({ dataType: s.dataType, value: s.value, label: s.label })
+      passByItem.set(s.datasetRunItemId, pf === 'pass' ? true : pf === 'fail' ? false : null)
+    }
+    const passAgg = new Map<number, { pass: number; total: number }>()
+    for (const it of itemRows) {
+      const pass = passByItem.get(it.id)
+      if (pass == null) continue
+      const agg = passAgg.get(it.runId) ?? { pass: 0, total: 0 }
+      agg.total += 1
+      if (pass) agg.pass += 1
+      passAgg.set(it.runId, agg)
+    }
 
-    return { dataset: { ...toDataset(dsRow), lastRunAt }, examples: exRows.map(toExample), runs, items }
+    const items = itemRows.map((it) => ({
+      ...toRunItem(it, derivedStatus.get(`${it.runId}:${it.exampleId}`) ?? it.status),
+      pass: passByItem.get(it.id) ?? null,
+    }))
+    const runsWithRate = runs.map((r) => {
+      const agg = passAgg.get(Number(r.id))
+      return { ...r, passRate: agg && agg.total > 0 ? agg.pass / agg.total : null }
+    })
+
+    return { dataset: { ...toDataset(dsRow), lastRunAt }, examples: exRows.map(toExample), runs: runsWithRate, items }
   })
 
 export const createDataset = createServerFn({ method: 'POST' })

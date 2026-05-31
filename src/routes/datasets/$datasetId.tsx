@@ -45,9 +45,11 @@ import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { queryKeys } from '#/lib/query-keys'
+import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
+import { judgeDatasetRun } from '#/server/dataset-judge'
 import { deleteExamples, runDataset, updateDataset, upsertExample } from '#/server/datasets'
+import { getJudgeDefaults } from '#/server/evals'
 import { DataGrid } from './-components/data-grid'
 import {
   type ChatMessage,
@@ -404,9 +406,29 @@ function RunsTab({
   onRun: () => void
   running: boolean
 }) {
-  const { examples, runs } = detail
+  const queryClient = useQueryClient()
+  const { examples, runs, dataset } = detail
   const latestId = runs[0]?.id ?? null
+  const judgeRunId = selectedIds[0] ?? latestId
   const [overridesOpen, setOverridesOpen] = useState(false)
+  const { data: judgeDefaults } = useQuery({
+    queryKey: queryKeys.evals.judgeDefaults(),
+    queryFn: () => getJudgeDefaults(),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+
+  const judgeMutation = useMutation({
+    mutationFn: () => judgeDatasetRun({ data: { runId: Number(judgeRunId) } }),
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.datasets.detail(dataset.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list() }),
+      ])
+      const rate = result.passRate != null ? `${Math.round(result.passRate * 100)}% pass` : `${result.judged} judged`
+      toast.success(`Scored ${result.judged} answers · ${rate}`)
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
 
   const toggle = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -440,12 +462,19 @@ function RunsTab({
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
-              <Button variant="outline" size="sm" disabled className="opacity-60">
-                Judge ▾
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!judgeRunId || !judgeDefaults?.configured || judgeMutation.isPending}
+                onClick={() => judgeMutation.mutate()}
+              >
+                {judgeMutation.isPending ? 'Judging…' : 'Judge'}
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>Scoring — coming later</TooltipContent>
+          {!judgeDefaults?.configured && (
+            <TooltipContent>Set PROMPT_LIVE_ENDPOINT to enable judging</TooltipContent>
+          )}
         </Tooltip>
         <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
           <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
@@ -563,7 +592,7 @@ function RunResultsGrid({
             <span className="font-mono text-xs text-foreground">{run.label}</span>
             <span className="text-[10px] text-muted-foreground">
               v{run.version}
-              {run.passRate != null && ` · ${Math.round(run.passRate * 100)}% (mock)`}
+              {run.passRate != null && ` · ${Math.round(run.passRate * 100)}% pass`}
             </span>
           </div>
         ),
@@ -577,8 +606,8 @@ function RunResultsGrid({
     <>
       <DataGrid columns={columns} data={examples} getRowId={(e) => e.id} />
       <p className="px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
-        {runs.length > 1 && '⚠ = answer changed vs previous run · '}click any cell for the full answer + trace · score
-        badges are mocked.
+        {runs.length > 1 && '⚠ = answer changed vs previous run · '}click any cell for the full answer + trace · use
+        Judge to score the selected run
       </p>
     </>
   )
@@ -611,6 +640,10 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
       <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <StatusIcon status={it.status} />
         {it.status === 'changed' && <span className="text-warning">changed</span>}
+        {it.pass === true && (
+          <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3 text-emerald-600" strokeWidth={2} />
+        )}
+        {it.pass === false && <HugeiconsIcon icon={AlertCircleIcon} className="size-3 text-destructive" strokeWidth={2} />}
         <span>· {(it.latencyMs / 1000).toFixed(1)}s</span>
         {it.traceId && <HugeiconsIcon icon={Link01Icon} className="size-3" strokeWidth={2} />}
       </span>
@@ -791,7 +824,16 @@ function ResultSheet({
               </Field>
             )}
             <Field label="Score">
-              <Badge variant="outline">mocked — judging comes later</Badge>
+              {item.pass === true && (
+                <Badge variant="outline" className="border-emerald-600/40 text-emerald-600">
+                  pass
+                </Badge>
+              )}
+              {item.pass === false && <Badge variant="destructive">fail</Badge>}
+              {item.pass == null && item.status === 'ok' && (
+                <span className="text-xs text-muted-foreground">not judged</span>
+              )}
+              {item.status === 'error' && <span className="text-xs text-muted-foreground">—</span>}
             </Field>
           </div>
         )}

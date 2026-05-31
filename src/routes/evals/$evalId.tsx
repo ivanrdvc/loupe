@@ -240,6 +240,12 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
 
         <MetaGrid definition={definition} />
 
+        {definition.source === 'code' && (
+          <p className="text-sm text-muted-foreground">
+            Code evaluators cannot be run yet. Edit and switch the source to LLM judge.
+          </p>
+        )}
+
         {definition.source === 'llm' && definition.judgePrompt && (
           <Card>
             <CardHeader>
@@ -662,7 +668,9 @@ function EditDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="llm">LLM judge</SelectItem>
-                  <SelectItem value="code">Code</SelectItem>
+                  <SelectItem value="code" disabled>
+                    Code (not supported yet)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

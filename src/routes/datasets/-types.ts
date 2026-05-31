@@ -1,4 +1,4 @@
-// Ids are stringified integer PKs; timestamps are epoch ms. Scoring (pass/passRate) is deferred.
+// Ids are stringified integer PKs; timestamps are epoch ms.
 
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool'
 
@@ -40,7 +40,7 @@ export interface DatasetRunItem {
   latencyMs: number
   tokens: number
   traceId: string | null
-  pass: boolean | null // mocked score — judging deferred
+  pass: boolean | null
 }
 
 export interface DatasetRun {
@@ -49,7 +49,7 @@ export interface DatasetRun {
   label: string // auto-label, time-based
   createdAt: number // epoch ms
   version: number // dataset version this run was pinned to
-  passRate: number | null // mocked score summary 0..1
+  passRate: number | null
 }
 
 export interface Dataset {

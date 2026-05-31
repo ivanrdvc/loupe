@@ -404,9 +404,8 @@ export type ScoreRollupRow = {
 export const getScoreRollup = createServerFn({ method: 'GET' })
   .inputValidator((input: { sinceMs?: number }) => ({ sinceMs: asOptInt(input?.sinceMs) }))
   .handler(async ({ data }): Promise<ScoreRollupRow[]> => {
-    // Live (run-less) scores only — offline run scores belong to their run's view;
-    // counting them would let a re-run inflate this production distribution.
-    const runLess = isNull(scores.runId)
+    // Live scores only — exclude offline run scores and dataset-judge scores.
+    const runLess = and(isNull(scores.runId), isNull(scores.datasetRunItemId))
     const where = data.sinceMs ? and(runLess, gte(scores.createdAt, new Date(data.sinceMs))) : runLess
     const rows = await db.select().from(scores).where(where)
     const configs = await db.select().from(scoreConfigs)

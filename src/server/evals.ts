@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
-import { desc, eq, inArray } from 'drizzle-orm'
-import { spanEvalSnapshot } from '#/components/scores/span-snapshot'
+import { and, desc, eq, inArray, lt, or } from 'drizzle-orm'
+import { spanEvalSnapshot } from '#/lib/span-eval-snapshot'
 import { db } from '#/db'
 import { evalDefinitions, evalRuns, scoreConfigs, scores } from '#/db/schema'
 import {
@@ -27,6 +27,8 @@ import type { Span } from '#/lib/spans'
 import { getTrace, listRecentTraces } from '#/lib/telemetry'
 import { type JudgeCaseFields, MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
 import { scaleMap } from './scores'
+
+const STUCK_EVAL_RUN_MS = 2 * 60 * 60 * 1000
 
 function asScope(v: unknown): EvalScope {
   if (typeof v === 'string' && SCORE_TARGET_KINDS.includes(v as ScoreTargetKind)) return v as EvalScope
@@ -406,7 +408,7 @@ function isScorableSpan(span: Span): boolean {
 // over a trace selection without the caller snapshotting spans. scope=span yields
 // one case per chat span; scope=trace/session yields one per trace (its final chat
 // span), with targetId = the trace id.
-async function casesFromTraces(traceIds: string[], scope: ScoreTargetKind): Promise<JudgeCaseInput[]> {
+export async function casesFromTraces(traceIds: string[], scope: ScoreTargetKind): Promise<JudgeCaseInput[]> {
   const cases: JudgeCaseInput[] = []
   for (const traceId of traceIds) {
     const trace = await getTrace(traceId)
@@ -439,16 +441,14 @@ async function casesFromTraces(traceIds: string[], scope: ScoreTargetKind): Prom
   return cases
 }
 
-// Shared by both trace triggers: build cases from trace ids, create the run row,
-// fire the background executor. Returns the 'running' run immediately.
+// Shared by both trace triggers: create the run row, return immediately; case
+// building + judging run in the background.
 async function startTraceRun(definitionId: number, traceIds: string[], model: string | null, samples: number) {
   const [defRow] = await db.select().from(evalDefinitions).where(eq(evalDefinitions.id, definitionId)).limit(1)
   if (!defRow) throw new Error('Evaluator not found')
   const def = toDefinition(defRow)
   if (def.source !== 'llm')
     throw new Error('Only LLM-judge evaluators can be run today (code evaluators are not yet supported)')
-  const cases = await casesFromTraces(traceIds, def.scope)
-  if (cases.length === 0) throw new Error('No scorable spans found in the selected traces')
   const resolvedModel = model || def.model
 
   const now = new Date()
@@ -460,18 +460,56 @@ async function startTraceRun(definitionId: number, traceIds: string[], model: st
       status: 'running',
       targetSelector: { kind: 'traces', traceIds },
       startedAt: now,
-      summary: { total: cases.length, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: resolvedModel },
+      summary: { total: 0, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: resolvedModel },
       createdAt: now,
     })
     .returning()
   if (!runRow) throw new Error('startTraceRun: could not create run')
 
-  void executeEvalRun({ runId: runRow.id, def, model: resolvedModel, samples, cases }).catch(async (err) => {
+  void runTraceEvalJob({
+    runId: runRow.id,
+    def,
+    model: resolvedModel,
+    samples,
+    traceIds,
+  }).catch(async (err) => {
     await db.update(evalRuns).set({ status: 'error', endedAt: new Date() }).where(eq(evalRuns.id, runRow.id))
     console.error('[startTraceRun] background run failed', err)
   })
 
   return toRun(runRow)
+}
+
+async function runTraceEvalJob(opts: {
+  runId: number
+  def: EvalDefinition
+  model: string
+  samples: number
+  traceIds: string[]
+}): Promise<void> {
+  const cases = await casesFromTraces(opts.traceIds, opts.def.scope)
+  if (cases.length === 0) {
+    await db
+      .update(evalRuns)
+      .set({
+        status: 'error',
+        endedAt: new Date(),
+        summary: { total: 0, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: opts.model },
+      })
+      .where(eq(evalRuns.id, opts.runId))
+    return
+  }
+  await db
+    .update(evalRuns)
+    .set({ summary: { total: cases.length, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: opts.model } })
+    .where(eq(evalRuns.id, opts.runId))
+  await executeEvalRun({
+    runId: opts.runId,
+    def: opts.def,
+    model: opts.model,
+    samples: opts.samples,
+    cases,
+  })
 }
 
 // The offline-on-traces trigger: run an evaluator over an explicit trace selection.
@@ -668,5 +706,24 @@ export const compareRuns = createServerFn({ method: 'GET' })
     }
     return result.sort((a, b) => b.flippedToFail - a.flippedToFail)
   })
+
+export async function recoverStuckEvalRuns(maxAgeMs = STUCK_EVAL_RUN_MS): Promise<number> {
+  const cutoff = new Date(Date.now() - maxAgeMs)
+  const stuck = await db
+    .select({ id: evalRuns.id })
+    .from(evalRuns)
+    .where(
+      and(
+        or(eq(evalRuns.status, 'pending'), eq(evalRuns.status, 'running')),
+        lt(evalRuns.createdAt, cutoff),
+      ),
+    )
+  if (stuck.length === 0) return 0
+  const now = new Date()
+  for (const row of stuck) {
+    await db.update(evalRuns).set({ status: 'error', endedAt: now }).where(eq(evalRuns.id, row.id))
+  }
+  return stuck.length
+}
 
 export const getJudgeDefaults = createServerFn({ method: 'GET' }).handler(async () => resolveJudgeDefaults())

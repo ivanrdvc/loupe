@@ -310,7 +310,8 @@ export function scorePassFail(s: ScoreValueShape, scale?: ConfigHint): 'pass' | 
     // Unconfigured numeric (no known scale) is unclassifiable — not a pass.
     return s.value != null && numericFraction(s.value, scale) != null ? 'pass' : null
   }
-  return 'pass' // boolean (value 0 already returned 'fail' above)
+  if (s.dataType === 'boolean') return scoreIsGood(s, scale) ? 'pass' : null
+  return null
 }
 
 // Human-readable value, e.g. '✓ correct', '4/5', '0.82', '👍'.
