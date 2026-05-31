@@ -65,6 +65,17 @@ export const queryKeys = {
     configs: () => ['scores', 'configs'] as const,
     rollup: (range: string) => ['scores', 'rollup', { range }] as const,
   },
+  evals: {
+    all: () => ['evals'] as const,
+    definitions: (mode?: string) =>
+      mode ? (['evals', 'definitions', { mode }] as const) : (['evals', 'definitions'] as const),
+    definition: (id: number) => ['evals', 'definition', id] as const,
+    runs: (definitionId?: number | null) => ['evals', 'runs', definitionId ?? null] as const,
+    run: (runId: number) => ['evals', 'run', runId] as const,
+    runScores: (runId: number) => ['evals', 'run-scores', runId] as const,
+    compare: (base: number, head: number) => ['evals', 'compare', base, head] as const,
+    judgeDefaults: () => ['evals', 'judge-defaults'] as const,
+  },
 }
 
 export const STALE_LIVE_MS = 15_000

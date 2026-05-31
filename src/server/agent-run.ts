@@ -13,10 +13,31 @@ export type AgentCallInput = {
   conversationId?: string | null
   agentName?: string | null
   sampling?: { temperature?: number | null; maxTokens?: number | null; topP?: number | null }
+  // Responses `text.format` (e.g. a json_schema) for structured output. The judge uses this.
+  responseFormat?: unknown
   timeoutMs?: number
 }
 
-export type AgentCallResult = { text: string; durationMs: number; rawJson: string; tokens: number }
+export type AgentCallResult = {
+  text: string
+  durationMs: number
+  rawJson: string
+  tokens: number
+  inputTokens: number | null
+  outputTokens: number | null
+}
+
+// Thrown by callAgent so callers can branch on the failure without parsing messages.
+export class AgentCallError extends Error {
+  errorType: 'timeout' | 'network_error' | 'http'
+  status?: number
+  constructor(message: string, errorType: 'timeout' | 'network_error' | 'http', status?: number) {
+    super(message)
+    this.name = 'AgentCallError'
+    this.errorType = errorType
+    this.status = status
+  }
+}
 
 function parseEndpoint(rawUrl: string): URL {
   let url: URL
@@ -55,14 +76,17 @@ function extractText(raw: unknown): string {
   return parts.join('\n')
 }
 
-function extractUsageTokens(raw: unknown): number {
-  if (raw == null || typeof raw !== 'object') return 0
+function extractUsage(raw: unknown): { input: number | null; output: number | null; total: number } {
+  if (raw == null || typeof raw !== 'object') return { input: null, output: null, total: 0 }
   const usage = (raw as Record<string, unknown>).usage
-  if (usage == null || typeof usage !== 'object') return 0
+  if (usage == null || typeof usage !== 'object') return { input: null, output: null, total: 0 }
   const u = usage as Record<string, unknown>
-  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
-  const total = num(u.total_tokens)
-  return total > 0 ? total : num(u.input_tokens) + num(u.output_tokens)
+  const opt = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const num = (v: unknown) => opt(v) ?? 0
+  const input = opt(u.input_tokens) ?? opt(u.prompt_tokens)
+  const output = opt(u.output_tokens) ?? opt(u.completion_tokens)
+  const totalReported = num(u.total_tokens)
+  return { input, output, total: totalReported > 0 ? totalReported : num(input) + num(output) }
 }
 
 export async function callAgent(input: AgentCallInput): Promise<AgentCallResult> {
@@ -77,6 +101,7 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
     ...(sampling.temperature != null && { temperature: sampling.temperature }),
     ...(sampling.maxTokens != null && { max_output_tokens: sampling.maxTokens }),
     ...(sampling.topP != null && { top_p: sampling.topP }),
+    ...(input.responseFormat != null && { text: { format: input.responseFormat } }),
   }
   const timeoutMs = input.timeoutMs ?? RUN_TIMEOUT_MS
   const start = performance.now()
@@ -90,15 +115,27 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
     })
   } catch (err) {
     if (err instanceof Error && err.name === 'TimeoutError') {
-      throw new Error(`Run timed out after ${timeoutMs / 1000}s`)
+      throw new AgentCallError(`Run timed out after ${timeoutMs / 1000}s`, 'timeout')
     }
-    throw err
+    throw new AgentCallError(err instanceof Error ? err.message : 'Network error', 'network_error')
   }
   const durationMs = Math.round(performance.now() - start)
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
-    throw new Error(`Run failed (${response.status}): ${errorText || response.statusText}`)
+    throw new AgentCallError(
+      `Run failed (${response.status}): ${errorText || response.statusText}`,
+      'http',
+      response.status,
+    )
   }
   const raw = (await response.json()) as unknown
-  return { text: extractText(raw), durationMs, rawJson: JSON.stringify(raw, null, 2), tokens: extractUsageTokens(raw) }
+  const usage = extractUsage(raw)
+  return {
+    text: extractText(raw),
+    durationMs,
+    rawJson: JSON.stringify(raw, null, 2),
+    tokens: usage.total,
+    inputTokens: usage.input,
+    outputTokens: usage.output,
+  }
 }

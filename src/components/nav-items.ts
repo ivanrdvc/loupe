@@ -42,7 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, group: 'observe', soon: true },
   { to: '/notes', label: 'Notes', icon: StickyNote01Icon, group: 'workbench' },
   { to: '/datasets', label: 'Datasets', icon: Database01Icon, group: 'workbench' },
-  { to: '/evals', label: 'Evals', icon: TestTubeIcon, group: 'workbench', soon: true },
+  { to: '/evals', label: 'Evals', icon: TestTubeIcon, group: 'workbench' },
   { to: '/inventory/system-prompts', label: 'System Prompts', icon: Edit02Icon, group: 'inventory' },
   { to: '/inbox', label: 'Inbox', icon: InboxIcon, group: 'inbox' },
 ]

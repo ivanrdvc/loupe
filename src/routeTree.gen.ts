@@ -23,9 +23,11 @@ import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as TasksTaskKeyRouteImport } from './routes/tasks/$taskKey'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
+import { Route as EvalsEvalIdRouteImport } from './routes/evals/$evalId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as InventorySystemPromptsIndexRouteImport } from './routes/inventory/system-prompts/index'
 import { Route as InventorySystemPromptsPromptIdRouteImport } from './routes/inventory/system-prompts/$promptId'
+import { Route as EvalsRunsRunIdRouteImport } from './routes/evals/runs.$runId'
 import { Route as ApiEvalsIngestRouteImport } from './routes/api/evals/ingest'
 
 const IndexRoute = IndexRouteImport.update({
@@ -98,6 +100,11 @@ const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   path: '/sessions/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvalsEvalIdRoute = EvalsEvalIdRouteImport.update({
+  id: '/evals/$evalId',
+  path: '/evals/$evalId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
   id: '/datasets/$datasetId',
   path: '/datasets/$datasetId',
@@ -115,6 +122,11 @@ const InventorySystemPromptsPromptIdRoute =
     path: '/inventory/system-prompts/$promptId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const EvalsRunsRunIdRoute = EvalsRunsRunIdRouteImport.update({
+  id: '/evals/runs/$runId',
+  path: '/evals/runs/$runId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiEvalsIngestRoute = ApiEvalsIngestRouteImport.update({
   id: '/api/evals/ingest',
   path: '/api/evals/ingest',
@@ -124,6 +136,7 @@ const ApiEvalsIngestRoute = ApiEvalsIngestRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
+  '/evals/$evalId': typeof EvalsEvalIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
@@ -138,12 +151,14 @@ export interface FileRoutesByFullPath {
   '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
+  '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
   '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
+  '/evals/$evalId': typeof EvalsEvalIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
@@ -158,6 +173,7 @@ export interface FileRoutesByTo {
   '/tools': typeof ToolsIndexRoute
   '/traces': typeof TracesIndexRoute
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
+  '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
   '/inventory/system-prompts': typeof InventorySystemPromptsIndexRoute
 }
@@ -165,6 +181,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
+  '/evals/$evalId': typeof EvalsEvalIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
@@ -179,6 +196,7 @@ export interface FileRoutesById {
   '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
+  '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
   '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
 }
@@ -187,6 +205,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/datasets/$datasetId'
+    | '/evals/$evalId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
@@ -201,12 +220,14 @@ export interface FileRouteTypes {
     | '/tools/'
     | '/traces/'
     | '/api/evals/ingest'
+    | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
     | '/inventory/system-prompts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/datasets/$datasetId'
+    | '/evals/$evalId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
@@ -221,12 +242,14 @@ export interface FileRouteTypes {
     | '/tools'
     | '/traces'
     | '/api/evals/ingest'
+    | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
     | '/inventory/system-prompts'
   id:
     | '__root__'
     | '/'
     | '/datasets/$datasetId'
+    | '/evals/$evalId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
@@ -241,6 +264,7 @@ export interface FileRouteTypes {
     | '/tools/'
     | '/traces/'
     | '/api/evals/ingest'
+    | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
     | '/inventory/system-prompts/'
   fileRoutesById: FileRoutesById
@@ -248,6 +272,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRoute
+  EvalsEvalIdRoute: typeof EvalsEvalIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   TasksTaskKeyRoute: typeof TasksTaskKeyRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
@@ -262,6 +287,7 @@ export interface RootRouteChildren {
   ToolsIndexRoute: typeof ToolsIndexRoute
   TracesIndexRoute: typeof TracesIndexRoute
   ApiEvalsIngestRoute: typeof ApiEvalsIngestRoute
+  EvalsRunsRunIdRoute: typeof EvalsRunsRunIdRoute
   InventorySystemPromptsPromptIdRoute: typeof InventorySystemPromptsPromptIdRoute
   InventorySystemPromptsIndexRoute: typeof InventorySystemPromptsIndexRoute
 }
@@ -366,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evals/$evalId': {
+      id: '/evals/$evalId'
+      path: '/evals/$evalId'
+      fullPath: '/evals/$evalId'
+      preLoaderRoute: typeof EvalsEvalIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/datasets/$datasetId': {
       id: '/datasets/$datasetId'
       path: '/datasets/$datasetId'
@@ -387,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventorySystemPromptsPromptIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evals/runs/$runId': {
+      id: '/evals/runs/$runId'
+      path: '/evals/runs/$runId'
+      fullPath: '/evals/runs/$runId'
+      preLoaderRoute: typeof EvalsRunsRunIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/evals/ingest': {
       id: '/api/evals/ingest'
       path: '/api/evals/ingest'
@@ -400,6 +440,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatasetsDatasetIdRoute: DatasetsDatasetIdRoute,
+  EvalsEvalIdRoute: EvalsEvalIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   TasksTaskKeyRoute: TasksTaskKeyRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,
@@ -414,6 +455,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsIndexRoute: ToolsIndexRoute,
   TracesIndexRoute: TracesIndexRoute,
   ApiEvalsIngestRoute: ApiEvalsIngestRoute,
+  EvalsRunsRunIdRoute: EvalsRunsRunIdRoute,
   InventorySystemPromptsPromptIdRoute: InventorySystemPromptsPromptIdRoute,
   InventorySystemPromptsIndexRoute: InventorySystemPromptsIndexRoute,
 }
