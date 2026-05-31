@@ -18,3 +18,29 @@ export function spanEvalSnapshot(span: Span): Record<string, JsonValue> {
   put('systemInstructions', span.systemInstructions)
   return out
 }
+
+export type ToolCall = { name: string; args?: JsonValue; result?: JsonValue }
+
+// Tool calls across a trace in execution order, one per tool/MCP span — the
+// trace-level analog of the per-span tool fields the live judge reads.
+export function toolCallsFromSpans(spans: Span[]): ToolCall[] {
+  return spans
+    .filter((s) => (s.operation === 'tool' || s.operation === 'mcp') && s.toolName)
+    .sort((a, b) => a.startMs - b.startMs)
+    .map((s) => {
+      const call: ToolCall = { name: s.toolName as string }
+      const args = parseToolArgs(s.inputParams)
+      if (args !== undefined) call.args = args
+      if (s.toolResult != null) call.result = s.toolResult
+      return call
+    })
+}
+
+function parseToolArgs(raw: string | undefined): JsonValue | undefined {
+  if (raw == null || raw.trim() === '') return undefined
+  try {
+    return JSON.parse(raw) as JsonValue
+  } catch {
+    return raw
+  }
+}

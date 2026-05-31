@@ -19,6 +19,7 @@ import {
   type UpsertExampleInput,
 } from '#/routes/datasets/-types'
 import { callAgent } from './agent-run'
+import { toolCallsFromTrace } from './eval-jobs'
 
 function toDataset(row: typeof datasets.$inferSelect): Dataset {
   return {
@@ -426,9 +427,11 @@ export const runDataset = createServerFn({ method: 'POST' })
           const session = await getSession(conversationId, { fromUs, toUs })
           const traceId = session?.traceIds?.[0]
           if (traceId) {
+            // Snapshot tool calls now so grading survives provider trace expiry.
+            const toolCalls = await toolCallsFromTrace(traceId)
             await db
               .update(datasetRunItems)
-              .set({ traceId })
+              .set({ traceId, toolCallsJson: toolCalls })
               .where(and(eq(datasetRunItems.runId, run.id), eq(datasetRunItems.exampleId, exampleId)))
           }
         } catch {

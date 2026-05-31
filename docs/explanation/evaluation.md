@@ -106,7 +106,12 @@ provider surfaces per-case as `config_error`; the run-detail page shows a
    `dataset_run_item.output`, `judgeDatasetRun` (`src/server/dataset-judge.ts`)
    grades each output against its example's `expected` and writes one run-less
    score per item, linked by `datasetRunItemId`. `getDatasetDetail` reads those
-   back into per-item `pass` and per-run `passRate`.
+   back into per-item `pass` and per-run `passRate`. To grade *behavior* (not just
+   text) — a `tool_selection` judge, or an `expected` like `{"tool":"multiply"}` —
+   the judge also gets a `toolCalls` field: `runDataset` snapshots the trace's tool
+   calls into `dataset_run_item.tool_calls_json` at run time (so grading survives
+   provider trace expiry), and the judge recovers them from the trace
+   (`toolCallsFromTrace`) only for rows captured before snapshots existed.
 4. **Online monitor** (the executor) — `runOnlineEvals`
    (`src/server/online-evals.ts`) samples recent traces, matches each against an
    active online evaluator's `liveFilter`

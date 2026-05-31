@@ -230,6 +230,9 @@ export const datasetRunItems = sqliteTable(
     // key loupe already groups traces on; traceId is resolved best-effort from it
     conversationId: text('conversation_id'),
     traceId: text('trace_id'),
+    // ToolCall[] snapshot from traceId's spans, for tool grading. null = not
+    // captured (old rows / fetch failed) → judge falls back to the trace.
+    toolCallsJson: text('tool_calls_json', { mode: 'json' }),
     errorText: text('error_text'),
     rawJson: text('raw_json'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

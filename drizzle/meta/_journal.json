@@ -71,6 +71,13 @@
       "when": 1780238991396,
       "tag": "0009_reflective_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1780263324049,
+      "tag": "0010_majestic_strong_guy",
+      "breakpoints": true
     }
   ]
 }

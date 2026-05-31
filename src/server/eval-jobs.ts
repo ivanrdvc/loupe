@@ -8,7 +8,7 @@ import { db } from '#/db'
 import { evalRuns } from '#/db/schema'
 import type { ScoreTargetKind } from '#/lib/eval/evaluation'
 import type { JsonValue } from '#/lib/json'
-import { spanEvalSnapshot } from '#/lib/eval/span-eval-snapshot'
+import { spanEvalSnapshot, type ToolCall, toolCallsFromSpans } from '#/lib/eval/span-eval-snapshot'
 import type { Span } from '#/lib/spans'
 import { getTrace } from '#/lib/telemetry'
 import type { JudgeCaseFields } from './judge'
@@ -64,6 +64,17 @@ export async function casesFromTraces(traceIds: string[], scope: ScoreTargetKind
     }
   }
   return cases
+}
+
+// Tool calls in a trace; null (not []) when it can't be fetched, so callers retry.
+export async function toolCallsFromTrace(traceId: string): Promise<ToolCall[] | null> {
+  try {
+    const trace = await getTrace(traceId)
+    if (!trace) return null
+    return toolCallsFromSpans(trace.spans)
+  } catch {
+    return null
+  }
 }
 
 // Reap runs stuck 'pending'/'running' past the threshold (crashed background job)

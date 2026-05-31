@@ -3,8 +3,10 @@ import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { datasetExamples, datasetRunItems, datasetRuns, evalDefinitions, scoreConfigs, scores } from '#/db/schema'
 import { type ConfigHint, scorePassFail } from '#/lib/eval/evaluation'
+import type { ToolCall } from '#/lib/eval/span-eval-snapshot'
 import type { JsonValue } from '#/lib/json'
 import type { ExampleInput } from '#/routes/datasets/-types'
+import { toolCallsFromTrace } from './eval-jobs'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
 
 const DEFAULT_DATASET_JUDGE_PROMPT =
@@ -97,6 +99,11 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
       const example = exampleById.get(item.exampleId)
       const input = (example?.inputJson as ExampleInput | null) ?? ''
       const fields: Record<string, JsonValue> = { input: input as JsonValue, output: item.output }
+
+      // Prefer the run-time snapshot; recover from the trace for pre-snapshot rows.
+      let toolCalls = (item.toolCallsJson as ToolCall[] | null) ?? null
+      if (toolCalls == null && item.traceId) toolCalls = await toolCallsFromTrace(item.traceId)
+      if (toolCalls && toolCalls.length > 0) fields.toolCalls = toolCalls as JsonValue
 
       const verdict = await runJudgeSamples(
         {

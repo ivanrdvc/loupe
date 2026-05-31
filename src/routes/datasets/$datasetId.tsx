@@ -49,6 +49,7 @@ import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { judgeDatasetRun } from '#/server/dataset-judge'
 import { deleteExamples, runDataset, updateDataset, upsertExample } from '#/server/datasets'
+import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { getJudgeDefaults, listEvalDefinitions } from '#/server/evals'
 import { DataGrid } from './-components/data-grid'
 import {
@@ -140,11 +141,47 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const latestId = runs[0]?.id ?? null
   const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
 
+  const [judgeDefId, setJudgeDefId] = useState('default')
+  const [autoJudge, setAutoJudge] = useState(() => {
+    if (typeof localStorage === 'undefined') return false
+    return localStorage.getItem('datasets:autoJudge') === '1'
+  })
+  const changeAutoJudge = (v: boolean) => {
+    setAutoJudge(v)
+    try {
+      localStorage.setItem('datasets:autoJudge', v ? '1' : '0')
+    } catch {}
+  }
+  const { data: judgeDefaults } = useQuery({
+    queryKey: queryKeys.evals.judgeDefaults(),
+    queryFn: () => getJudgeDefaults(),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+  const { data: evaluators = [] } = useQuery({
+    queryKey: queryKeys.evals.definitions(),
+    queryFn: () => listEvalDefinitions({ data: {} }),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+  const judgeRunId = selectedIds[0] ?? latestId
+
   const invalidate = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.datasets.detail(dataset.id) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list() }),
     ])
+
+  const judgeMutation = useMutation({
+    mutationFn: (runId: string) =>
+      judgeDatasetRun({
+        data: { runId: Number(runId), definitionId: judgeDefId !== 'default' ? Number(judgeDefId) : undefined },
+      }),
+    onSuccess: async (result) => {
+      await invalidate()
+      const rate = result.passRate != null ? `${Math.round(result.passRate * 100)}% pass` : `${result.judged} judged`
+      toast.success(`Scored ${result.judged} answers · ${rate}`)
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
 
   const runMutation = useMutation({
     mutationFn: () => runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined } }),
@@ -153,6 +190,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
       setSelectedIds([runId])
       setTab('runs')
       toast.success('Run complete')
+      if (autoJudge && judgeDefaults?.configured) judgeMutation.mutate(runId)
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -261,6 +299,15 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               onOpenItem={setActiveItem}
               onRun={() => runMutation.mutate()}
               running={runMutation.isPending}
+              evaluators={evaluators}
+              judgeDefId={judgeDefId}
+              onJudgeDefChange={setJudgeDefId}
+              autoJudge={autoJudge}
+              onAutoJudgeChange={changeAutoJudge}
+              judgeConfigured={!!judgeDefaults?.configured}
+              judgeRunId={judgeRunId}
+              judging={judgeMutation.isPending}
+              onJudge={() => judgeRunId && judgeMutation.mutate(judgeRunId)}
             />
           </TabsContent>
         </Tabs>
@@ -394,6 +441,15 @@ function RunsTab({
   onOpenItem,
   onRun,
   running,
+  evaluators,
+  judgeDefId,
+  onJudgeDefChange,
+  autoJudge,
+  onAutoJudgeChange,
+  judgeConfigured,
+  judgeRunId,
+  judging,
+  onJudge,
 }: {
   detail: DatasetDetail
   endpoint: string
@@ -405,39 +461,19 @@ function RunsTab({
   onOpenItem: (it: DatasetRunItem) => void
   onRun: () => void
   running: boolean
+  evaluators: EvalDefinition[]
+  judgeDefId: string
+  onJudgeDefChange: (v: string) => void
+  autoJudge: boolean
+  onAutoJudgeChange: (v: boolean) => void
+  judgeConfigured: boolean
+  judgeRunId: string | null
+  judging: boolean
+  onJudge: () => void
 }) {
-  const queryClient = useQueryClient()
-  const { examples, runs, dataset } = detail
+  const { examples, runs } = detail
   const latestId = runs[0]?.id ?? null
-  const judgeRunId = selectedIds[0] ?? latestId
   const [overridesOpen, setOverridesOpen] = useState(false)
-  const [judgeDefId, setJudgeDefId] = useState('default')
-  const { data: judgeDefaults } = useQuery({
-    queryKey: queryKeys.evals.judgeDefaults(),
-    queryFn: () => getJudgeDefaults(),
-    staleTime: STALE_TELEMETRY_MS,
-  })
-  const { data: evaluators = [] } = useQuery({
-    queryKey: queryKeys.evals.definitions(),
-    queryFn: () => listEvalDefinitions({ data: {} }),
-    staleTime: STALE_TELEMETRY_MS,
-  })
-
-  const judgeMutation = useMutation({
-    mutationFn: () =>
-      judgeDatasetRun({
-        data: { runId: Number(judgeRunId), definitionId: judgeDefId !== 'default' ? Number(judgeDefId) : undefined },
-      }),
-    onSuccess: async (result) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.datasets.detail(dataset.id) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list() }),
-      ])
-      const rate = result.passRate != null ? `${Math.round(result.passRate * 100)}% pass` : `${result.judged} judged`
-      toast.success(`Scored ${result.judged} answers · ${rate}`)
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
-  })
 
   const toggle = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -468,7 +504,7 @@ function RunsTab({
           <HugeiconsIcon icon={SlidersHorizontalIcon} strokeWidth={2} data-icon="inline-start" />
           Overrides
         </Button>
-        <Select value={judgeDefId} onValueChange={setJudgeDefId}>
+        <Select value={judgeDefId} onValueChange={onJudgeDefChange}>
           <SelectTrigger size="sm" className="w-44" aria-label="Judge">
             <SelectValue placeholder="Default correctness" />
           </SelectTrigger>
@@ -489,16 +525,25 @@ function RunsTab({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!judgeRunId || !judgeDefaults?.configured || judgeMutation.isPending}
-                onClick={() => judgeMutation.mutate()}
+                disabled={!judgeRunId || !judgeConfigured || judging}
+                onClick={onJudge}
               >
-                {judgeMutation.isPending ? 'Judging…' : 'Judge'}
+                {judging ? 'Judging…' : 'Judge'}
               </Button>
             </span>
           </TooltipTrigger>
-          {!judgeDefaults?.configured && (
+          {!judgeConfigured && (
             <TooltipContent>Set OPENAI_API_KEY (or a local JUDGE_BASE_URL) to enable judging</TooltipContent>
           )}
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <label className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
+              <Switch checked={autoJudge} onCheckedChange={onAutoJudgeChange} disabled={!judgeConfigured} />
+              Auto-judge
+            </label>
+          </TooltipTrigger>
+          <TooltipContent>Judge automatically after each run</TooltipContent>
         </Tooltip>
         <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
           <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} data-icon="inline-start" />
