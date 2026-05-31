@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
 import { formatTokens } from '#/components/context-window'
+import { ReviewSheetButton } from '#/components/scores/review-sheet'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
@@ -16,7 +17,6 @@ import { type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import type { LogLevel } from '#/lib/telemetry/types'
-import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
 import { fetchSessionLogs } from '#/server/logs'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
@@ -58,7 +58,7 @@ export function DetailPanel({
             {display.purposeLabel}
           </span>
         )}
-        <NoteSheetButton
+        <ReviewSheetButton
           targetKind="span"
           targetId={span.id}
           parentTraceId={span.traceId}

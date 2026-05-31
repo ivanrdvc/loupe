@@ -59,6 +59,12 @@ export const queryKeys = {
     detail: (id: string) => ['datasets', 'detail', id] as const,
     runDefaults: () => ['datasets', 'run-defaults'] as const,
   },
+  scores: {
+    byTarget: (kind: string, id: string) => ['scores', 'target', kind, id] as const,
+    summariesForKind: (kind: string) => ['scores', 'summaries', kind] as const,
+    configs: () => ['scores', 'configs'] as const,
+    rollup: (range: string) => ['scores', 'rollup', { range }] as const,
+  },
 }
 
 export const STALE_LIVE_MS = 15_000
