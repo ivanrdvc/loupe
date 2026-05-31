@@ -10,6 +10,7 @@
 
 ## Map
 
+- **No local mirror DB for telemetry.** Spans/traces/sessions are fetched at query time from the active provider in `src/lib/telemetry/` (OpenObserve / App Insights) — `dev.db` (Drizzle) holds only app state (scores, datasets, notes, prompts, inventory…). A score/note references a span by id; it can't FK or validate it locally.
 - App shell: `src/routes/__root.tsx` mounts `AppSidebar` + the `Session`/`Trace` drawer mounts (controlled by `?session=` / `?trace=` URL params, so any page can open either drawer). Individual pages mount their own `SiteHeader`.
 - `/sessions` and `/traces` lists open `InspectDrawer` via URL params; `/sessions/$sessionId` and `/traces/$traceId` are the full-page versions for permalink/cold-open. Both pages and both drawers share the same inner view components — edit those, not the shells.
 - `/traces` has two tabs: Traces (end-to-end runs; utility traces filtered out) and Spans (`?tab=spans`, lazy-fetched) listing utility purpose-attr spans + sub-agent invocations (`invoke_agent` under `execute_tool`). When the inspector is open, cmd+k narrows to spans in that session (`exclusive` provider in `use-span-search.tsx`).
