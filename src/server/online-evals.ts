@@ -18,7 +18,7 @@ const DEFAULT_MAX_JUDGE_CALLS = 20
 export async function runOnlineEvals(
   opts: { limit?: number; maxJudgeCalls?: number; rand?: () => number } = {},
 ): Promise<OnlineEvalResult> {
-  const { endpointUrl, configured } = resolveJudgeDefaults()
+  const { configured } = resolveJudgeDefaults()
   if (!configured) return { evaluators: 0, scored: 0 }
 
   const defs = await db
@@ -63,7 +63,6 @@ export async function runOnlineEvals(
         if (scored >= maxCalls) break
         const verdict = await runJudgeSamples(
           {
-            endpointUrl,
             model: def.model,
             judgePrompt: def.judgePrompt,
             dataType: def.dataType,
@@ -87,10 +86,12 @@ export async function runOnlineEvals(
             explanation: verdict.explanation,
             source: 'llm',
             evaluator: `judge:${def.model}`,
+            evaluatorVersion: def.version,
             errorType: verdict.errorType,
             definitionId: def.id,
             metadata: {
               online: true,
+              costUsd: verdict.costUsd,
               samples: verdict.samples,
               variance: verdict.variance,
               perSample: verdict.perSample,

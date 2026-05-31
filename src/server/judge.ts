@@ -1,19 +1,69 @@
-// In-app LLM judge (Path B). Calls the OpenAI-compatible Responses endpoint
-// (PROMPT_LIVE_ENDPOINT) and reads only normalized Span fields, so it scores any
-// emitter identically.
+// In-app LLM judge (Path B). Calls the model through the Vercel AI SDK with a
+// BYO key from env (OPENAI_API_KEY / ANTHROPIC_API_KEY), reading only normalized
+// Span fields so it scores any emitter identically. Provider is inferred from the
+// model id; a JUDGE_BASE_URL (or PROMPT_LIVE_ENDPOINT) routes to a local/compatible
+// OpenAI Responses endpoint.
 
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
+import { APICallError, generateObject, generateText, jsonSchema, type LanguageModel, NoObjectGeneratedError } from 'ai'
 import type { JsonValue } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/llm-pricing'
-import { AgentCallError, callAgent } from './agent-run'
 
 const JUDGE_TIMEOUT_MS = 60_000
 
-export type JudgeDefaults = { endpointUrl: string; model: string; configured: boolean }
+export type JudgeProvider = 'openai' | 'anthropic' | 'custom'
+export type JudgeDefaults = {
+  model: string
+  provider: JudgeProvider
+  configured: boolean
+  hasOpenAIKey: boolean
+  hasAnthropicKey: boolean
+  baseUrl: string | null
+}
+
+const isAnthropicModel = (m: string) => /^(claude|anthropic\/)/i.test(m)
+
+const stripPath = (url: string) => url.replace(/\/+(responses|chat\/completions)\/?$/i, '') || url
+
+// Where OpenAI-family judge calls go. An explicit JUDGE_BASE_URL always wins; with
+// a real OPENAI_API_KEY we hit api.openai.com directly; otherwise fall back to a
+// local OpenAI-compatible endpoint (PROMPT_LIVE_ENDPOINT) for keyless dev.
+function judgeBaseUrl(): string | undefined {
+  if (process.env.JUDGE_BASE_URL) return stripPath(process.env.JUDGE_BASE_URL)
+  if (process.env.OPENAI_API_KEY) return undefined
+  const local = process.env.JUDGE_ENDPOINT ?? process.env.PROMPT_LIVE_ENDPOINT
+  return local ? stripPath(local) : undefined
+}
 
 export function resolveJudgeDefaults(): JudgeDefaults {
-  const endpointUrl = process.env.JUDGE_ENDPOINT ?? process.env.PROMPT_LIVE_ENDPOINT ?? ''
   const model = process.env.JUDGE_MODEL ?? 'gpt-4o-mini'
-  return { endpointUrl, model, configured: endpointUrl.length > 0 }
+  const baseUrl = judgeBaseUrl() ?? null
+  const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY)
+  const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY)
+  const provider: JudgeProvider = isAnthropicModel(model) ? 'anthropic' : baseUrl ? 'custom' : 'openai'
+  return {
+    model,
+    provider,
+    configured: hasOpenAIKey || hasAnthropicKey || Boolean(baseUrl),
+    hasOpenAIKey,
+    hasAnthropicKey,
+    baseUrl,
+  }
+}
+
+// Build an AI SDK model for the judge. Anthropic for claude*, else OpenAI
+// (Responses API) against api.openai.com or a custom/local base URL.
+function modelFor(model: string): LanguageModel {
+  if (isAnthropicModel(model)) {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to use a Claude judge model.')
+    return createAnthropic({ apiKey })(model.replace(/^anthropic\//i, ''))
+  }
+  const baseURL = judgeBaseUrl()
+  const apiKey = process.env.OPENAI_API_KEY ?? (baseURL ? 'local' : undefined)
+  if (!apiKey) throw new Error('Set OPENAI_API_KEY (or a local JUDGE_BASE_URL) to use an OpenAI judge model.')
+  return createOpenAI({ apiKey, baseURL }).responses(model)
 }
 
 // A snapshot of the normalized Span fields the rubric reads.
@@ -167,7 +217,6 @@ export function buildVerdictSchema(
 }
 
 export async function runJudge(opts: {
-  endpointUrl: string
   model: string
   judgePrompt: string | null
   dataType: string
@@ -178,70 +227,110 @@ export async function runJudge(opts: {
   fields: JudgeCaseFields
   expected?: JsonValue | null
 }): Promise<JudgeVerdict> {
-  const messages = buildJudgeMessages(opts)
-  // Opt out where an endpoint 4xxs on an unknown `text.format`; parseVerdict still recovers prose.
-  const responseFormat =
-    process.env.JUDGE_STRUCTURED_OUTPUT !== '0'
-      ? {
-          type: 'json_schema',
-          name: 'verdict',
-          strict: true,
-          schema: buildVerdictSchema(opts.dataType, {
+  const [sys, usr] = buildJudgeMessages(opts)
+  const temperature = opts.temperature ?? 0
+  const noVerdict = (errorType: string, explanation: string | null, raw = ''): JudgeVerdict => ({
+    value: null,
+    label: null,
+    explanation,
+    errorType,
+    costUsd: 0,
+    inputTokens: null,
+    outputTokens: null,
+    raw,
+  })
+
+  let model: LanguageModel
+  try {
+    model = modelFor(opts.model)
+  } catch (err) {
+    return noVerdict('config_error', err instanceof Error ? err.message : null)
+  }
+
+  let parsed: { value: number | null; label: string | null; explanation: string | null } | null = null
+  let inputTokens: number | null = null
+  let outputTokens: number | null = null
+  let raw = ''
+  // Opt out of structured output where a custom endpoint rejects json_schema;
+  // generateText + parseVerdict still recovers a verdict from prose.
+  const structured = process.env.JUDGE_STRUCTURED_OUTPUT !== '0'
+
+  try {
+    if (structured) {
+      const { object, usage } = await generateObject({
+        model,
+        schema: jsonSchema(
+          buildVerdictSchema(opts.dataType, {
             categories: opts.categories,
             minValue: opts.minValue,
             maxValue: opts.maxValue,
           }),
-        }
-      : undefined
-
-  let result: Awaited<ReturnType<typeof callAgent>>
-  try {
-    result = await callAgent({
-      endpointUrl: opts.endpointUrl,
-      model: opts.model,
-      input: messages,
-      sampling: { temperature: opts.temperature ?? 0 },
-      responseFormat,
-      timeoutMs: JUDGE_TIMEOUT_MS,
-    })
-  } catch (err) {
-    const noVerdict = (errorType: string, explanation: string | null, raw = '') => ({
-      value: null,
-      label: null,
-      explanation,
-      errorType,
-      costUsd: 0,
-      inputTokens: null,
-      outputTokens: null,
-      raw,
-    })
-    if (err instanceof AgentCallError) {
-      if (err.errorType === 'http') return noVerdict(`http_${err.status}`, err.message.slice(0, 500), err.message)
-      return noVerdict(err.errorType, null)
+        ),
+        system: sys.content,
+        prompt: usr.content,
+        temperature,
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
+      })
+      raw = JSON.stringify(object)
+      parsed = parseVerdict(raw, opts.dataType)
+      inputTokens = usage?.inputTokens ?? null
+      outputTokens = usage?.outputTokens ?? null
+    } else {
+      const { text, usage } = await generateText({
+        model,
+        system: sys.content,
+        prompt: usr.content,
+        temperature,
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
+      })
+      raw = text
+      parsed = parseVerdict(text, opts.dataType)
+      inputTokens = usage?.inputTokens ?? null
+      outputTokens = usage?.outputTokens ?? null
     }
-    return noVerdict('network_error', null)
+  } catch (err) {
+    // A model that emits prose instead of the schema still carries a verdict — salvage it.
+    if (NoObjectGeneratedError.isInstance(err) && typeof err.text === 'string') {
+      parsed = parseVerdict(err.text, opts.dataType)
+      raw = err.text
+      inputTokens = err.usage?.inputTokens ?? null
+      outputTokens = err.usage?.outputTokens ?? null
+    } else if (APICallError.isInstance(err)) {
+      const status = err.statusCode
+      return noVerdict(
+        status ? `http_${status}` : 'network_error',
+        (err.message ?? '').slice(0, 500),
+        err.message ?? '',
+      )
+    } else if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      return noVerdict('timeout', null)
+    } else {
+      return noVerdict('network_error', err instanceof Error ? err.message : null)
+    }
   }
 
-  const verdict = parseVerdict(result.text, opts.dataType)
+  if (!parsed) return noVerdict('parse_error', null, raw)
   const costUsd =
     estimateCostUsd({
       model: opts.model,
-      inputTokens: result.inputTokens ?? undefined,
-      outputTokens: result.outputTokens ?? undefined,
+      inputTokens: inputTokens ?? undefined,
+      outputTokens: outputTokens ?? undefined,
     }) ?? 0
-  // A 200 with no usable verdict (empty/partial JSON, prose) is a judge failure,
+  // A response with no usable verdict (empty/partial JSON, prose) is a judge failure,
   // not a pass — flag it so it lands in run errors rather than inflating pass rate.
   const hasSignal =
-    opts.dataType === 'boolean' || opts.dataType === 'numeric' ? verdict.value != null : verdict.label != null
+    opts.dataType === 'boolean' || opts.dataType === 'numeric' ? parsed.value != null : parsed.label != null
   return {
-    value: verdict.value,
-    label: verdict.label,
-    explanation: verdict.explanation,
+    value: parsed.value,
+    label: parsed.label,
+    explanation: parsed.explanation,
     errorType: hasSignal ? null : 'parse_error',
     costUsd,
-    inputTokens: result.inputTokens,
-    outputTokens: result.outputTokens,
-    raw: result.text,
+    inputTokens,
+    outputTokens,
+    raw,
   }
 }
 

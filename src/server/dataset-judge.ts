@@ -1,8 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '#/db'
-import { datasetExamples, datasetRunItems, datasetRuns, scores } from '#/db/schema'
-import { SCORE_DATA_TYPES, type ScoreDataType } from '#/lib/evaluation'
+import { datasetExamples, datasetRunItems, datasetRuns, evalDefinitions, scoreConfigs, scores } from '#/db/schema'
+import { type ConfigHint, scorePassFail } from '#/lib/evaluation'
 import type { JsonValue } from '#/lib/json'
 import type { ExampleInput } from '#/routes/datasets/-types'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
@@ -11,10 +11,6 @@ const DEFAULT_DATASET_JUDGE_PROMPT =
   'You are grading an agent answer. Given the question and (if present) the expected answer, decide whether the answer is correct. 1 = correct, 0 = incorrect.'
 
 const DEFAULT_DIMENSION = 'correctness'
-
-function asDataType(v: unknown): ScoreDataType {
-  return typeof v === 'string' && SCORE_DATA_TYPES.includes(v as ScoreDataType) ? (v as ScoreDataType) : 'boolean'
-}
 
 export type JudgeDatasetRunResult = {
   runId: number
@@ -27,8 +23,15 @@ export type JudgeDatasetRunResult = {
 
 export const judgeDatasetRun = createServerFn({ method: 'POST' })
   .inputValidator(
-    (input: { runId: string | number; judgePrompt?: string | null; model?: string | null; samples?: number }) => ({
+    (input: {
+      runId: string | number
+      definitionId?: number | null
+      judgePrompt?: string | null
+      model?: string | null
+      samples?: number
+    }) => ({
       runId: Number(input.runId),
+      definitionId: input.definitionId == null ? null : Number(input.definitionId),
       judgePrompt: input.judgePrompt == null ? null : String(input.judgePrompt).trim() || null,
       model: input.model == null ? null : String(input.model).trim() || null,
       samples:
@@ -36,13 +39,38 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }): Promise<JudgeDatasetRunResult> => {
-    const { endpointUrl, model: defaultModel, configured } = resolveJudgeDefaults()
+    const { model: defaultModel, configured } = resolveJudgeDefaults()
     if (!configured) {
-      throw new Error('The judge endpoint is not configured. Set JUDGE_ENDPOINT (or PROMPT_LIVE_ENDPOINT) and re-run.')
+      throw new Error(
+        'No judge model configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY (or a local JUDGE_BASE_URL) and re-run.',
+      )
     }
-    const model = data.model || defaultModel
-    const dataType = asDataType('boolean')
-    const dimension = DEFAULT_DIMENSION
+
+    // Optionally grade with a chosen evaluator; else the default correctness judge.
+    let def: typeof evalDefinitions.$inferSelect | null = null
+    if (data.definitionId != null) {
+      const [row] = await db.select().from(evalDefinitions).where(eq(evalDefinitions.id, data.definitionId)).limit(1)
+      if (!row) throw new Error('judgeDatasetRun: evaluator not found')
+      if (row.source !== 'llm') throw new Error('Only LLM-judge evaluators can grade a dataset')
+      def = row
+    }
+
+    const dimension = def?.name ?? DEFAULT_DIMENSION
+    const dataType = def?.dataType ?? 'boolean'
+    const judgePrompt = data.judgePrompt || def?.judgePrompt || DEFAULT_DATASET_JUDGE_PROMPT
+    const model = data.model || def?.model || defaultModel
+
+    const [cfg] = await db.select().from(scoreConfigs).where(eq(scoreConfigs.name, dimension)).limit(1)
+    const categories = (cfg?.categories ?? null) as string[] | null
+    const scale: ConfigHint | undefined = cfg
+      ? {
+          minValue: cfg.minValue,
+          maxValue: cfg.maxValue,
+          passLabels: (cfg.passLabels ?? null) as string[] | null,
+          failLabels: (cfg.failLabels ?? null) as string[] | null,
+          direction: cfg.direction,
+        }
+      : undefined
 
     const [run] = await db.select().from(datasetRuns).where(eq(datasetRuns.id, data.runId)).limit(1)
     if (!run) throw new Error('judgeDatasetRun: run not found')
@@ -72,19 +100,25 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
 
       const verdict = await runJudgeSamples(
         {
-          endpointUrl,
           model,
-          judgePrompt: data.judgePrompt || DEFAULT_DATASET_JUDGE_PROMPT,
+          judgePrompt,
           dataType,
+          categories,
+          minValue: cfg?.minValue ?? null,
+          maxValue: cfg?.maxValue ?? null,
           fields,
           expected: example?.expected ?? null,
         },
         data.samples,
       )
       judged += 1
-      if (verdict.errorType) errors += 1
-      else if (verdict.value === 0) fail += 1
-      else if (verdict.value === 1) pass += 1
+      if (verdict.errorType) {
+        errors += 1
+      } else {
+        const pf = scorePassFail({ dataType, value: verdict.value, label: verdict.label }, scale)
+        if (pf === 'fail') fail += 1
+        else if (pf === 'pass') pass += 1
+      }
 
       const targetId = item.traceId ?? `item:${item.id}`
       await db
@@ -100,7 +134,9 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
           explanation: verdict.explanation,
           source: 'llm',
           evaluator: `judge:${model}`,
+          evaluatorVersion: def?.version ?? null,
           errorType: verdict.errorType,
+          definitionId: def?.id ?? null,
           datasetRunItemId: item.id,
           metadata: {
             samples: verdict.samples,
@@ -120,7 +156,9 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
             value: verdict.value,
             label: verdict.label,
             explanation: verdict.explanation,
+            evaluatorVersion: def?.version ?? null,
             errorType: verdict.errorType,
+            definitionId: def?.id ?? null,
             datasetRunItemId: item.id,
             createdAt: now,
           },

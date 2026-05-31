@@ -49,7 +49,7 @@ import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { judgeDatasetRun } from '#/server/dataset-judge'
 import { deleteExamples, runDataset, updateDataset, upsertExample } from '#/server/datasets'
-import { getJudgeDefaults } from '#/server/evals'
+import { getJudgeDefaults, listEvalDefinitions } from '#/server/evals'
 import { DataGrid } from './-components/data-grid'
 import {
   type ChatMessage,
@@ -411,14 +411,23 @@ function RunsTab({
   const latestId = runs[0]?.id ?? null
   const judgeRunId = selectedIds[0] ?? latestId
   const [overridesOpen, setOverridesOpen] = useState(false)
+  const [judgeDefId, setJudgeDefId] = useState('default')
   const { data: judgeDefaults } = useQuery({
     queryKey: queryKeys.evals.judgeDefaults(),
     queryFn: () => getJudgeDefaults(),
     staleTime: STALE_TELEMETRY_MS,
   })
+  const { data: evaluators = [] } = useQuery({
+    queryKey: queryKeys.evals.definitions(),
+    queryFn: () => listEvalDefinitions({ data: {} }),
+    staleTime: STALE_TELEMETRY_MS,
+  })
 
   const judgeMutation = useMutation({
-    mutationFn: () => judgeDatasetRun({ data: { runId: Number(judgeRunId) } }),
+    mutationFn: () =>
+      judgeDatasetRun({
+        data: { runId: Number(judgeRunId), definitionId: judgeDefId !== 'default' ? Number(judgeDefId) : undefined },
+      }),
     onSuccess: async (result) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.datasets.detail(dataset.id) }),
@@ -459,6 +468,21 @@ function RunsTab({
           <HugeiconsIcon icon={SlidersHorizontalIcon} strokeWidth={2} data-icon="inline-start" />
           Overrides
         </Button>
+        <Select value={judgeDefId} onValueChange={setJudgeDefId}>
+          <SelectTrigger size="sm" className="w-44" aria-label="Judge">
+            <SelectValue placeholder="Default correctness" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default correctness</SelectItem>
+            {evaluators
+              .filter((e) => e.source === 'llm')
+              .map((e) => (
+                <SelectItem key={e.id} value={String(e.id)}>
+                  {e.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
@@ -473,7 +497,7 @@ function RunsTab({
             </span>
           </TooltipTrigger>
           {!judgeDefaults?.configured && (
-            <TooltipContent>Set PROMPT_LIVE_ENDPOINT to enable judging</TooltipContent>
+            <TooltipContent>Set OPENAI_API_KEY (or a local JUDGE_BASE_URL) to enable judging</TooltipContent>
           )}
         </Tooltip>
         <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
@@ -643,7 +667,9 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
         {it.pass === true && (
           <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3 text-emerald-600" strokeWidth={2} />
         )}
-        {it.pass === false && <HugeiconsIcon icon={AlertCircleIcon} className="size-3 text-destructive" strokeWidth={2} />}
+        {it.pass === false && (
+          <HugeiconsIcon icon={AlertCircleIcon} className="size-3 text-destructive" strokeWidth={2} />
+        )}
         <span>· {(it.latencyMs / 1000).toFixed(1)}s</span>
         {it.traceId && <HugeiconsIcon icon={Link01Icon} className="size-3" strokeWidth={2} />}
       </span>

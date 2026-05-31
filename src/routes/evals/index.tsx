@@ -38,10 +38,13 @@ import {
   type ScoreDataType,
   type ScoreTone,
 } from '#/lib/evaluation'
-import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
+import { formatCost } from '#/lib/format'
+import { JUDGE_TEMPLATES } from '#/lib/judge-templates'
+import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { getJudgeDefaults, listEvalDefinitions, setEvalDefinitionStatus, upsertEvalDefinition } from '#/server/evals'
-import { getScoreRollup, type ScoreRollupRow } from '#/server/scores'
+import type { JudgeDefaults } from '#/server/judge'
+import { getOnlineEvalStats, getScoreRollup, type OnlineEvalStat, type ScoreRollupRow } from '#/server/scores'
 
 const definitionsQuery = queryOptions({
   queryKey: queryKeys.evals.definitions(),
@@ -62,6 +65,12 @@ const judgeDefaultsQuery = queryOptions({
   queryKey: queryKeys.evals.judgeDefaults(),
   queryFn: () => getJudgeDefaults(),
   staleTime: STALE_TELEMETRY_MS,
+})
+
+const onlineStatsQuery = queryOptions({
+  queryKey: queryKeys.evals.onlineStats(),
+  queryFn: () => getOnlineEvalStats(),
+  staleTime: STALE_LIVE_MS,
 })
 
 export const Route = createFileRoute('/evals/')({
@@ -96,6 +105,7 @@ function EvalsPage() {
   const { data: definitions = [], isLoading } = useQuery(definitionsQuery)
   const { data: rollup = [] } = useQuery(rollupQuery)
   const { data: judgeDefaults } = useQuery(judgeDefaultsQuery)
+  const { data: onlineStats = {} } = useQuery(onlineStatsQuery)
 
   const [setupOpen, setSetupOpen] = useState(false)
 
@@ -120,17 +130,7 @@ function EvalsPage() {
       }
     >
       <div className="flex flex-col gap-6 px-4 lg:px-6">
-        <p className="text-xs text-muted-foreground">
-          {judgeDefaults && !judgeDefaults.configured ? (
-            <>
-              Set <span className="font-mono text-foreground">PROMPT_LIVE_ENDPOINT</span> to run judges.
-            </>
-          ) : judgeDefaults ? (
-            <>
-              Judge model: <span className="font-mono text-foreground">{judgeDefaults.model}</span>
-            </>
-          ) : null}
-        </p>
+        {judgeDefaults && <JudgeStatus judge={judgeDefaults} />}
 
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,7 +167,7 @@ function EvalsPage() {
               {running.length === 0 ? (
                 <EvaluatorsEmpty onSetup={() => setSetupOpen(true)} />
               ) : (
-                <RunningTable definitions={running} />
+                <RunningTable definitions={running} stats={onlineStats} />
               )}
             </TabsContent>
 
@@ -217,7 +217,13 @@ function RollupSection({ rows }: { rows: ScoreRollupRow[] }) {
   )
 }
 
-function RunningTable({ definitions }: { definitions: EvalDefinition[] }) {
+function RunningTable({
+  definitions,
+  stats,
+}: {
+  definitions: EvalDefinition[]
+  stats: Record<number, OnlineEvalStat>
+}) {
   return (
     <div className="overflow-hidden rounded-lg border">
       <Table>
@@ -225,36 +231,75 @@ function RunningTable({ definitions }: { definitions: EvalDefinition[] }) {
           <TableRow>
             <TableHead>Score name</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Result</TableHead>
-            <TableHead>Cost</TableHead>
+            <TableHead className="text-right">Result</TableHead>
+            <TableHead className="text-right">Cost</TableHead>
             <TableHead>Model</TableHead>
             <TableHead>Version</TableHead>
             <TableHead>Updated</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {definitions.map((def) => (
-            <TableRow key={def.id}>
-              <TableCell>
-                <Link to="/evals/$evalId" params={{ evalId: String(def.id) }} className="font-medium hover:underline">
-                  {def.name}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <StatusToggle id={def.id} status={def.status} />
-              </TableCell>
-              <TableCell className="text-muted-foreground">—</TableCell>
-              <TableCell className="text-muted-foreground">—</TableCell>
-              <TableCell className="font-mono text-xs">{def.model}</TableCell>
-              <TableCell className="tabular-nums text-muted-foreground">v{def.version}</TableCell>
-              <TableCell className="text-muted-foreground">
-                <RelativeTime ts={def.updatedAt} />
-              </TableCell>
-            </TableRow>
-          ))}
+          {definitions.map((def) => {
+            const stat = stats[def.id]
+            return (
+              <TableRow key={def.id}>
+                <TableCell>
+                  <Link to="/evals/$evalId" params={{ evalId: String(def.id) }} className="font-medium hover:underline">
+                    {def.name}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <StatusToggle id={def.id} status={def.status} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {stat && stat.passRate != null ? (
+                    <span className={SCORE_TONE_CLASS[passRateTone(stat.passRate)]}>
+                      {Math.round(stat.passRate * 100)}%
+                      <span className="ml-1 text-xs text-muted-foreground">({stat.scored})</span>
+                    </span>
+                  ) : stat?.scored ? (
+                    <span className="text-muted-foreground">{stat.scored} scored</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {stat?.costUsd ? formatCost(stat.costUsd) : '—'}
+                </TableCell>
+                <TableCell className="font-mono text-xs">{def.model}</TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">v{def.version}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  <RelativeTime ts={def.updatedAt} />
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>
+  )
+}
+
+function JudgeStatus({ judge }: { judge: JudgeDefaults }) {
+  if (!judge.configured) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No judge model configured. Set <span className="font-mono text-foreground">OPENAI_API_KEY</span> or{' '}
+        <span className="font-mono text-foreground">ANTHROPIC_API_KEY</span> (or a local{' '}
+        <span className="font-mono text-foreground">JUDGE_BASE_URL</span>) to run judges.
+      </p>
+    )
+  }
+  const keys = [
+    judge.hasOpenAIKey && 'OpenAI',
+    judge.hasAnthropicKey && 'Anthropic',
+    judge.baseUrl && 'custom endpoint',
+  ].filter(Boolean) as string[]
+  return (
+    <p className="text-xs text-muted-foreground">
+      Judge: <span className="font-mono text-foreground">{judge.model}</span>
+      {keys.length > 0 && <> · {keys.join(', ')} ready</>}
+    </p>
   )
 }
 
@@ -374,6 +419,15 @@ function SetupEvaluatorDialog({
     setModel(defaultModel)
   }
 
+  const applyTemplate = (key: string) => {
+    const t = JUDGE_TEMPLATES.find((x) => x.key === key)
+    if (!t) return
+    setName(t.key)
+    setScope(t.scope)
+    setDataType(t.dataType)
+    setJudgePrompt(t.judgePrompt)
+  }
+
   const mutation = useMutation({
     mutationFn: () =>
       upsertEvalDefinition({
@@ -421,6 +475,22 @@ function SetupEvaluatorDialog({
             if (canSubmit) mutation.mutate()
           }}
         >
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="evaluator-template">Start from a template</Label>
+            <Select onValueChange={applyTemplate}>
+              <SelectTrigger id="evaluator-template">
+                <SelectValue placeholder="Optional — prefill from a known judge" />
+              </SelectTrigger>
+              <SelectContent>
+                {JUDGE_TEMPLATES.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.label} — {t.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="evaluator-name">Name</Label>
             <Input

@@ -39,11 +39,11 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/sessions', label: 'Sessions', icon: MessageMultiple01Icon, group: 'observe' },
   { to: '/traces', label: 'Traces', icon: PlayCircleIcon, group: 'observe' },
   { to: '/tasks', label: 'Tasks', icon: Task01Icon, group: 'observe' },
-  { to: '/mcp', label: 'MCP', icon: PuzzleIcon, group: 'observe', soon: true },
   { to: '/notes', label: 'Notes', icon: StickyNote01Icon, group: 'workbench' },
   { to: '/datasets', label: 'Datasets', icon: Database01Icon, group: 'workbench' },
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, group: 'workbench' },
   { to: '/inventory/system-prompts', label: 'System Prompts', icon: Edit02Icon, group: 'inventory' },
+  { to: '/mcp', label: 'MCP', icon: PuzzleIcon, group: 'inventory', soon: true },
   { to: '/inbox', label: 'Inbox', icon: InboxIcon, group: 'inbox' },
 ]
 

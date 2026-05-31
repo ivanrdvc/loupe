@@ -44,10 +44,12 @@ import { Textarea } from '#/components/ui/textarea'
 import type {
   EvalCompareRow,
   EvalDefinition,
+  EvalMode,
   EvalRun,
   EvalScope,
   EvalSourceKind,
   EvalStatus,
+  LiveFilter,
   ScoreDataType,
   UpsertEvalDefinitionInput,
 } from '#/lib/evaluation'
@@ -333,6 +335,7 @@ function MetaGrid({ definition }: { definition: EvalDefinition }) {
       <MetaItem label="Mode">
         <span className="capitalize">{definition.mode}</span>
       </MetaItem>
+      {definition.mode === 'online' && <MetaItem label="Watches">{describeLiveFilter(definition.liveFilter)}</MetaItem>}
       <MetaItem label="Model">
         <span className="font-mono text-xs">{definition.model || '—'}</span>
       </MetaItem>
@@ -575,6 +578,35 @@ function CompareTable({ rows }: { rows: EvalCompareRow[] }) {
   )
 }
 
+type LiveFilterForm = { sampleRate: string; serviceName: string; agentName: string }
+
+function readLiveFilter(raw: EvalDefinition['liveFilter']): LiveFilterForm {
+  const f = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>
+  return {
+    sampleRate: typeof f.sampleRate === 'number' ? String(f.sampleRate) : '',
+    serviceName: typeof f.serviceName === 'string' ? f.serviceName : '',
+    agentName: typeof f.agentName === 'string' ? f.agentName : '',
+  }
+}
+
+function buildLiveFilter(form: LiveFilterForm): LiveFilter {
+  const f: NonNullable<LiveFilter> = {}
+  const rate = Number(form.sampleRate)
+  if (form.sampleRate.trim() && Number.isFinite(rate)) f.sampleRate = Math.min(1, Math.max(0, rate))
+  if (form.serviceName.trim()) f.serviceName = form.serviceName.trim()
+  if (form.agentName.trim()) f.agentName = form.agentName.trim()
+  return Object.keys(f).length ? f : null
+}
+
+function describeLiveFilter(raw: EvalDefinition['liveFilter']): string {
+  const f = readLiveFilter(raw)
+  const parts: string[] = []
+  if (f.serviceName) parts.push(`service=${f.serviceName}`)
+  if (f.agentName) parts.push(`agent=${f.agentName}`)
+  if (f.sampleRate && f.sampleRate !== '1') parts.push(`${Math.round(Number(f.sampleRate) * 100)}% sample`)
+  return parts.length ? parts.join(' · ') : 'all traces'
+}
+
 function EditDialog({
   open,
   onOpenChange,
@@ -590,8 +622,10 @@ function EditDialog({
   const [scope, setScope] = useState<EvalScope>(definition.scope)
   const [dataType, setDataType] = useState<ScoreDataType>(definition.dataType)
   const [source, setSource] = useState<EvalSourceKind>(definition.source)
+  const [mode, setMode] = useState<EvalMode>(definition.mode)
   const [model, setModel] = useState(definition.model)
   const [judgePrompt, setJudgePrompt] = useState(definition.judgePrompt ?? '')
+  const [filter, setFilter] = useState<LiveFilterForm>(() => readLiveFilter(definition.liveFilter))
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -601,8 +635,11 @@ function EditDialog({
         scope,
         dataType,
         source,
+        mode,
+        status: definition.status,
         model: model.trim(),
         judgePrompt: source === 'llm' ? judgePrompt.trim() || null : null,
+        liveFilter: mode === 'online' ? buildLiveFilter(filter) : null,
       }
       return upsertEvalDefinition({ data: input })
     },
@@ -691,6 +728,58 @@ function EditDialog({
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="eval-mode">Mode</Label>
+              <Select value={mode} onValueChange={(v) => setMode(v as EvalMode)}>
+                <SelectTrigger id="eval-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="offline">Library (run on demand)</SelectItem>
+                  <SelectItem value="online">Online (score live traffic)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {mode === 'online' && (
+            <div className="flex flex-col gap-3 rounded-lg border bg-card/40 p-3">
+              <p className="text-xs text-muted-foreground">
+                Which live traces this watches. Blank fields match everything.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="eval-service">Service</Label>
+                  <Input
+                    id="eval-service"
+                    value={filter.serviceName}
+                    onChange={(e) => setFilter((f) => ({ ...f, serviceName: e.target.value }))}
+                    placeholder="any"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="eval-agent">Agent</Label>
+                  <Input
+                    id="eval-agent"
+                    value={filter.agentName}
+                    onChange={(e) => setFilter((f) => ({ ...f, agentName: e.target.value }))}
+                    placeholder="any"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="eval-sample">Sample rate</Label>
+                  <Input
+                    id="eval-sample"
+                    value={filter.sampleRate}
+                    onChange={(e) => setFilter((f) => ({ ...f, sampleRate: e.target.value }))}
+                    placeholder="1"
+                    inputMode="decimal"
+                    className="tabular-nums"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           {source === 'llm' && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eval-judge">Judge prompt</Label>

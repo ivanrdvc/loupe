@@ -74,6 +74,7 @@ export const queryKeys = {
     run: (runId: number) => ['evals', 'run', runId] as const,
     runScores: (runId: number) => ['evals', 'run-scores', runId] as const,
     compare: (base: number, head: number) => ['evals', 'compare', base, head] as const,
+    onlineStats: () => ['evals', 'online-stats'] as const,
     judgeDefaults: () => ['evals', 'judge-defaults'] as const,
   },
 }

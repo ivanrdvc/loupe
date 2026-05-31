@@ -25,6 +25,7 @@ import type { JsonValue } from '#/lib/json'
 import { listRecentTraces } from '#/lib/telemetry'
 import { casesFromTraces, type JudgeCaseInput } from './eval-jobs'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
+import { parseLiveFilter } from './online-eval-filter'
 import { scaleMap } from './scores'
 
 function asScope(v: unknown): EvalScope {
@@ -212,6 +213,8 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
     model: asOptString(input.model) ?? 'gpt-4o-mini',
     mode: asMode(input.mode),
     status: asStatus(input.status),
+    // undefined = leave unchanged; null/object = normalized via parseLiveFilter server-side.
+    liveFilter: input.liveFilter === undefined ? undefined : asJsonValue(input.liveFilter ?? null, 'liveFilter'),
   }))
   .handler(async ({ data }): Promise<EvalDefinition> => {
     if (!data.name) throw new Error('Evaluator name is required')
@@ -232,6 +235,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
           model: data.model,
           mode: data.mode,
           status: data.status,
+          ...(data.liveFilter !== undefined ? { liveFilter: parseLiveFilter(data.liveFilter) } : {}),
           version: bump ? existing.version + 1 : existing.version,
           updatedAt: now,
         })
@@ -251,6 +255,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
         model: data.model,
         mode: data.mode,
         status: data.status,
+        liveFilter: data.liveFilter !== undefined ? parseLiveFilter(data.liveFilter) : null,
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -495,7 +500,7 @@ async function executeEvalRun(opts: {
   cases: JudgeCaseInput[]
 }): Promise<void> {
   const { runId, def, model, samples, cases } = opts
-  const { endpointUrl, configured } = resolveJudgeDefaults()
+  const { configured } = resolveJudgeDefaults()
   const summary: EvalRunSummary = { total: cases.length, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model }
 
   if (!configured) {
@@ -522,7 +527,6 @@ async function executeEvalRun(opts: {
   for (const c of cases) {
     const verdict = await runJudgeSamples(
       {
-        endpointUrl,
         model,
         judgePrompt: def.judgePrompt,
         dataType: def.dataType,
@@ -558,6 +562,7 @@ async function executeEvalRun(opts: {
       explanation: verdict.explanation,
       source: def.source,
       evaluator: `judge:${model}`,
+      evaluatorVersion: def.version,
       errorType: verdict.errorType,
       runId,
       definitionId: def.id,

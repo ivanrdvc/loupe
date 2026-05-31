@@ -370,6 +370,9 @@ export const scores = sqliteTable(
 
     source: text({ enum: ['human', 'llm', 'code'] }).notNull(),
     evaluator: text().notNull(), // 'ivan' | 'gpt-4o-judge' | 'assert:latency'
+    // Which evaluator version produced this (llm scores only); null for human /
+    // ad-hoc / externally-ingested rows. Pinned so a prompt/model bump is auditable.
+    evaluatorVersion: integer('evaluator_version'),
     errorType: text('error_type'),
 
     runId: integer('run_id').references(() => evalRuns.id, { onDelete: 'cascade' }),

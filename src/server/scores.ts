@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { scoreConfigs, scores } from '#/db/schema'
 import {
@@ -109,6 +109,7 @@ function toScore(row: typeof scores.$inferSelect): Score {
     explanation: row.explanation,
     source: row.source,
     evaluator: row.evaluator,
+    evaluatorVersion: row.evaluatorVersion,
     errorType: row.errorType,
     runId: row.runId,
     definitionId: row.definitionId,
@@ -465,6 +466,53 @@ export const getScoreRollup = createServerFn({ method: 'GET' })
       }))
       .sort((a, b) => b.total - a.total)
   })
+
+// Live result + cumulative cost per online evaluator, from its run-less scores
+// (online evaluators write scores directly, never an eval_run). Feeds the /evals
+// "Running Evaluators" Result + Cost columns.
+export type OnlineEvalStat = { scored: number; pass: number; fail: number; passRate: number | null; costUsd: number }
+
+function scoreCostUsd(metadata: JsonValue | null): number {
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    const c = (metadata as Record<string, JsonValue>).costUsd
+    if (typeof c === 'number' && Number.isFinite(c)) return c
+  }
+  return 0
+}
+
+export const getOnlineEvalStats = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<Record<number, OnlineEvalStat>> => {
+    const rows = await db
+      .select()
+      .from(scores)
+      .where(and(isNull(scores.runId), isNotNull(scores.definitionId)))
+    const configs = await db.select().from(scoreConfigs)
+    const scaleByName = scaleMap(configs)
+
+    const byDef = new Map<number, { scored: number; pass: number; fail: number; costUsd: number }>()
+    for (const raw of rows) {
+      const s = toScore(raw)
+      if (s.definitionId == null) continue
+      let agg = byDef.get(s.definitionId)
+      if (!agg) {
+        agg = { scored: 0, pass: 0, fail: 0, costUsd: 0 }
+        byDef.set(s.definitionId, agg)
+      }
+      agg.scored += 1
+      agg.costUsd += scoreCostUsd(s.metadata)
+      if (s.errorType != null) continue
+      const pf = scorePassFail(s, scaleByName.get(s.name))
+      if (pf === 'pass') agg.pass += 1
+      else if (pf === 'fail') agg.fail += 1
+    }
+
+    const out: Record<number, OnlineEvalStat> = {}
+    for (const [id, a] of byDef) {
+      out[id] = { ...a, passRate: a.pass + a.fail > 0 ? a.pass / (a.pass + a.fail) : null }
+    }
+    return out
+  },
+)
 
 // Path C: ingest gen_ai.evaluation.* events as score rows
 // Append-only. `source` defaults to 'llm'. Used by POST /api/evals/ingest and

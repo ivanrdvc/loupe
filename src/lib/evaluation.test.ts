@@ -29,6 +29,7 @@ function score(partial: Partial<Score> & { dataType: ScoreDataType }): Score {
     explanation: null,
     source: 'human',
     evaluator: 'alice',
+    evaluatorVersion: null,
     errorType: null,
     runId: null,
     definitionId: null,

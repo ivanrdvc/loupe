@@ -1,11 +1,8 @@
+import type { LiveFilter } from '#/lib/evaluation'
 import type { JsonValue } from '#/lib/json'
 import type { TraceSummary } from '#/lib/telemetry/types'
 
-export type LiveFilter = {
-  sampleRate?: number
-  serviceName?: string
-  agentName?: string
-} | null
+export type { LiveFilter }
 
 export function parseLiveFilter(raw: JsonValue | null | undefined): LiveFilter {
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null
