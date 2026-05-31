@@ -30,6 +30,7 @@ interface DataTableToolbarProps<TData> {
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
   refreshing?: boolean
+  actions?: React.ReactNode
 }
 
 export function DataTableToolbar<TData>({
@@ -43,6 +44,7 @@ export function DataTableToolbar<TData>({
   onAutoRefreshChange,
   onRefresh,
   refreshing,
+  actions,
 }: DataTableToolbarProps<TData>) {
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
@@ -78,6 +80,7 @@ export function DataTableToolbar<TData>({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {actions}
         <TimeRangeSelect value={range} onChange={onRangeChange} />
         <AutoRefreshSelect
           value={autoRefresh}

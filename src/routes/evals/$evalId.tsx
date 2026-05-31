@@ -365,10 +365,10 @@ function RunsTable({
   }
 
   return (
-    <div className="rounded-lg border bg-background">
+    <div className="-mx-4 border-y bg-background lg:-mx-6">
       <Table>
         <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
-          <TableRow>
+          <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
             <TableHead>Run</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Pass</TableHead>
@@ -384,7 +384,10 @@ function RunsTable({
             const summary = run.summary
             const isBaseline = run.id === baselineRunId
             return (
-              <TableRow key={run.id}>
+              <TableRow
+                key={run.id}
+                className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+              >
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Link
@@ -514,10 +517,10 @@ function CompareTable({ rows }: { rows: EvalCompareRow[] }) {
   // as "no cases" rather than a genuine 0% (a real failing score).
   const pct = (n: number, total: number) => (total > 0 ? `${Math.round(n * 100)}%` : '—')
   return (
-    <div className="rounded-lg border bg-background">
+    <div className="-mx-4 border-y bg-background lg:-mx-6">
       <Table>
         <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
-          <TableRow>
+          <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
             <TableHead>Dimension</TableHead>
             <TableHead className="text-right">Base pass%</TableHead>
             <TableHead className="text-right">Head pass%</TableHead>
@@ -527,7 +530,10 @@ function CompareTable({ rows }: { rows: EvalCompareRow[] }) {
         </TableHeader>
         <TableBody>
           {rows.map((row) => (
-            <TableRow key={row.name}>
+            <TableRow
+              key={row.name}
+              className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+            >
               <TableCell className="font-medium">{row.name}</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">
                 {pct(row.basePassRate, row.baseTotal)}

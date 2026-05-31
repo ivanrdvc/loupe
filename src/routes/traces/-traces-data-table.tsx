@@ -15,15 +15,17 @@ import {
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
+import { ListScoreActions } from '#/components/scores/list-score-actions'
 import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
+import type { ScoreSummary } from '#/lib/evaluation'
 import type { TraceSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { traceColumns } from './-columns'
+import { makeTraceColumns } from './-columns'
 
 const FILTERS: FacetedFilterSpec[] = [
   {
@@ -48,6 +50,16 @@ const FILTERS: FacetedFilterSpec[] = [
       { label: 'Error', value: 'error' },
     ],
   },
+  {
+    columnId: 'scoreFlag',
+    title: 'Score',
+    options: [
+      { label: 'Needs attention', value: 'bad' },
+      { label: 'Disagreement', value: 'disagreement' },
+      { label: 'Scored', value: 'scored' },
+      { label: 'Unscored', value: 'unscored' },
+    ],
+  },
 ]
 
 interface TracesDataTableProps {
@@ -60,6 +72,7 @@ interface TracesDataTableProps {
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
   refreshing?: boolean
+  scoreSummaries?: Record<string, ScoreSummary>
 }
 
 export function TracesDataTable({
@@ -72,12 +85,15 @@ export function TracesDataTable({
   onAutoRefreshChange,
   onRefresh,
   refreshing,
+  scoreSummaries,
 }: TracesDataTableProps) {
   const [userId] = useUserId()
   const [scopeToMe] = useScopeToMe()
+  const columns = React.useMemo(() => makeTraceColumns(scoreSummaries ?? {}), [scoreSummaries])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     status: false,
     category: false,
+    scoreFlag: false,
   })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -88,7 +104,7 @@ export function TracesDataTable({
 
   const table = useReactTable({
     data,
-    columns: traceColumns,
+    columns,
     state: {
       sorting,
       columnVisibility,
@@ -121,6 +137,18 @@ export function TracesDataTable({
         onAutoRefreshChange={onAutoRefreshChange}
         onRefresh={onRefresh}
         refreshing={refreshing}
+        actions={
+          <ListScoreActions
+            table={table}
+            buildReviewItem={(trace) => ({
+              targetKind: 'trace',
+              targetId: trace.id,
+              parentTraceId: trace.id,
+              title: trace.id,
+              traceId: trace.id,
+            })}
+          />
+        }
       />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
@@ -157,7 +185,7 @@ export function TracesDataTable({
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={traceColumns.length} className="h-48">
+                  <TableCell colSpan={columns.length} className="h-48">
                     <div className="flex h-full items-center justify-center">
                       {isLoading ? (
                         <Spinner size="md" className="text-muted-foreground" />

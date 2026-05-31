@@ -3,8 +3,10 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
+import { ScoreSummaryBadge } from '#/components/scores/score-badge'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { type ScoreSummary, scoreFlagFor, scoreFlagsFor } from '#/lib/evaluation'
 import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 
@@ -51,7 +53,10 @@ function SessionIdCell({ session, hasNote }: { session: SessionSummary; hasNote:
   )
 }
 
-export function buildSessionColumns(noteFlags: Record<string, boolean>): ColumnDef<SessionSummary>[] {
+export function buildSessionColumns(
+  noteFlags: Record<string, boolean>,
+  scoreSummaries: Record<string, ScoreSummary> = {},
+): ColumnDef<SessionSummary>[] {
   return [
     {
       accessorKey: 'status',
@@ -60,6 +65,19 @@ export function buildSessionColumns(noteFlags: Record<string, boolean>): ColumnD
       cell: () => null,
       filterFn: (row, _id, value: string[]) =>
         Array.isArray(value) && value.includes(row.original.hasError ? 'error' : 'ok'),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      id: 'scoreFlag',
+      accessorFn: (s) => scoreFlagFor(scoreSummaries[s.sessionId]),
+      header: () => null,
+      cell: () => null,
+      filterFn: (row, _id, value: string[]) => {
+        if (!Array.isArray(value) || value.length === 0) return true
+        const flags = scoreFlagsFor(scoreSummaries[row.original.sessionId])
+        return value.some((v) => (flags as string[]).includes(v))
+      },
       enableSorting: false,
       enableHiding: false,
     },
@@ -157,6 +175,15 @@ export function buildSessionColumns(noteFlags: Record<string, boolean>): ColumnD
       accessorKey: 'traceCount',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Traces" className="justify-end" />,
       cell: ({ row }) => <div className="text-right tabular-nums">{row.original.traceCount}</div>,
+    },
+    {
+      id: 'scores',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Scores" />,
+      cell: ({ row }) => {
+        const summary = scoreSummaries[row.original.sessionId]
+        return summary ? <ScoreSummaryBadge summary={summary} /> : <span className="text-muted-foreground/40">—</span>
+      },
+      enableSorting: false,
     },
   ]
 }

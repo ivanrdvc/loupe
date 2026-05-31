@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
+import { scoreSummariesQuery } from '#/components/scores/queries'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
@@ -45,6 +46,8 @@ function TracesIndex() {
     enabled: activeTab === 'spans',
   })
 
+  const traceScoresQ = useQuery({ ...scoreSummariesQuery('trace'), enabled: activeTab === 'traces' })
+
   const traces = tracesQ.data?.traces ?? []
   const spans = spansQ.data?.spans ?? []
 
@@ -74,6 +77,7 @@ function TracesIndex() {
           <TracesDataTable
             data={traces}
             isLoading={tracesQ.isLoading}
+            scoreSummaries={traceScoresQ.data}
             onRowClick={(row) => {
               void navigate({ search: (prev) => ({ ...prev, trace: row.id }) })
             }}

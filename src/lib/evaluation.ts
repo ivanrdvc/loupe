@@ -25,6 +25,7 @@ export type Score = {
   explanation: string | null
   source: ScoreSource
   evaluator: string
+  evaluatorVersion: number | null
   errorType: string | null
   runId: number | null
   definitionId: number | null
@@ -109,6 +110,17 @@ export function scoreFlagFor(summary: ScoreSummary | undefined): ScoreFlag {
   if (summary.hasBad) return 'bad'
   if (summary.disagreement) return 'disagreement'
   return 'scored'
+}
+
+// All flags that apply to a target — lets the list "Score" filter match a "bad"
+// item under both "Needs attention" and "Scored" without losing it to a single bucket.
+export function scoreFlagsFor(summary: ScoreSummary | undefined): ScoreFlag[] {
+  if (!summary) return ['unscored']
+  const flags: ScoreFlag[] = []
+  if (summary.hasBad) flags.push('bad')
+  if (summary.disagreement) flags.push('disagreement')
+  if (flags.length === 0) flags.push('scored')
+  return flags
 }
 
 // evaluators (in-app runner)
@@ -202,7 +214,16 @@ export type UpsertEvalDefinitionInput = {
   model?: string
   mode?: EvalMode
   status?: EvalStatus
+  liveFilter?: LiveFilter
 }
+
+// What an online evaluator watches: exact service/agent match + a sample rate.
+// null means every recent trace at full rate.
+export type LiveFilter = {
+  sampleRate?: number
+  serviceName?: string
+  agentName?: string
+} | null
 
 // A run targets either a dataset or a live trace filter.
 export type EvalTargetSelector =
@@ -237,7 +258,7 @@ export function defaultCategoryPolarity(label: string): 'good' | 'bad' | 'neutra
   return 'neutral'
 }
 
-type ScoreValueShape = Pick<Score, 'dataType' | 'value' | 'label'>
+export type ScoreValueShape = Pick<Score, 'dataType' | 'value' | 'label'>
 // The `score_config`-derived polarity/scale hints: pass/fail sets for categorical,
 // range + direction for numeric. All optional — an unconfigured score is unclassified.
 export type ConfigHint = {
@@ -336,6 +357,34 @@ function trimNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
 }
 
+// The polarity/scale hints a dimension's score_config carries, for classifying scores.
+export function configToHint(c: ScoreConfig): ConfigHint {
+  return {
+    minValue: c.minValue,
+    maxValue: c.maxValue,
+    passLabels: c.passLabels,
+    failLabels: c.failLabels,
+    direction: c.direction,
+  }
+}
+
+export type ScoreDraftShape = { value: number | null; label: string | null }
+
+// Whether an in-progress human score draft lands on the bad side of the dimension.
+export function draftIsBad(config: ScoreConfig, draft: ScoreDraftShape): boolean {
+  const scale = configToHint(config)
+  if (config.dataType === 'boolean') {
+    return scoreIsBad({ dataType: 'boolean', value: draft.value, label: null }, scale)
+  }
+  if (config.dataType === 'categorical') {
+    return scoreIsBad({ dataType: 'categorical', value: null, label: draft.label }, scale)
+  }
+  if (config.dataType === 'numeric') {
+    return scoreIsBad({ dataType: 'numeric', value: draft.value, label: null }, scale)
+  }
+  return false
+}
+
 export const SCORE_TONE_CLASS: Record<ScoreTone, string> = {
   good: 'text-emerald-600 dark:text-emerald-400',
   warn: 'text-amber-600 dark:text-amber-400',
@@ -371,7 +420,7 @@ export function latestScores(scores: Score[]): Score[] {
   const byKey = new Map<string, Score>()
   for (const s of scores) {
     if (s.runId != null) continue // run-scoped scores live under their run, not the live badge
-    const key = `${s.name} ${s.evaluator}`
+    const key = `${s.name}\u0000${s.evaluator}`
     const prev = byKey.get(key)
     if (!prev || s.createdAt > prev.createdAt) byKey.set(key, s)
   }

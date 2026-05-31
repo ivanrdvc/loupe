@@ -17,6 +17,8 @@ import {
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
+import { ListScoreActions } from '#/components/scores/list-score-actions'
+import { scoreSummariesQuery } from '#/components/scores/queries'
 import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
@@ -36,6 +38,16 @@ const FILTERS: FacetedFilterSpec[] = [
     options: [
       { label: 'OK', value: 'ok' },
       { label: 'Error', value: 'error' },
+    ],
+  },
+  {
+    columnId: 'scoreFlag',
+    title: 'Score',
+    options: [
+      { label: 'Needs attention', value: 'bad' },
+      { label: 'Disagreement', value: 'disagreement' },
+      { label: 'Scored', value: 'scored' },
+      { label: 'Unscored', value: 'unscored' },
     ],
   },
 ]
@@ -67,7 +79,7 @@ export function DataTable({
 }: DataTableProps) {
   const [userId] = useUserId()
   const [scopeToMe] = useScopeToMe()
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({ status: false })
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({ status: false, scoreFlag: false })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [pagination, setPagination] = React.useState({
@@ -79,7 +91,11 @@ export function DataTable({
     queryKey: queryKeys.notes.flagsForKind('session'),
     queryFn: () => getNoteFlagsForKind({ data: 'session' }),
   })
-  const columns = React.useMemo(() => buildSessionColumns(noteFlags ?? {}), [noteFlags])
+  const { data: scoreSummaries } = useQuery(scoreSummariesQuery('session'))
+  const columns = React.useMemo(
+    () => buildSessionColumns(noteFlags ?? {}, scoreSummaries ?? {}),
+    [noteFlags, scoreSummaries],
+  )
 
   const table = useReactTable({
     data,
@@ -116,6 +132,18 @@ export function DataTable({
         onAutoRefreshChange={onAutoRefreshChange}
         onRefresh={onRefresh}
         refreshing={refreshing}
+        actions={
+          <ListScoreActions
+            table={table}
+            buildReviewItem={(session) => ({
+              targetKind: 'session',
+              targetId: session.sessionId,
+              parentSessionId: session.sessionId,
+              title: session.title ?? session.sessionId,
+              previewText: session.firstInput ?? null,
+            })}
+          />
+        }
       />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
