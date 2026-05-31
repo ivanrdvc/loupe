@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRunGraph, propagateInheritedAttrs, type Span } from './spans'
+import { normalizeRunGraph, propagateInheritedAttrs, type Span } from '.'
 
 function span(overrides: Partial<Span> & Pick<Span, 'id' | 'operation'>): Span {
   return {

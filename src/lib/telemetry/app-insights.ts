@@ -1,8 +1,8 @@
 import { DefaultAzureCredential } from '@azure/identity'
 import { LogsQueryClient, type LogsQueryResult, LogsQueryResultStatus } from '@azure/monitor-query-logs'
-import { classifySpan, extractAgentName } from '#/lib/classify-span'
+import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
 import type { JsonValue } from '#/lib/json'
-import { estimateCostUsd } from '#/lib/llm-pricing'
+import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 import {
   dedupeById,
   normalizeRunGraph,

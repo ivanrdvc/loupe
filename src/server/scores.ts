@@ -17,7 +17,7 @@ import {
   summarizeScores,
   type UpsertScoreConfigInput,
   type UpsertScoreInput,
-} from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
 import type { JsonValue } from '#/lib/json'
 
 // coercion

@@ -1,5 +1,5 @@
-import { type JsonValue, parseJson } from './json'
-import type { Span } from './spans'
+import { type JsonValue, parseJson } from '#/lib/json'
+import type { Span } from '.'
 
 // Discriminated union for the conversation view. Each renderer pattern-
 // matches on `kind`; adding a new event type is one new arm. We deliberately

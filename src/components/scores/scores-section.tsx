@@ -19,7 +19,7 @@ import {
   type ScoreConfig,
   type ScoreTargetKind,
   scoreIsBad,
-} from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { deleteScore, listScoreConfigs, listScoresForTarget, upsertHumanScore } from '#/server/scores'

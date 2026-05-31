@@ -44,7 +44,7 @@ is in the provider, not the renderer.
 ## Trace-scope post-processing
 
 After a provider maps rows → `Span[]`, two passes run per trace before
-returning. They live in `src/lib/spans.ts` so every provider shares them.
+returning. They live in `src/lib/spans/index.ts` so every provider shares them.
 
 - **`normalizeTraceRoots(spans)`** — sets `parentId = null` for any span whose
   declared parent isn't present in the result set. Some backends emit a

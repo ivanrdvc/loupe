@@ -1,4 +1,4 @@
-import { buildConversation, type ConversationEvent } from '#/lib/conversation'
+import { buildConversation, type ConversationEvent } from '#/lib/spans/conversation'
 import type { Span } from '#/lib/spans'
 import { isAgentSpan, isChatSpan, spanHasError } from './predicates'
 import { type AguiItem, collectSystemAndAgui } from './system'
@@ -12,11 +12,10 @@ import {
 } from './tools'
 import { buildTurns, type Turn, turnTotals } from './turns'
 
-export type { ConversationEvent } from '#/lib/conversation'
-export { isAgentSpan, isChatSpan, isCollapsibleInfra, isLlmLike, isToolLike, spanHasError } from './predicates'
+export type { ConversationEvent } from '#/lib/spans/conversation'
+export { isChatSpan, isCollapsibleInfra, isToolLike, spanHasError } from './predicates'
 export { isShortValue } from './system'
 export type { FrontendTool, ToolCallResolution, ToolDef, ToolGroup } from './tools'
-export { collectToolGroups } from './tools'
 export type { Turn } from './turns'
 export { turnTotals } from './turns'
 

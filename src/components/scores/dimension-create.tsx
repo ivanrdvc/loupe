@@ -19,7 +19,7 @@ import {
   type ScoreConfig,
   type ScoreDataType,
   type ScoreDirection,
-} from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import { upsertScoreConfig } from '#/server/scores'
 

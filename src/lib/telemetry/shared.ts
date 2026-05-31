@@ -1,7 +1,7 @@
-import { extractAgentName } from '#/lib/classify-span'
-import { asMessages } from '#/lib/conversation'
+import { extractAgentName } from '#/lib/spans/classify-span'
+import { asMessages } from '#/lib/spans/conversation'
 import { parseJson } from '#/lib/json'
-import { estimateCostUsd } from '#/lib/llm-pricing'
+import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
 import { classifyTraceCategory } from './trace-category'
 import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow, TraceSummary } from './types'
@@ -275,7 +275,7 @@ export function num(v: unknown): number | undefined {
 
 // Single-value string picker — returns the value if it is a non-empty string,
 // otherwise undefined. The multi-key variant is `pickString` above.
-export function pickStringValue(v: unknown): string | undefined {
+function pickStringValue(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined
 }
 

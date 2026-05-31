@@ -13,7 +13,7 @@ tags: [ingest, span-classification]
 
 # Span classification
 
-One function — `classifySpan(name, attrs)` in `src/lib/classify-span.ts` — owns every rule for turning OTel attributes into a `Span`'s GenAI-shaped fields. All ingest paths call it. There is no second copy.
+One function — `classifySpan(name, attrs)` in `src/lib/spans/classify-span.ts` — owns every rule for turning OTel attributes into a `Span`'s GenAI-shaped fields. All ingest paths call it. There is no second copy.
 
 ## Shape
 

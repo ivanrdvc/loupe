@@ -1,4 +1,4 @@
-import type { JsonValue } from './json'
+import type { JsonValue } from '#/lib/json'
 
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
 export type Operation = 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent'

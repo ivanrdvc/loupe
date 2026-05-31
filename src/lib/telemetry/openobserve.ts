@@ -1,4 +1,4 @@
-import { classifySpan, extractAgentName } from '#/lib/classify-span'
+import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
 import type { JsonValue } from '#/lib/json'
 import {
   dedupeById,

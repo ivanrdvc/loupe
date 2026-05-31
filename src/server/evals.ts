@@ -20,7 +20,7 @@ import {
   scoreIsBad,
   scorePassFail,
   type UpsertEvalDefinitionInput,
-} from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
 import type { JsonValue } from '#/lib/json'
 import { listRecentTraces } from '#/lib/telemetry'
 import { casesFromTraces, type JudgeCaseInput } from './eval-jobs'

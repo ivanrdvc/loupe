@@ -28,7 +28,7 @@ export const AUTO_REFRESH_MS = Object.fromEntries(
   Object.entries(AUTO_REFRESH_INTERVALS).map(([key, def]) => [key, def.ms]),
 ) as Record<AutoRefreshInterval, false | number>
 
-export const LIST_AUTO_REFRESH_OPTIONS = [
+const LIST_AUTO_REFRESH_OPTIONS = [
   'off',
   '30s',
   '1m',
@@ -43,8 +43,6 @@ export const INSPECT_AUTO_REFRESH_OPTIONS = [
   '1m',
   '5m',
 ] as const satisfies readonly AutoRefreshInterval[]
-
-export const DEFAULT_AUTO_REFRESH_INTERVAL: AutoRefreshInterval = '30s'
 
 interface AutoRefreshSelectProps {
   value: AutoRefreshInterval

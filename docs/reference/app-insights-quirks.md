@@ -41,7 +41,7 @@ Attributes seen affected in practice:
 
 | Where | What it does |
 | ----- | ------------ |
-| `src/lib/classify-span.ts` | Reads `gen_ai.tool.definitions` on both `chat` and `invoke_agent` spans (the invoke_agent copy is usually intact). For `gen_ai.tool.call.result`, falls back to the raw string when `JSON.parse` fails so the truncated text still renders. |
+| `src/lib/spans/classify-span.ts` | Reads `gen_ai.tool.definitions` on both `chat` and `invoke_agent` spans (the invoke_agent copy is usually intact). For `gen_ai.tool.call.result`, falls back to the raw string when `JSON.parse` fails so the truncated text still renders. |
 | `src/components/inspect/context-collectors.ts` | `collectToolGroups` unions chat + invoke_agent definitions and backfills name-only entries from any `tool` span that actually executed — so tools that fell off the truncated definitions list still appear in the registered-tools view. |
 | `src/components/inspect/overview.tsx` | `SessionTools` no longer auto-classifies a "frontend" subgroup. The pre-existing heuristic (defined-but-no-execute_tool-span) mislabels backend tools whenever execute_tool instrumentation is missing or the tool ran inside an out-of-scope sub-agent — common enough under App Insights' truncation that the heuristic was net-negative. The AG-UI tab still uses it where the trade-off is acceptable. |
 

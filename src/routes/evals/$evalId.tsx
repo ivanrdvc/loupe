@@ -52,8 +52,8 @@ import type {
   LiveFilter,
   ScoreDataType,
   UpsertEvalDefinitionInput,
-} from '#/lib/evaluation'
-import { EVAL_RUN_STATUS_BADGE, isEvalRunActive, SCORE_DATA_TYPES, SCORE_TARGET_KINDS } from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
+import { EVAL_RUN_STATUS_BADGE, isEvalRunActive, SCORE_DATA_TYPES, SCORE_TARGET_KINDS } from '#/lib/eval/evaluation'
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'

@@ -3,7 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { datasetExamples, datasetRunItems, datasetRuns, datasets, scores } from '#/db/schema'
-import { scorePassFail } from '#/lib/evaluation'
+import { scorePassFail } from '#/lib/eval/evaluation'
 import { getSession } from '#/lib/telemetry'
 import {
   type CreateDatasetInput,

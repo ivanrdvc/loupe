@@ -2,7 +2,7 @@ import type { TraceCategory, TraceSummary } from '#/lib/telemetry'
 
 const FIRE_CATEGORIES: ReadonlySet<TraceCategory> = new Set(['scheduled', 'event', 'webhook'])
 
-export type IdentitySource = 'task.id' | 'cloud-semconv' | 'derived'
+type IdentitySource = 'task.id' | 'cloud-semconv' | 'derived'
 
 export interface TaskIdentity {
   key: string

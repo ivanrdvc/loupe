@@ -68,12 +68,12 @@ works. Each provider is one file under `lib/telemetry/` implementing the
   provider.{listTraces, listSessions, getSession, getTrace}
         │ each row → { name, attrs }
         ▼
-  classifySpan(name, attrs)                    ← lib/classify-span.ts
+  classifySpan(name, attrs)                    ← lib/spans/classify-span.ts
         │ • OpenInference span.kind override (explicit producer signal wins)
         │ • else: gen_ai.operation.name → span-name prefix → 'http'
         │ Classification (typed, normalized)
         ▼
-  Span[] post-processing                       ← lib/spans.ts
+  Span[] post-processing                       ← lib/spans/index.ts
    • dedupeById
    • normalizeTraceRoots             (orphan parents → root)
    • propagateSessionInTrace         (lift session id to nested spans;
@@ -87,16 +87,16 @@ works. Each provider is one file under `lib/telemetry/` implementing the
         │
         ▼
   React Query → components
-   • lib/conversation.ts:  Span[] → ConversationEvent[]  (chat bubbles, tool cards)
+   • lib/spans/conversation.ts:  Span[] → ConversationEvent[]  (chat bubbles, tool cards)
    • lib/turns.ts:         per-turn token / cost / duration rollup
-   • lib/spans.ts helpers: orchestrator / sub-agent / wrapped-agent tests
+   • lib/spans/index.ts helpers: orchestrator / sub-agent / wrapped-agent tests
 ```
 
 One classifier. Providers normalize *key shape* (dotted vs underscore, row
 column names); they never decide *field meaning*. That decision lives in
 `classify-span.ts`, full stop.
 
-## Span shape  (`src/lib/spans.ts`)
+## Span shape  (`src/lib/spans/index.ts`)
 
 ```
   Span.operation       http | chat | tool | mcp | invoke_agent
@@ -279,7 +279,7 @@ One count grounds every rule:
 
 > **`countAgentAncestors(span)`** — how many `invoke_agent` spans sit between this span and the root.
 
-Rules in `src/lib/spans.ts`:
+Rules in `src/lib/spans/index.ts`:
 
 | Question | Rule |
 | -------- | ---- |

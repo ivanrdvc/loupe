@@ -6,7 +6,7 @@ import { RelativeTime } from '#/components/relative-time'
 import { ScoreSummaryBadge } from '#/components/scores/score-badge'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { type ScoreSummary, scoreFlagFor, scoreFlagsFor } from '#/lib/evaluation'
+import { type ScoreSummary, scoreFlagFor, scoreFlagsFor } from '#/lib/eval/evaluation'
 import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 

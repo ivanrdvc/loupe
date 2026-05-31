@@ -1,7 +1,7 @@
 import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { SCORE_TONE_CLASS, type ScoreSummary } from '#/lib/evaluation'
+import { SCORE_TONE_CLASS, type ScoreSummary } from '#/lib/eval/evaluation'
 import { cn } from '#/lib/utils'
 
 // Aggregate badge for the trace/session lists: a single score shows its raw value,

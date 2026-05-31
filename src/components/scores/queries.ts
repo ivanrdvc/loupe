@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import type { ScoreTargetKind } from '#/lib/evaluation'
+import type { ScoreTargetKind } from '#/lib/eval/evaluation'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { listScoreSummaries } from '#/server/scores'
 

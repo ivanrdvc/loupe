@@ -1,4 +1,4 @@
-import { extractAgentName, extractToolName } from '#/lib/classify-span'
+import { extractAgentName, extractToolName } from '#/lib/spans/classify-span'
 import { ooColumns } from './conventions'
 import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import { bucketSecondsFor, zeroFillBucketed } from './time-series'

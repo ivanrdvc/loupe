@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AddToDatasetButton } from '#/components/scores/add-to-dataset'
-import { datasetInputFromSnapshot } from '#/lib/dataset-input'
+import { datasetInputFromSnapshot } from '#/lib/eval/dataset-input'
 import type { JsonValue } from '#/lib/json'
 import { cn } from '#/lib/utils'
 import { ExpectedOutputEditor } from './expected-output-editor'

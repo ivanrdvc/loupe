@@ -30,7 +30,7 @@ import {
   SCORE_TONE_CLASS,
   type Score,
   scoreIsBad,
-} from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'

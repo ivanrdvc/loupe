@@ -1,4 +1,4 @@
-import type { LiveFilter } from '#/lib/evaluation'
+import type { LiveFilter } from '#/lib/eval/evaluation'
 import type { JsonValue } from '#/lib/json'
 import type { TraceSummary } from '#/lib/telemetry/types'
 

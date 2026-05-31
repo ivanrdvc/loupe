@@ -4,7 +4,7 @@ import { Input } from '#/components/ui/input'
 import { Slider } from '#/components/ui/slider'
 import { Textarea } from '#/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
-import type { ScoreConfig } from '#/lib/evaluation'
+import type { ScoreConfig } from '#/lib/eval/evaluation'
 import { cn } from '#/lib/utils'
 
 export type ScoreDraft = { value: number | null; label: string | null; explanation: string | null }

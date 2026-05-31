@@ -37,9 +37,9 @@ import {
   SCORE_TONE_CLASS,
   type ScoreDataType,
   type ScoreTone,
-} from '#/lib/evaluation'
+} from '#/lib/eval/evaluation'
 import { formatCost } from '#/lib/format'
-import { JUDGE_TEMPLATES } from '#/lib/judge-templates'
+import { JUDGE_TEMPLATES } from '#/lib/eval/judge-templates'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { getJudgeDefaults, listEvalDefinitions, setEvalDefinitionStatus, upsertEvalDefinition } from '#/server/evals'

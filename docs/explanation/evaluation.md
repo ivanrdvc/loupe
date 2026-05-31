@@ -61,7 +61,7 @@ The key invariant is the partial unique index `score_live_unique` on
 and scale (categorical pass/fail label sets, numeric min/max + direction). Without
 it a dimension is *unclassified*: shown, but excluded from pass-rate. Pure helpers
 (`scoreIsBad`, `scorePassFail`, `numericFraction`, `summarizeScores`) live in
-`src/lib/evaluation.ts` so every surface — list badges, run summaries, the rollup,
+`src/lib/eval/evaluation.ts` so every surface — list badges, run summaries, the rollup,
 compare — classifies a verdict the same way.
 
 ### Evaluators and experiments

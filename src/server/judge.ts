@@ -8,7 +8,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError, generateObject, generateText, jsonSchema, type LanguageModel, NoObjectGeneratedError } from 'ai'
 import type { JsonValue } from '#/lib/json'
-import { estimateCostUsd } from '#/lib/llm-pricing'
+import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 
 const JUDGE_TIMEOUT_MS = 60_000
 

@@ -687,6 +687,20 @@ function StatusIcon({ status }: { status: RunItemStatus }) {
   return <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
 }
 
+const isValidJson = (s: string) => {
+  try {
+    JSON.parse(s)
+    return true
+  } catch {
+    return false
+  }
+}
+// Default an example's Expected to JSON mode only when it already holds a JSON object/array.
+const looksLikeJson = (s: string | null | undefined) => {
+  const t = (s ?? '').trim()
+  return /^[{[]/.test(t) && isValidJson(t)
+}
+
 function ExampleSheet({
   datasetId,
   example,
@@ -700,6 +714,9 @@ function ExampleSheet({
 }) {
   const [input, setInput] = useState<ExampleInput>(example?.input ?? '')
   const [expected, setExpected] = useState(example?.expected ?? '')
+  const [expectedMode, setExpectedMode] = useState<'text' | 'json'>(() =>
+    looksLikeJson(example?.expected) ? 'json' : 'text',
+  )
   const [metaPairs, setMetaPairs] = useState<Array<[string, string]>>(Object.entries(example?.metadata ?? {}))
 
   const saveMutation = useMutation({
@@ -733,6 +750,13 @@ function ExampleSheet({
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
 
+  const jsonInvalid = expectedMode === 'json' && expected.trim().length > 0 && !isValidJson(expected)
+  const switchToJson = () => {
+    setExpectedMode('json')
+    const t = expected.trim()
+    if (t && isValidJson(t)) setExpected(JSON.stringify(JSON.parse(t), null, 2))
+  }
+
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
@@ -747,16 +771,43 @@ function ExampleSheet({
             <InputEditor input={input} onChange={setInput} />
           </Field>
           <Field label="Expected">
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={expectedMode === 'text' ? 'secondary' : 'ghost'}
+                onClick={() => setExpectedMode('text')}
+              >
+                Text
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={expectedMode === 'json' ? 'secondary' : 'ghost'}
+                onClick={switchToJson}
+              >
+                JSON
+              </Button>
+            </div>
             <Textarea
               value={expected}
               onChange={(e) => setExpected(e.target.value)}
-              rows={2}
-              placeholder="Reference answer, a tool-call assertion, or a judge rubric…"
+              rows={expectedMode === 'json' ? 5 : 2}
+              className={cn(jsonInvalid && 'border-destructive', expectedMode === 'json' && 'font-mono text-xs')}
+              placeholder={
+                expectedMode === 'json'
+                  ? '{ "criterion": "mentions the 30-day window" }'
+                  : 'Reference answer, a tool-call assertion, or a judge rubric…'
+              }
             />
-            <p className="text-[11px] text-muted-foreground">
-              For variable / tool-using answers this is a criterion, checked by the (later) judge — not an exact string
-              match.
-            </p>
+            {jsonInvalid ? (
+              <p className="text-[11px] text-destructive">Invalid JSON — fix it or switch to Text.</p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                A criterion checked by the judge (not an exact string match). Text or JSON — both are passed to the
+                judge as the reference.
+              </p>
+            )}
           </Field>
           <Field label="Metadata">
             <MetadataEditor pairs={metaPairs} onChange={setMetaPairs} />
@@ -776,7 +827,7 @@ function ExampleSheet({
         </div>
         <SheetFooter>
           <div className="flex items-center gap-2">
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || jsonInvalid}>
               Save
             </Button>
             <SheetClose asChild>

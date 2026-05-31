@@ -18,7 +18,7 @@
 // This file is pure — no React. Renderer lives in
 // `src/components/scaffold-group.tsx`.
 
-import type { ConversationEvent } from './conversation'
+import type { ConversationEvent } from '#/lib/spans/conversation'
 
 export type ScaffoldMessage = Extract<ConversationEvent, { kind: 'message' }> & {
   role: 'system' | 'assistant'

@@ -74,7 +74,7 @@ What the **root span** of each trace category must carry. Child spans only need 
 
 ## Mechanism
 
-Consumer-side normalisation at fetch time. The single pass in `src/lib/spans.ts` (post-getTrace) reads structural shape and stamps `gen_ai.task.id` (= span_id) and `gen_ai.task.parent.id` (= nearest ancestor `invoke_agent`'s task id, or null on top-level) onto each `invoke_agent` span in memory. The rest of the codebase reads attributes.
+Consumer-side normalisation at fetch time. The single pass in `src/lib/spans/index.ts` (post-getTrace) reads structural shape and stamps `gen_ai.task.id` (= span_id) and `gen_ai.task.parent.id` (= nearest ancestor `invoke_agent`'s task id, or null on top-level) onto each `invoke_agent` span in memory. The rest of the codebase reads attributes.
 
 Pass-through: when a span arrives already carrying these attrs (Traceloop producers, LangGraph via the `graph.node.*` alias, anyone emitting them natively), the normaliser trusts the producer and skips its own stamping.
 

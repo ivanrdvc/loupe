@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { asMessages, findUtilityChatIds } from './conversation'
-import type { Span } from './spans'
+import type { Span } from '.'
 
 function span(overrides: Partial<Span> & Pick<Span, 'id' | 'operation'>): Span {
   return {

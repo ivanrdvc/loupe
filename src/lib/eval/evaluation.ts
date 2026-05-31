@@ -1,7 +1,7 @@
 // Shared evaluation types + display/aggregation helpers (see docs/plans/evaluation.md).
 // One `Score` primitive (human/llm/code, disambiguated by `source`); these DTOs are the
 // serialized (epoch-ms) shape returned by the server fns in src/server/scores.ts.
-import type { JsonValue } from './json'
+import type { JsonValue } from '#/lib/json'
 
 export type ScoreDataType = 'numeric' | 'categorical' | 'boolean' | 'text'
 export type ScoreTargetKind = 'span' | 'trace' | 'session'
