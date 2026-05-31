@@ -2,12 +2,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { datasetExamples, datasetRunItems, datasetRuns, scores } from '#/db/schema'
-import { type ScoreDataType, SCORE_DATA_TYPES } from '#/lib/evaluation'
+import { SCORE_DATA_TYPES, type ScoreDataType } from '#/lib/evaluation'
 import type { JsonValue } from '#/lib/json'
 import type { ExampleInput } from '#/routes/datasets/-types'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
 
-export const DEFAULT_DATASET_JUDGE_PROMPT =
+const DEFAULT_DATASET_JUDGE_PROMPT =
   'You are grading an agent answer. Given the question and (if present) the expected answer, decide whether the answer is correct. 1 = correct, 0 = incorrect.'
 
 const DEFAULT_DIMENSION = 'correctness'

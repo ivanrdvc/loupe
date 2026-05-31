@@ -18,7 +18,7 @@ import {
 import { DEFAULT, parse, serialize, type TimeRange, windowMs, windowUs } from '#/lib/time-range'
 import { runDetection } from '#/server/detection'
 import { runToolErrorRateDetection, runToolPayloadDetection } from '#/server/detection/anomalies'
-import { recoverStuckEvalRuns } from '#/server/evals'
+import { recoverStuckEvalRuns } from '#/server/eval-jobs'
 import { type InventoryRow, listHomeInventory } from '#/server/inbox'
 import { runOnlineEvals } from '#/server/online-evals'
 

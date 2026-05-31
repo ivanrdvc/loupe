@@ -3,7 +3,7 @@ import { db } from '#/db'
 import { evalDefinitions, scores } from '#/db/schema'
 import type { JsonValue } from '#/lib/json'
 import { listRecentTraces } from '#/lib/telemetry'
-import { casesFromTraces } from './evals'
+import { casesFromTraces } from './eval-jobs'
 import { resolveJudgeDefaults, runJudgeSamples } from './judge'
 import { matchesLiveFilter, parseLiveFilter, sampleRateOf } from './online-eval-filter'
 
@@ -25,11 +25,7 @@ export async function runOnlineEvals(
     .select()
     .from(evalDefinitions)
     .where(
-      and(
-        eq(evalDefinitions.mode, 'online'),
-        eq(evalDefinitions.status, 'active'),
-        eq(evalDefinitions.source, 'llm'),
-      ),
+      and(eq(evalDefinitions.mode, 'online'), eq(evalDefinitions.status, 'active'), eq(evalDefinitions.source, 'llm')),
     )
   if (defs.length === 0) return { evaluators: 0, scored: 0 }
 

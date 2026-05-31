@@ -1,6 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, inArray, lt, or } from 'drizzle-orm'
-import { spanEvalSnapshot } from '#/lib/span-eval-snapshot'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { db } from '#/db'
 import { evalDefinitions, evalRuns, scoreConfigs, scores } from '#/db/schema'
 import {
@@ -23,12 +22,10 @@ import {
   type UpsertEvalDefinitionInput,
 } from '#/lib/evaluation'
 import type { JsonValue } from '#/lib/json'
-import type { Span } from '#/lib/spans'
-import { getTrace, listRecentTraces } from '#/lib/telemetry'
-import { type JudgeCaseFields, MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
+import { listRecentTraces } from '#/lib/telemetry'
+import { casesFromTraces, type JudgeCaseInput } from './eval-jobs'
+import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
 import { scaleMap } from './scores'
-
-const STUCK_EVAL_RUN_MS = 2 * 60 * 60 * 1000
 
 function asScope(v: unknown): EvalScope {
   if (typeof v === 'string' && SCORE_TARGET_KINDS.includes(v as ScoreTargetKind)) return v as EvalScope
@@ -319,20 +316,6 @@ export const blessEvalRun = createServerFn({ method: 'POST' })
   })
 
 // the run executor (Path B)
-// One case = one target + a snapshot of the normalized Span fields the judge
-// reads. Built client-side (where Spans are loaded) or from dataset items.
-export type JudgeCaseInput = {
-  targetKind: ScoreTargetKind
-  targetId: string
-  parentTraceId?: string | null
-  parentSessionId?: string | null
-  sessionSource?: 'attribute' | 'trace' | null
-  datasetRunItemId?: number | null
-  promptVersionId?: number | null
-  fields: JudgeCaseFields
-  expected?: JsonValue | null
-}
-
 // Creates the run row and returns immediately as 'running'; the judge loop runs as
 // a background job, writing scores + updating the summary per case as the UI polls.
 export const runEval = createServerFn({ method: 'POST' })
@@ -398,48 +381,6 @@ export const runEval = createServerFn({ method: 'POST' })
 
     return toRun(runRow)
   })
-
-// A chat span carries the model I/O the judge reads.
-function isScorableSpan(span: Span): boolean {
-  return span.llmInput != null || span.llmOutput != null
-}
-
-// Build judge cases from real traces (loaded server-side) so an evaluator can run
-// over a trace selection without the caller snapshotting spans. scope=span yields
-// one case per chat span; scope=trace/session yields one per trace (its final chat
-// span), with targetId = the trace id.
-export async function casesFromTraces(traceIds: string[], scope: ScoreTargetKind): Promise<JudgeCaseInput[]> {
-  const cases: JudgeCaseInput[] = []
-  for (const traceId of traceIds) {
-    const trace = await getTrace(traceId)
-    if (!trace) continue
-    const scorable = trace.spans.filter(isScorableSpan)
-    if (scorable.length === 0) continue
-    if (scope === 'span') {
-      for (const span of scorable) {
-        cases.push({
-          targetKind: 'span',
-          targetId: span.id,
-          parentTraceId: traceId,
-          parentSessionId: span.sessionId ?? null,
-          sessionSource: span.sessionSource ?? null,
-          fields: spanEvalSnapshot(span),
-        })
-      }
-    } else {
-      const span = scorable[scorable.length - 1]
-      cases.push({
-        targetKind: scope,
-        targetId: traceId,
-        parentTraceId: traceId,
-        parentSessionId: span.sessionId ?? null,
-        sessionSource: scope === 'session' ? (span.sessionSource ?? 'trace') : null,
-        fields: spanEvalSnapshot(span),
-      })
-    }
-  }
-  return cases
-}
 
 // Shared by both trace triggers: create the run row, return immediately; case
 // building + judging run in the background.
@@ -706,24 +647,5 @@ export const compareRuns = createServerFn({ method: 'GET' })
     }
     return result.sort((a, b) => b.flippedToFail - a.flippedToFail)
   })
-
-export async function recoverStuckEvalRuns(maxAgeMs = STUCK_EVAL_RUN_MS): Promise<number> {
-  const cutoff = new Date(Date.now() - maxAgeMs)
-  const stuck = await db
-    .select({ id: evalRuns.id })
-    .from(evalRuns)
-    .where(
-      and(
-        or(eq(evalRuns.status, 'pending'), eq(evalRuns.status, 'running')),
-        lt(evalRuns.createdAt, cutoff),
-      ),
-    )
-  if (stuck.length === 0) return 0
-  const now = new Date()
-  for (const row of stuck) {
-    await db.update(evalRuns).set({ status: 'error', endedAt: now }).where(eq(evalRuns.id, row.id))
-  }
-  return stuck.length
-}
 
 export const getJudgeDefaults = createServerFn({ method: 'GET' }).handler(async () => resolveJudgeDefaults())
