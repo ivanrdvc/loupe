@@ -16,7 +16,10 @@ describe('parseLiveFilter', () => {
   })
 
   it('keeps trimmed service/agent matchers', () => {
-    expect(parseLiveFilter({ serviceName: ' api ', agentName: 'Bot' })).toEqual({ serviceName: 'api', agentName: 'Bot' })
+    expect(parseLiveFilter({ serviceName: ' api ', agentName: 'Bot' })).toEqual({
+      serviceName: 'api',
+      agentName: 'Bot',
+    })
   })
 
   it('drops blank string matchers', () => {

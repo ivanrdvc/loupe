@@ -28,13 +28,7 @@ export const AUTO_REFRESH_MS = Object.fromEntries(
   Object.entries(AUTO_REFRESH_INTERVALS).map(([key, def]) => [key, def.ms]),
 ) as Record<AutoRefreshInterval, false | number>
 
-const LIST_AUTO_REFRESH_OPTIONS = [
-  'off',
-  '30s',
-  '1m',
-  '5m',
-  '15m',
-] as const satisfies readonly AutoRefreshInterval[]
+const LIST_AUTO_REFRESH_OPTIONS = ['off', '30s', '1m', '5m', '15m'] as const satisfies readonly AutoRefreshInterval[]
 
 export const INSPECT_AUTO_REFRESH_OPTIONS = [
   'off',

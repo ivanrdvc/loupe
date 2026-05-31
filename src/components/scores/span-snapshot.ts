@@ -1,5 +1,5 @@
-import type { JsonValue } from '#/lib/json'
 import { spanEvalSnapshot } from '#/lib/eval/span-eval-snapshot'
+import type { JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 
 // Prefer the last chat span with output — the usual correction target.

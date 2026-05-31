@@ -1,6 +1,6 @@
+import { parseJson } from '#/lib/json'
 import { extractAgentName } from '#/lib/spans/classify-span'
 import { asMessages } from '#/lib/spans/conversation'
-import { parseJson } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
 import { classifyTraceCategory } from './trace-category'

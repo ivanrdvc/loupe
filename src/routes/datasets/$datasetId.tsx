@@ -45,11 +45,11 @@ import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { judgeDatasetRun } from '#/server/dataset-judge'
 import { deleteExamples, runDataset, updateDataset, upsertExample } from '#/server/datasets'
-import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { getJudgeDefaults, listEvalDefinitions } from '#/server/evals'
 import { DataGrid } from './-components/data-grid'
 import {
@@ -538,8 +538,16 @@ function RunsTab({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <label className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
-              <Switch checked={autoJudge} onCheckedChange={onAutoJudgeChange} disabled={!judgeConfigured} />
+            <label
+              htmlFor="auto-judge"
+              className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground"
+            >
+              <Switch
+                id="auto-judge"
+                checked={autoJudge}
+                onCheckedChange={onAutoJudgeChange}
+                disabled={!judgeConfigured}
+              />
               Auto-judge
             </label>
           </TooltipTrigger>

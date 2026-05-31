@@ -10,6 +10,7 @@
     "includes": [
       "**",
       "!**/routeTree.gen.ts",
+      "!**/drizzle/**",
       "!**/.nitro",
       "!**/.tanstack",
       "!**/.output",

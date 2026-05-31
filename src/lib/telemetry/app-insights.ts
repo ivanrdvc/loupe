@@ -1,8 +1,6 @@
 import { DefaultAzureCredential } from '@azure/identity'
 import { LogsQueryClient, type LogsQueryResult, LogsQueryResultStatus } from '@azure/monitor-query-logs'
-import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
 import type { JsonValue } from '#/lib/json'
-import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 import {
   dedupeById,
   normalizeRunGraph,
@@ -12,6 +10,8 @@ import {
   type Span,
   type SpanKind,
 } from '#/lib/spans'
+import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
+import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 import { aiCoalesce, attrKeysFor } from './conventions'
 import {
   aggregateSessions,

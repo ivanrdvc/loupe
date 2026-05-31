@@ -201,8 +201,7 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
 
 function InventoryNav({ pathname }: { pathname: string }) {
   const sectionActive =
-    pathname.startsWith(INVENTORY_GROUP.basePath) ||
-    INVENTORY_NAV.some((item) => navMatches(item, pathname))
+    pathname.startsWith(INVENTORY_GROUP.basePath) || INVENTORY_NAV.some((item) => navMatches(item, pathname))
   return (
     <Collapsible asChild defaultOpen={sectionActive} className="group/collapsible">
       <SidebarMenuItem>

@@ -1,7 +1,7 @@
-import { asMessages, type MessagePart } from '#/lib/spans/conversation'
 import { estimateTokens } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
+import { asMessages, type MessagePart } from '#/lib/spans/conversation'
 import { isAgentSpan, isChatSpan } from './predicates'
 
 export interface AguiItem {

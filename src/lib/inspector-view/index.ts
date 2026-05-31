@@ -1,5 +1,5 @@
-import { buildConversation, type ConversationEvent } from '#/lib/spans/conversation'
 import type { Span } from '#/lib/spans'
+import { buildConversation, type ConversationEvent } from '#/lib/spans/conversation'
 import { isAgentSpan, isChatSpan, spanHasError } from './predicates'
 import { type AguiItem, collectSystemAndAgui } from './system'
 import {

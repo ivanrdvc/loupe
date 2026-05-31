@@ -59,9 +59,9 @@ describe('spanEvalSnapshot', () => {
   })
 
   it('does not copy unrelated span attrs', () => {
-    expect(
-      spanEvalSnapshot(span({ id: 's1', llmInput: 'x', model: 'gpt-4o', tokens: 42, costUsd: 0.01 })),
-    ).toEqual({ llmInput: 'x' })
+    expect(spanEvalSnapshot(span({ id: 's1', llmInput: 'x', model: 'gpt-4o', tokens: 42, costUsd: 0.01 }))).toEqual({
+      llmInput: 'x',
+    })
   })
 })
 
@@ -97,15 +97,19 @@ describe('toolCallsFromSpans', () => {
       span({ id: 't1', operation: 'tool', toolName: 'search', inputParams: 'weather in SF' }),
       span({ id: 't2', operation: 'tool', toolName: 'noop', inputParams: '   ' }),
     ]
-    expect(toolCallsFromSpans(spans)).toEqual([
-      { name: 'search', args: 'weather in SF' },
-      { name: 'noop' },
-    ])
+    expect(toolCallsFromSpans(spans)).toEqual([{ name: 'search', args: 'weather in SF' }, { name: 'noop' }])
   })
 
   it('includes mcp spans (classify-span stamps toolName on tool + mcp)', () => {
     const spans = [
-      span({ id: 'm', operation: 'mcp', toolName: 'fetch_url', inputParams: '{"url":"x"}', toolResult: 'ok', startMs: 5 }),
+      span({
+        id: 'm',
+        operation: 'mcp',
+        toolName: 'fetch_url',
+        inputParams: '{"url":"x"}',
+        toolResult: 'ok',
+        startMs: 5,
+      }),
       span({ id: 't', operation: 'tool', toolName: 'add', inputParams: '{"a":1}', startMs: 10 }),
     ]
     expect(toolCallsFromSpans(spans)).toEqual([
