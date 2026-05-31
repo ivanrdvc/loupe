@@ -73,6 +73,10 @@ The `listSpans` provider method runs one query per provider that returns rows ma
 
 Toolbar pieces (`SearchInput`, `DataTableFacetedFilter`, `TimeRangeSelect`) plus `formatAgo` / `formatCost` / `truncateId` in `src/lib/format.ts` are shared across both.
 
+### Sidebar Recent
+
+`/sessions` shows **all** sessions (operator view, unscoped). The sidebar **Recent** list is personal: your last 5, scoped server-side by `loupe:user-id` (set in Settings → Account, read via `useUserId()` in `src/hooks/use-user.ts`). No ID set → the query is disabled and Recent is hidden entirely. Placeholder until real auth lands.
+
 ## Data fetching
 
 Route loaders call `context.queryClient.ensureQueryData(...)` and routes read via `useQuery(...)`. Per-route `queryOptions` ship next to loaders (e.g. `sessions/-data.ts`, `runs/-data.ts`); stable keys live in `src/lib/query-keys.ts`.

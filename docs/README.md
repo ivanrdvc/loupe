@@ -18,13 +18,13 @@ Each folder has its own `README.md` index listing every file with its
 `summary:` line — that's the catalog. Open the index, decide which file
 to read, then open the file.
 
-Guides (`how to do X`) and decisions (ADRs) will get their own folders when
-the first one is written; premature to scaffold them now.
+Decisions (ADRs) and a glossary will get their own folder/file when the first
+one is written; premature to scaffold them now.
 
 ## Where does my doc go?
 
 ```
-1. Steps to do a task ("how do I X?")     → guides/        (create the folder)
+1. Steps to do a task ("how do I X?")     → guides/
 2. A flat lookup table or registry        → reference/
 3. The "why" of a subsystem               → explanation/
 4. A proposal for an unbuilt feature      → plans/
@@ -42,4 +42,6 @@ Test: step 1, step 2, step 3                  → guide.
   `audience`, `last-reviewed`, `tags`. Keeps `grep '^summary:' docs/**/*.md`
   useful as a digest.
 - Filenames are topical and lowercase-kebab. No date prefixes.
+- Number only an ordered on-ramp (`explanation/01-…`, `02-…`); parallel docs
+  stay unnumbered. `ls` then shows the read-in-order set first, deep dives after.
 - Cross-link liberally. Stale links are bugs.

@@ -28,9 +28,7 @@ doc, write it here.
   limited to local app state.
 - [Sessions vs Runs](sessions-vs-live.md) — two top-level UI entries, two
   different jobs. Sessions is pure observability; Runs is the
-  active / single-execution surface.
-- [Session sidebar Recent](session-sidebar-recent.md) — how the Sessions page
-  and the sidebar Recent list differ.
+  active / single-execution surface. Includes the sidebar Recent split.
 - [Tasks](tasks.md) — what the Tasks page shows: machine-driven agent runs
   (scheduled, event, webhook, background) rolled up by task identity.
   Read-only over OTel.

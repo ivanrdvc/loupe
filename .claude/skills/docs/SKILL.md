@@ -39,15 +39,15 @@ The map, decision tree ("where does my doc go?"), frontmatter spec, and naming c
 1. **Confirm scope.** Restate the user's topic in one sentence so they can correct you before you write.
 2. **Locate or place.**
    - *New doc:* walk the decision tree in `/docs/README.md`, pick a folder + filename, state your pick in one line.
-   - *Inside `explanation/`*: filenames are numbered and flat (no subfolders). Two-digit prefix (`10-foo.md`). Look at the existing files, take the next free number, and update the folder `README.md` index. If you're *inserting* between existing numbers rather than appending, that means renumbering — confirm with the user before doing it (cross-link rewrites are required). Folder `README.md` itself stays unprefixed. ADRs in `decisions/` keep three-digit padding (`004-...md`).
-   - *Outside `explanation/`* (guides, reference, glossary, top level): no numbering. Just kebab-case filenames; reading order lives in the folder `README.md`.
+   - *Inside `explanation/`*: flat, no subfolders. **Number only the ordered on-ramp** (`01-architecture`, `02-spec`, `03-classify-span` — the read-in-order foundation). A new doc joins the on-ramp *only* if it's part of that sequence; almost always it's a parallel **subsystem** doc, which stays **unnumbered** kebab-case (`datasets.md`, `tasks.md`, `code-organization.md`). When in doubt, unnumbered. Update the folder `README.md` index under the right group. Inserting a new number mid-on-ramp means renumbering everything after it — confirm with the user first (cross-link rewrites required). Folder `README.md` itself stays unprefixed.
+   - *Outside `explanation/`* (guides, reference, plans, top level): no numbering. Just kebab-case filenames; reading order lives in the folder `README.md`. `plans/` holds forward-looking proposals for unbuilt features. (`decisions/` for ADRs and a top-level `glossary.md` aren't in the tree yet — create them on first need, three-digit ADR padding `004-…md`; don't scaffold empty.)
    - *Update:* find the file (Read/Grep, don't guess). If nothing matches, surface that and ask.
 3. **Write.**
    - *New:* copy the matching template from `/docs/_templates/` (`explanation.md` | `guide.md` | `reference.md`). Fill frontmatter per `/docs/README.md`'s spec; `status: draft`, `last-reviewed:` = today. Then write per the active mode (default vs `--draft`).
    - *Update:* make the targeted edit. Bump `last-reviewed:`. If the change makes the frontmatter `summary:` wrong, update it (and the matching bullet in the folder README).
 4. **Index follow-ups.**
    - Added a doc → add a bullet to that folder's `README.md` (matching the existing format).
-   - Introduced a domain term not yet in `/docs/glossary.md` → add a one-line entry there linking to the new doc.
+   - Introduced a domain term and a `/docs/glossary.md` exists → add a one-line entry linking to the new doc. (No glossary yet — only create one if the user asks.)
 
 ## Don'ts
 
