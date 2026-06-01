@@ -146,21 +146,21 @@ function asLabelList(value: unknown): string[] | null {
   return out.length > 0 ? out : null
 }
 
+// Project a config row into the polarity/scale hint pass/fail aggregation reads.
+export function configToHint(c: typeof scoreConfigs.$inferSelect): ConfigHint {
+  return {
+    minValue: c.minValue,
+    maxValue: c.maxValue,
+    passLabels: (c.passLabels ?? null) as string[] | null,
+    failLabels: (c.failLabels ?? null) as string[] | null,
+    direction: c.direction,
+  }
+}
+
 // Per-dimension polarity/scale hints, keyed by name — the source of truth for
 // pass/fail + numeric scale used by every aggregation (badges, rollup, compare).
 export function scaleMap(configs: (typeof scoreConfigs.$inferSelect)[]): Map<string, ConfigHint> {
-  return new Map(
-    configs.map((c) => [
-      c.name,
-      {
-        minValue: c.minValue,
-        maxValue: c.maxValue,
-        passLabels: (c.passLabels ?? null) as string[] | null,
-        failLabels: (c.failLabels ?? null) as string[] | null,
-        direction: c.direction,
-      },
-    ]),
-  )
+  return new Map(configs.map((c) => [c.name, configToHint(c)]))
 }
 
 // score_config (dimension registry)

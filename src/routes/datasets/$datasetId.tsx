@@ -13,7 +13,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { Badge } from '#/components/ui/badge'
@@ -142,15 +142,13 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
 
   const [judgeDefId, setJudgeDefId] = useState('default')
-  const [autoJudge, setAutoJudge] = useState(() => {
-    if (typeof localStorage === 'undefined') return false
-    return localStorage.getItem('datasets:autoJudge') === '1'
-  })
+  const [autoJudge, setAutoJudge] = useState(false)
+  useEffect(() => {
+    setAutoJudge(window.localStorage.getItem('datasets:autoJudge') === '1')
+  }, [])
   const changeAutoJudge = (v: boolean) => {
     setAutoJudge(v)
-    try {
-      localStorage.setItem('datasets:autoJudge', v ? '1' : '0')
-    } catch {}
+    window.localStorage.setItem('datasets:autoJudge', v ? '1' : '0')
   }
   const { data: judgeDefaults } = useQuery({
     queryKey: queryKeys.evals.judgeDefaults(),

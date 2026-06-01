@@ -30,8 +30,7 @@ import type {
 
 export type * from './types'
 
-// Cookie wins over env so the settings UI works without a restart. Stale
-// cookies (provider whose env is no longer set) fall through to the next tier.
+// UI choice (cookie) wins, then TELEMETRY_PROVIDER, then auto.
 export const PROVIDER_COOKIE = 'tp'
 
 export type ProviderId = 'openobserve' | 'app-insights'
@@ -101,20 +100,16 @@ function readCookieChoice(): ProviderId | undefined {
   return undefined
 }
 
+function isUsable(id: ProviderId): boolean {
+  return !!listProviderStatus().find((p) => p.id === id)?.configured
+}
+
 function resolveProviderId(): ProviderId {
   const fromCookie = readCookieChoice()
-  if (fromCookie) {
-    const status = listProviderStatus().find((p) => p.id === fromCookie)
-    if (status?.configured) return fromCookie
-  }
+  if (fromCookie && isUsable(fromCookie)) return fromCookie
   const fromEnv = process.env.TELEMETRY_PROVIDER
-  if (fromEnv === 'app-insights' || fromEnv === 'openobserve') {
-    const status = listProviderStatus().find((p) => p.id === fromEnv)
-    if (status?.configured) return fromEnv
-  }
-  const ai = listProviderStatus().find((p) => p.id === 'app-insights')
-  if (ai?.configured) return 'app-insights'
-  return 'openobserve'
+  if ((fromEnv === 'app-insights' || fromEnv === 'openobserve') && isUsable(fromEnv)) return fromEnv
+  return isUsable('app-insights') ? 'app-insights' : 'openobserve'
 }
 
 function getActiveProvider(): TelemetryProvider {

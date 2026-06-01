@@ -7,7 +7,7 @@ summary: Named, versioned sets of questions fired at the user's agent over HTTP;
 status: draft
 owner: "@ivan"
 audience: loupe-devs
-last-reviewed: 2026-05-30
+last-reviewed: 2026-06-01
 tags: [datasets, evaluation, traces]
 ---
 
@@ -16,8 +16,8 @@ tags: [datasets, evaluation, traces]
 A dataset is a saved set of questions you fire at your agent repeatedly to see if
 it still behaves — a regression set, a QA-owned suite, or a test-first scratchpad.
 This doc explains the mental model and why it's shaped the way it is. For the
-build plan and open decisions see [plans/datasets.md](../plans/datasets.md);
-this is UI-only/mock at time of writing.
+original build plan and open decisions see [plans/datasets.md](../plans/datasets.md);
+output grading is covered in [evaluation.md](evaluation.md).
 
 ## The shape of the problem
 

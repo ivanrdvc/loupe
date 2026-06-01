@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AddToDatasetButton } from '#/components/scores/add-to-dataset'
 import { datasetInputFromSnapshot } from '#/lib/eval/dataset-input'
-import type { JsonValue } from '#/lib/json'
+import { type JsonValue, prettyJson } from '#/lib/json'
 import { cn } from '#/lib/utils'
 import { ExpectedOutputEditor } from './expected-output-editor'
-import { defaultExpectedFromSnapshot, prettyJson } from './span-snapshot'
+import { defaultExpectedFromSnapshot } from './span-snapshot'
 
 type Props = {
   input: Record<string, JsonValue>

@@ -8,6 +8,7 @@ import type { JsonValue } from '#/lib/json'
 import type { ExampleInput } from '#/routes/datasets/-types'
 import { toolCallsFromTrace } from './eval-jobs'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
+import { configToHint } from './scores'
 
 const DEFAULT_DATASET_JUDGE_PROMPT =
   'You are grading an agent answer. Given the question and (if present) the expected answer, decide whether the answer is correct. 1 = correct, 0 = incorrect.'
@@ -64,15 +65,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
 
     const [cfg] = await db.select().from(scoreConfigs).where(eq(scoreConfigs.name, dimension)).limit(1)
     const categories = (cfg?.categories ?? null) as string[] | null
-    const scale: ConfigHint | undefined = cfg
-      ? {
-          minValue: cfg.minValue,
-          maxValue: cfg.maxValue,
-          passLabels: (cfg.passLabels ?? null) as string[] | null,
-          failLabels: (cfg.failLabels ?? null) as string[] | null,
-          direction: cfg.direction,
-        }
-      : undefined
+    const scale: ConfigHint | undefined = cfg ? configToHint(cfg) : undefined
 
     const [run] = await db.select().from(datasetRuns).where(eq(datasetRuns.id, data.runId)).limit(1)
     if (!run) throw new Error('judgeDatasetRun: run not found')
@@ -128,6 +121,14 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
       }
 
       const targetId = item.traceId ?? `item:${item.id}`
+      const metadata = {
+        samples: verdict.samples,
+        variance: verdict.variance,
+        perSample: verdict.perSample,
+        inputTokens: verdict.inputTokens,
+        outputTokens: verdict.outputTokens,
+        raw: verdict.raw.slice(0, 2000),
+      }
       await db
         .insert(scores)
         .values({
@@ -145,14 +146,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
           errorType: verdict.errorType,
           definitionId: def?.id ?? null,
           datasetRunItemId: item.id,
-          metadata: {
-            samples: verdict.samples,
-            variance: verdict.variance,
-            perSample: verdict.perSample,
-            inputTokens: verdict.inputTokens,
-            outputTokens: verdict.outputTokens,
-            raw: verdict.raw.slice(0, 2000),
-          },
+          metadata,
           createdAt: now,
         })
         .onConflictDoUpdate({
@@ -167,6 +161,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
             errorType: verdict.errorType,
             definitionId: def?.id ?? null,
             datasetRunItemId: item.id,
+            metadata,
             createdAt: now,
           },
         })

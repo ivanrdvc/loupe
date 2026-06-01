@@ -26,7 +26,7 @@ import { listRecentTraces } from '#/lib/telemetry'
 import { casesFromTraces, type JudgeCaseInput } from './eval-jobs'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
 import { parseLiveFilter } from './online-eval-filter'
-import { scaleMap } from './scores'
+import { configToHint, scaleMap } from './scores'
 
 function asScope(v: unknown): EvalScope {
   if (typeof v === 'string' && SCORE_TARGET_KINDS.includes(v as ScoreTargetKind)) return v as EvalScope
@@ -514,15 +514,7 @@ async function executeEvalRun(opts: {
   const [cfg] = await db.select().from(scoreConfigs).where(eq(scoreConfigs.name, def.name)).limit(1)
   const categories = (cfg?.categories ?? null) as string[] | null
   // Full polarity/scale hint so the summary's pass/fail honors the config.
-  const scale: ConfigHint | undefined = cfg
-    ? {
-        minValue: cfg.minValue,
-        maxValue: cfg.maxValue,
-        passLabels: (cfg.passLabels ?? null) as string[] | null,
-        failLabels: (cfg.failLabels ?? null) as string[] | null,
-        direction: cfg.direction,
-      }
-    : undefined
+  const scale: ConfigHint | undefined = cfg ? configToHint(cfg) : undefined
 
   for (const c of cases) {
     const verdict = await runJudgeSamples(

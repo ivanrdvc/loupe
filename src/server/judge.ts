@@ -1,8 +1,8 @@
 // In-app LLM judge (Path B). Calls the model through the Vercel AI SDK with a
 // BYO key from env (OPENAI_API_KEY / ANTHROPIC_API_KEY), reading only normalized
 // Span fields so it scores any emitter identically. Provider is inferred from the
-// model id; a JUDGE_BASE_URL (or PROMPT_LIVE_ENDPOINT) routes to a local/compatible
-// OpenAI Responses endpoint.
+// model id; a JUDGE_BASE_URL (or local JUDGE_ENDPOINT / PROMPT_LIVE_ENDPOINT) routes
+// to a local/compatible OpenAI Responses endpoint.
 
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -28,7 +28,7 @@ const stripPath = (url: string) => url.replace(/\/+(responses|chat\/completions)
 
 // Where OpenAI-family judge calls go. An explicit JUDGE_BASE_URL always wins; with
 // a real OPENAI_API_KEY we hit api.openai.com directly; otherwise fall back to a
-// local OpenAI-compatible endpoint (PROMPT_LIVE_ENDPOINT) for keyless dev.
+// local OpenAI-compatible endpoint (JUDGE_ENDPOINT, else PROMPT_LIVE_ENDPOINT) for keyless dev.
 function judgeBaseUrl(): string | undefined {
   if (process.env.JUDGE_BASE_URL) return stripPath(process.env.JUDGE_BASE_URL)
   if (process.env.OPENAI_API_KEY) return undefined

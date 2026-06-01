@@ -22,7 +22,3 @@ export function defaultExpectedFromSnapshot(input: Record<string, JsonValue>): J
   if (input.toolResult != null) return input.toolResult
   return null
 }
-
-export function prettyJson(value: JsonValue): string {
-  return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-}

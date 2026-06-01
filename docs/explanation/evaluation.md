@@ -86,8 +86,8 @@ is flagged `errorType: 'parse_error'` rather than counted as a pass.
 
 **Provider resolution** (`resolveJudgeDefaults`): model `JUDGE_MODEL` (default
 `gpt-4o-mini`) picks the provider; an explicit `JUDGE_BASE_URL` wins, else a real
-`OPENAI_API_KEY` hits `api.openai.com`, else a local `PROMPT_LIVE_ENDPOINT` is the
-keyless fallback. `runJudge` uses `generateObject` with the verdict JSON schema for
+`OPENAI_API_KEY` hits `api.openai.com`, else a local `JUDGE_ENDPOINT` (or
+`PROMPT_LIVE_ENDPOINT`) is the keyless fallback. `runJudge` uses `generateObject` with the verdict JSON schema for
 structured output (falling back to `generateText` + `parseVerdict` when
 `JUDGE_STRUCTURED_OUTPUT=0` or a model returns prose). A missing key for the chosen
 provider surfaces per-case as `config_error`; the run-detail page shows a
