@@ -574,9 +574,9 @@ async function executeEvalRun(opts: {
     await db.update(evalRuns).set({ summary }).where(eq(evalRuns.id, runId))
   }
 
-  // A run where every case errored (e.g. the judge endpoint was reachable-but-failing
+  // A run where every case errored (e.g. the judge provider was reachable-but-failing
   // the whole time) is itself an error, not a "done" run with incidental errors — this
-  // also lets the run detail surface the endpoint hint (judgeEndpointHint).
+  // also lets the run detail surface the judge hint (judgeErrorHint).
   const allErrored = (summary.total ?? 0) > 0 && summary.errors === summary.total
   await db
     .update(evalRuns)

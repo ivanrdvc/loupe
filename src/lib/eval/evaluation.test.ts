@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   defaultCategoryPolarity,
   formatScoreValue,
-  judgeEndpointHint,
+  judgeErrorHint,
   numericFraction,
   type Score,
   type ScoreDataType,
@@ -169,25 +169,25 @@ describe('summarizeScores', () => {
   })
 })
 
-describe('judgeEndpointHint', () => {
+describe('judgeErrorHint', () => {
   it('returns null for non-errored runs', () => {
-    expect(judgeEndpointHint('done', ['network_error'])).toBeNull()
-    expect(judgeEndpointHint('running', [])).toBeNull()
+    expect(judgeErrorHint('done', ['network_error'])).toBeNull()
+    expect(judgeErrorHint('running', [])).toBeNull()
   })
 
   it('hints "not configured" when an errored run has no per-case rows', () => {
-    expect(judgeEndpointHint('error', [])).toMatch(/not configured/i)
-    expect(judgeEndpointHint('error', [null, null])).toMatch(/not configured/i)
+    expect(judgeErrorHint('error', [])).toMatch(/not configured/i)
+    expect(judgeErrorHint('error', [null, null])).toMatch(/not configured/i)
   })
 
   it('hints "unreachable" for network/timeout/http_* case errors', () => {
-    expect(judgeEndpointHint('error', ['network_error'])).toMatch(/unreachable/i)
-    expect(judgeEndpointHint('error', ['timeout'])).toMatch(/unreachable/i)
-    expect(judgeEndpointHint('error', ['http_500'])).toMatch(/unreachable/i)
+    expect(judgeErrorHint('error', ['network_error'])).toMatch(/unreachable/i)
+    expect(judgeErrorHint('error', ['timeout'])).toMatch(/unreachable/i)
+    expect(judgeErrorHint('error', ['http_500'])).toMatch(/unreachable/i)
   })
 
   it('returns null when the errors are not endpoint-related (e.g. parse errors)', () => {
-    expect(judgeEndpointHint('error', ['parse_error'])).toBeNull()
+    expect(judgeErrorHint('error', ['parse_error'])).toBeNull()
   })
 })
 

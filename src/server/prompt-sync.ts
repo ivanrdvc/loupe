@@ -133,7 +133,7 @@ export const syncSystemPrompts = createServerFn({ method: 'POST' }).handler(
 async function runSyncImpl(): Promise<SyncResult> {
   const config = getConfig()
   if (!config.repoPath) {
-    throw new Error('AGENT_REPO_PATH is not set. Configure it in .env.local to enable sync.')
+    throw new Error('AGENT_REPO_PATH is not set. Configure it in .env to enable sync.')
   }
   if (!isAbsolute(config.repoPath)) {
     throw new Error('AGENT_REPO_PATH must be an absolute path')

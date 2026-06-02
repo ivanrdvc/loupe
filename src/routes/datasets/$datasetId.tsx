@@ -531,7 +531,7 @@ function RunsTab({
             </span>
           </TooltipTrigger>
           {!judgeConfigured && (
-            <TooltipContent>Set OPENAI_API_KEY (or a local JUDGE_BASE_URL) to enable judging</TooltipContent>
+            <TooltipContent>Set OPENAI_API_KEY or ANTHROPIC_API_KEY to enable judging</TooltipContent>
           )}
         </Tooltip>
         <Tooltip>

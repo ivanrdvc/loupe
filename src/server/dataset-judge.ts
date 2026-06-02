@@ -45,7 +45,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
     const { model: defaultModel, configured } = resolveJudgeDefaults()
     if (!configured) {
       throw new Error(
-        'No judge model configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY (or a local JUDGE_BASE_URL) and re-run.',
+        'No judge model configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY and re-run.',
       )
     }
 

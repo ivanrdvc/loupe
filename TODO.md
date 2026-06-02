@@ -28,8 +28,6 @@
 - Run execution is synchronous — `runDataset` fires every example in one request and
   blocks on a fixed trace-ingest wait. Fine for the dumb-target cut / small datasets;
   move to a background job + polling before large or slow datasets. (`src/server/datasets.ts`)
-- `server/prompts.ts` keeps create/update/delete/version mutations that are now unwired
-  (System Prompts is display-only) — prune if editing isn't coming back.
 
 ## Stash (sister-project producer work)
 

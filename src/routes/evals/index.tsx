@@ -285,16 +285,11 @@ function JudgeStatus({ judge }: { judge: JudgeDefaults }) {
     return (
       <p className="text-xs text-muted-foreground">
         No judge model configured. Set <span className="font-mono text-foreground">OPENAI_API_KEY</span> or{' '}
-        <span className="font-mono text-foreground">ANTHROPIC_API_KEY</span> (or a local{' '}
-        <span className="font-mono text-foreground">JUDGE_BASE_URL</span>) to run judges.
+        <span className="font-mono text-foreground">ANTHROPIC_API_KEY</span> to run judges.
       </p>
     )
   }
-  const keys = [
-    judge.hasOpenAIKey && 'OpenAI',
-    judge.hasAnthropicKey && 'Anthropic',
-    judge.baseUrl && 'custom endpoint',
-  ].filter(Boolean) as string[]
+  const keys = [judge.hasOpenAIKey && 'OpenAI', judge.hasAnthropicKey && 'Anthropic'].filter(Boolean) as string[]
   return (
     <p className="text-xs text-muted-foreground">
       Judge: <span className="font-mono text-foreground">{judge.model}</span>

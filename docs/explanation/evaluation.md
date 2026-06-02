@@ -35,8 +35,7 @@ The judge runs **in-app**, not as an external eval service: it calls the model
 through the **Vercel AI SDK** with a BYO key from env (`OPENAI_API_KEY` /
 `ANTHROPIC_API_KEY`) and reads only normalized `Span` fields, so it grades any
 emitter identically. Provider is inferred from the model id (`claude*` → Anthropic,
-else OpenAI); `JUDGE_BASE_URL` routes OpenAI-family calls at a custom/local
-OpenAI-compatible Responses endpoint.
+else OpenAI).
 
 ## How it works
 
@@ -85,9 +84,9 @@ is flagged `errorType: 'parse_error'` rather than counted as a pass.
 (mean + variance for numeric/boolean, modal label for categorical) for calibration.
 
 **Provider resolution** (`resolveJudgeDefaults`): model `JUDGE_MODEL` (default
-`gpt-4o-mini`) picks the provider; an explicit `JUDGE_BASE_URL` wins, else a real
-`OPENAI_API_KEY` hits `api.openai.com`, else a local `JUDGE_ENDPOINT` (or
-`PROMPT_LIVE_ENDPOINT`) is the keyless fallback. `runJudge` uses `generateObject` with the verdict JSON schema for
+`gpt-4o-mini`) picks the provider (`claude*` → Anthropic, else OpenAI at
+`api.openai.com`) and the matching key (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)
+authenticates it. `runJudge` uses `generateObject` with the verdict JSON schema for
 structured output (falling back to `generateText` + `parseVerdict` when
 `JUDGE_STRUCTURED_OUTPUT=0` or a model returns prose). A missing key for the chosen
 provider surfaces per-case as `config_error`; the run-detail page shows a

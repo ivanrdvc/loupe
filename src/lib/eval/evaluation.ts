@@ -143,20 +143,16 @@ export function isEvalRunActive(status?: EvalRunStatus): boolean {
   return status === 'pending' || status === 'running'
 }
 
-// When a run errors because the judge endpoint is down/misconfigured, return a
-// human hint so the run-detail page can explain it instead of showing a bare
-// `network_error`. `errorTypes` are the per-case verdict errors (may be empty
-// when the endpoint wasn't configured at all). Returns null when the errors
-// don't point at the endpoint (e.g. parse errors from a reachable judge).
-export function judgeEndpointHint(status: EvalRunStatus, errorTypes: (string | null)[]): string | null {
+// Human hint for an errored run; null when the errors don't point at the judge
+// (e.g. parse errors from a reachable provider).
+export function judgeErrorHint(status: EvalRunStatus, errorTypes: (string | null)[]): string | null {
   if (status !== 'error') return null
   const types = errorTypes.filter((t): t is string => t != null)
-  // No per-case rows at all on an errored run ⇒ the endpoint was never configured.
   if (types.length === 0) {
-    return 'The judge endpoint is not configured. Set JUDGE_ENDPOINT (or PROMPT_LIVE_ENDPOINT) and re-run.'
+    return 'The judge is not configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY and re-run.'
   }
   if (types.some((t) => t === 'network_error' || t === 'timeout' || t.startsWith('http_'))) {
-    return 'The judge endpoint was unreachable or returned an error. Check that JUDGE_ENDPOINT (or PROMPT_LIVE_ENDPOINT) is running and reachable, then re-run.'
+    return 'The judge provider was unreachable or returned an error. Check your network and the provider key, then re-run.'
   }
   return null
 }

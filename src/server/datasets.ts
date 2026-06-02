@@ -70,13 +70,13 @@ function toRunItem(row: typeof datasetRunItems.$inferSelect, status: RunItemStat
 }
 
 function globalDefaultEndpoint(): string {
-  return process.env.DATASET_RUN_ENDPOINT ?? process.env.PROMPT_LIVE_ENDPOINT ?? GLOBAL_DEFAULT_ENDPOINT
+  return process.env.DATASET_RUN_ENDPOINT ?? GLOBAL_DEFAULT_ENDPOINT
 }
 
 // Optional agent id sent as metadata.entity_id — needed by entity-routed agents (the MAF
 // sandbox, DevUI). Unset = truly-dumb target, we POST {input, conversation_id} only.
 function defaultAgentName(): string | null {
-  return process.env.DATASET_RUN_AGENT ?? process.env.PROMPT_LIVE_AGENT ?? null
+  return process.env.DATASET_RUN_AGENT ?? null
 }
 
 function effectiveEndpoint(override: string | null): string {

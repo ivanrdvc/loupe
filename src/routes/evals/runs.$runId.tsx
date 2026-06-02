@@ -26,7 +26,7 @@ import {
   type EvalRun,
   formatScoreValue,
   isEvalRunActive,
-  judgeEndpointHint,
+  judgeErrorHint,
   SCORE_TONE_CLASS,
   type Score,
   scoreIsBad,
@@ -203,7 +203,7 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
   // down/misconfigured, rather than leaving a bare `network_error` per case.
   const endpointHint = useMemo(
     () =>
-      judgeEndpointHint(
+      judgeErrorHint(
         run.status,
         scores.map((s) => s.errorType),
       ),

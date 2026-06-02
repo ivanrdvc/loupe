@@ -23,7 +23,7 @@ pnpm db:migrate     # apply migrations (needed on a fresh checkout / after schem
 pnpm dev            # http://localhost:3000
 ```
 
-Env vars are read at process start — if you change `.env.local`, restart `pnpm dev`.
+Env vars are read at process start — if you change `.env`, restart `pnpm dev`.
 
 ## 2. Start a target agent (to produce traces)
 
@@ -35,7 +35,7 @@ traces. It auto-starts on first fire:
 ```
 
 It's entity-routed, so it 400s without `metadata.entity_id`. If a feature routes by entity,
-discover the (dynamic) id and set it in `.env.local`, then restart `pnpm dev`:
+discover the (dynamic) id and set it in `.env`, then restart `pnpm dev`:
 
 ```bash
 curl -s http://localhost:4280/v1/entities | jq -r '.entities[]|select(.name=="sandbox-agent").id'

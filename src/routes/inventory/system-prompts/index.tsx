@@ -305,7 +305,7 @@ function SyncFromCodeButton({
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-xs">
         Set <span className="font-mono text-foreground">AGENT_REPO_PATH</span> in{' '}
-        <span className="font-mono text-foreground">.env.local</span> to enable sync.
+        <span className="font-mono text-foreground">.env</span> to enable sync.
       </TooltipContent>
     </Tooltip>
   )

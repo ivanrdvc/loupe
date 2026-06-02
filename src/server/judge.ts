@@ -1,8 +1,7 @@
 // In-app LLM judge (Path B). Calls the model through the Vercel AI SDK with a
 // BYO key from env (OPENAI_API_KEY / ANTHROPIC_API_KEY), reading only normalized
 // Span fields so it scores any emitter identically. Provider is inferred from the
-// model id; a JUDGE_BASE_URL (or local JUDGE_ENDPOINT / PROMPT_LIVE_ENDPOINT) routes
-// to a local/compatible OpenAI Responses endpoint.
+// model id (claude* → Anthropic, else OpenAI).
 
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -12,58 +11,42 @@ import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 
 const JUDGE_TIMEOUT_MS = 60_000
 
-export type JudgeProvider = 'openai' | 'anthropic' | 'custom'
+export type JudgeProvider = 'openai' | 'anthropic'
 export type JudgeDefaults = {
   model: string
   provider: JudgeProvider
   configured: boolean
   hasOpenAIKey: boolean
   hasAnthropicKey: boolean
-  baseUrl: string | null
 }
 
 const isAnthropicModel = (m: string) => /^(claude|anthropic\/)/i.test(m)
 
-const stripPath = (url: string) => url.replace(/\/+(responses|chat\/completions)\/?$/i, '') || url
-
-// Where OpenAI-family judge calls go. An explicit JUDGE_BASE_URL always wins; with
-// a real OPENAI_API_KEY we hit api.openai.com directly; otherwise fall back to a
-// local OpenAI-compatible endpoint (JUDGE_ENDPOINT, else PROMPT_LIVE_ENDPOINT) for keyless dev.
-function judgeBaseUrl(): string | undefined {
-  if (process.env.JUDGE_BASE_URL) return stripPath(process.env.JUDGE_BASE_URL)
-  if (process.env.OPENAI_API_KEY) return undefined
-  const local = process.env.JUDGE_ENDPOINT ?? process.env.PROMPT_LIVE_ENDPOINT
-  return local ? stripPath(local) : undefined
-}
-
 export function resolveJudgeDefaults(): JudgeDefaults {
   const model = process.env.JUDGE_MODEL ?? 'gpt-4o-mini'
-  const baseUrl = judgeBaseUrl() ?? null
   const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY)
-  const provider: JudgeProvider = isAnthropicModel(model) ? 'anthropic' : baseUrl ? 'custom' : 'openai'
+  const provider: JudgeProvider = isAnthropicModel(model) ? 'anthropic' : 'openai'
   return {
     model,
     provider,
-    configured: hasOpenAIKey || hasAnthropicKey || Boolean(baseUrl),
+    configured: hasOpenAIKey || hasAnthropicKey,
     hasOpenAIKey,
     hasAnthropicKey,
-    baseUrl,
   }
 }
 
 // Build an AI SDK model for the judge. Anthropic for claude*, else OpenAI
-// (Responses API) against api.openai.com or a custom/local base URL.
+// (Responses API) against api.openai.com.
 function modelFor(model: string): LanguageModel {
   if (isAnthropicModel(model)) {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to use a Claude judge model.')
     return createAnthropic({ apiKey })(model.replace(/^anthropic\//i, ''))
   }
-  const baseURL = judgeBaseUrl()
-  const apiKey = process.env.OPENAI_API_KEY ?? (baseURL ? 'local' : undefined)
-  if (!apiKey) throw new Error('Set OPENAI_API_KEY (or a local JUDGE_BASE_URL) to use an OpenAI judge model.')
-  return createOpenAI({ apiKey, baseURL }).responses(model)
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('Set OPENAI_API_KEY to use an OpenAI judge model.')
+  return createOpenAI({ apiKey }).responses(model)
 }
 
 // A snapshot of the normalized Span fields the rubric reads.
@@ -251,7 +234,7 @@ export async function runJudge(opts: {
   let inputTokens: number | null = null
   let outputTokens: number | null = null
   let raw = ''
-  // Opt out of structured output where a custom endpoint rejects json_schema;
+  // Opt out of structured output where a model rejects json_schema;
   // generateText + parseVerdict still recovers a verdict from prose.
   const structured = process.env.JUDGE_STRUCTURED_OUTPUT !== '0'
 
