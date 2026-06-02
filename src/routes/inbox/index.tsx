@@ -5,19 +5,20 @@ import { Page } from '#/components/page'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { queryKeys } from '#/lib/query-keys'
 import { InboxDataTable } from './-components/data-table'
-import { dismissInboxItemFn, inboxQuery, snoozeInboxItemFn } from './-data'
+import { dismissInboxItemFn, recentInboxQuery, snoozeInboxItemFn } from './-data'
 
 export const Route = createFileRoute('/inbox/')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(inboxQuery()),
+  loader: ({ context }) => context.queryClient.ensureQueryData(recentInboxQuery()),
   component: InboxPage,
 })
 
 function InboxPage() {
   const queryClient = useQueryClient()
-  const { data: items = [], isLoading } = useQuery(inboxQuery())
+  const { data: items = [], isLoading } = useQuery(recentInboxQuery())
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.inbox.recent() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.inbox.unreadCount() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.home.all() }),
     ])
@@ -34,8 +35,8 @@ function InboxPage() {
               <EmptyMedia variant="icon">
                 <InboxIcon />
               </EmptyMedia>
-              <EmptyTitle>Inbox is clear</EmptyTitle>
-              <EmptyDescription>No open alerts.</EmptyDescription>
+              <EmptyTitle>No notifications</EmptyTitle>
+              <EmptyDescription>Nothing here yet.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </div>

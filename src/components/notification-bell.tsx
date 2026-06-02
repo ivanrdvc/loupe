@@ -5,11 +5,14 @@ import { useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { inboxQuery, inboxUnreadCountQuery, markAllInboxReadFn, recentInboxQuery } from '#/routes/inbox/-data'
 import type { InboxRow } from '#/server/inbox'
+
+const MAX_VISIBLE = 8
 
 export function NotificationBell() {
   const queryClient = useQueryClient()
@@ -27,7 +30,10 @@ export function NotificationBell() {
     ])
   const markRead = useMutation({ mutationFn: () => markAllInboxReadFn(), onSuccess: invalidate })
 
-  const items = tab === 'unread' ? unread : all
+  const source = tab === 'unread' ? unread : all
+  const items = source.slice(0, MAX_VISIBLE)
+  // Footer links to /inbox, which now lists the full history (same as the All tab).
+  const moreOnPage = Math.max(0, all.length - items.length)
   const unreadIds = new Set(unread.map((i) => i.id))
 
   return (
@@ -45,22 +51,22 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="flex max-h-[28rem] w-88 flex-col gap-0 overflow-hidden p-0">
-        <div className="flex shrink-0 items-center justify-between px-3 pt-3 pb-2">
+      <PopoverContent align="end" className="w-88 p-0">
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
           <span className="text-sm font-medium">Notifications</span>
           {count > 0 && (
-            <button
-              type="button"
+            <Button
+              variant="link"
               onClick={() => markRead.mutate()}
               disabled={markRead.isPending}
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              className="h-auto p-0 text-xs font-normal text-muted-foreground hover:text-foreground"
             >
               Mark {count} as read
-            </button>
+            </Button>
           )}
         </div>
 
-        <div className="shrink-0 px-3">
+        <div className="px-3">
           <Tabs value={tab} onValueChange={(v) => setTab(v as 'unread' | 'all')}>
             <TabsList className="w-full">
               <TabsTrigger value="unread" className="flex-1">
@@ -78,16 +84,18 @@ export function NotificationBell() {
             {tab === 'unread' ? "You're all caught up." : 'No notifications.'}
           </div>
         ) : (
-          <ul className="min-h-0 flex-1 overflow-y-auto px-3 py-0.5">
-            {items.map((item) => (
-              <NotificationItem key={item.id} item={item} unread={unreadIds.has(item.id)} />
-            ))}
-          </ul>
+          <ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-80">
+            <ul className="px-3 py-0.5">
+              {items.map((item) => (
+                <NotificationItem key={item.id} item={item} unread={unreadIds.has(item.id)} />
+              ))}
+            </ul>
+          </ScrollArea>
         )}
 
-        <div className="shrink-0 border-t p-2">
+        <div className="border-t px-3 py-2">
           <Button variant="outline" className="w-full" asChild>
-            <Link to="/inbox">View all</Link>
+            <Link to="/inbox">{moreOnPage > 0 ? `View all (${moreOnPage} more)` : 'View all'}</Link>
           </Button>
         </div>
       </PopoverContent>

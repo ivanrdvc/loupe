@@ -58,19 +58,19 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
 
   return (
     <div className="flex w-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3 lg:px-6">
+      <div className="flex flex-1 flex-wrap items-center gap-2 px-4 pb-3 lg:px-6">
+        {table.getColumn('kind') && (
+          <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
+        )}
         <div className="relative w-full min-w-0 sm:w-64">
           <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search alerts…"
             value={searchValue}
             onChange={(e) => searchColumn?.setFilterValue(e.target.value)}
-            className="w-full border-border bg-transparent pl-7 dark:bg-input/30"
+            className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
           />
         </div>
-        {table.getColumn('kind') && (
-          <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
-        )}
       </div>
       <div className="border-t bg-background">
         <Table>

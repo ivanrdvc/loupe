@@ -55,13 +55,9 @@ async function loadEncoder(family: Family): Promise<Encoder> {
       const mod = await import('gpt-tokenizer/encoding/o200k_base')
       return (text: string) => mod.encode(text).length
     }
-    if (family === 'openai-cl100k') {
-      const mod = await import('gpt-tokenizer/encoding/cl100k_base')
-      return (text: string) => mod.encode(text).length
-    }
-    // TODO: restore accurate Anthropic tokenizer — @anthropic-ai/tokenizer pulled tiktoken (WASM)
-    // which is incompatible with Vite 8 / rolldown client builds
-    return () => 0
+    // Anthropic has no accurate local tokenizer — estimate with o200k BPE.
+    const mod = await import('gpt-tokenizer/encoding/o200k_base')
+    return (text: string) => mod.encode(text).length
   })()
   encoderCache.set(family, p)
   return p

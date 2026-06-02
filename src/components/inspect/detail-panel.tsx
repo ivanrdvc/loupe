@@ -15,7 +15,13 @@ import { type InspectorView, isChatSpan, type ToolCallResolution } from '#/lib/i
 import { type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
-import { asMessages, type ChatMessage, type MessagePart, type MessageRole } from '#/lib/spans/conversation'
+import {
+  asMessages,
+  type ChatMessage,
+  type MessagePart,
+  type MessageRole,
+  turnTailStart,
+} from '#/lib/spans/conversation'
 import type { LogLevel } from '#/lib/telemetry/types'
 import { fetchSessionLogs } from '#/server/logs'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
@@ -32,6 +38,7 @@ export function DetailPanel({
   onSelect?: (id: string) => void
 }) {
   const duration = span.endMs - span.startMs
+  const http = span.operation === 'http' ? httpSummary(span) : null
   const display = displayFor(span, view?.agentLabels)
   const systemPrompt = view?.systemPromptByAgent.get(span.id)
   const nestedErrors = useMemo<Span[]>(() => view?.descendantErrors(span.id) ?? [], [view, span.id])
@@ -58,12 +65,14 @@ export function DetailPanel({
             {display.purposeLabel}
           </span>
         )}
-        <ReviewSheetButton
-          targetKind="span"
-          targetId={span.id}
-          parentTraceId={span.traceId}
-          parentSessionId={span.sessionId ?? null}
-        />
+        {span.operation !== 'http' && (
+          <ReviewSheetButton
+            targetKind="span"
+            targetId={span.id}
+            parentTraceId={span.traceId}
+            parentSessionId={span.sessionId ?? null}
+          />
+        )}
       </div>
 
       {(span.errorMessage || span.errorType || nestedErrors.length > 0) && (
@@ -95,6 +104,8 @@ export function DetailPanel({
 
       <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
         <Stat label="Duration" value={formatDuration(duration)} />
+        {http?.url && <Stat label="URL" value={http.url} />}
+        {http?.status && <Stat label="Status" value={http.status} />}
         {span.ttftMs != null && <Stat label="TTFT" value={formatDuration(span.ttftMs)} />}
         {span.inputTokens != null && <Stat label="Input" value={fmtNum(span.inputTokens)} />}
         {span.outputTokens != null && <Stat label="Output" value={fmtNum(span.outputTokens)} />}
@@ -258,6 +269,10 @@ function MessagesBlock({
   const callResolutions = view?.callResolutions ?? new Map<string, ToolCallResolution>()
   const structured = outputType && outputType !== 'text' ? outputType : undefined
 
+  const tailStart = useMemo(() => turnTailStart(inputMsgs), [inputMsgs])
+  const history = inputMsgs.slice(0, tailStart)
+  const turnInput = inputMsgs.slice(tailStart)
+
   // If parser produced nothing usable, fall back to raw JSON so we don't hide data.
   if (inputMsgs.length === 0 && outputMsgs.length === 0) {
     return (
@@ -269,12 +284,13 @@ function MessagesBlock({
   }
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      {inputMsgs.length > 0 && (
+      {turnInput.length > 0 && (
         <div className="flex min-w-0 flex-col gap-2">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Input</div>
-          {inputMsgs.map((msg, i) => (
+          {history.length > 0 && <HistoryDisclosure msgs={history} callResolutions={callResolutions} />}
+          {turnInput.map((msg, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
-            <MessageCard key={`in-${i}`} msg={msg} callResolutions={callResolutions} />
+            <MessageCard key={`in-${tailStart + i}`} msg={msg} callResolutions={callResolutions} />
           ))}
         </div>
       )}
@@ -317,6 +333,39 @@ const TOOL_CALL_TONES = {
     label: 'tool_call',
   },
 } as const
+
+function HistoryDisclosure({
+  msgs,
+  callResolutions,
+}: {
+  msgs: ChatMessage[]
+  callResolutions: Map<string, ToolCallResolution>
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 rounded-md border border-dashed border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            strokeWidth={2}
+            className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+          {open ? 'Hide' : 'Show'} {msgs.length} earlier {msgs.length === 1 ? 'message' : 'messages'}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2 min-w-0 space-y-2 data-[state=closed]:animate-out data-[state=open]:animate-in">
+        {msgs.map((msg, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
+          <MessageCard key={`hist-${i}`} msg={msg} callResolutions={callResolutions} />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
 
 function MessageCard({
   msg,
@@ -505,6 +554,24 @@ function ErrorLine({ type, message, size }: { type?: string; message?: string; s
       {message}
     </div>
   )
+}
+
+// http spans have no typed fields — read URL/status from the attribute bag.
+function httpSummary(span: Span): { url?: string; status?: string } {
+  const attrs = span.rawAttributes
+  if (!attrs) return {}
+  const pick = (keys: string[]): string | undefined => {
+    for (const k of keys) {
+      const v = attrs[k]
+      if (typeof v === 'string' && v) return v
+      if (typeof v === 'number') return String(v)
+    }
+    return undefined
+  }
+  return {
+    url: pick(['url.full', 'url_full', 'http.url', 'http_url', 'data', 'url', 'http.target', 'http_target']),
+    status: pick(['http.response.status_code', 'http_response_status_code', 'http.status_code', 'resultCode']),
+  }
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

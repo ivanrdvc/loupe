@@ -20,10 +20,10 @@ const ATTRS = {
   userName: ['user.name', 'enduser.name'],
   host: ['host.name'],
   model: ['gen_ai.request.model', 'gen_ai.response.model'],
-  totalTokens: ['gen_ai.usage.total_tokens'],
-  inputTokens: ['gen_ai.usage.input_tokens'],
-  outputTokens: ['gen_ai.usage.output_tokens'],
-  costUsd: ['gen_ai.usage.cost_total'],
+  totalTokens: ['gen_ai.usage.total_tokens', 'llm.usage.tokens_total'],
+  inputTokens: ['gen_ai.usage.input_tokens', 'llm.usage.tokens_input'],
+  outputTokens: ['gen_ai.usage.output_tokens', 'llm.usage.tokens_output'],
+  costUsd: ['gen_ai.usage.cost_total', 'gen_ai.usage.cost', 'llm.usage.cost_total'],
   provider: ['gen_ai.provider.name', 'gen_ai.system'],
   cacheReadTokens: [
     'gen_ai.usage.cache_read.input_tokens',
@@ -34,6 +34,14 @@ const ATTRS = {
   // OTel-stable as of Q1 2026. CUSTOM_LLM_PURPOSE_FIELD plumbing is gone —
   // producers must conform to this name.
   llmPurpose: ['gen_ai.operation.purpose'],
+  // loupe-convention scheduling + trigger identity (docs/explanation/02-spec.md).
+  triggerType: ['session.trigger_type'],
+  execution: ['session.execution'],
+  taskId: ['task.id'],
+  taskKind: ['task.kind'],
+  taskSchedule: ['task.schedule'],
+  taskName: ['task.name'],
+  taskSource: ['task.source'],
 } as const
 
 export type CanonicalField = keyof typeof ATTRS
@@ -92,6 +100,17 @@ export function ooCoalesceAs(field: CanonicalField, alias: string, opts?: OoColu
   if (cols.length === 0) return `'' AS ${alias}`
   if (cols.length === 1) return `${cols[0]} AS ${alias}`
   return `COALESCE(${cols.join(', ')}) AS ${alias}`
+}
+
+// Bare column expression (no alias) for embedding inside a larger SQL
+// expression — e.g. a conditional aggregate `MAX(CASE WHEN … THEN <here> END)`.
+// Returns 'NULL' when no candidate column exists in the schema, so the query
+// plans instead of 400ing on an unknown field.
+export function ooCol(field: CanonicalField, known: ReadonlySet<string>): string {
+  const cols = ooColumns(field, { known })
+  if (cols.length === 0) return 'NULL'
+  if (cols.length === 1) return cols[0]
+  return `COALESCE(${cols.join(', ')})`
 }
 
 // customDimensions is a single map column on AI, so column existence is N/A.

@@ -222,7 +222,7 @@ export function SpanTreeList({
     })
     if (hasInfraOnPath) onEnsureRawRoot(rootId)
     requestAnimationFrame(() => {
-      document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'center' })
+      document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'nearest' })
     })
   }, [selectedId, view, onEnsureRawRoot])
 
