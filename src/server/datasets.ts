@@ -6,6 +6,7 @@ import { datasetExamples, datasetRunItems, datasetRuns, datasets, scores } from 
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { getSession } from '#/lib/telemetry'
 import {
+  type AgentOverrides,
   type CreateDatasetInput,
   type Dataset,
   type DatasetDetail,
@@ -15,6 +16,7 @@ import {
   type DatasetRunItem,
   type ExampleInput,
   GLOBAL_DEFAULT_ENDPOINT,
+  type ItemScore,
   type RunItemStatus,
   type UpsertExampleInput,
 } from '#/routes/datasets/-types'
@@ -65,6 +67,7 @@ function toRunItem(row: typeof datasetRunItems.$inferSelect, status: RunItemStat
     latencyMs: row.latencyMs,
     tokens: row.tokens,
     traceId: row.traceId,
+    scores: [],
     pass: null,
   }
 }
@@ -175,19 +178,34 @@ export const getDatasetDetail = createServerFn({ method: 'GET' })
           .where(and(inArray(scores.datasetRunItemId, itemIds), isNull(scores.runId)))
           .orderBy(desc(scores.createdAt))
       : []
-    const passByItem = new Map<number, boolean | null>()
+    const scoresByItem = new Map<number, ItemScore[]>()
+    const seenScore = new Set<string>()
     for (const s of scoreRows) {
-      if (s.datasetRunItemId == null || passByItem.has(s.datasetRunItemId)) continue
-      if (s.errorType != null) {
-        passByItem.set(s.datasetRunItemId, null)
-        continue
-      }
-      const pf = scorePassFail({ dataType: s.dataType, value: s.value, label: s.label })
-      passByItem.set(s.datasetRunItemId, pf === 'pass' ? true : pf === 'fail' ? false : null)
+      if (s.datasetRunItemId == null) continue
+      const key = `${s.datasetRunItemId}:${s.name}`
+      if (seenScore.has(key)) continue
+      seenScore.add(key)
+      const pf = s.errorType != null ? null : scorePassFail({ dataType: s.dataType, value: s.value, label: s.label })
+      const list = scoresByItem.get(s.datasetRunItemId) ?? []
+      list.push({
+        name: s.name,
+        pass: pf === 'pass' ? true : pf === 'fail' ? false : null,
+        value: s.value,
+        label: s.label,
+        explanation: s.explanation,
+      })
+      scoresByItem.set(s.datasetRunItemId, list)
     }
+    for (const list of scoresByItem.values()) list.sort((a, b) => a.name.localeCompare(b.name))
+
+    const itemPass = (id: number): boolean | null => {
+      const graded = (scoresByItem.get(id) ?? []).filter((x) => x.pass != null)
+      return graded.length === 0 ? null : graded.every((x) => x.pass)
+    }
+
     const passAgg = new Map<number, { pass: number; total: number }>()
     for (const it of itemRows) {
-      const pass = passByItem.get(it.id)
+      const pass = itemPass(it.id)
       if (pass == null) continue
       const agg = passAgg.get(it.runId) ?? { pass: 0, total: 0 }
       agg.total += 1
@@ -197,7 +215,8 @@ export const getDatasetDetail = createServerFn({ method: 'GET' })
 
     const items = itemRows.map((it) => ({
       ...toRunItem(it, derivedStatus.get(`${it.runId}:${it.exampleId}`) ?? it.status),
-      pass: passByItem.get(it.id) ?? null,
+      scores: scoresByItem.get(it.id) ?? [],
+      pass: itemPass(it.id),
     }))
     const runsWithRate = runs.map((r) => {
       const agg = passAgg.get(Number(r.id))
@@ -365,17 +384,24 @@ export const deleteExamples = createServerFn({ method: 'POST' })
   })
 
 const TRACE_RESOLVE_DELAY_MS = 1_500
+const TRACE_RESOLVE_ATTEMPTS = 4
 const TRACE_RESOLVE_WINDOW_MS = 10 * 60_000
 
 export const runDataset = createServerFn({ method: 'POST' })
   .inputValidator(
-    (input: { datasetId: string | number; endpointUrl?: string; exampleIds?: Array<string | number> }) => ({
+    (input: {
+      datasetId: string | number
+      endpointUrl?: string
+      exampleIds?: Array<string | number>
+      overrides?: AgentOverrides
+    }) => ({
       datasetId: Number(input.datasetId),
       endpointUrl: input.endpointUrl == null ? null : String(input.endpointUrl).trim(),
       exampleIds:
         input.exampleIds == null
           ? null
           : (Array.isArray(input.exampleIds) ? input.exampleIds : []).map(Number).filter(Number.isFinite),
+      overrides: input.overrides && typeof input.overrides === 'object' ? input.overrides : null,
     }),
   )
   .handler(async ({ data }): Promise<{ runId: string }> => {
@@ -412,6 +438,11 @@ export const runDataset = createServerFn({ method: 'POST' })
 
     // conversation_id is the key loupe groups traces on; the agent echoes it onto its spans.
     const agentName = defaultAgentName()
+    const ov = data.overrides
+    const overrideTools = ov?.tools?.filter((t) => t.name.trim())
+    const sampling = ov
+      ? { temperature: ov.temperature ?? undefined, maxTokens: ov.max_tokens ?? undefined, topP: ov.top_p ?? undefined }
+      : undefined
     const conversationIds = new Map<number, string>()
     let errorCount = 0
     for (const ex of exRows) {
@@ -419,7 +450,16 @@ export const runDataset = createServerFn({ method: 'POST' })
       conversationIds.set(ex.id, conversationId)
       const input = (ex.inputJson as ExampleInput | null) ?? ''
       try {
-        const res = await callAgent({ endpointUrl, input, conversationId, agentName })
+        const res = await callAgent({
+          endpointUrl,
+          input,
+          conversationId,
+          agentName,
+          model: ov?.model ?? undefined,
+          instructions: ov?.system_prompt ?? undefined,
+          tools: overrideTools?.length ? overrideTools : undefined,
+          sampling,
+        })
         await db.insert(datasetRunItems).values({
           runId: run.id,
           exampleId: ex.id,
@@ -449,25 +489,30 @@ export const runDataset = createServerFn({ method: 'POST' })
     const runStatus = errorCount > 0 && errorCount === exRows.length ? 'error' : 'complete'
     await db.update(datasetRuns).set({ status: runStatus }).where(eq(datasetRuns.id, run.id))
 
-    // Best-effort trace linkage: wait for ingestion, resolve each conversation_id to a trace.
+    // Best-effort trace linkage: ingestion lags the run, so retry each conversation a few
+    // times before giving up (a single shot frequently misses and leaves traceId null).
     await new Promise((r) => setTimeout(r, TRACE_RESOLVE_DELAY_MS))
-    const toUs = (Date.now() + 60_000) * 1000
-    const fromUs = (Date.now() - TRACE_RESOLVE_WINDOW_MS) * 1000
     await Promise.allSettled(
       [...conversationIds.entries()].map(async ([exampleId, conversationId]) => {
-        try {
-          const session = await getSession(conversationId, { fromUs, toUs })
-          const traceId = session?.traceIds?.[0]
-          if (traceId) {
-            // Snapshot tool calls now so grading survives provider trace expiry.
-            const toolCalls = await toolCallsFromTrace(traceId)
-            await db
-              .update(datasetRunItems)
-              .set({ traceId, toolCallsJson: toolCalls })
-              .where(and(eq(datasetRunItems.runId, run.id), eq(datasetRunItems.exampleId, exampleId)))
+        for (let attempt = 0; attempt < TRACE_RESOLVE_ATTEMPTS; attempt++) {
+          try {
+            const toUs = (Date.now() + 60_000) * 1000
+            const fromUs = (Date.now() - TRACE_RESOLVE_WINDOW_MS) * 1000
+            const session = await getSession(conversationId, { fromUs, toUs })
+            const traceId = session?.traceIds?.[0]
+            if (traceId) {
+              // Snapshot tool calls now so grading survives provider trace expiry.
+              const toolCalls = await toolCallsFromTrace(traceId)
+              await db
+                .update(datasetRunItems)
+                .set({ traceId, toolCallsJson: toolCalls })
+                .where(and(eq(datasetRunItems.runId, run.id), eq(datasetRunItems.exampleId, exampleId)))
+              return
+            }
+          } catch {
+            // not ingested yet / provider down — retry
           }
-        } catch {
-          // not ingested yet / provider down — leave traceId null
+          if (attempt < TRACE_RESOLVE_ATTEMPTS - 1) await new Promise((r) => setTimeout(r, TRACE_RESOLVE_DELAY_MS))
         }
       }),
     )

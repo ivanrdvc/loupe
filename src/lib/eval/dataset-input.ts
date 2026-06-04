@@ -1,5 +1,5 @@
-import { asMessages, messageText } from '#/lib/spans/conversation'
 import type { JsonValue } from '#/lib/json'
+import { asMessages, messageText } from '#/lib/spans/conversation'
 import type { ExampleInput } from '#/routes/datasets/-types'
 
 const SPAN_OUTPUT_FIELD_KEYS = new Set([

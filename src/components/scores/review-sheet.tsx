@@ -1,7 +1,7 @@
 import { StarIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { Separator } from '#/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '#/components/ui/sheet'
@@ -9,11 +9,10 @@ import { latestScores, SCORE_TONE_DOT, type ScoreTargetKind, summarizeScores } f
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { NoteEditor } from '#/routes/notes/-components/note-editor'
-import { traceSpansQuery } from '#/routes/traces/-data'
 import { listScoresForTarget } from '#/server/scores'
 import { GoldenCapturePanel } from './golden-capture'
 import { ScoresSection } from './scores-section'
-import { traceEvalSnapshot } from './span-snapshot'
+import { useGoldenSnapshot } from './use-golden-snapshot'
 
 type Props = {
   targetKind: ScoreTargetKind
@@ -49,16 +48,7 @@ export function ReviewSheetButton({
 
   const noteTargetKind = targetKind // NoteTargetKind is a superset of ScoreTargetKind
 
-  // Golden capture needs the trace's spans; resolve the trace this target belongs to.
-  const traceId = targetKind === 'trace' ? targetId : (parentTraceId ?? null)
-  const { data: traceData } = useQuery({
-    ...traceSpansQuery(traceId ?? '__review_closed__'),
-    enabled: open && traceId != null,
-  })
-  const snapshot = useMemo(
-    () => (traceData?.spans ? traceEvalSnapshot(traceData.spans) : null),
-    [traceData?.spans],
-  )
+  const { snapshot } = useGoldenSnapshot({ open, targetKind, targetId, parentTraceId })
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

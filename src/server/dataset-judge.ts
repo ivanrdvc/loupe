@@ -44,9 +44,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<JudgeDatasetRunResult> => {
     const { model: defaultModel, configured } = resolveJudgeDefaults()
     if (!configured) {
-      throw new Error(
-        'No judge model configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY and re-run.',
-      )
+      throw new Error('No judge model configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY and re-run.')
     }
 
     // Optionally grade with a chosen evaluator; else the default correctness judge.
@@ -120,7 +118,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
         else if (pf === 'pass') pass += 1
       }
 
-      const targetId = item.traceId ?? `item:${item.id}`
+      const targetId = `item:${item.id}`
       const metadata = {
         samples: verdict.samples,
         variance: verdict.variance,

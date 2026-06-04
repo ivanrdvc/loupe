@@ -41,7 +41,6 @@ import {
   SheetTitle,
 } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
-import { Slider } from '#/components/ui/slider'
 import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
@@ -54,6 +53,7 @@ import { deleteExamples, runDataset, updateDataset, upsertExample } from '#/serv
 import { getJudgeDefaults, listEvalDefinitions } from '#/server/evals'
 import { DataGrid } from './-components/data-grid'
 import {
+  type AgentOverrides,
   type ChatMessage,
   type ChatRole,
   type DatasetDetail,
@@ -64,9 +64,11 @@ import {
   datasetRunDefaultsQuery,
   type ExampleInput,
   GLOBAL_DEFAULT_ENDPOINT,
+  type ItemScore,
   inputPreview,
   inputTurns,
   type RunItemStatus,
+  type ToolDecl,
 } from './-data'
 
 export const Route = createFileRoute('/datasets/$datasetId')({
@@ -139,6 +141,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const [creating, setCreating] = useState(false)
   const [activeItem, setActiveItem] = useState<DatasetRunItem | null>(null)
   const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? runDefaults?.endpointUrl ?? '')
+  const [overrides, setOverrides] = useState<AgentOverrides>({})
   const latestId = runs[0]?.id ?? null
   const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
 
@@ -191,7 +194,8 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   }
 
   const runMutation = useMutation({
-    mutationFn: () => runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined } }),
+    mutationFn: () =>
+      runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, overrides } }),
     onSuccess: ({ runId }) => onRunSuccess(runId, 'Run complete'),
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -200,7 +204,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const runExampleMutation = useMutation({
     mutationFn: (exampleId: string) =>
       runDataset({
-        data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds: [exampleId] },
+        data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds: [exampleId], overrides },
       }),
     onMutate: (exampleId) => setRunningExampleId(exampleId),
     onSuccess: ({ runId }) => onRunSuccess(runId, 'Example run complete'),
@@ -288,6 +292,8 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               onOpenItem={setActiveItem}
               onRun={() => runMutation.mutate()}
               running={runMutation.isPending}
+              overrides={overrides}
+              onOverridesChange={setOverrides}
               evaluators={evaluators}
               judgeDefId={judgeDefId}
               onJudgeDefChange={setJudgeDefId}
@@ -466,6 +472,8 @@ function RunsTab({
   onOpenItem,
   onRun,
   running,
+  overrides,
+  onOverridesChange,
   evaluators,
   judgeDefId,
   onJudgeDefChange,
@@ -486,6 +494,8 @@ function RunsTab({
   onOpenItem: (it: DatasetRunItem) => void
   onRun: () => void
   running: boolean
+  overrides: AgentOverrides
+  onOverridesChange: (o: AgentOverrides) => void
   evaluators: EvalDefinition[]
   judgeDefId: string
   onJudgeDefChange: (v: string) => void
@@ -498,6 +508,7 @@ function RunsTab({
 }) {
   const { examples, runs } = detail
   const [overridesOpen, setOverridesOpen] = useState(false)
+  const overrideCount = countOverrides(overrides)
 
   // Keep focus-first order so compare lays the second run beside it.
   const selectedRuns = selectedIds.map((id) => runs.find((r) => r.id === id)).filter((r): r is DatasetRun => !!r)
@@ -520,6 +531,11 @@ function RunsTab({
         <Button variant="outline" size="sm" onClick={() => setOverridesOpen(true)}>
           <HugeiconsIcon icon={SlidersHorizontalIcon} strokeWidth={2} data-icon="inline-start" />
           Overrides
+          {overrideCount > 0 && (
+            <Badge variant="secondary" className="ml-1 font-mono text-[10px]">
+              {overrideCount}
+            </Badge>
+          )}
         </Button>
         <Select value={judgeDefId} onValueChange={onJudgeDefChange}>
           <SelectTrigger size="sm" className="w-44" aria-label="Judge">
@@ -576,7 +592,12 @@ function RunsTab({
         </Button>
       </div>
 
-      <AgentOverridesDrawer open={overridesOpen} onClose={() => setOverridesOpen(false)} />
+      <AgentOverridesDrawer
+        open={overridesOpen}
+        onClose={() => setOverridesOpen(false)}
+        overrides={overrides}
+        onChange={onOverridesChange}
+      />
 
       {runs.length === 0 ? (
         <div className="px-4 lg:px-6">
@@ -667,16 +688,37 @@ function RunControls({
   )
 }
 
-function ScoreBadge({ it }: { it: DatasetRunItem | null }) {
+function ScoreChip({ s }: { s: ItemScore }) {
+  const verdict =
+    s.pass === true ? 'pass' : s.pass === false ? 'fail' : (s.label ?? (s.value != null ? String(s.value) : '—'))
+  return (
+    <Badge
+      variant="outline"
+      title={s.explanation ?? undefined}
+      className={cn(
+        'gap-1 font-normal',
+        s.pass === true && 'border-emerald-600/40 text-emerald-600',
+        s.pass === false && 'border-destructive/40 text-destructive',
+        s.pass == null && 'text-muted-foreground',
+      )}
+    >
+      <span className="text-muted-foreground">{s.name}</span>
+      {verdict}
+    </Badge>
+  )
+}
+
+function ScoreChips({ it }: { it: DatasetRunItem | null }) {
   if (!it) return null
-  if (it.pass === true)
-    return (
-      <Badge variant="outline" className="border-emerald-600/40 text-emerald-600">
-        pass
-      </Badge>
-    )
-  if (it.pass === false) return <Badge variant="destructive">fail</Badge>
-  return <span className="text-[10px] text-muted-foreground">{it.status === 'error' ? '—' : 'not judged'}</span>
+  if (it.scores.length === 0)
+    return <span className="text-[10px] text-muted-foreground">{it.status === 'error' ? '—' : 'not judged'}</span>
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1">
+      {it.scores.map((s) => (
+        <ScoreChip key={s.name} s={s} />
+      ))}
+    </div>
+  )
 }
 
 // Default single-run view: one readable row per example (question · answer · score).
@@ -715,7 +757,7 @@ function SingleRunList({
                   )}
                 </div>
                 {it && <StatusIcon status={it.status} />}
-                <ScoreBadge it={it} />
+                <ScoreChips it={it} />
               </button>
             </li>
           )
@@ -807,15 +849,16 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
       onClick={() => onOpenItem(it)}
     >
       <span className="line-clamp-3 text-xs">{it.status === 'error' ? '⚠ run failed' : it.output}</span>
+      {it.scores.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1">
+          {it.scores.map((s) => (
+            <ScoreChip key={s.name} s={s} />
+          ))}
+        </div>
+      )}
       <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <StatusIcon status={it.status} />
         {it.status === 'changed' && <span className="text-warning">changed</span>}
-        {it.pass === true && (
-          <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3 text-emerald-600" strokeWidth={2} />
-        )}
-        {it.pass === false && (
-          <HugeiconsIcon icon={AlertCircleIcon} className="size-3 text-destructive" strokeWidth={2} />
-        )}
         <span>· {(it.latencyMs / 1000).toFixed(1)}s</span>
         {it.traceId && <HugeiconsIcon icon={Link01Icon} className="size-3" strokeWidth={2} />}
       </span>
@@ -864,6 +907,7 @@ function ExampleSheet({
     looksLikeJson(example?.expected) ? 'json' : 'text',
   )
   const [metaPairs, setMetaPairs] = useState<Array<[string, string]>>(Object.entries(example?.metadata ?? {}))
+  const [inputValid, setInputValid] = useState(true)
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -914,7 +958,7 @@ function ExampleSheet({
         </SheetHeader>
         <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-2">
           <Field label="Input">
-            <InputEditor input={input} onChange={setInput} />
+            <InputEditor input={input} onChange={setInput} onValidChange={setInputValid} />
           </Field>
           <Field label="Expected">
             <div className="flex items-center gap-1">
@@ -973,7 +1017,10 @@ function ExampleSheet({
         </div>
         <SheetFooter>
           <div className="flex items-center gap-2">
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || jsonInvalid}>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || jsonInvalid || !inputValid}
+            >
               Save
             </Button>
             <SheetClose asChild>
@@ -983,6 +1030,7 @@ function ExampleSheet({
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Delete example"
                 className="ml-auto text-muted-foreground hover:text-destructive"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate()}
@@ -1047,16 +1095,11 @@ function ResultSheet({
               </Field>
             )}
             <Field label="Score">
-              {item.pass === true && (
-                <Badge variant="outline" className="border-emerald-600/40 text-emerald-600">
-                  pass
-                </Badge>
+              {item.status === 'error' ? (
+                <span className="text-xs text-muted-foreground">—</span>
+              ) : (
+                <ScoreChips it={item} />
               )}
-              {item.pass === false && <Badge variant="destructive">fail</Badge>}
-              {item.pass == null && item.status === 'ok' && (
-                <span className="text-xs text-muted-foreground">not judged</span>
-              )}
-              {item.status === 'error' && <span className="text-xs text-muted-foreground">—</span>}
             </Field>
           </div>
         )}
@@ -1097,7 +1140,15 @@ function isMessageArray(v: unknown): v is ChatMessage[] {
  * Plain text, or JSON for a multi-turn transcript. Text is stored as-is; a valid
  * `[{ role, content }]` array is parsed into a transcript (pretty-printed on blur).
  */
-function InputEditor({ input, onChange }: { input: ExampleInput; onChange: (next: ExampleInput) => void }) {
+function InputEditor({
+  input,
+  onChange,
+  onValidChange,
+}: {
+  input: ExampleInput
+  onChange: (next: ExampleInput) => void
+  onValidChange?: (valid: boolean) => void
+}) {
   const [text, setText] = useState(() => (typeof input === 'string' ? input : JSON.stringify(input, null, 2)))
 
   const trimmed = text.trim()
@@ -1113,6 +1164,8 @@ function InputEditor({ input, onChange }: { input: ExampleInput; onChange: (next
       error = 'Invalid JSON'
     }
   }
+
+  useEffect(() => onValidChange?.(!error), [error, onValidChange])
 
   const commit = (next: string) => {
     setText(next)
@@ -1214,17 +1267,42 @@ function TranscriptView({ turns }: { turns: ChatMessage[] }) {
   )
 }
 
-const MOCK_TOOLS = [
-  { name: 'schedule_task', on: true },
-  { name: 'web_search', on: true },
-  { name: 'send_email', on: false },
-  { name: 'create_ticket', on: false },
-]
+const OVERRIDE_MODELS = ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4-6']
 
-// Mock agent-behavior overrides. Deferred per docs/plans/datasets.md — wired visually only.
-function AgentOverridesDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [temperature, setTemperature] = useState(0.2)
-  const [topP, setTopP] = useState(1)
+function countOverrides(o: AgentOverrides): number {
+  let n = 0
+  if (o.model) n++
+  if (o.temperature != null) n++
+  if (o.top_p != null) n++
+  if (o.max_tokens != null) n++
+  if (o.system_prompt?.trim()) n++
+  if (o.tools?.some((t) => t.name.trim())) n++
+  return n
+}
+
+// Per-run overrides sent to the agent. Sampling/model/system map to native Responses
+// params; tools are AG-UI client-tool declarations the agent may call (not executed here).
+function AgentOverridesDrawer({
+  open,
+  onClose,
+  overrides,
+  onChange,
+}: {
+  open: boolean
+  onClose: () => void
+  overrides: AgentOverrides
+  onChange: (o: AgentOverrides) => void
+}) {
+  const set = (patch: Partial<AgentOverrides>) => onChange({ ...overrides, ...patch })
+  const tools = overrides.tools ?? []
+  const setTool = (i: number, patch: Partial<ToolDecl>) =>
+    set({ tools: tools.map((t, idx) => (idx === i ? { ...t, ...patch } : t)) })
+  const onNum = (key: 'temperature' | 'top_p' | 'max_tokens') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.trim()
+    const num = Number(raw)
+    set({ [key]: raw === '' || !Number.isFinite(num) ? null : num } as Partial<AgentOverrides>)
+  }
+  const numField = (v: number | null | undefined) => (v == null ? '' : String(v))
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -1232,86 +1310,105 @@ function AgentOverridesDrawer({ open, onClose }: { open: boolean; onClose: () =>
         <SheetHeader>
           <SheetTitle>Agent overrides</SheetTitle>
           <SheetDescription>
-            Sent to your agent on each run. Ignored by agents that don't support overrides.
+            Applied to every example on the next run. Empty fields use the agent's defaults.
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-1 flex-col gap-5 overflow-auto px-4 py-3">
           <Field label="Model">
-            <Select defaultValue="default">
+            <Select
+              value={overrides.model ?? 'default'}
+              onValueChange={(v) => set({ model: v === 'default' ? null : v })}
+            >
               <SelectTrigger className="h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="default">Agent default</SelectItem>
-                <SelectItem value="gpt-4o">gpt-4o</SelectItem>
-                <SelectItem value="gpt-4o-mini">gpt-4o-mini</SelectItem>
-                <SelectItem value="claude-sonnet-4-6">claude-sonnet-4-6</SelectItem>
+                {OVERRIDE_MODELS.map((m) => (
+                  <SelectItem key={m} value={m} className="font-mono text-xs">
+                    {m}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </Field>
 
           <Field label="System prompt">
-            <Textarea rows={3} placeholder="Override the agent's system prompt…" />
+            <Textarea
+              rows={3}
+              value={overrides.system_prompt ?? ''}
+              onChange={(e) => set({ system_prompt: e.target.value || null })}
+              placeholder="Override the agent's system prompt…"
+            />
           </Field>
 
           <Field label="Tools">
-            <div className="flex flex-col divide-y rounded-md border">
-              {MOCK_TOOLS.map((t) => (
-                <div key={t.name} className="flex items-center justify-between px-3 py-2">
-                  <span className="font-mono text-xs">{t.name}</span>
-                  <Switch defaultChecked={t.on} />
-                </div>
-              ))}
-            </div>
-            <Button variant="outline" size="sm" className="self-start" onClick={() => toast.info('Add tool — UI mock')}>
+            <p className="text-[11px] text-muted-foreground">
+              Client tool declarations sent to the agent (AG-UI shape). The agent may call them; results aren't executed
+              here.
+            </p>
+            {tools.map((t, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: positional tool rows
+              <div key={i} className="flex items-center gap-1.5">
+                <Input
+                  value={t.name}
+                  onChange={(e) => setTool(i, { name: e.target.value })}
+                  placeholder="tool_name"
+                  className="h-8 font-mono text-xs"
+                />
+                <Input
+                  value={t.description ?? ''}
+                  onChange={(e) => setTool(i, { description: e.target.value })}
+                  placeholder="what it does"
+                  className="h-8 text-xs"
+                />
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => set({ tools: tools.filter((_, idx) => idx !== i) })}
+                >
+                  <HugeiconsIcon icon={Delete02Icon} className="size-4" strokeWidth={2} />
+                </button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              onClick={() => set({ tools: [...tools, { name: '' }] })}
+            >
               <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
               Tool
             </Button>
           </Field>
 
           <Field label="Sampling">
-            <div className="flex flex-col gap-4">
-              <SliderRow label="Temperature" value={temperature} max={2} step={0.1} onChange={setTemperature} />
-              <SliderRow label="Top-p" value={topP} max={1} step={0.05} onChange={setTopP} />
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">Max tokens</span>
-                <Input defaultValue="1024" className="h-8 w-28 font-mono text-xs" />
-              </div>
+            <div className="flex flex-col gap-3">
+              {(['temperature', 'top_p', 'max_tokens'] as const).map((key) => (
+                <div key={key} className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-xs text-muted-foreground">{key}</span>
+                  <Input
+                    value={numField(overrides[key])}
+                    onChange={onNum(key)}
+                    placeholder="default"
+                    inputMode={key === 'max_tokens' ? 'numeric' : 'decimal'}
+                    className="h-8 w-28 font-mono text-xs"
+                  />
+                </div>
+              ))}
             </div>
           </Field>
         </div>
         <SheetFooter>
-          <Button onClick={() => toast.info('Save overrides — UI mock')}>Save</Button>
+          <Button variant="outline" onClick={() => onChange({})}>
+            Reset
+          </Button>
           <SheetClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button>Done</Button>
           </SheetClose>
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
-}
-
-function SliderRow({
-  label,
-  value,
-  max,
-  step,
-  onChange,
-}: {
-  label: string
-  value: number
-  max: number
-  step: number
-  onChange: (v: number) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="font-mono text-xs tabular-nums">{value}</span>
-      </div>
-      <Slider value={[value]} max={max} step={step} onValueChange={([v]) => onChange(v)} />
-    </div>
   )
 }
 

@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { GoldenCapturePanel } from '#/components/scores/golden-capture'
 import { type ScoreDraft, ScoreInput } from '#/components/scores/score-input'
-import { traceEvalSnapshot } from '#/components/scores/span-snapshot'
+import { useGoldenSnapshot } from '#/components/scores/use-golden-snapshot'
 import { Button } from '#/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#/components/ui/dialog'
 import { Progress } from '#/components/ui/progress'
@@ -18,7 +18,6 @@ import { draftIsBad, type ScoreTargetKind } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import { asMessages } from '#/lib/spans/conversation'
-import { traceSpansQuery } from '#/routes/traces/-data'
 import { listScoreConfigs, listScoresForTarget, upsertHumanScore } from '#/server/scores'
 
 export type ReviewQueueItem = {
@@ -74,16 +73,18 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
     [scores, user.name, dimension],
   )
 
-  const traceId = item?.traceId ?? (item?.targetKind === 'trace' ? item?.targetId : item?.parentTraceId) ?? null
-  const { data: traceData, isLoading: traceLoading } = useQuery({
-    ...traceSpansQuery(traceId ?? '__review_closed__'),
-    enabled: open && traceId != null,
+  const {
+    snapshot,
+    traceData,
+    isLoading: traceLoading,
+    traceId,
+  } = useGoldenSnapshot({
+    open,
+    targetKind: item?.targetKind ?? 'trace',
+    targetId: item?.targetId,
+    parentTraceId: item?.parentTraceId,
+    traceId: item?.traceId,
   })
-
-  const snapshot = useMemo(() => {
-    if (!traceData?.spans) return null
-    return traceEvalSnapshot(traceData.spans)
-  }, [traceData?.spans])
 
   const invalidate = useCallback(async () => {
     if (!item) return
@@ -248,7 +249,7 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
                       : undefined
                   }
                   pending={upsertMutation.isPending}
-                  onSubmit={(draft) => upsertMutation.mutate(draft)}
+                  onSubmit={saveAndAdvance}
                   onCancel={undefined}
                 />
               ) : (

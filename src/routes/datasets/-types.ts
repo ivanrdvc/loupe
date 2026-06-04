@@ -32,6 +32,14 @@ export function inputTurns(input: ExampleInput): ChatMessage[] | null {
 
 export type RunItemStatus = 'ok' | 'changed' | 'error' | 'pending'
 
+export interface ItemScore {
+  name: string
+  pass: boolean | null
+  value: number | null
+  label: string | null
+  explanation: string | null
+}
+
 export interface DatasetRunItem {
   runId: string
   exampleId: string
@@ -40,6 +48,7 @@ export interface DatasetRunItem {
   latencyMs: number
   tokens: number
   traceId: string | null
+  scores: ItemScore[]
   pass: boolean | null
 }
 
@@ -77,6 +86,21 @@ export interface DatasetDetail {
 
 // Fallback when neither a per-dataset override nor an env default is set.
 export const GLOBAL_DEFAULT_ENDPOINT = 'http://localhost:8000/v1/responses'
+
+// A client/frontend tool declaration (AG-UI shape), sent so the agent can choose to call it.
+export interface ToolDecl {
+  name: string
+  description?: string
+}
+
+export interface AgentOverrides {
+  model?: string | null
+  temperature?: number | null
+  top_p?: number | null
+  max_tokens?: number | null
+  system_prompt?: string | null
+  tools?: ToolDecl[]
+}
 
 export interface UpsertExampleInput {
   datasetId: string

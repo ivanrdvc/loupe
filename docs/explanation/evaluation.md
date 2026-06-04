@@ -51,8 +51,10 @@ output), `parentTraceId`/`parentSessionId` (denormalized for list rollups).
 The key invariant is the partial unique index `score_live_unique` on
 `(targetKind, targetId, name, evaluator) WHERE run_id IS NULL`:
 
-- **Run-less scores upsert.** A human re-scoring, or an online judge re-firing,
-  replaces the one current row for that (target, dimension, author).
+- **Run-less scores upsert.** A human re-scoring replaces the one current row for
+  that (target, dimension, author). The online judge is idempotent instead:
+  already-scored `(definition, trace)` pairs are skipped (`onConflictDoNothing`), so
+  a tick never re-judges or overwrites.
 - **Run scores are append-only.** Offline-run verdicts (`run_id` set) are exempt
   from the index, so a re-run never clobbers a prior run's history.
 
@@ -94,8 +96,9 @@ provider surfaces per-case as `config_error`; the run-detail page shows a
 
 ### The four producers
 
-1. **Human** (Path A) — the inspector Review sheet writes a `source='human'`
-   run-less score via `upsertHumanScore` (`src/server/scores.ts`).
+1. **Human** (Path A) — the inspector Review sheet and the bulk review queue
+   (`review-mode.tsx`) write a `source='human'` run-less score via `upsertHumanScore`
+   (`src/server/scores.ts`). Both also expose golden capture → dataset example.
 2. **Offline run** (Path B) — a caller builds cases with `casesFromTraces`
    (`src/server/eval-jobs.ts`) — one case per chat span for `scope=span`, else the
    trace's final chat span — and calls `runEval`, which creates an `eval_run`,
@@ -159,11 +162,13 @@ and `evals.ts` stays fully strippable.
   non-LLM evaluators.
 - **Per-evaluator model keys aren't stored** — keys come from env (the AI SDK's
   default), not a per-evaluator secret. A multi-tenant key store is deferred.
-- **Dataset-judge scores carry no `evaluatorVersion`** — that judge is ad-hoc (no
-  `eval_definition`), so its version stays null (offline-run + online scores pin it).
+- **Dataset-judge scores carry no `evaluatorVersion` only by default** — the ad-hoc
+  default-correctness judge has no `eval_definition`, so its version stays null. When
+  a dataset run is graded against a chosen evaluator, the scores pin that evaluator's
+  `definitionId` and `evaluatorVersion` (like offline-run + online scores).
 
 ## Related
 
 - [Datasets](datasets.md) — the dataset model + trace linkage grading reuses.
 - [guides/run-and-verify.md](../guides/run-and-verify.md) — boot, run, and verify
-  the judge end-to-end (incl. the judge-endpoint setup).
+  the judge end-to-end.

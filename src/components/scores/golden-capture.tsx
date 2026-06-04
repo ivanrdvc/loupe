@@ -24,6 +24,7 @@ const expectedString = (input: Record<string, JsonValue>): string | null => {
 export function GoldenCapturePanel({ input, sourceTraceId, sourceSpanId, highlighted, className }: Props) {
   // Start empty — the expected is what it *should* have been, not the actual output.
   const [expected, setExpected] = useState<string | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the draft when the captured span changes
   useEffect(() => setExpected(null), [sourceTraceId, sourceSpanId])
 
   const actual = expectedString(input)

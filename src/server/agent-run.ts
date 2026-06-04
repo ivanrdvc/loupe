@@ -12,6 +12,8 @@ export type AgentCallInput = {
   model?: string | null
   conversationId?: string | null
   agentName?: string | null
+  instructions?: string | null
+  tools?: { name: string; description?: string }[]
   sampling?: { temperature?: number | null; maxTokens?: number | null; topP?: number | null }
   // Responses `text.format` (e.g. a json_schema) for structured output. The judge uses this.
   responseFormat?: unknown
@@ -96,12 +98,23 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
   const body = {
     model: input.model || 'gpt-4o-mini',
     input: input.input,
+    ...(input.instructions ? { instructions: input.instructions } : {}),
     ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
     ...(trimmedAgent ? { metadata: { entity_id: trimmedAgent } } : {}),
     ...(sampling.temperature != null && { temperature: sampling.temperature }),
     ...(sampling.maxTokens != null && { max_output_tokens: sampling.maxTokens }),
     ...(sampling.topP != null && { top_p: sampling.topP }),
     ...(input.responseFormat != null && { text: { format: input.responseFormat } }),
+    ...(input.tools?.length
+      ? {
+          tools: input.tools.map((t) => ({
+            type: 'function',
+            name: t.name,
+            description: t.description ?? '',
+            parameters: { type: 'object', properties: {} },
+          })),
+        }
+      : {}),
   }
   const timeoutMs = input.timeoutMs ?? RUN_TIMEOUT_MS
   const start = performance.now()
