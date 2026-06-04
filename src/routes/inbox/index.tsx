@@ -5,26 +5,32 @@ import { Page } from '#/components/page'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { queryKeys } from '#/lib/query-keys'
 import { InboxDataTable } from './-components/data-table'
-import { dismissInboxItemFn, recentInboxQuery, snoozeInboxItemFn } from './-data'
+import { dismissInboxItemFn, inboxUnreadCountQuery, openInboxQuery, snoozeInboxItemFn } from './-data'
 
 export const Route = createFileRoute('/inbox/')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(recentInboxQuery()),
+  loader: ({ context }) => context.queryClient.ensureQueryData(openInboxQuery()),
   component: InboxPage,
 })
 
 function InboxPage() {
   const queryClient = useQueryClient()
-  const { data: items = [], isLoading } = useQuery(recentInboxQuery())
-  const invalidate = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.inbox.recent() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.inbox.unreadCount() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.home.all() }),
-    ])
+  const { data: items = [], isLoading } = useQuery(openInboxQuery())
+
+  const optimisticRemove = (id: number) => {
+    queryClient.setQueryData(openInboxQuery().queryKey, (rows) => rows?.filter((row) => row.id !== id))
+    queryClient.setQueryData(inboxUnreadCountQuery().queryKey, (n) => Math.max(0, (n ?? 1) - 1))
   }
-  const dismiss = useMutation({ mutationFn: (id: number) => dismissInboxItemFn({ data: id }), onSuccess: invalidate })
-  const snooze = useMutation({ mutationFn: (id: number) => snoozeInboxItemFn({ data: id }), onSuccess: invalidate })
+  const settle = () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all() })
+  const dismiss = useMutation({
+    mutationFn: (id: number) => dismissInboxItemFn({ data: id }),
+    onMutate: optimisticRemove,
+    onSettled: settle,
+  })
+  const snooze = useMutation({
+    mutationFn: (id: number) => snoozeInboxItemFn({ data: id }),
+    onMutate: optimisticRemove,
+    onSettled: settle,
+  })
 
   if (!isLoading && items.length === 0) {
     return (
@@ -46,14 +52,7 @@ function InboxPage() {
 
   return (
     <Page title="Inbox">
-      <InboxDataTable
-        data={items}
-        isLoading={isLoading}
-        onSnooze={(id) => snooze.mutate(id)}
-        onDismiss={(id) => dismiss.mutate(id)}
-        snoozePending={snooze.isPending}
-        dismissPending={dismiss.isPending}
-      />
+      <InboxDataTable data={items} isLoading={isLoading} onSnooze={snooze.mutate} onDismiss={dismiss.mutate} />
     </Page>
   )
 }

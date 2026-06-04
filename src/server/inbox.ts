@@ -1,14 +1,14 @@
 import { and, count, desc, eq, gt, isNull, lt, lte, or } from 'drizzle-orm'
 import { db } from '#/db'
 import { inboxItems, inventory } from '#/db/schema'
+import type { AlertKind } from '#/lib/alerts/kinds'
 
 export interface InboxRow {
   id: number
-  kind: string
+  kind: AlertKind
   firedAtMs: number
   summary: string
   traceId: string | null
-  sessionId: string | null
   dismissedAtMs: number | null
   snoozeUntilMs: number | null
 }
@@ -23,50 +23,25 @@ export interface InventoryRow {
   lastSeenAtMs: number
 }
 
-export async function listOpenInboxItems(limit = 100): Promise<InboxRow[]> {
-  const now = new Date()
-  const rows = await db
-    .select()
-    .from(inboxItems)
-    .where(and(isNull(inboxItems.dismissedAt), or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now))))
-    .orderBy(desc(inboxItems.firedAt))
-    .limit(limit)
+const openItems = () =>
+  and(isNull(inboxItems.dismissedAt), or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, new Date())))
 
+export async function listOpenInboxItems(limit = 100): Promise<InboxRow[]> {
+  const rows = await db.select().from(inboxItems).where(openItems()).orderBy(desc(inboxItems.firedAt)).limit(limit)
   return rows.map(toInboxRow)
 }
 
 export async function countOpenInboxItems(): Promise<number> {
-  const now = new Date()
-  const [row] = await db
-    .select({ value: count() })
-    .from(inboxItems)
-    .where(and(isNull(inboxItems.dismissedAt), or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now))))
+  const [row] = await db.select({ value: count() }).from(inboxItems).where(openItems())
   return row?.value ?? 0
-}
-
-// Recent items regardless of dismissal (drives the "All" tab); future-snoozed stay hidden.
-export async function listRecentInboxItems(limit = 100): Promise<InboxRow[]> {
-  const now = new Date()
-  const rows = await db
-    .select()
-    .from(inboxItems)
-    .where(or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now)))
-    .orderBy(desc(inboxItems.firedAt))
-    .limit(limit)
-
-  return rows.map(toInboxRow)
 }
 
 export async function dismissInboxItem(id: number): Promise<void> {
   await db.update(inboxItems).set({ dismissedAt: new Date() }).where(eq(inboxItems.id, id))
 }
 
-export async function markAllInboxRead(): Promise<void> {
-  const now = new Date()
-  await db
-    .update(inboxItems)
-    .set({ dismissedAt: now })
-    .where(and(isNull(inboxItems.dismissedAt), or(isNull(inboxItems.snoozeUntil), lte(inboxItems.snoozeUntil, now))))
+export async function dismissAllOpenInboxItems(): Promise<void> {
+  await db.update(inboxItems).set({ dismissedAt: new Date() }).where(openItems())
 }
 
 export async function snoozeInboxItem(id: number, until: Date): Promise<void> {
@@ -105,7 +80,6 @@ function toInboxRow(row: typeof inboxItems.$inferSelect): InboxRow {
     firedAtMs: row.firedAt.getTime(),
     summary: row.summary,
     traceId: row.traceId,
-    sessionId: row.sessionId,
     dismissedAtMs: row.dismissedAt?.getTime() ?? null,
     snoozeUntilMs: row.snoozeUntil?.getTime() ?? null,
   }

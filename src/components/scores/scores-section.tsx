@@ -10,7 +10,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import { useUser } from '#/hooks/use-user'
 import {
   type ConfigHint,
-  formatScoreValue,
   latestScores,
   SCORE_SOURCE_ICON,
   SCORE_SOURCE_LABEL,
@@ -25,6 +24,7 @@ import { cn } from '#/lib/utils'
 import { deleteScore, listScoreConfigs, listScoresForTarget, upsertHumanScore } from '#/server/scores'
 import { DimensionForm } from './dimension-create'
 import { ScoreInput } from './score-input'
+import { ScoreValue } from './score-value'
 
 type Props = {
   targetKind: ScoreTargetKind
@@ -250,7 +250,7 @@ function ScoreRow({
         <span aria-hidden>{SCORE_SOURCE_ICON[score.source]}</span>
         <span className="sr-only">{SCORE_SOURCE_LABEL[score.source]}</span>
       </span>
-      <span className={cn('font-medium tabular-nums', SCORE_TONE_CLASS[tone])}>{formatScoreValue(score, scale)}</span>
+      <ScoreValue score={score} scale={scale} className={cn('font-medium tabular-nums', SCORE_TONE_CLASS[tone])} />
       <span className="truncate text-muted-foreground">{score.evaluator}</span>
       {score.explanation && (
         <Tooltip>

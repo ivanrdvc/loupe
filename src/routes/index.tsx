@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Page } from '#/components/page'
+import { ALERT_KINDS } from '#/lib/alerts/kinds'
 import { CacheAreaChart } from './-home-charts/cache-area'
 import { LatencyAreaChart } from './-home-charts/latency-area'
 import { ThroughputAreaChart } from './-home-charts/throughput-area'
@@ -35,15 +36,15 @@ function Home() {
     <Page title="Home">
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 xl:grid-cols-2">
         <Section
-          title="Tools returning too much"
-          description="Top by p95 result size. Target: <2k tokens per call to keep context lean."
+          title={ALERT_KINDS.tool_size_p95.title}
+          description={ALERT_KINDS.tool_size_p95.blurb}
           action={<ViewAllToolsLink sort="p95Chars" />}
         >
           <ToolPayloadTable rows={toolPayloads} />
         </Section>
         <Section
-          title="Tools with high error rate"
-          description="Top by error rate. Target: <1% per tool."
+          title={ALERT_KINDS.tool_error_rate.title}
+          description={ALERT_KINDS.tool_error_rate.blurb}
           action={<ViewAllToolsLink sort="errorRate" />}
         >
           <ToolErrorTable rows={toolErrors} />
@@ -52,13 +53,13 @@ function Home() {
         <CacheAreaChart />
         <ThroughputAreaChart />
         <Section
-          title="New MCP tools"
-          description="First seen in this window"
+          title={ALERT_KINDS.new_tool.title}
+          description={ALERT_KINDS.new_tool.blurb}
           action={<ViewAllToolsLink sort="lastSeenMs" />}
         >
           <NewToolsTable rows={newTools} />
         </Section>
-        <Section title="New agents" description="First seen in this window">
+        <Section title={ALERT_KINDS.new_agent.title} description={ALERT_KINDS.new_agent.blurb}>
           <NewAgentsTable rows={newAgents} />
         </Section>
       </div>

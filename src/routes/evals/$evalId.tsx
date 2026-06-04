@@ -15,6 +15,8 @@ import { toast } from 'sonner'
 import { Markdown } from '#/components/markdown'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
+import { ModelSelect } from '#/components/scores/model-select'
+import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
 import {
   Breadcrumb,
@@ -48,12 +50,19 @@ import type {
   EvalRun,
   EvalScope,
   EvalSourceKind,
-  EvalStatus,
   LiveFilter,
+  Score,
   ScoreDataType,
   UpsertEvalDefinitionInput,
 } from '#/lib/eval/evaluation'
-import { EVAL_RUN_STATUS_BADGE, isEvalRunActive, SCORE_DATA_TYPES, SCORE_TARGET_KINDS } from '#/lib/eval/evaluation'
+import {
+  EVAL_RUN_STATUS_BADGE,
+  isEvalRunActive,
+  SCORE_DATA_TYPES,
+  SCORE_TARGET_KINDS,
+  SCORE_TONE_CLASS,
+  scoreIsBad,
+} from '#/lib/eval/evaluation'
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
@@ -62,10 +71,10 @@ import {
   compareRuns,
   deleteEvalDefinition,
   getEvalDefinition,
-  runEvalOnRecentTraces,
-  setEvalDefinitionStatus,
+  setEvalDefinitionLive,
   upsertEvalDefinition,
 } from '#/server/evals'
+import { listScoresByDefinition } from '#/server/scores'
 
 const evalQuery = (id: number) =>
   queryOptions({
@@ -79,6 +88,13 @@ const compareQuery = (base: number, head: number) =>
     queryKey: queryKeys.evals.compare(base, head),
     queryFn: () => compareRuns({ data: { base, head } }),
     staleTime: STALE_TELEMETRY_MS,
+  })
+
+const scoresQuery = (id: number) =>
+  queryOptions({
+    queryKey: queryKeys.evals.definitionScores(id),
+    queryFn: () => listScoresByDefinition({ data: id }),
+    staleTime: STALE_LIVE_MS,
   })
 
 export const Route = createFileRoute('/evals/$evalId')({
@@ -161,12 +177,12 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
 
   const invalidateDetail = () => queryClient.invalidateQueries({ queryKey: queryKeys.evals.definition(id) })
 
-  const statusMutation = useMutation({
-    mutationFn: (status: EvalStatus) => setEvalDefinitionStatus({ data: { id, status } }),
-    onSuccess: async (_data, status) => {
+  const liveMutation = useMutation({
+    mutationFn: (live: boolean) => setEvalDefinitionLive({ data: { id, live } }),
+    onSuccess: async (_data, live) => {
       await invalidateDetail()
       await queryClient.invalidateQueries({ queryKey: queryKeys.evals.definitions() })
-      toast.success(status === 'paused' ? 'Evaluator paused' : 'Evaluator resumed')
+      toast.success(live ? 'Now scoring live traffic' : 'Moved to library')
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -191,17 +207,7 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
 
-  const runMutation = useMutation({
-    mutationFn: () => runEvalOnRecentTraces({ data: { definitionId: id, limit: 10 } }),
-    onSuccess: async () => {
-      await invalidateDetail()
-      toast.success('Run started over recent traces')
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
-  })
-
-  const isPaused = definition.status === 'paused'
-  const canRun = definition.source === 'llm'
+  const live = definition.mode === 'online'
 
   return (
     <Page title={<EvalBreadcrumb name={definition.name} />}>
@@ -209,17 +215,11 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h1 className="text-lg font-semibold">{definition.name}</h1>
-            <Badge variant={isPaused ? 'warning' : 'success'} className="capitalize">
-              {definition.status}
+            <Badge variant={live ? 'success' : 'outline'} className={cn(!live && 'text-muted-foreground')}>
+              {live ? 'Live' : 'Library'}
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            {canRun && (
-              <Button size="sm" disabled={runMutation.isPending} onClick={() => runMutation.mutate()}>
-                <HugeiconsIcon icon={PlayIcon} strokeWidth={2} data-icon="inline-start" />
-                {runMutation.isPending ? 'Starting…' : 'Run on recent traces'}
-              </Button>
-            )}
             <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
               <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} data-icon="inline-start" />
               Edit
@@ -227,11 +227,11 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
             <Button
               variant="outline"
               size="sm"
-              disabled={statusMutation.isPending}
-              onClick={() => statusMutation.mutate(isPaused ? 'active' : 'paused')}
+              disabled={liveMutation.isPending}
+              onClick={() => liveMutation.mutate(!live)}
             >
-              <HugeiconsIcon icon={isPaused ? PlayIcon : PauseIcon} strokeWidth={2} data-icon="inline-start" />
-              {isPaused ? 'Resume' : 'Pause'}
+              <HugeiconsIcon icon={live ? PauseIcon : PlayIcon} strokeWidth={2} data-icon="inline-start" />
+              {live ? 'Move to library' : 'Go live'}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
               <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} data-icon="inline-start" />
@@ -268,6 +268,8 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
             onToggleBless={(runId, blessed) => blessMutation.mutate({ runId, blessed })}
           />
         </section>
+
+        <EvaluatorScores id={id} />
 
         {definition.baselineRunId != null && runs.length >= 2 && (
           <CompareSection baselineRunId={definition.baselineRunId} runs={runs} />
@@ -332,15 +334,12 @@ function MetaGrid({ definition }: { definition: EvalDefinition }) {
           {definition.source}
         </Badge>
       </MetaItem>
-      <MetaItem label="Mode">
-        <span className="capitalize">{definition.mode}</span>
+      <MetaItem label="State">
+        <span>{definition.mode === 'online' ? 'Live' : 'Library'}</span>
       </MetaItem>
       {definition.mode === 'online' && <MetaItem label="Watches">{describeLiveFilter(definition.liveFilter)}</MetaItem>}
       <MetaItem label="Model">
         <span className="font-mono text-xs">{definition.model || '—'}</span>
-      </MetaItem>
-      <MetaItem label="Version">
-        <span className="tabular-nums">v{definition.version}</span>
       </MetaItem>
     </div>
   )
@@ -362,7 +361,7 @@ function RunsTable({
   if (runs.length === 0) {
     return (
       <div className="rounded-lg border bg-card/40 px-4 py-6 text-sm text-muted-foreground">
-        No runs yet. Use “Run on recent traces”, or run this evaluator over a dataset from the dataset page.
+        No runs yet. Run this evaluator over a dataset from the dataset page.
       </div>
     )
   }
@@ -446,6 +445,97 @@ function RunsTable({
         </TableBody>
       </Table>
     </div>
+  )
+}
+
+const SCORES_PAGE_SIZE = 25
+
+function EvaluatorScores({ id }: { id: number }) {
+  const { data: scores = [] } = useQuery(scoresQuery(id))
+  const [page, setPage] = useState(0)
+  if (scores.length === 0) return null
+
+  const pageCount = Math.ceil(scores.length / SCORES_PAGE_SIZE)
+  const clampedPage = Math.min(page, pageCount - 1)
+  const start = clampedPage * SCORES_PAGE_SIZE
+  const pageScores = scores.slice(start, start + SCORES_PAGE_SIZE)
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium">Scores</h2>
+      <div className="-mx-4 border-y bg-background lg:-mx-6">
+        <Table>
+          <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
+            <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
+              <TableHead>Target</TableHead>
+              <TableHead>Verdict</TableHead>
+              <TableHead>Explanation</TableHead>
+              <TableHead className="text-right">When</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pageScores.map((score) => (
+              <ScoreRow key={score.id} score={score} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            {start + 1}–{start + pageScores.length} of {scores.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={clampedPage === 0} onClick={() => setPage(clampedPage - 1)}>
+              Previous
+            </Button>
+            <span className="tabular-nums">
+              {clampedPage + 1} / {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={clampedPage >= pageCount - 1}
+              onClick={() => setPage(clampedPage + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ScoreRow({ score }: { score: Score }) {
+  const traceTarget = score.parentTraceId ?? score.targetId
+  const isItem = score.datasetRunItemId != null && score.parentTraceId == null && score.targetId.startsWith('item:')
+  return (
+    <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
+      <TableCell>
+        {isItem ? (
+          <span className="font-mono text-xs text-muted-foreground">{score.targetId}</span>
+        ) : (
+          <Link
+            to="/traces"
+            search={{ trace: traceTarget }}
+            className="font-mono text-xs text-primary underline-offset-4 hover:underline"
+          >
+            {score.targetId}
+          </Link>
+        )}
+      </TableCell>
+      <TableCell>
+        <ScoreValue
+          score={score}
+          className={cn('font-medium', scoreIsBad(score) ? SCORE_TONE_CLASS.bad : SCORE_TONE_CLASS.good)}
+        />
+      </TableCell>
+      <TableCell className="max-w-[28rem] truncate text-xs text-muted-foreground">{score.explanation ?? '—'}</TableCell>
+      <TableCell className="text-right">
+        <RelativeTime ts={score.createdAt} className="text-xs text-muted-foreground tabular-nums" />
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -719,25 +809,19 @@ function EditDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eval-model">Model</Label>
-              <Input
-                id="eval-model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="gpt-4o-mini"
-                className="font-mono text-xs"
-              />
+              <ModelSelect value={model} onChange={setModel} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eval-mode">Mode</Label>
+              <Label htmlFor="eval-mode">State</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as EvalMode)}>
                 <SelectTrigger id="eval-mode">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="offline">Library (run on demand)</SelectItem>
-                  <SelectItem value="online">Online (score live traffic)</SelectItem>
+                  <SelectItem value="online">Live (score production)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

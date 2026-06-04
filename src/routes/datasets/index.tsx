@@ -109,7 +109,7 @@ function makeColumns(
     },
     {
       id: 'run',
-      header: '',
+      header: 'Run',
       cell: ({ row }) => (
         <Tooltip>
           <TooltipTrigger asChild>

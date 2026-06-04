@@ -629,6 +629,19 @@ export const listScoresByRun = createServerFn({ method: 'GET' })
     return rows.map(toScore)
   })
 
+// Every score an evaluator produced — online (run-less) and offline alike.
+export const listScoresByDefinition = createServerFn({ method: 'GET' })
+  .inputValidator((definitionId: number) => Number(definitionId))
+  .handler(async ({ data }): Promise<Score[]> => {
+    const rows = await db
+      .select()
+      .from(scores)
+      .where(eq(scores.definitionId, data))
+      .orderBy(desc(scores.createdAt))
+      .limit(200)
+    return rows.map(toScore)
+  })
+
 // Latest run-less scores for a set of run ids' definitions — used by compare.
 export async function scoresForRuns(runIds: number[]): Promise<Score[]> {
   if (runIds.length === 0) return []

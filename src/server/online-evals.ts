@@ -24,9 +24,7 @@ export async function runOnlineEvals(
   const defs = await db
     .select()
     .from(evalDefinitions)
-    .where(
-      and(eq(evalDefinitions.mode, 'online'), eq(evalDefinitions.status, 'active'), eq(evalDefinitions.source, 'llm')),
-    )
+    .where(and(eq(evalDefinitions.mode, 'online'), eq(evalDefinitions.source, 'llm')))
   if (defs.length === 0) return { evaluators: 0, scored: 0 }
 
   const recent = await listRecentTraces({ limit: opts.limit ?? DEFAULT_TRACE_LIMIT })

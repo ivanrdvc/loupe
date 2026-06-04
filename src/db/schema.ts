@@ -17,31 +17,23 @@ export const inventory = sqliteTable(
   (table) => [uniqueIndex('inventory_kind_name_namespace_idx').on(table.kind, table.name, table.namespace)],
 )
 
-export const alertRules = sqliteTable('alert_rule', {
-  id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
-  kind: text({ enum: ['new_tool', 'new_agent', 'tool_size_p95', 'tool_error_rate'] }).notNull(),
-  configJson: text('config_json', { mode: 'json' }).notNull().default(sql`'{}'`),
-  enabled: integer({ mode: 'boolean' }).notNull().default(true),
-})
-
 export const inboxItems = sqliteTable(
   'inbox_item',
   {
     id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
-    ruleId: integer('rule_id').references(() => alertRules.id, { onDelete: 'set null' }),
     kind: text({ enum: ['new_tool', 'new_agent', 'tool_size_p95', 'tool_error_rate'] }).notNull(),
     firedAt: integer('fired_at', { mode: 'timestamp_ms' }).notNull(),
     summary: text().notNull(),
     payloadJson: text('payload_json', { mode: 'json' }).notNull().default(sql`'{}'`),
     traceId: text('trace_id'),
-    sessionId: text('session_id'),
     dedupeKey: text('dedupe_key').notNull(),
     dismissedAt: integer('dismissed_at', { mode: 'timestamp_ms' }),
     snoozeUntil: integer('snooze_until', { mode: 'timestamp_ms' }),
   },
   (table) => [
     uniqueIndex('inbox_item_dedupe_key_idx').on(table.dedupeKey),
-    index('inbox_item_open_idx').on(table.dismissedAt, table.snoozeUntil, table.firedAt),
+    // snooze_until omitted: a range predicate, no help to the fired_at ordered seek.
+    index('inbox_item_open_idx').on(table.dismissedAt, table.firedAt),
   ],
 )
 

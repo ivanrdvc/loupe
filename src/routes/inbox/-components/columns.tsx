@@ -4,13 +4,13 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
+import { ALERT_KINDS } from '#/lib/alerts/kinds'
 import type { InboxRow } from '#/server/inbox'
+import { inboxItemTraceLink } from '../-meta'
 
 export interface InboxRowActions {
   onSnooze: (id: number) => void
   onDismiss: (id: number) => void
-  snoozePending?: boolean
-  dismissPending?: boolean
 }
 
 export function buildInboxColumns(actions: InboxRowActions): ColumnDef<InboxRow>[] {
@@ -32,13 +32,17 @@ export function buildInboxColumns(actions: InboxRowActions): ColumnDef<InboxRow>
           .toLowerCase()
         if (!q) return true
         const s = row.original
-        return [s.summary, s.kind, s.sessionId ?? '', s.traceId ?? ''].join(' ').toLowerCase().includes(q)
+        return [s.summary, s.kind, s.traceId ?? ''].join(' ').toLowerCase().includes(q)
       },
     },
     {
       accessorKey: 'kind',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Kind" />,
-      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.kind}</span>,
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">
+          {ALERT_KINDS[row.original.kind]?.label ?? row.original.kind}
+        </span>
+      ),
       filterFn: (row, _id, value: string[]) => Array.isArray(value) && value.includes(row.original.kind),
     },
     {
@@ -55,20 +59,10 @@ export function buildInboxColumns(actions: InboxRowActions): ColumnDef<InboxRow>
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => actions.onSnooze(row.original.id)}
-            disabled={actions.snoozePending}
-          >
+          <Button variant="ghost" size="sm" onClick={() => actions.onSnooze(row.original.id)}>
             Snooze
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => actions.onDismiss(row.original.id)}
-            disabled={actions.dismissPending}
-          >
+          <Button variant="ghost" size="sm" onClick={() => actions.onDismiss(row.original.id)}>
             Dismiss
           </Button>
         </div>
@@ -77,30 +71,15 @@ export function buildInboxColumns(actions: InboxRowActions): ColumnDef<InboxRow>
   ]
 }
 
-function OpenLink({ item }: { item: Pick<InboxRow, 'sessionId' | 'traceId'> }) {
-  const linkClass = 'inline-flex items-center text-muted-foreground hover:text-foreground'
-  if (item.sessionId) {
-    return (
-      <Link
-        to="/sessions/$sessionId"
-        params={{ sessionId: item.sessionId }}
-        search={{ range: 1, view: 'conversation' }}
-        className={linkClass}
-        aria-label="Open session"
-      >
-        <ArrowTopRightOnSquareIcon className="size-3.5" />
-      </Link>
-    )
-  }
-  if (item.traceId) {
-    return (
-      <Link to="/traces/$traceId" params={{ traceId: item.traceId }} className={linkClass} aria-label="Open trace">
-        <ArrowTopRightOnSquareIcon className="size-3.5" />
-      </Link>
-    )
-  }
+function OpenLink({ item }: { item: Pick<InboxRow, 'traceId'> }) {
+  const link = inboxItemTraceLink(item)
+  if (!link) return null
   return (
-    <Link to="/sessions" className={linkClass} aria-label="Open sessions">
+    <Link
+      {...link}
+      className="inline-flex items-center text-muted-foreground hover:text-foreground"
+      aria-label="Open trace"
+    >
       <ArrowTopRightOnSquareIcon className="size-3.5" />
     </Link>
   )

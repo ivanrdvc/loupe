@@ -3,21 +3,18 @@ import { createServerFn } from '@tanstack/react-start'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
   countOpenInboxItems,
+  dismissAllOpenInboxItems,
   dismissInboxItem,
   listOpenInboxItems,
-  listRecentInboxItems,
-  markAllInboxRead,
   snoozeInboxItem,
 } from '#/server/inbox'
 
 const fetchInbox = createServerFn({ method: 'GET' }).handler(() => listOpenInboxItems())
 
-const fetchRecentInbox = createServerFn({ method: 'GET' }).handler(() => listRecentInboxItems())
-
 const fetchInboxUnreadCount = createServerFn({ method: 'GET' }).handler(() => countOpenInboxItems())
 
-export const markAllInboxReadFn = createServerFn({ method: 'POST' }).handler(async () => {
-  await markAllInboxRead()
+export const dismissAllInboxFn = createServerFn({ method: 'POST' }).handler(async () => {
+  await dismissAllOpenInboxItems()
 })
 
 export const dismissInboxItemFn = createServerFn({ method: 'POST' })
@@ -32,18 +29,10 @@ export const snoozeInboxItemFn = createServerFn({ method: 'POST' })
     await snoozeInboxItem(data, new Date(Date.now() + 24 * 60 * 60 * 1000))
   })
 
-export const inboxQuery = () =>
+export const openInboxQuery = () =>
   queryOptions({
-    queryKey: queryKeys.inbox.all(),
+    queryKey: queryKeys.inbox.open(),
     queryFn: () => fetchInbox(),
-    staleTime: STALE_TELEMETRY_MS,
-    refetchInterval: STALE_TELEMETRY_MS,
-  })
-
-export const recentInboxQuery = () =>
-  queryOptions({
-    queryKey: queryKeys.inbox.recent(),
-    queryFn: () => fetchRecentInbox(),
     staleTime: STALE_TELEMETRY_MS,
     refetchInterval: STALE_TELEMETRY_MS,
   })

@@ -27,7 +27,7 @@ Three systems own different data:
 - **MCP servers** own live capabilities: tools, descriptions, input schemas,
   and whatever else `tools/list` returns.
 - **SQLite** owns loupe-local state: observed telemetry inventory, inbox
-  alerts, user dismissals/snoozes, alert rules, and discovery cursors.
+  alerts, user dismissals/snoozes, and discovery cursors.
 
 Do not store `mcp_servers` or `mcp_tools` as canonical SQLite tables in v1.
 That would duplicate remote state without solving the actual problem: the tool

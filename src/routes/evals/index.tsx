@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
-import { Badge } from '#/components/ui/badge'
+import { ModelSelect } from '#/components/scores/model-select'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -21,30 +21,37 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import { ProgressCircle } from '#/components/ui/progress-circle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Switch } from '#/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import {
   type EvalDefinition,
-  type EvalMode,
   type EvalScope,
-  type EvalStatus,
   SCORE_DATA_TYPES,
+  SCORE_SOURCE_ICON,
+  SCORE_SOURCE_LABEL,
   SCORE_TONE_CLASS,
   type ScoreDataType,
+  type ScoreSource,
   type ScoreTone,
 } from '#/lib/eval/evaluation'
 import { JUDGE_TEMPLATES } from '#/lib/eval/judge-templates'
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { getJudgeDefaults, listEvalDefinitions, setEvalDefinitionStatus, upsertEvalDefinition } from '#/server/evals'
+import { getJudgeDefaults, listEvalDefinitions, setEvalDefinitionLive, upsertEvalDefinition } from '#/server/evals'
 import type { JudgeDefaults } from '#/server/judge'
-import { getOnlineEvalStats, getScoreRollup, type OnlineEvalStat, type ScoreRollupRow } from '#/server/scores'
+import {
+  getOnlineEvalStats,
+  getScoreRollup,
+  listScoreConfigs,
+  type OnlineEvalStat,
+  type ScoreRollupRow,
+} from '#/server/scores'
 
 const definitionsQuery = queryOptions({
   queryKey: queryKeys.evals.definitions(),
@@ -72,6 +79,14 @@ const onlineStatsQuery = queryOptions({
   queryFn: () => getOnlineEvalStats(),
   staleTime: STALE_LIVE_MS,
 })
+
+const configsQuery = queryOptions({
+  queryKey: queryKeys.scores.configs(),
+  queryFn: () => listScoreConfigs(),
+  staleTime: STALE_TELEMETRY_MS,
+})
+
+const SOURCE_ORDER: ScoreSource[] = ['human', 'llm', 'code']
 
 export const Route = createFileRoute('/evals/')({
   loader: ({ context }) =>
@@ -101,16 +116,22 @@ function passRateTone(rate: number): ScoreTone {
   return 'bad'
 }
 
+function isLive(def: EvalDefinition): boolean {
+  return def.mode === 'online'
+}
+
 function EvalsPage() {
   const { data: definitions = [], isLoading } = useQuery(definitionsQuery)
   const { data: rollup = [] } = useQuery(rollupQuery)
   const { data: judgeDefaults } = useQuery(judgeDefaultsQuery)
   const { data: onlineStats = {} } = useQuery(onlineStatsQuery)
+  const { data: configs = [] } = useQuery(configsQuery)
 
   const [setupOpen, setSetupOpen] = useState(false)
 
-  const running = definitions.filter((d) => d.mode === 'online')
-  const offline = definitions.filter((d) => d.mode === 'offline')
+  // Cards only for defined dimensions or evaluator-owned names — never stray ingested names.
+  const known = new Set([...definitions.map((d) => d.name), ...configs.map((c) => c.name)])
+  const cards = rollup.filter((r) => known.has(r.name))
 
   return (
     <Page
@@ -130,7 +151,13 @@ function EvalsPage() {
       }
     >
       <div className="flex flex-col gap-6 px-4 lg:px-6">
-        {judgeDefaults && <JudgeStatus judge={judgeDefaults} />}
+        <div className="flex flex-col gap-1">
+          {judgeDefaults && <JudgeStatus judge={judgeDefaults} />}
+          <p className="text-xs text-muted-foreground">
+            <span className="text-foreground">Live</span> evaluators score new traces automatically. The rest stay idle
+            until you run them from their page.
+          </p>
+        </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -139,9 +166,12 @@ function EvalsPage() {
               <Skeleton key={i} className="h-24 w-full rounded-xl" />
             ))}
           </div>
-        ) : (
-          rollup.length > 0 && <RollupSection rows={rollup} />
-        )}
+        ) : cards.length > 0 ? (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-medium">Dimensions</h2>
+            <RollupSection rows={cards} />
+          </section>
+        ) : null}
 
         {isLoading ? (
           <div className="flex flex-col gap-2">
@@ -150,35 +180,10 @@ function EvalsPage() {
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
+        ) : definitions.length === 0 ? (
+          <EvaluatorsEmpty onSetup={() => setSetupOpen(true)} />
         ) : (
-          <Tabs defaultValue="running" className="flex flex-col gap-4">
-            <TabsList variant="line" className="h-auto gap-x-4 border-b">
-              <TabsTrigger value="running" className="flex-none px-1 pb-2">
-                Running Evaluators
-                {running.length > 0 && <span className="font-mono text-muted-foreground">{running.length}</span>}
-              </TabsTrigger>
-              <TabsTrigger value="offline" className="flex-none px-1 pb-2">
-                Evaluator Library
-                {offline.length > 0 && <span className="font-mono text-muted-foreground">{offline.length}</span>}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="running">
-              {running.length === 0 ? (
-                <EvaluatorsEmpty onSetup={() => setSetupOpen(true)} />
-              ) : (
-                <RunningTable definitions={running} stats={onlineStats} />
-              )}
-            </TabsContent>
-
-            <TabsContent value="offline">
-              {offline.length === 0 ? (
-                <EvaluatorsEmpty onSetup={() => setSetupOpen(true)} />
-              ) : (
-                <LibraryTable definitions={offline} />
-              )}
-            </TabsContent>
-          </Tabs>
+          <EvaluatorsTable definitions={definitions} stats={onlineStats} />
         )}
       </div>
     </Page>
@@ -204,7 +209,13 @@ function RollupSection({ rows }: { rows: ScoreRollupRow[] }) {
                 >
                   {pct}%
                 </span>
-                <span className="text-xs text-muted-foreground">{row.total} scored</span>
+                <span className="flex gap-2 text-xs text-muted-foreground">
+                  {SOURCE_ORDER.filter((s) => row.bySource[s] > 0).map((s) => (
+                    <span key={s} title={SCORE_SOURCE_LABEL[s]}>
+                      <span aria-hidden>{SCORE_SOURCE_ICON[s]}</span> {row.bySource[s]}
+                    </span>
+                  ))}
+                </span>
               </div>
               {row.avg != null && (
                 <span className="text-xs text-muted-foreground tabular-nums">avg {row.avg.toFixed(2)}</span>
@@ -217,7 +228,7 @@ function RollupSection({ rows }: { rows: ScoreRollupRow[] }) {
   )
 }
 
-function RunningTable({
+function EvaluatorsTable({
   definitions,
   stats,
 }: {
@@ -225,57 +236,86 @@ function RunningTable({
   stats: Record<number, OnlineEvalStat>
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="-mx-4 border-y bg-background lg:-mx-6">
       <Table>
         <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
-          <TableRow>
-            <TableHead>Score name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Result</TableHead>
+          <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
+            <TableHead>Evaluator</TableHead>
+            <TableHead>Live</TableHead>
+            <TableHead>Result</TableHead>
             <TableHead className="text-right">Cost</TableHead>
             <TableHead>Model</TableHead>
-            <TableHead>Version</TableHead>
             <TableHead>Updated</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {definitions.map((def) => {
-            const stat = stats[def.id]
-            return (
-              <TableRow key={def.id}>
-                <TableCell>
-                  <Link to="/evals/$evalId" params={{ evalId: String(def.id) }} className="font-medium hover:underline">
-                    {def.name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <StatusToggle id={def.id} status={def.status} />
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {stat && stat.passRate != null ? (
-                    <span className={SCORE_TONE_CLASS[passRateTone(stat.passRate)]}>
-                      {Math.round(stat.passRate * 100)}%
-                      <span className="ml-1 text-xs text-muted-foreground">({stat.scored})</span>
-                    </span>
-                  ) : stat?.scored ? (
-                    <span className="text-muted-foreground">{stat.scored} scored</span>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {stat?.costUsd ? formatCost(stat.costUsd) : '—'}
-                </TableCell>
-                <TableCell className="font-mono text-xs">{def.model}</TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">v{def.version}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  <RelativeTime ts={def.updatedAt} />
-                </TableCell>
-              </TableRow>
-            )
-          })}
+          {[...definitions]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((def) => {
+              const stat = stats[def.id]
+              return (
+                <TableRow
+                  key={def.id}
+                  className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                >
+                  <TableCell className="py-2.5">
+                    <div className="flex flex-col gap-0.5">
+                      <Link
+                        to="/evals/$evalId"
+                        params={{ evalId: String(def.id) }}
+                        className="font-medium text-foreground hover:underline"
+                      >
+                        {def.name}
+                      </Link>
+                      <span className="text-xs capitalize text-muted-foreground">
+                        {def.scope} · {DATA_TYPE_LABEL[def.dataType]}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <LiveToggle id={def.id} live={isLive(def)} />
+                  </TableCell>
+                  <TableCell>
+                    <ResultCell stat={stat} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {stat?.costUsd ? formatCost(stat.costUsd) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-mono text-xs text-foreground">{def.model || '—'}</span>
+                      <span className="text-xs tabular-nums text-muted-foreground">v{def.version}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <RelativeTime ts={def.updatedAt} />
+                  </TableCell>
+                </TableRow>
+              )
+            })}
         </TableBody>
       </Table>
+    </div>
+  )
+}
+
+function ResultCell({ stat }: { stat: OnlineEvalStat | undefined }) {
+  if (!stat || stat.passRate == null) {
+    return <span className="text-sm text-muted-foreground">{stat?.scored ? `${stat.scored} scored` : '—'}</span>
+  }
+  const tone = passRateTone(stat.passRate)
+  const pct = Math.round(stat.passRate * 100)
+  return (
+    <div className="flex items-center gap-2.5">
+      <ProgressCircle value={pct} className={SCORE_TONE_CLASS[tone]}>
+        <span className={cn('text-[10px] font-semibold tabular-nums', SCORE_TONE_CLASS[tone])}>{pct}</span>
+      </ProgressCircle>
+      <div className="flex flex-col gap-0">
+        <span className="text-sm text-foreground">
+          <span className="font-medium tabular-nums">{stat.pass}</span> pass
+        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">of {stat.scored} scored</span>
+      </div>
     </div>
   )
 }
@@ -298,68 +338,26 @@ function JudgeStatus({ judge }: { judge: JudgeDefaults }) {
   )
 }
 
-function LibraryTable({ definitions }: { definitions: EvalDefinition[] }) {
-  return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Scope</TableHead>
-            <TableHead>Data type</TableHead>
-            <TableHead>Model</TableHead>
-            <TableHead>Version</TableHead>
-            <TableHead>Updated</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {definitions.map((def) => (
-            <TableRow key={def.id}>
-              <TableCell>
-                <Link to="/evals/$evalId" params={{ evalId: String(def.id) }} className="font-medium hover:underline">
-                  {def.name}
-                </Link>
-              </TableCell>
-              <TableCell className="capitalize text-muted-foreground">{def.scope}</TableCell>
-              <TableCell className="text-muted-foreground">{DATA_TYPE_LABEL[def.dataType]}</TableCell>
-              <TableCell className="font-mono text-xs">{def.model}</TableCell>
-              <TableCell className="tabular-nums text-muted-foreground">v{def.version}</TableCell>
-              <TableCell className="text-muted-foreground">
-                <RelativeTime ts={def.updatedAt} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
-function StatusToggle({ id, status }: { id: number; status: EvalStatus }) {
+function LiveToggle({ id, live }: { id: number; live: boolean }) {
   const queryClient = useQueryClient()
-  const active = status === 'active'
 
   const mutation = useMutation({
-    mutationFn: (next: EvalStatus) => setEvalDefinitionStatus({ data: { id, status: next } }),
-    onSuccess: async () => {
+    mutationFn: (next: boolean) => setEvalDefinitionLive({ data: { id, live: next } }),
+    onSuccess: async (_data, next) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.evals.definitions() })
+      toast.success(next ? 'Now scoring live traffic' : 'Moved to library')
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
 
   return (
-    <div className="flex items-center gap-2">
-      <Switch
-        size="sm"
-        checked={active}
-        disabled={mutation.isPending}
-        onCheckedChange={(checked) => mutation.mutate(checked ? 'active' : 'paused')}
-        aria-label="Toggle evaluator status"
-      />
-      <Badge variant={active ? 'success' : 'outline'} className={cn(!active && 'text-muted-foreground')}>
-        {active ? 'Active' : 'Paused'}
-      </Badge>
-    </div>
+    <Switch
+      size="sm"
+      checked={live}
+      disabled={mutation.isPending}
+      onCheckedChange={(checked) => mutation.mutate(checked)}
+      aria-label="Toggle live scoring"
+    />
   )
 }
 
@@ -396,7 +394,6 @@ function SetupEvaluatorDialog({
   const [name, setName] = useState('')
   const [scope, setScope] = useState<EvalScope>('trace')
   const [dataType, setDataType] = useState<ScoreDataType>('boolean')
-  const [mode, setMode] = useState<EvalMode>('offline')
   const [judgePrompt, setJudgePrompt] = useState('')
   const [model, setModel] = useState(defaultModel)
 
@@ -409,7 +406,6 @@ function SetupEvaluatorDialog({
     setName('')
     setScope('trace')
     setDataType('boolean')
-    setMode('offline')
     setJudgePrompt('')
     setModel(defaultModel)
   }
@@ -431,7 +427,7 @@ function SetupEvaluatorDialog({
           scope,
           dataType,
           source: 'llm',
-          mode,
+          mode: 'offline',
           judgePrompt: judgePrompt.trim() || null,
           model: model.trim() || undefined,
         },
@@ -460,7 +456,8 @@ function SetupEvaluatorDialog({
         <DialogHeader>
           <DialogTitle>Set up evaluator</DialogTitle>
           <DialogDescription>
-            Define an LLM-judge that scores spans, traces, or sessions on a dimension.
+            Define an LLM-judge that scores spans, traces, or sessions on a dimension. Flip it Live from the list to
+            score production traffic.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -532,29 +529,9 @@ function SetupEvaluatorDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="evaluator-mode">Mode</Label>
-              <Select value={mode} onValueChange={(v) => setMode(v as EvalMode)}>
-                <SelectTrigger id="evaluator-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="offline">Library</SelectItem>
-                  <SelectItem value="online">Online</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="evaluator-model">Model</Label>
-              <Input
-                id="evaluator-model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder={defaultModel || 'gpt-4o-mini'}
-                className="font-mono text-xs"
-              />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="evaluator-model">Model</Label>
+            <ModelSelect id="evaluator-model" value={model} onChange={setModel} />
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -9,3 +9,4 @@
 - Historic data across agent versions (compare runs over time)
 - Run execution is synchronous — move `runDataset` to a background job + polling (`src/server/datasets.ts`)
 - Anthropic token counts are estimated (o200k BPE); exact would need the Anthropic count_tokens API (`src/lib/spans/tokens.ts`)
+- Version snapshots — store judge prompt/model + example set per version so old eval/dataset versions can be viewed and re-run (currently a bare counter)

@@ -21,9 +21,9 @@ import {
   scorePassFail,
   type UpsertEvalDefinitionInput,
 } from '#/lib/eval/evaluation'
+import { DEFAULT_JUDGE_MODEL } from '#/lib/eval/models'
 import type { JsonValue } from '#/lib/json'
-import { listRecentTraces } from '#/lib/telemetry'
-import { casesFromTraces, type JudgeCaseInput } from './eval-jobs'
+import type { JudgeCaseInput } from './eval-jobs'
 import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
 import { parseLiveFilter } from './online-eval-filter'
 import { configToHint, scaleMap } from './scores'
@@ -210,7 +210,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
     dataType: asDataType(input.dataType),
     source: asSource(input.source),
     judgePrompt: asOptString(input.judgePrompt),
-    model: asOptString(input.model) ?? 'gpt-4o-mini',
+    model: asOptString(input.model) ?? DEFAULT_JUDGE_MODEL,
     mode: asMode(input.mode),
     status: asStatus(input.status),
     // undefined = leave unchanged; null/object = normalized via parseLiveFilter server-side.
@@ -265,15 +265,13 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
     return toDefinition(row)
   })
 
-export const setEvalDefinitionStatus = createServerFn({ method: 'POST' })
-  .inputValidator((input: { id: number; status: EvalStatus }) => ({
-    id: Number(input.id),
-    status: asStatus(input.status),
-  }))
+// Live ON = score prod traffic; OFF = back to the library.
+export const setEvalDefinitionLive = createServerFn({ method: 'POST' })
+  .inputValidator((input: { id: number; live: boolean }) => ({ id: Number(input.id), live: Boolean(input.live) }))
   .handler(async ({ data }): Promise<void> => {
     await db
       .update(evalDefinitions)
-      .set({ status: data.status, updatedAt: new Date() })
+      .set({ mode: data.live ? 'online' : 'offline', updatedAt: new Date() })
       .where(eq(evalDefinitions.id, data.id))
   })
 
@@ -385,111 +383,6 @@ export const runEval = createServerFn({ method: 'POST' })
     )
 
     return toRun(runRow)
-  })
-
-// Shared by both trace triggers: create the run row, return immediately; case
-// building + judging run in the background.
-async function startTraceRun(definitionId: number, traceIds: string[], model: string | null, samples: number) {
-  const [defRow] = await db.select().from(evalDefinitions).where(eq(evalDefinitions.id, definitionId)).limit(1)
-  if (!defRow) throw new Error('Evaluator not found')
-  const def = toDefinition(defRow)
-  if (def.source !== 'llm')
-    throw new Error('Only LLM-judge evaluators can be run today (code evaluators are not yet supported)')
-  const resolvedModel = model || def.model
-
-  const now = new Date()
-  const [runRow] = await db
-    .insert(evalRuns)
-    .values({
-      definitionId: def.id,
-      definitionVersion: def.version,
-      status: 'running',
-      targetSelector: { kind: 'traces', traceIds },
-      startedAt: now,
-      summary: { total: 0, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: resolvedModel },
-      createdAt: now,
-    })
-    .returning()
-  if (!runRow) throw new Error('startTraceRun: could not create run')
-
-  void runTraceEvalJob({
-    runId: runRow.id,
-    def,
-    model: resolvedModel,
-    samples,
-    traceIds,
-  }).catch(async (err) => {
-    await db.update(evalRuns).set({ status: 'error', endedAt: new Date() }).where(eq(evalRuns.id, runRow.id))
-    console.error('[startTraceRun] background run failed', err)
-  })
-
-  return toRun(runRow)
-}
-
-async function runTraceEvalJob(opts: {
-  runId: number
-  def: EvalDefinition
-  model: string
-  samples: number
-  traceIds: string[]
-}): Promise<void> {
-  const cases = await casesFromTraces(opts.traceIds, opts.def.scope)
-  if (cases.length === 0) {
-    await db
-      .update(evalRuns)
-      .set({
-        status: 'error',
-        endedAt: new Date(),
-        summary: { total: 0, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: opts.model },
-      })
-      .where(eq(evalRuns.id, opts.runId))
-    return
-  }
-  await db
-    .update(evalRuns)
-    .set({ summary: { total: cases.length, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model: opts.model } })
-    .where(eq(evalRuns.id, opts.runId))
-  await executeEvalRun({
-    runId: opts.runId,
-    def: opts.def,
-    model: opts.model,
-    samples: opts.samples,
-    cases,
-  })
-}
-
-// The offline-on-traces trigger: run an evaluator over an explicit trace selection.
-export const runEvalOnTraces = createServerFn({ method: 'POST' })
-  .inputValidator((input: unknown) => {
-    const obj = asRecord(input, 'runEvalOnTraces input')
-    if (!Array.isArray(obj.traceIds) || obj.traceIds.length === 0) throw new Error('traceIds must be a non-empty array')
-    return {
-      definitionId: asRequiredInt(obj.definitionId, 'definitionId'),
-      traceIds: obj.traceIds.map((id, i) => asRequiredString(id, `traceIds[${i}]`)),
-      model: asOptString(obj.model),
-      samples:
-        obj.samples == null ? 1 : Math.max(1, Math.min(MAX_JUDGE_SAMPLES, asRequiredInt(obj.samples, 'samples'))),
-    }
-  })
-  .handler(({ data }): Promise<EvalRun> => startTraceRun(data.definitionId, data.traceIds, data.model, data.samples))
-
-// Convenience trigger: run over the most recent N traces (provider-listed).
-export const runEvalOnRecentTraces = createServerFn({ method: 'POST' })
-  .inputValidator((input: unknown) => {
-    const obj = asRecord(input, 'runEvalOnRecentTraces input')
-    return {
-      definitionId: asRequiredInt(obj.definitionId, 'definitionId'),
-      limit: obj.limit == null ? 10 : Math.max(1, Math.min(50, asRequiredInt(obj.limit, 'limit'))),
-      model: asOptString(obj.model),
-      samples:
-        obj.samples == null ? 1 : Math.max(1, Math.min(MAX_JUDGE_SAMPLES, asRequiredInt(obj.samples, 'samples'))),
-    }
-  })
-  .handler(async ({ data }): Promise<EvalRun> => {
-    const recent = await listRecentTraces({ limit: data.limit })
-    const traceIds = (recent?.traces ?? []).map((t) => t.id)
-    if (traceIds.length === 0) throw new Error('No recent traces to evaluate')
-    return startTraceRun(data.definitionId, traceIds, data.model, data.samples)
   })
 
 async function executeEvalRun(opts: {

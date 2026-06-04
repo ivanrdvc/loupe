@@ -18,7 +18,7 @@ export const queryKeys = {
   },
   inbox: {
     all: () => ['inbox'] as const,
-    recent: () => ['inbox', 'recent'] as const,
+    open: () => ['inbox', 'open'] as const,
     unreadCount: () => ['inbox', 'unread-count'] as const,
   },
   home: {
@@ -73,6 +73,7 @@ export const queryKeys = {
     runs: (definitionId?: number | null) => ['evals', 'runs', definitionId ?? null] as const,
     run: (runId: number) => ['evals', 'run', runId] as const,
     runScores: (runId: number) => ['evals', 'run-scores', runId] as const,
+    definitionScores: (id: number) => ['evals', 'definition-scores', id] as const,
     compare: (base: number, head: number) => ['evals', 'compare', base, head] as const,
     onlineStats: () => ['evals', 'online-stats'] as const,
     judgeDefaults: () => ['evals', 'judge-defaults'] as const,

@@ -17,22 +17,17 @@ import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { ALERT_KIND_OPTIONS } from '#/lib/alerts/kinds'
 import type { InboxRow } from '#/server/inbox'
 import { buildInboxColumns, type InboxRowActions } from './columns'
-
-const KIND_OPTIONS = [
-  { label: 'New tool', value: 'new_tool' },
-  { label: 'New agent', value: 'new_agent' },
-]
 
 interface InboxDataTableProps extends InboxRowActions {
   data: InboxRow[]
   isLoading?: boolean
 }
 
-export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTableProps) {
-  // biome-ignore lint/correctness/useExhaustiveDependencies: actions object identity is fine here; column defs only need callback refs
-  const columns = React.useMemo(() => buildInboxColumns(actions), [actions])
+export function InboxDataTable({ data, isLoading, onSnooze, onDismiss }: InboxDataTableProps) {
+  const columns = React.useMemo(() => buildInboxColumns({ onSnooze, onDismiss }), [onSnooze, onDismiss])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'firedAtMs', desc: true }])
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 25 })
@@ -60,7 +55,7 @@ export function InboxDataTable({ data, isLoading, ...actions }: InboxDataTablePr
     <div className="flex w-full flex-col">
       <div className="flex flex-1 flex-wrap items-center gap-2 px-4 pb-3 lg:px-6">
         {table.getColumn('kind') && (
-          <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={KIND_OPTIONS} />
+          <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={ALERT_KIND_OPTIONS} />
         )}
         <div className="relative w-full min-w-0 sm:w-64">
           <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />

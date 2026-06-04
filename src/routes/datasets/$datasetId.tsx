@@ -181,16 +181,30 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
 
+  const onRunSuccess = async (runId: string, message: string) => {
+    await invalidate()
+    setSelectedIds([runId])
+    setTab('runs')
+    toast.success(message)
+    if (autoJudge && judgeDefaults?.configured) judgeMutation.mutate(runId)
+  }
+
   const runMutation = useMutation({
     mutationFn: () => runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined } }),
-    onSuccess: async ({ runId }) => {
-      await invalidate()
-      setSelectedIds([runId])
-      setTab('runs')
-      toast.success('Run complete')
-      if (autoJudge && judgeDefaults?.configured) judgeMutation.mutate(runId)
-    },
+    onSuccess: ({ runId }) => onRunSuccess(runId, 'Run complete'),
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
+
+  const [runningExampleId, setRunningExampleId] = useState<string | null>(null)
+  const runExampleMutation = useMutation({
+    mutationFn: (exampleId: string) =>
+      runDataset({
+        data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds: [exampleId] },
+      }),
+    onMutate: (exampleId) => setRunningExampleId(exampleId),
+    onSuccess: ({ runId }) => onRunSuccess(runId, 'Example run complete'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onSettled: () => setRunningExampleId(null),
   })
 
   const persistEndpoint = useMutation({
@@ -204,11 +218,6 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
 
   const itemFor = (runId: string, exampleId: string) =>
     items.find((it) => it.runId === runId && it.exampleId === exampleId) ?? null
-
-  const versions = useMemo(() => {
-    const set = new Set<number>([dataset.version, ...runs.map((r) => r.version)])
-    return [...set].sort((a, b) => b - a)
-  }, [dataset.version, runs])
 
   const closeSheet = () => {
     setActiveExample(null)
@@ -229,27 +238,6 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
             ))}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Version</span>
-              <Select
-                value={`v${dataset.version}`}
-                onValueChange={(v) => {
-                  if (v !== `v${dataset.version}`)
-                    toast.info("Example history isn't snapshotted yet — showing the current version")
-                }}
-              >
-                <SelectTrigger size="sm" className="h-8 font-mono text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {versions.map((v) => (
-                    <SelectItem key={v} value={`v${v}`}>
-                      v{v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <Button variant="outline" size="sm" onClick={() => downloadCsv(dataset.name, examples)}>
               <HugeiconsIcon icon={Download01Icon} strokeWidth={2} data-icon="inline-start" />
               CSV
@@ -274,6 +262,8 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               examples={examples}
               latestRunId={latestId}
               itemFor={itemFor}
+              onRun={(e) => runExampleMutation.mutate(e.id)}
+              runningId={runningExampleId}
               onOpen={(e) => {
                 setCreating(false)
                 setActiveExample(e)
@@ -336,12 +326,16 @@ function ExamplesTab({
   examples,
   latestRunId,
   itemFor,
+  onRun,
+  runningId,
   onOpen,
   onAdd,
 }: {
   examples: DatasetExample[]
   latestRunId: string | null
   itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
+  onRun: (e: DatasetExample) => void
+  runningId: string | null
   onOpen: (e: DatasetExample) => void
   onAdd: () => void
 }) {
@@ -394,8 +388,32 @@ function ExamplesTab({
         },
         meta: { headClassName: 'w-56' },
       },
+      {
+        id: 'run',
+        header: 'Run',
+        cell: ({ row }) => (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-foreground"
+                disabled={runningId === row.original.id}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRun(row.original)
+                }}
+              >
+                <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Run just this example</TooltipContent>
+          </Tooltip>
+        ),
+        meta: { headClassName: 'w-12' },
+      },
     ],
-    [latestRunId, itemFor],
+    [latestRunId, itemFor, onRun, runningId],
   )
 
   return (
@@ -470,18 +488,10 @@ function RunsTab({
   onJudge: () => void
 }) {
   const { examples, runs } = detail
-  const latestId = runs[0]?.id ?? null
   const [overridesOpen, setOverridesOpen] = useState(false)
 
-  const toggle = (id: string) => {
-    if (selectedIds.includes(id)) {
-      if (selectedIds.length > 1) onSelectedChange(selectedIds.filter((x) => x !== id))
-    } else {
-      onSelectedChange([...selectedIds, id])
-    }
-  }
-
-  const selectedRuns = runs.filter((r) => selectedIds.includes(r.id))
+  // Keep focus-first order so compare lays the second run beside it.
+  const selectedRuns = selectedIds.map((id) => runs.find((r) => r.id === id)).filter((r): r is DatasetRun => !!r)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -573,58 +583,135 @@ function RunsTab({
         </div>
       ) : (
         <>
-          <RunSwitcher runs={runs} latestId={latestId} selectedIds={selectedIds} onToggle={toggle} />
-          <RunResultsGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
+          <RunControls runs={runs} selectedIds={selectedIds} onSelectedChange={onSelectedChange} />
+          {selectedRuns.length > 1 ? (
+            <RunResultsGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
+          ) : (
+            <SingleRunList
+              run={selectedRuns[0] ?? null}
+              examples={examples}
+              itemFor={itemFor}
+              onOpenItem={onOpenItem}
+            />
+          )}
         </>
       )}
     </div>
   )
 }
 
-// Quiet run selector: latest is active by default; tap others to swap/compare.
-function RunSwitcher({
+// One focused run (latest by default) + an optional second run to compare against.
+function RunControls({
   runs,
-  latestId,
   selectedIds,
-  onToggle,
+  onSelectedChange,
 }: {
   runs: DatasetRun[]
-  latestId: string | null
   selectedIds: string[]
-  onToggle: (id: string) => void
+  onSelectedChange: (ids: string[]) => void
 }) {
+  const latestId = runs[0]?.id ?? null
+  const focusId = selectedIds[0] ?? latestId
+  const compareId = selectedIds[1] ?? null
+  const focus = runs.find((r) => r.id === focusId)
+
+  const setFocus = (id: string) => onSelectedChange(compareId && compareId !== id ? [id, compareId] : [id])
+  const setCompare = (id: string) => onSelectedChange(id === 'none' || !focusId ? [focusId as string] : [focusId, id])
+
+  const label = (run: DatasetRun) =>
+    `${run.label}${run.id === latestId ? ' · latest' : ''}${run.passRate != null ? ` · ${Math.round(run.passRate * 100)}%` : ''}`
+
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-3 lg:px-6">
-      <span className="text-xs text-muted-foreground">Runs</span>
-      {runs.map((run) => {
-        const active = selectedIds.includes(run.id)
-        return (
-          <button
-            key={run.id}
-            type="button"
-            onClick={() => onToggle(run.id)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
-              active
-                ? 'border-primary/40 bg-primary/5 text-foreground'
-                : 'border-transparent bg-muted/40 text-muted-foreground hover:bg-muted',
-            )}
-          >
-            <span className="font-mono">{run.label}</span>
-            {run.id === latestId && (
-              <Badge variant="secondary" className="h-4 px-1 text-[9px]">
-                latest
-              </Badge>
-            )}
-            {run.passRate != null && (
-              <span className="text-[10px] text-muted-foreground">{Math.round(run.passRate * 100)}%</span>
-            )}
-          </button>
-        )
-      })}
-      <span className="text-[11px] text-muted-foreground">
-        {selectedIds.length > 1 ? `comparing ${selectedIds.length}` : 'tap another run to compare'}
-      </span>
+      <span className="text-xs text-muted-foreground">Run</span>
+      <Select value={focusId ?? undefined} onValueChange={setFocus}>
+        <SelectTrigger size="sm" className="h-8 w-56 font-mono text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {runs.map((run) => (
+            <SelectItem key={run.id} value={run.id} className="font-mono text-xs">
+              {label(run)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={compareId ?? 'none'} onValueChange={setCompare}>
+        <SelectTrigger size="sm" className="h-8 w-48 text-xs">
+          <SelectValue placeholder="Compare…" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">No compare</SelectItem>
+          {runs
+            .filter((r) => r.id !== focusId)
+            .map((run) => (
+              <SelectItem key={run.id} value={run.id} className="font-mono text-xs">
+                vs {label(run)}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+      {focus?.passRate != null && (
+        <span className="text-xs text-muted-foreground">{Math.round(focus.passRate * 100)}% pass</span>
+      )}
+    </div>
+  )
+}
+
+function ScoreBadge({ it }: { it: DatasetRunItem | null }) {
+  if (!it) return null
+  if (it.pass === true)
+    return (
+      <Badge variant="outline" className="border-emerald-600/40 text-emerald-600">
+        pass
+      </Badge>
+    )
+  if (it.pass === false) return <Badge variant="destructive">fail</Badge>
+  return <span className="text-[10px] text-muted-foreground">{it.status === 'error' ? '—' : 'not judged'}</span>
+}
+
+// Default single-run view: one readable row per example (question · answer · score).
+function SingleRunList({
+  run,
+  examples,
+  itemFor,
+  onOpenItem,
+}: {
+  run: DatasetRun | null
+  examples: DatasetExample[]
+  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
+  onOpenItem: (it: DatasetRunItem) => void
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-4 pb-4 lg:px-6">
+      <ul className="flex flex-col divide-y rounded-lg border">
+        {examples.map((ex) => {
+          const it = run ? itemFor(run.id, ex.id) : null
+          return (
+            <li key={ex.id}>
+              <button
+                type="button"
+                disabled={!it}
+                onClick={() => it && onOpenItem(it)}
+                className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-1 text-sm">{inputPreview(ex.input)}</p>
+                  {it?.status === 'error' ? (
+                    <p className="text-xs text-destructive">⚠ run failed</p>
+                  ) : it ? (
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{it.output}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60">not in this run</p>
+                  )}
+                </div>
+                {it && <StatusIcon status={it.status} />}
+                <ScoreBadge it={it} />
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
@@ -665,10 +752,9 @@ function RunResultsGrid({
         header: () => (
           <div className="flex flex-col gap-0.5 py-1">
             <span className="font-mono text-xs text-foreground">{run.label}</span>
-            <span className="text-[10px] text-muted-foreground">
-              v{run.version}
-              {run.passRate != null && ` · ${Math.round(run.passRate * 100)}% pass`}
-            </span>
+            {run.passRate != null && (
+              <span className="text-[10px] text-muted-foreground">{Math.round(run.passRate * 100)}% pass</span>
+            )}
           </div>
         ),
         cell: ({ row }) => <OutputCell it={itemFor(run.id, row.original.id)} onOpenItem={onOpenItem} />,

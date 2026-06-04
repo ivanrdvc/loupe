@@ -47,4 +47,4 @@ export const agentsQuery = () =>
   queryOptions({ queryKey: queryKeys.agents.all(), queryFn: fetchAgents, staleTime: STALE_TELEMETRY_MS })
 ```
 
-Cross-feature consumers (e.g. the global sidebar reading `inboxUnreadCountQuery` from `routes/inbox/-data`) import the route's `-data.ts` directly. Truly app-wide queries that don't belong to a route (e.g. `providers-data.ts` for the settings dialog) live in `src/lib/`.
+Cross-feature consumers (e.g. the header notification bell reading `inboxUnreadCountQuery` from `routes/inbox/-data`) import the route's `-data.ts` directly. Truly app-wide queries that don't belong to a route (e.g. `providers-data.ts` for the settings dialog) live in `src/lib/`.

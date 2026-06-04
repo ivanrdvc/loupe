@@ -331,7 +331,7 @@ Rules:
 
 - `lib/*` never imports React or DB. Routes glue lib → DB → React Query.
 - One classifier. Providers normalize key *shape*; they never decide field *meaning*.
-- Local SQLite stores app state only — inbox, notes, alert rules. **Never** telemetry.
+- Local SQLite stores app state only — inbox, notes, scores. **Never** telemetry.
 
 ## Read next
 

@@ -5,6 +5,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
+import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
 import {
   Breadcrumb,
@@ -24,7 +25,6 @@ import {
   type ConfigHint,
   EVAL_RUN_STATUS_BADGE,
   type EvalRun,
-  formatScoreValue,
   isEvalRunActive,
   judgeErrorHint,
   SCORE_TONE_CLASS,
@@ -219,16 +219,13 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
             {run.status}
           </Badge>
           {run.blessed && <Badge variant="outline">Blessed</Badge>}
-          <span className="text-xs text-muted-foreground">
-            v{run.definitionVersion}
-            {run.gitSha && (
-              <>
-                {' · '}
-                <span className="font-mono">{run.gitSha.slice(0, 7)}</span>
-              </>
-            )}
-            {run.env && ` · ${run.env}`}
-          </span>
+          {(run.gitSha || run.env) && (
+            <span className="text-xs text-muted-foreground">
+              {run.gitSha && <span className="font-mono">{run.gitSha.slice(0, 7)}</span>}
+              {run.gitSha && run.env && ' · '}
+              {run.env}
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
             {run.startedAt != null && (
               <span>
@@ -290,10 +287,10 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="overflow-hidden rounded-lg border bg-background">
+          <div className="-mx-4 border-y bg-background lg:-mx-6">
             <Table>
               <TableHeader className="bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
-                <TableRow>
+                <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
                   <TableHead>Target</TableHead>
                   <TableHead>Verdict</TableHead>
                   <TableHead>Explanation</TableHead>
@@ -328,7 +325,7 @@ function CaseRow({ score, scale }: { score: Score; scale?: ConfigHint }) {
   const isItem = score.datasetRunItemId != null && score.parentTraceId == null && score.targetId.startsWith('item:')
 
   return (
-    <TableRow>
+    <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
       <TableCell>
         <span className="flex items-center gap-2">
           <Badge variant="outline" className="capitalize">
@@ -351,9 +348,11 @@ function CaseRow({ score, scale }: { score: Score; scale?: ConfigHint }) {
         </span>
       </TableCell>
       <TableCell>
-        <span className={cn('font-medium', bad ? SCORE_TONE_CLASS.bad : SCORE_TONE_CLASS.good)}>
-          {formatScoreValue(score, scale)}
-        </span>
+        <ScoreValue
+          score={score}
+          scale={scale}
+          className={cn('font-medium', bad ? SCORE_TONE_CLASS.bad : SCORE_TONE_CLASS.good)}
+        />
       </TableCell>
       <TableCell className="max-w-[28rem]">
         {score.explanation ? (

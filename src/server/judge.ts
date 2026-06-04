@@ -6,12 +6,13 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError, generateObject, generateText, jsonSchema, type LanguageModel, NoObjectGeneratedError } from 'ai'
+import { DEFAULT_JUDGE_MODEL, type JudgeProvider, judgeModelProvider } from '#/lib/eval/models'
 import type { JsonValue } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 
 const JUDGE_TIMEOUT_MS = 60_000
 
-export type JudgeProvider = 'openai' | 'anthropic'
+export type { JudgeProvider }
 export type JudgeDefaults = {
   model: string
   provider: JudgeProvider
@@ -20,13 +21,11 @@ export type JudgeDefaults = {
   hasAnthropicKey: boolean
 }
 
-const isAnthropicModel = (m: string) => /^(claude|anthropic\/)/i.test(m)
-
 export function resolveJudgeDefaults(): JudgeDefaults {
-  const model = process.env.JUDGE_MODEL ?? 'gpt-4o-mini'
+  const model = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_MODEL
   const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY)
-  const provider: JudgeProvider = isAnthropicModel(model) ? 'anthropic' : 'openai'
+  const provider: JudgeProvider = judgeModelProvider(model)
   return {
     model,
     provider,
@@ -39,7 +38,7 @@ export function resolveJudgeDefaults(): JudgeDefaults {
 // Build an AI SDK model for the judge. Anthropic for claude*, else OpenAI
 // (Responses API) against api.openai.com.
 function modelFor(model: string): LanguageModel {
-  if (isAnthropicModel(model)) {
+  if (judgeModelProvider(model) === 'anthropic') {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to use a Claude judge model.')
     return createAnthropic({ apiKey })(model.replace(/^anthropic\//i, ''))
