@@ -326,6 +326,14 @@ export type MessagePart =
   | { kind: 'tool_call'; id: string; name: string; arguments: JsonValue }
   | { kind: 'tool_call_response'; id: string; response: JsonValue }
 
+/** Text parts joined; tool calls and reasoning dropped. */
+export function messageText(parts: MessagePart[]): string {
+  return parts
+    .flatMap((p) => (p.kind === 'text' ? [p.content] : []))
+    .join('\n')
+    .trim()
+}
+
 // Parse OTEL/Logfire message shape. Each message is { role, parts: [...] }
 // where parts can be text, tool_call, or tool_call_response. We tolerate
 // missing fields and skip malformed entries.

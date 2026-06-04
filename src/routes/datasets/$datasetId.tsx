@@ -2,6 +2,7 @@ import {
   Add01Icon,
   Alert02Icon,
   AlertCircleIcon,
+  ChatQuestion01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
   Download01Icon,
@@ -26,7 +27,7 @@ import {
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb'
 import { Button } from '#/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
@@ -378,15 +379,15 @@ function ExamplesTab({
         cell: ({ row }) => {
           const last = latestRunId ? itemFor(latestRunId, row.original.id) : null
           return last ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <StatusIcon status={last.status} />
-              <span className="line-clamp-1 text-xs text-muted-foreground">{last.output}</span>
+              <span className="truncate text-xs text-muted-foreground">{last.output}</span>
             </div>
           ) : (
             <span className="text-xs text-muted-foreground/60">—</span>
           )
         },
-        meta: { headClassName: 'w-56' },
+        meta: { headClassName: 'w-56', className: 'max-w-xs' },
       },
       {
         id: 'run',
@@ -418,25 +419,33 @@ function ExamplesTab({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-        <p className="text-xs text-muted-foreground">
-          The questions. Edit input / expected / metadata here — that's what every run is graded against.
-        </p>
-        <Button size="sm" variant="outline" onClick={onAdd}>
-          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-          Example
-        </Button>
-      </div>
+      {examples.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+          <p className="text-xs text-muted-foreground">
+            The questions. Edit input / expected / metadata here — that's what every run is graded against.
+          </p>
+          <Button size="sm" variant="outline" onClick={onAdd}>
+            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+            Example
+          </Button>
+        </div>
+      )}
       {examples.length === 0 ? (
         <div className="px-4 lg:px-6">
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
+                <HugeiconsIcon icon={ChatQuestion01Icon} strokeWidth={2} />
               </EmptyMedia>
               <EmptyTitle>No examples yet</EmptyTitle>
               <EmptyDescription>Add a question by hand, or capture one from a trace.</EmptyDescription>
             </EmptyHeader>
+            <EmptyContent>
+              <Button size="sm" onClick={onAdd}>
+                <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+                Add example
+              </Button>
+            </EmptyContent>
           </Empty>
         </div>
       ) : (
@@ -896,7 +905,7 @@ function ExampleSheet({
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+      <SheetContent className="flex w-full flex-col gap-0 data-[side=right]:w-[46rem] data-[side=right]:sm:max-w-[46rem]">
         <SheetHeader>
           <SheetTitle>{example ? 'Example' : 'New example'}</SheetTitle>
           <SheetDescription>
@@ -929,7 +938,7 @@ function ExampleSheet({
             <Textarea
               value={expected}
               onChange={(e) => setExpected(e.target.value)}
-              rows={expectedMode === 'json' ? 5 : 2}
+              rows={expectedMode === 'json' ? 14 : 3}
               className={cn(jsonInvalid && 'border-destructive', expectedMode === 'json' && 'font-mono text-xs')}
               placeholder={
                 expectedMode === 'json'
@@ -1068,52 +1077,78 @@ const ROLE_STYLE: Record<ChatMessage['role'], string> = {
   tool: 'text-warning',
 }
 
-/** Controlled multi-turn input, or a single textarea for string inputs. */
+const CHAT_ROLES: ChatRole[] = ['system', 'user', 'assistant', 'tool']
+
+function isMessageArray(v: unknown): v is ChatMessage[] {
+  return (
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.every(
+      (m): m is ChatMessage =>
+        !!m &&
+        typeof m === 'object' &&
+        CHAT_ROLES.includes((m as ChatMessage).role) &&
+        typeof (m as ChatMessage).content === 'string',
+    )
+  )
+}
+
+/**
+ * Plain text, or JSON for a multi-turn transcript. Text is stored as-is; a valid
+ * `[{ role, content }]` array is parsed into a transcript (pretty-printed on blur).
+ */
 function InputEditor({ input, onChange }: { input: ExampleInput; onChange: (next: ExampleInput) => void }) {
-  const turns = inputTurns(input)
-  if (!turns) {
-    return <Textarea value={input as string} onChange={(e) => onChange(e.target.value)} rows={3} />
+  const [text, setText] = useState(() => (typeof input === 'string' ? input : JSON.stringify(input, null, 2)))
+
+  const trimmed = text.trim()
+  const looksJson = trimmed.startsWith('[')
+  let parsed: ChatMessage[] | null = null
+  let error: string | null = null
+  if (looksJson) {
+    try {
+      const v = JSON.parse(trimmed)
+      if (isMessageArray(v)) parsed = v
+      else error = 'Expected an array of { role, content } messages'
+    } catch {
+      error = 'Invalid JSON'
+    }
   }
-  const setTurn = (i: number, content: string) => onChange(turns.map((t, idx) => (idx === i ? { ...t, content } : t)))
-  const removeTurn = (i: number) => {
-    const next = turns.filter((_, idx) => idx !== i)
-    onChange(next.length > 0 ? next : '')
+
+  const commit = (next: string) => {
+    setText(next)
+    const t = next.trim()
+    if (t.startsWith('[')) {
+      try {
+        const v = JSON.parse(t)
+        if (isMessageArray(v)) {
+          onChange(v)
+          return
+        }
+      } catch {
+        // fall through: keep raw text so the user doesn't lose what they typed
+      }
+    }
+    onChange(next)
   }
-  const addTurn = (role: ChatRole) => onChange([...turns, { role, content: '' }])
 
   return (
-    <div className="flex flex-col gap-2">
-      {turns.map((m, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: transcript turns are positional
-        <div key={i} className="rounded-md border bg-card/40 p-2">
-          <div className="mb-1 flex items-center justify-between">
-            <span className={cn('font-mono text-[10px] uppercase tracking-wider', ROLE_STYLE[m.role])}>{m.role}</span>
-            <button
-              type="button"
-              className="text-[10px] text-muted-foreground hover:text-destructive"
-              onClick={() => removeTurn(i)}
-            >
-              remove
-            </button>
-          </div>
-          <Textarea
-            value={m.content}
-            onChange={(e) => setTurn(i, e.target.value)}
-            rows={1}
-            className="min-h-0 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
-          />
-        </div>
-      ))}
-      <div className="flex gap-1.5">
-        <Button variant="outline" size="sm" onClick={() => addTurn('user')}>
-          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-          user
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => addTurn('assistant')}>
-          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-          assistant
-        </Button>
-      </div>
+    <div className="flex flex-col gap-1.5">
+      <Textarea
+        value={text}
+        onChange={(e) => commit(e.target.value)}
+        onBlur={() => parsed && setText(JSON.stringify(parsed, null, 2))}
+        rows={looksJson ? 8 : 3}
+        className="font-mono text-xs"
+        placeholder={'Plain text, or JSON multi-turn:\n[{ "role": "user", "content": "…" }]'}
+      />
+      {looksJson &&
+        (error ? (
+          <p className="text-[11px] text-destructive">⚠ {error}</p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            ✓ valid · {parsed?.length} {parsed?.length === 1 ? 'turn' : 'turns'}
+          </p>
+        ))}
     </div>
   )
 }

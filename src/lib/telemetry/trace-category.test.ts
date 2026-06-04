@@ -74,8 +74,8 @@ describe('classifyTraceCategory', () => {
     expect(classifyTraceCategory({ ...base, hasSessionAttribute: true, hasChat: true })).toBe('chat')
   })
 
-  it('returns utility for bare chat spans with no agent and no session', () => {
-    expect(classifyTraceCategory({ ...base, hasChat: true })).toBe('utility')
+  it('returns orphan for bare chat spans with no purpose, agent, or session', () => {
+    expect(classifyTraceCategory({ ...base, hasChat: true })).toBe('orphan')
   })
 
   it('returns orphan when nothing classifies it', () => {

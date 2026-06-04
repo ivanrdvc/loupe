@@ -31,7 +31,7 @@ export function classifyTraceCategory(input: TraceClassificationInput): TraceCat
   if (input.hasInvokeAgent) return 'chat'
   if (input.rootLlmPurpose) return 'utility'
   if (input.hasSessionAttribute) return 'chat'
-  if (input.hasChat) return 'utility'
+  // Bare chat (no purpose) is orphan, not utility — spec: utility ⇔ purpose set.
   return 'orphan'
 }
 

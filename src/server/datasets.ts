@@ -307,6 +307,34 @@ export const upsertExample = createServerFn({ method: 'POST' })
       await bumpVersion(data.datasetId, now)
       return toExample(row)
     }
+    // Capturing the same span twice updates the existing example instead of duplicating it.
+    if (data.sourceTraceId && data.sourceSpanId) {
+      const [existing] = await db
+        .select()
+        .from(datasetExamples)
+        .where(
+          and(
+            eq(datasetExamples.datasetId, data.datasetId),
+            eq(datasetExamples.sourceTraceId, data.sourceTraceId),
+            eq(datasetExamples.sourceSpanId, data.sourceSpanId),
+          ),
+        )
+      if (existing) {
+        const [row] = await db
+          .update(datasetExamples)
+          .set({
+            inputJson: data.input,
+            expected: data.expected,
+            metadataJson: data.metadata,
+            updatedAt: now,
+          })
+          .where(eq(datasetExamples.id, existing.id))
+          .returning()
+        if (!row) throw new Error('upsertExample: update failed')
+        await bumpVersion(data.datasetId, now)
+        return toExample(row)
+      }
+    }
     const [row] = await db
       .insert(datasetExamples)
       .values({
@@ -385,6 +413,7 @@ export const runDataset = createServerFn({ method: 'POST' })
     // conversation_id is the key loupe groups traces on; the agent echoes it onto its spans.
     const agentName = defaultAgentName()
     const conversationIds = new Map<number, string>()
+    let errorCount = 0
     for (const ex of exRows) {
       const conversationId = randomUUID()
       conversationIds.set(ex.id, conversationId)
@@ -403,6 +432,7 @@ export const runDataset = createServerFn({ method: 'POST' })
           createdAt: new Date(),
         })
       } catch (err) {
+        errorCount += 1
         await db.insert(datasetRunItems).values({
           runId: run.id,
           exampleId: ex.id,
@@ -415,7 +445,9 @@ export const runDataset = createServerFn({ method: 'POST' })
       }
     }
 
-    await db.update(datasetRuns).set({ status: 'complete' }).where(eq(datasetRuns.id, run.id))
+    // A run where every example failed is an error, not a clean "complete".
+    const runStatus = errorCount > 0 && errorCount === exRows.length ? 'error' : 'complete'
+    await db.update(datasetRuns).set({ status: runStatus }).where(eq(datasetRuns.id, run.id))
 
     // Best-effort trace linkage: wait for ingestion, resolve each conversation_id to a trace.
     await new Promise((r) => setTimeout(r, TRACE_RESOLVE_DELAY_MS))

@@ -90,16 +90,16 @@ authenticates it. `runJudge` uses `generateObject` with the verdict JSON schema 
 structured output (falling back to `generateText` + `parseVerdict` when
 `JUDGE_STRUCTURED_OUTPUT=0` or a model returns prose). A missing key for the chosen
 provider surfaces per-case as `config_error`; the run-detail page shows a
-`judgeEndpointHint`.
+`judgeErrorHint`.
 
 ### The four producers
 
 1. **Human** (Path A) — the inspector Review sheet writes a `source='human'`
    run-less score via `upsertHumanScore` (`src/server/scores.ts`).
-2. **Offline run** (Path B) — `runEvalOnTraces` / `runEvalOnRecentTraces` create
-   an `eval_run` and return immediately as `running`; a background job builds
-   cases with `casesFromTraces` (`src/server/eval-jobs.ts`) — one case per chat
-   span for `scope=span`, else the trace's final chat span — judges each, and
+2. **Offline run** (Path B) — a caller builds cases with `casesFromTraces`
+   (`src/server/eval-jobs.ts`) — one case per chat span for `scope=span`, else the
+   trace's final chat span — and calls `runEval`, which creates an `eval_run`,
+   returns immediately as `running`, then in the background judges each case and
    writes one append-only score per case (`executeEvalRun`).
 3. **Dataset grading** (datasets↔judge) — after a dataset run fills
    `dataset_run_item.output`, `judgeDatasetRun` (`src/server/dataset-judge.ts`)

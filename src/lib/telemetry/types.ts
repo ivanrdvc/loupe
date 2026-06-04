@@ -242,4 +242,10 @@ export interface AppInsightsProvider extends BaseProvider {
   name: 'app-insights'
 }
 
-export type TelemetryProvider = OpenObserveProvider | AppInsightsProvider
+// In-memory provider for the e2e suite (see fixtures.ts). Not configured in
+// production — only selectable when TELEMETRY_PROVIDER=fixtures.
+export interface FixturesProvider extends BaseProvider {
+  name: 'fixtures'
+}
+
+export type TelemetryProvider = OpenObserveProvider | AppInsightsProvider | FixturesProvider

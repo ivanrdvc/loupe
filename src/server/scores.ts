@@ -485,7 +485,7 @@ export const getOnlineEvalStats = createServerFn({ method: 'GET' }).handler(
     const rows = await db
       .select()
       .from(scores)
-      .where(and(isNull(scores.runId), isNotNull(scores.definitionId)))
+      .where(and(isNull(scores.runId), isNull(scores.datasetRunItemId), isNotNull(scores.definitionId)))
     const configs = await db.select().from(scoreConfigs)
     const scaleByName = scaleMap(configs)
 

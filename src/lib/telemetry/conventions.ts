@@ -34,6 +34,8 @@ const ATTRS = {
   // OTel-stable as of Q1 2026. CUSTOM_LLM_PURPOSE_FIELD plumbing is gone —
   // producers must conform to this name.
   llmPurpose: ['gen_ai.operation.purpose'],
+  // Run-graph parent id — marks a span as a sub-agent (docs/explanation/02-spec.md).
+  taskParentId: ['gen_ai.task.parent.id', 'graph.node.parent_id'],
   // loupe-convention scheduling + trigger identity (docs/explanation/02-spec.md).
   triggerType: ['session.trigger_type'],
   execution: ['session.execution'],

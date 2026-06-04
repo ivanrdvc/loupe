@@ -13,4 +13,7 @@ __unconfig*
 todos.json
 dev.db
 dev-prompts.db
+e2e.db
+test-results
+playwright-report
 external/

@@ -2,6 +2,8 @@
 
 `TODO.md` is the running todo list. `docs/README.md` covers docs structure. **What attrs to emit / what loupe reads**: `docs/explanation/02-spec.md` is the canonical operating-set spec.
 
+**Comments: sparse.** Only where the *why* isn't obvious from the code. No section dividers, no narration of what a line plainly does.
+
 ## Layout
 
 - `src/routes/` — file-based routes; `-name.tsx` files are route-scoped. Co-locate; lift to `src/lib/` or `src/components/` only when a 2nd route consumes it.

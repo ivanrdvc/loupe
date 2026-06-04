@@ -145,7 +145,7 @@ export const promptTagLinks = sqliteTable(
 )
 
 // A named, versioned collection of examples fired at the user's agent over HTTP.
-// See docs/plans/datasets.md. Versioning is auto-per-mutation: every add/edit/delete
+// See docs/explanation/datasets.md. Versioning is auto-per-mutation: every add/edit/delete
 // of an example bumps `dataset.version`; a run pins the version it ran against.
 
 export const datasets = sqliteTable('dataset', {

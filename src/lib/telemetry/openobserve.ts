@@ -341,7 +341,12 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       // emit gen_ai.task.parent.id and we follow the Langfuse-style approach of
       // walking structure on the consumer side. Utility rows = purpose-tagged
       // non-root spans (gen_ai.operation.purpose).
-      const buildSql = (known: ReadonlySet<string>) => `
+      const buildSql = (known: ReadonlySet<string>) => {
+        // Schema-guarded: missing column → empty, so the query plans not 400s.
+        const nativeSubagent = ooColumns('taskParentId', { known })
+          .map((c) => `${c} IS NOT NULL`)
+          .join(' OR ')
+        return `
         SELECT
           span_id,
           trace_id,
@@ -360,11 +365,12 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
                 AND reference_parent_span_id IN (
                   SELECT span_id FROM "${cfg.stream}" WHERE operation_name LIKE 'execute_tool %'
                 ))
-            OR (${ooCol('llmPurpose', known)} IS NOT NULL AND reference_parent_span_id IS NOT NULL))
+            OR (${ooCol('llmPurpose', known)} IS NOT NULL AND reference_parent_span_id IS NOT NULL)${nativeSubagent ? `\n            OR (${nativeSubagent})` : ''})
         ${whereIdentity(opts, known)}
         ORDER BY start_time DESC
         LIMIT ${limit}
       `
+      }
       const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, limit))
       return hits.map(hitToSpanSummary)
     },
@@ -444,7 +450,7 @@ function hitToSummary(h: Record<string, unknown>): ReturnType<typeof buildTraceS
 // OpenObserve flattens span attributes into top-level row fields (underscore
 // form: `gen_ai_request_model`, `llm_usage_tokens_total`, ...). classifySpan
 // reads whatever Record we hand it, so we pass the whole hit.
-function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
+export function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
   const operationName = String(h.operation_name ?? '?')
   // OpenObserve stores start_time/end_time in nanoseconds. Normalize to ms.
   const startMs = Math.floor(Number(h.start_time ?? 0) / 1_000_000)

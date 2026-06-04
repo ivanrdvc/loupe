@@ -18,8 +18,8 @@ Each folder has its own `README.md` index listing every file with its
 `summary:` line — that's the catalog. Open the index, decide which file
 to read, then open the file.
 
-Decisions (ADRs) and a glossary will get their own folder/file when the first
-one is written; premature to scaffold them now.
+The glossary of domain nouns lives at `reference/glossary.md`. ADRs will get
+their own folder when the first one is written; premature to scaffold now.
 
 ## Where does my doc go?
 

@@ -317,7 +317,8 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         union dependencies, requests
         | extend purpose = tostring(customDimensions["gen_ai.operation.purpose"])
         | extend is_utility = isnotempty(purpose) and not (${AI_IS_ROOT_EXPR}),
-                 is_subagent = name startswith "invoke_agent " and operation_ParentId in (execute_tool_ids)
+                 is_subagent = (name startswith "invoke_agent " and operation_ParentId in (execute_tool_ids))
+                               or isnotempty(${aiCoalesce('taskParentId')})
         | where is_utility or is_subagent
         ${userFilter ? `| where ${userFilter}` : ''}
         ${DEDUPE_SPANS_BY_ID_KQL}
@@ -534,7 +535,7 @@ function timeBounds(timestampIso: unknown, durationMs: unknown): { startMs: numb
   return { startMs, endMs: startMs + (Number.isFinite(dur) ? dur : 0) }
 }
 
-function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
+export function normalizeAiRow(row: Record<string, unknown>, traceId: string): Span {
   const cd = parseCustomDimensions(row.customDimensions)
   const operationName = String(row.name ?? '?')
   const { startMs, endMs } = timeBounds(row.timestamp, row.duration)

@@ -93,3 +93,49 @@ describe('classifySpan — operation classification', () => {
     expect(c.operation).toBe('chat')
   })
 })
+
+// Oracle = docs/explanation/02-spec.md, not the implementation.
+describe('classifySpan — convention-spec contracts', () => {
+  it('accepts graph.node.* as the run-graph identity alias', () => {
+    const c = classifySpan('invoke_agent Sub', {
+      'graph.node.id': 'n1',
+      'graph.node.parent_id': 'n0',
+    })
+    expect(c.taskId).toBe('n1')
+    expect(c.taskParentId).toBe('n0')
+  })
+
+  it('reads canonical gen_ai.task.* directly', () => {
+    const c = classifySpan('invoke_agent Sub', {
+      'gen_ai.task.id': 't1',
+      'gen_ai.task.parent.id': 't0',
+    })
+    expect(c.taskId).toBe('t1')
+    expect(c.taskParentId).toBe('t0')
+  })
+
+  it('marks a graph.node.parent_id-bearing span as a sub-agent (parent set)', () => {
+    const c = classifySpan('invoke_agent Sub', { 'graph.node.parent_id': 'n0' })
+    expect(c.taskParentId).toBe('n0')
+  })
+
+  it('reads ag_ui.thread_id as an attribute-source session id', () => {
+    const c = classifySpan('invoke_agent Bot', { 'ag_ui.thread_id': 'thread-7' })
+    expect(c.sessionId).toBe('thread-7')
+    expect(c.sessionSource).toBe('attribute')
+  })
+
+  it('reads gen_ai.conversation.id as an attribute-source session id', () => {
+    const c = classifySpan('chat gpt-4o', { 'gen_ai.conversation.id': 'conv-9' })
+    expect(c.sessionId).toBe('conv-9')
+    expect(c.sessionSource).toBe('attribute')
+  })
+
+  it('reads gen_ai.operation.purpose as the utility purpose', () => {
+    const c = classifySpan('chat gpt-4o', {
+      'gen_ai.operation.name': 'chat',
+      'gen_ai.operation.purpose': 'title_generation',
+    })
+    expect(c.operationName).toBe('title_generation')
+  })
+})

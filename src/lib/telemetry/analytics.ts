@@ -27,6 +27,8 @@ export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts):
       return oo.fetchToolErrorRates(p, opts)
     case 'app-insights':
       return ai.fetchToolErrorRates(p, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -36,6 +38,8 @@ export async function fetchToolPayloadSizes(p: TelemetryProvider, opts?: TopOpts
       return oo.fetchToolPayloadSizes(p, opts)
     case 'app-insights':
       return ai.fetchToolPayloadSizes(p, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -45,6 +49,8 @@ export async function fetchChatLatencyOverTime(p: TelemetryProvider, opts?: Wind
       return oo.fetchChatLatencyOverTime(p, opts)
     case 'app-insights':
       return ai.fetchChatLatencyOverTime(p, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -54,6 +60,8 @@ export async function fetchCacheHitRateOverTime(p: TelemetryProvider, opts?: Win
       return oo.fetchCacheHitRateOverTime(p, opts)
     case 'app-insights':
       return ai.fetchCacheHitRateOverTime(p, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -63,6 +71,8 @@ export async function fetchRunsPerHour(p: TelemetryProvider, opts?: WindowOpts):
       return oo.fetchRunsPerHour(p, opts)
     case 'app-insights':
       return ai.fetchRunsPerHour(p, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -72,6 +82,8 @@ export async function fetchAllTools(p: TelemetryProvider, opts?: TopOpts): Promi
       return oo.fetchAllTools(p, opts)
     case 'app-insights':
       return ai.fetchAllTools(p, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -85,6 +97,8 @@ export async function fetchToolDetail(
       return oo.fetchToolDetail(p, name, opts)
     case 'app-insights':
       return ai.fetchToolDetail(p, name, opts)
+    case 'fixtures':
+      return null
   }
 }
 
@@ -98,6 +112,8 @@ export async function fetchToolRecentCalls(
       return oo.fetchToolRecentCalls(p, name, opts)
     case 'app-insights':
       return ai.fetchToolRecentCalls(p, name, opts)
+    case 'fixtures':
+      return []
   }
 }
 
@@ -111,5 +127,7 @@ export async function fetchInventory(
       return oo.fetchInventory(p, kind, opts)
     case 'app-insights':
       return ai.fetchInventory(p, kind, opts)
+    case 'fixtures':
+      return []
   }
 }

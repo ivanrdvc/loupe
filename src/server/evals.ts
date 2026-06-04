@@ -10,7 +10,6 @@ import {
   type EvalRun,
   type EvalRunSummary,
   type EvalScope,
-  type EvalSourceKind,
   type EvalStatus,
   type EvalTargetSelector,
   SCORE_DATA_TYPES,
@@ -35,9 +34,6 @@ function asScope(v: unknown): EvalScope {
 function asDataType(v: unknown): ScoreDataType {
   if (typeof v === 'string' && SCORE_DATA_TYPES.includes(v as ScoreDataType)) return v as ScoreDataType
   throw new Error(`Invalid eval dataType: ${String(v)}`)
-}
-function asSource(v: unknown): EvalSourceKind {
-  return v === 'code' ? 'code' : 'llm'
 }
 function asMode(v: unknown): EvalMode {
   return v === 'online' ? 'online' : 'offline'
@@ -208,7 +204,8 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
     name: String(input.name).trim(),
     scope: asScope(input.scope),
     dataType: asDataType(input.dataType),
-    source: asSource(input.source),
+    source: 'llm' as const, // code evaluators have no executor yet; don't let one be persisted
+
     judgePrompt: asOptString(input.judgePrompt),
     model: asOptString(input.model) ?? DEFAULT_JUDGE_MODEL,
     mode: asMode(input.mode),

@@ -2,6 +2,7 @@ import { getCookie } from '@tanstack/react-start/server'
 import type { Span } from '#/lib/spans'
 import * as analytics from './analytics'
 import { createAppInsightsProvider } from './app-insights'
+import { createFixturesProvider } from './fixtures'
 import { createOpenObserveProvider } from './openobserve'
 import type {
   CacheHitPoint,
@@ -33,7 +34,7 @@ export type * from './types'
 // UI choice (cookie) wins, then TELEMETRY_PROVIDER, then auto.
 export const PROVIDER_COOKIE = 'tp'
 
-export type ProviderId = 'openobserve' | 'app-insights'
+export type ProviderId = 'openobserve' | 'app-insights' | 'fixtures'
 
 export interface ProviderStatus {
   id: ProviderId
@@ -45,6 +46,7 @@ export interface ProviderStatus {
 const providers = new Map<ProviderId, TelemetryProvider>()
 
 function buildProvider(id: ProviderId): TelemetryProvider {
+  if (id === 'fixtures') return createFixturesProvider()
   if (id === 'openobserve') {
     return createOpenObserveProvider({
       baseUrl: process.env.OO_BASE_URL ?? 'http://localhost:5080',
@@ -87,13 +89,18 @@ export function listProviderStatus(): ProviderStatus[] {
     ai.configured = false
     ai.missing = ['APPLICATIONINSIGHTS_RESOURCE_ID or APPLICATIONINSIGHTS_APP_ID+API_KEY']
   }
+  // Fixtures only appears when explicitly requested via env, so it never shows
+  // as a selectable provider in a real deployment.
+  if (process.env.TELEMETRY_PROVIDER === 'fixtures') {
+    return [oo, ai, { id: 'fixtures', label: 'Fixtures (e2e)', configured: true }]
+  }
   return [oo, ai]
 }
 
 function readCookieChoice(): ProviderId | undefined {
   try {
     const v = getCookie(PROVIDER_COOKIE)
-    if (v === 'openobserve' || v === 'app-insights') return v
+    if (v === 'openobserve' || v === 'app-insights' || v === 'fixtures') return v
   } catch {
     // outside a request context (e.g. ad-hoc scripts)
   }
@@ -108,7 +115,11 @@ function resolveProviderId(): ProviderId {
   const fromCookie = readCookieChoice()
   if (fromCookie && isUsable(fromCookie)) return fromCookie
   const fromEnv = process.env.TELEMETRY_PROVIDER
-  if ((fromEnv === 'app-insights' || fromEnv === 'openobserve') && isUsable(fromEnv)) return fromEnv
+  if (
+    (fromEnv === 'app-insights' || fromEnv === 'openobserve' || fromEnv === 'fixtures') &&
+    isUsable(fromEnv)
+  )
+    return fromEnv
   return isUsable('app-insights') ? 'app-insights' : 'openobserve'
 }
 

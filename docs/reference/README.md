@@ -6,6 +6,8 @@ wants to be in `explanation/` or `guides/` instead.
 
 ## Tables
 
+- [Glossary](glossary.md) — one-line definitions for loupe's core eval/datasets
+  nouns: dataset, example, run, run item, evaluator, judge, score.
 - [AI / LLM trace attributes](ai-attributes.md) — OTel GenAI semconv plus the
   Logfire / OpenInference / vendor extensions seen in real traces. Lookup
   table for what each attribute key means when reading a span.

@@ -282,10 +282,7 @@ function EvaluatorsTable({
                     {stat?.costUsd ? formatCost(stat.costUsd) : '—'}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-xs text-foreground">{def.model || '—'}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">v{def.version}</span>
-                    </div>
+                    <span className="font-mono text-xs text-foreground">{def.model || '—'}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     <RelativeTime ts={def.updatedAt} />

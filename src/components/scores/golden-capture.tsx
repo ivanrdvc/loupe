@@ -22,11 +22,9 @@ const expectedString = (input: Record<string, JsonValue>): string | null => {
 
 // Edit expected output and add input + golden expected to a dataset in one gesture.
 export function GoldenCapturePanel({ input, sourceTraceId, sourceSpanId, highlighted, className }: Props) {
-  const [expected, setExpected] = useState<string | null>(() => expectedString(input))
-
-  useEffect(() => {
-    if (highlighted && expected == null) setExpected(expectedString(input))
-  }, [highlighted, expected, input])
+  // Start empty — the expected is what it *should* have been, not the actual output.
+  const [expected, setExpected] = useState<string | null>(null)
+  useEffect(() => setExpected(null), [sourceTraceId, sourceSpanId])
 
   const actual = expectedString(input)
   const datasetItems = useMemo(
@@ -55,7 +53,16 @@ export function GoldenCapturePanel({ input, sourceTraceId, sourceSpanId, highlig
       </div>
       {actual != null && (
         <div className="mb-2 rounded-md bg-muted/40 px-2 py-1.5">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Actual output</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Actual output</p>
+            <button
+              type="button"
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={() => setExpected(actual)}
+            >
+              Use as expected
+            </button>
+          </div>
           <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-foreground/80">
             {actual}
           </pre>

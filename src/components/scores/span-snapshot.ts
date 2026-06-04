@@ -1,6 +1,7 @@
 import { spanEvalSnapshot } from '#/lib/eval/span-eval-snapshot'
 import type { JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
+import { asMessages, messageText } from '#/lib/spans/conversation'
 
 // Prefer the last chat span with output — the usual correction target.
 function pickEvalSpan(spans: Span[]): Span | null {
@@ -18,7 +19,14 @@ export function traceEvalSnapshot(spans: Span[]): { span: Span; input: Record<st
 }
 
 export function defaultExpectedFromSnapshot(input: Record<string, JsonValue>): JsonValue | null {
-  if (input.llmOutput != null) return input.llmOutput
+  if (input.llmOutput != null) {
+    const text = asMessages(input.llmOutput)
+      .map((m) => messageText(m.parts))
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+    return text || input.llmOutput
+  }
   if (input.toolResult != null) return input.toolResult
   return null
 }

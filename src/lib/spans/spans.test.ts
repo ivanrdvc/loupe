@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRunGraph, propagateInheritedAttrs, type Span } from '.'
+import { normalizeRunGraph, propagateInheritedAttrs, propagateSessionInTrace, type Span } from '.'
 
 function span(overrides: Partial<Span> & Pick<Span, 'id' | 'operation'>): Span {
   return {
@@ -13,6 +13,32 @@ function span(overrides: Partial<Span> & Pick<Span, 'id' | 'operation'>): Span {
     ...overrides,
   }
 }
+
+describe('propagateSessionInTrace', () => {
+  it('an attribute-source id wins and fills every unstamped span', () => {
+    const spans: Span[] = [
+      span({ id: 'a', operation: 'invoke_agent', sessionId: 'S', sessionSource: 'attribute' }),
+      span({ id: 'b', operation: 'chat' }),
+    ]
+    propagateSessionInTrace(spans)
+    expect(spans[1]).toMatchObject({ sessionId: 'S', sessionSource: 'attribute' })
+  })
+
+  it('falls back to trace_id as a trace-source session when no attribute exists', () => {
+    const spans: Span[] = [span({ id: 'a', operation: 'chat', traceId: 't1' })]
+    propagateSessionInTrace(spans)
+    expect(spans[0]).toMatchObject({ sessionId: 't1', sessionSource: 'trace' })
+  })
+
+  it('does not overwrite a span that already carries its own id', () => {
+    const spans: Span[] = [
+      span({ id: 'a', operation: 'invoke_agent', sessionId: 'S', sessionSource: 'attribute' }),
+      span({ id: 'b', operation: 'chat', sessionId: 'other', sessionSource: 'attribute' }),
+    ]
+    propagateSessionInTrace(spans)
+    expect(spans[1].sessionId).toBe('other')
+  })
+})
 
 describe('propagateInheritedAttrs', () => {
   it('inherits operationName and agUiRunId from the nearest ancestor', () => {
@@ -126,5 +152,16 @@ describe('normalizeRunGraph + orchestrator filter', () => {
     expect(spans[0].taskId).toBe('orch')
     expect(spans[1].taskId).toBe('sub')
     expect(spans[1].taskParentId).toBe('orch')
+  })
+
+  it('stamps only invoke_agent spans, never chat/tool', () => {
+    const spans = [
+      span({ id: 'orch', operation: 'invoke_agent', startMs: 0 }),
+      span({ id: 'chat', operation: 'chat', parentId: 'orch', startMs: 5 }),
+      span({ id: 'tool', operation: 'tool', parentId: 'orch', startMs: 8 }),
+    ]
+    normalizeRunGraph(spans)
+    expect(spans[1].taskId).toBeUndefined()
+    expect(spans[2].taskId).toBeUndefined()
   })
 })
