@@ -199,8 +199,19 @@ export function buildVerdictSchema(
 }
 
 // Deterministic judge for the e2e suite (JUDGE_PROVIDER=fixtures). Always passes.
-function fixturesVerdict(opts: { dataType: string; categories?: string[] | null; maxValue?: number | null }): JudgeVerdict {
-  const base = { explanation: 'fixtures judge: pass', errorType: null, costUsd: 0, inputTokens: 10, outputTokens: 5, raw: '{"fixtures":true}' }
+function fixturesVerdict(opts: {
+  dataType: string
+  categories?: string[] | null
+  maxValue?: number | null
+}): JudgeVerdict {
+  const base = {
+    explanation: 'fixtures judge: pass',
+    errorType: null,
+    costUsd: 0,
+    inputTokens: 10,
+    outputTokens: 5,
+    raw: '{"fixtures":true}',
+  }
   if (opts.dataType === 'boolean') return { value: 1, label: null, ...base }
   if (opts.dataType === 'numeric') return { value: opts.maxValue ?? 1, label: null, ...base }
   if (opts.dataType === 'categorical') return { value: null, label: opts.categories?.[0] ?? 'pass', ...base }

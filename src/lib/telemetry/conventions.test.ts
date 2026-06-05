@@ -16,9 +16,7 @@ describe('taskParentId alias resolution', () => {
 
   it('ooColumns yields the underscore columns, schema-filtered', () => {
     expect(ooColumns('taskParentId')).toEqual(['gen_ai_task_parent_id', 'graph_node_parent_id'])
-    expect(ooColumns('taskParentId', { known: new Set(['gen_ai_task_parent_id']) })).toEqual([
-      'gen_ai_task_parent_id',
-    ])
+    expect(ooColumns('taskParentId', { known: new Set(['gen_ai_task_parent_id']) })).toEqual(['gen_ai_task_parent_id'])
     expect(ooColumns('taskParentId', { known: new Set() })).toEqual([])
   })
 

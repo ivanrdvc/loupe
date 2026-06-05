@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 
 // Datasets write to the throwaway e2e.db, shared across parallel workers — each
 // test creates its own uniquely-named dataset and asserts only on it.

@@ -180,10 +180,7 @@ function NotesPage() {
       </div>
 
       <Sheet open={activeNote != null} onOpenChange={(o) => !o && closeNote()}>
-        <SheetContent
-          className="flex flex-col gap-0 sm:max-w-md"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
+        <SheetContent className="flex flex-col gap-0 sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <SheetHeader>
             <SheetTitle>Note</SheetTitle>
             <SheetDescription>{activeNote ? KIND_DESCRIPTION[activeNote.targetKind] : null}</SheetDescription>

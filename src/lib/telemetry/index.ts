@@ -115,10 +115,7 @@ function resolveProviderId(): ProviderId {
   const fromCookie = readCookieChoice()
   if (fromCookie && isUsable(fromCookie)) return fromCookie
   const fromEnv = process.env.TELEMETRY_PROVIDER
-  if (
-    (fromEnv === 'app-insights' || fromEnv === 'openobserve' || fromEnv === 'fixtures') &&
-    isUsable(fromEnv)
-  )
+  if ((fromEnv === 'app-insights' || fromEnv === 'openobserve' || fromEnv === 'fixtures') && isUsable(fromEnv))
     return fromEnv
   return isUsable('app-insights') ? 'app-insights' : 'openobserve'
 }

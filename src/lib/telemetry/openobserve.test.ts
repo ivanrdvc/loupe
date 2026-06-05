@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeOpenObserveHit } from './openobserve'
 import raw from './__fixtures__/oo-raw-hits.json'
+import { normalizeOpenObserveHit } from './openobserve'
 
 // Real recorded OO hits → Span, pinning the OO-specific extraction seam.
 describe('normalizeOpenObserveHit', () => {

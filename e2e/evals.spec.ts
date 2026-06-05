@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 
 async function createEvaluator(page: Page): Promise<string> {
   const name = `e2e eval ${Date.now()}-${Math.floor(Math.random() * 1e6)}`

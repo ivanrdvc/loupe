@@ -1,12 +1,5 @@
 import type { Span } from '#/lib/spans'
-import type {
-  FixturesProvider,
-  SessionFetch,
-  SessionSummary,
-  SpanSummary,
-  TraceFetch,
-  TraceSummary,
-} from './types'
+import type { FixturesProvider, SessionFetch, SessionSummary, SpanSummary, TraceFetch, TraceSummary } from './types'
 
 // Deterministic, in-memory telemetry for the e2e suite. Selected when
 // TELEMETRY_PROVIDER=fixtures (see index.ts). The span/session ids, titles, and
