@@ -230,7 +230,7 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
 // `gen_ai.system_instructions` is `[{type:"text",content:"..."}, ...]`.
 // Regex fallback handles 8 KB customDimensions truncation slicing
 // mid-content (JSON parse fails on the partial array).
-function parseSystemInstructions(raw: string | undefined): string | undefined {
+export function parseSystemInstructions(raw: string | undefined): string | undefined {
   if (!raw) return undefined
   const parsed = parseJson(raw)
   if (Array.isArray(parsed)) {

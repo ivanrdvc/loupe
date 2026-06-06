@@ -6,7 +6,7 @@ import { CacheAreaChart } from './-home-charts/cache-area'
 import { LatencyAreaChart } from './-home-charts/latency-area'
 import { ThroughputAreaChart } from './-home-charts/throughput-area'
 import { NewAgentsTable, NewToolsTable, Section, ToolErrorTable, ToolPayloadTable } from './-home-components'
-import { homeInboxQuery } from './-home-data'
+import { cacheHitRateOverTimeQuery, chatLatencyOverTimeQuery, homeInboxQuery, runsPerHourQuery } from './-home-data'
 
 function ViewAllToolsLink({ sort }: { sort?: 'p95Chars' | 'errorRate' | 'lastSeenMs' | 'calls' }) {
   return (
@@ -21,7 +21,13 @@ function ViewAllToolsLink({ sort }: { sort?: 'p95Chars' | 'errorRate' | 'lastSee
 }
 
 export const Route = createFileRoute('/')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(homeInboxQuery()),
+  loader: ({ context }) => {
+    const qc = context.queryClient
+    qc.prefetchQuery(chatLatencyOverTimeQuery())
+    qc.prefetchQuery(cacheHitRateOverTimeQuery())
+    qc.prefetchQuery(runsPerHourQuery())
+    return qc.ensureQueryData(homeInboxQuery())
+  },
   component: Home,
 })
 

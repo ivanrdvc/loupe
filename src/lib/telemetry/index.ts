@@ -5,6 +5,7 @@ import { createAppInsightsProvider } from './app-insights'
 import { createFixturesProvider } from './fixtures'
 import { createOpenObserveProvider } from './openobserve'
 import type {
+  AgentMetrics,
   CacheHitPoint,
   GetTraceOpts,
   InventoryDiscoveryKind,
@@ -213,6 +214,10 @@ export async function discoverInventory(
   opts?: { fromUs?: number; toUs?: number },
 ): Promise<InventoryObservation[]> {
   return analytics.fetchInventory(getActiveProvider(), kind, opts)
+}
+
+export async function listAgentMetrics(opts?: TopOpts): Promise<AgentMetrics[]> {
+  return analytics.fetchAgentMetrics(getActiveProvider(), opts)
 }
 
 export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]> {

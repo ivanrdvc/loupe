@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Area, Bar, CartesianGrid, ComposedChart, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
+import { Skeleton } from '#/components/ui/skeleton'
 import { formatDuration } from '#/lib/format'
 import type { LatencyPoint } from '#/lib/telemetry'
 import { formatChartTick, type TimeRange } from '#/lib/time-range'
@@ -22,7 +23,8 @@ export function LatencyAreaChart() {
 }
 
 function LatencyChart({ range }: { range: TimeRange }) {
-  const { data = [] } = useQuery(chatLatencyOverTimeQuery(range))
+  const { data = [], isPending } = useQuery(chatLatencyOverTimeQuery(range))
+  if (isPending) return <Skeleton className="h-[240px] w-full" />
   return <LatencyChartInner data={data} range={range} />
 }
 

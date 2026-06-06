@@ -26,7 +26,13 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
 
     for (const observation of observations) {
       const [existing] = await db
-        .select({ id: inventory.id })
+        .select({
+          id: inventory.id,
+          lastSeenAt: inventory.lastSeenAt,
+          description: inventory.description,
+          systemPrompt: inventory.systemPrompt,
+          nested: inventory.nested,
+        })
         .from(inventory)
         .where(
           and(
@@ -38,10 +44,18 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
         .limit(1)
 
       if (existing) {
-        await db
-          .update(inventory)
-          .set({ lastSeenAt: new Date(observation.lastSeenMs) })
-          .where(eq(inventory.id, existing.id))
+        // Newest invocation wins; older ones still backfill a null prompt.
+        const isNewer = observation.lastSeenMs >= existing.lastSeenAt.getTime()
+        const set: Partial<typeof inventory.$inferInsert> = {}
+        if (isNewer) set.lastSeenAt = new Date(observation.lastSeenMs)
+        if (observation.description && (isNewer || existing.description == null))
+          set.description = observation.description
+        if (observation.systemPrompt && (isNewer || existing.systemPrompt == null))
+          set.systemPrompt = observation.systemPrompt
+        // An agent is "main" once seen top-level; never downgrade main back to sub.
+        if (observation.nested === false) set.nested = false
+        else if (existing.nested == null && observation.nested != null) set.nested = observation.nested
+        if (Object.keys(set).length > 0) await db.update(inventory).set(set).where(eq(inventory.id, existing.id))
         continue
       }
 
@@ -52,6 +66,9 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
         firstSeenAt: new Date(observation.firstSeenMs),
         firstSeenTraceId: observation.traceId,
         lastSeenAt: new Date(observation.lastSeenMs),
+        description: observation.description,
+        systemPrompt: observation.systemPrompt,
+        nested: observation.nested,
       })
       await db
         .insert(inboxItems)

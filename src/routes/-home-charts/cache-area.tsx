@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
+import { Skeleton } from '#/components/ui/skeleton'
 import type { CacheHitPoint } from '#/lib/telemetry'
 import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { cacheHitRateOverTimeQuery } from '../-home-data'
@@ -15,7 +16,8 @@ export function CacheAreaChart() {
 }
 
 function CacheChart({ range }: { range: TimeRange }) {
-  const { data = [] } = useQuery(cacheHitRateOverTimeQuery(range))
+  const { data = [], isPending } = useQuery(cacheHitRateOverTimeQuery(range))
+  if (isPending) return <Skeleton className="h-[200px] w-full" />
   return <CacheChartInner data={data} range={range} />
 }
 

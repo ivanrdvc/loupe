@@ -1,8 +1,9 @@
-import { extractAgentName, extractToolName } from '#/lib/spans/classify-span'
+import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { ooColumns } from './conventions'
 import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import { bucketSecondsFor, zeroFillBucketed } from './time-series'
 import type {
+  AgentMetrics,
   CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
@@ -21,7 +22,7 @@ import type {
 const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
 
 // 20004 = column not in stream yet (fresh ingest). Treat as empty.
-async function emptyOn20004<T>(run: () => Promise<T[]>): Promise<T[]> {
+async function emptyIfColumnMissing<T>(run: () => Promise<T[]>): Promise<T[]> {
   try {
     return await run()
   } catch (e) {
@@ -45,7 +46,7 @@ export async function fetchToolErrorRates(p: OpenObserveProvider, opts?: TopOpts
     ORDER BY (CAST(errors AS DOUBLE) / total) DESC
     LIMIT ${limit}
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
   return hits.map(mapToolErrorRow)
 }
 
@@ -70,7 +71,7 @@ export async function fetchToolPayloadSizes(p: OpenObserveProvider, opts?: TopOp
     ORDER BY p95_chars DESC
     LIMIT ${limit}
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
   return hits.map(mapToolPayloadRow)
 }
 
@@ -92,7 +93,7 @@ export async function fetchAllTools(p: OpenObserveProvider, opts?: TopOpts): Pro
     ORDER BY calls DESC
     LIMIT ${limit}
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
   return hits.map((h) => {
     const calls = Number(h.calls ?? 0)
     const errors = Number(h.errors ?? 0)
@@ -132,7 +133,7 @@ export async function fetchToolDetail(
     FROM "${p.stream}"
     WHERE operation_name = 'execute_tool ${name}'
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 1 }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 1 }))
   const h = hits[0]
   const calls = Number(h?.calls ?? 0)
   if (!h || calls === 0) return null
@@ -176,7 +177,7 @@ export async function fetchToolRecentCalls(
     ORDER BY start_time DESC
     LIMIT ${limit}
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: limit }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
   return hits
     .map((h) => {
       const traceId = typeof h.trace_id === 'string' ? h.trace_id : ''
@@ -210,7 +211,7 @@ export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: Wi
     GROUP BY bucket
     ORDER BY bucket
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
   return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => ({
     p50Ms: Math.round(num(h.p50_ms) ?? 0),
     p95Ms: Math.round(num(h.p95_ms) ?? 0),
@@ -241,7 +242,7 @@ export async function fetchCacheHitRateOverTime(p: OpenObserveProvider, opts?: W
     GROUP BY bucket
     ORDER BY bucket
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
   return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => {
     const cache = num(h.cache_tokens) ?? 0
     const input = num(h.input_tokens) ?? 0
@@ -264,7 +265,7 @@ export async function fetchRunsPerHour(p: OpenObserveProvider, opts?: WindowOpts
     GROUP BY bucket
     ORDER BY bucket
   `
-  const hits = await emptyOn20004(() => p.query(sql, { ...opts, size: 5000 }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
   return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => ({ runs: Number(h.runs ?? 0) })).map((b) => ({
     ts: b.ts,
     runs: b.value.runs,
@@ -277,19 +278,39 @@ export async function fetchInventory(
   opts?: { fromUs?: number; toUs?: number },
 ): Promise<InventoryObservation[]> {
   const isTool = kind === 'new_tool'
-  const sql = `
+  // Agents also capture prompt + description, and a nested flag: all_nested=1
+  // means every invocation was a sub-agent (parent is an execute_tool span).
+  // Self-join the parent span — DataFusion rejects IN(subquery) inside CASE.
+  const sql = isTool
+    ? `
     SELECT
       operation_name,
       MIN(start_time) AS first_seen,
       MAX(start_time) AS last_seen,
       MIN(trace_id) AS sample_trace_id
     FROM "${p.stream}"
-    WHERE operation_name LIKE '${isTool ? 'execute_tool' : 'invoke_agent'} %'
+    WHERE operation_name LIKE 'execute_tool %'
     GROUP BY operation_name
     ORDER BY first_seen DESC
     LIMIT 1000
   `
-  const hits = await p.query(sql, { ...opts, size: 1000 })
+    : `
+    SELECT
+      a.operation_name AS operation_name,
+      MIN(a.start_time) AS first_seen,
+      MAX(a.start_time) AS last_seen,
+      MIN(a.trace_id) AS sample_trace_id,
+      MAX(a.gen_ai_system_instructions) AS system_instructions,
+      MAX(a.gen_ai_agent_description) AS description,
+      MIN(CASE WHEN pp.operation_name LIKE 'execute_tool %' THEN 1 ELSE 0 END) AS all_nested
+    FROM "${p.stream}" a
+    LEFT JOIN "${p.stream}" pp ON a.reference_parent_span_id = pp.span_id
+    WHERE a.operation_name LIKE 'invoke_agent %'
+    GROUP BY a.operation_name
+    ORDER BY first_seen DESC
+    LIMIT 1000
+  `
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 1000 }))
   return hits.map((hit) => hitToInventoryObservation(kind, hit)).filter((o): o is InventoryObservation => o !== null)
 }
 
@@ -302,6 +323,10 @@ function hitToInventoryObservation(
   if (!name) return null
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? firstSeenNs)
+  const systemPrompt = parseSystemInstructions(
+    typeof h.system_instructions === 'string' ? h.system_instructions : undefined,
+  )
+  const description = typeof h.description === 'string' && h.description ? h.description : undefined
   return {
     kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
     name,
@@ -309,7 +334,39 @@ function hitToInventoryObservation(
     firstSeenMs: Math.floor(firstSeenNs / 1_000_000),
     lastSeenMs: Math.floor(lastSeenNs / 1_000_000),
     traceId: typeof h.sample_trace_id === 'string' ? h.sample_trace_id : undefined,
+    ...(description ? { description } : {}),
+    ...(systemPrompt ? { systemPrompt } : {}),
+    ...(kind === 'new_tool' ? {} : { nested: Number(h.all_nested ?? 0) === 1 }),
   }
+}
+
+export async function fetchAgentMetrics(p: OpenObserveProvider, opts?: TopOpts): Promise<AgentMetrics[]> {
+  const limit = opts?.limit ?? 1000
+  const sql = `
+    SELECT
+      gen_ai_agent_name AS name,
+      COUNT(*) AS calls,
+      SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS errors,
+      approx_percentile_cont(duration, 0.5) / 1000 AS p50_ms,
+      approx_percentile_cont(duration, 0.95) / 1000 AS p95_ms
+    FROM "${p.stream}"
+    WHERE operation_name LIKE 'invoke_agent %' AND gen_ai_agent_name IS NOT NULL
+    GROUP BY gen_ai_agent_name
+    ORDER BY calls DESC
+    LIMIT ${limit}
+  `
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  return hits.map((h) => {
+    const calls = Number(h.calls ?? 0)
+    const errors = Number(h.errors ?? 0)
+    return {
+      name: String(h.name ?? ''),
+      calls,
+      errorRate: calls > 0 ? errors / calls : 0,
+      p50Ms: Math.round(num(h.p50_ms) ?? 0),
+      p95Ms: Math.round(num(h.p95_ms) ?? 0),
+    }
+  })
 }
 
 // date_bin returns ISO string or epoch number depending on column type.

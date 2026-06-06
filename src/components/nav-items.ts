@@ -20,6 +20,7 @@ type NavTo =
   | '/mcp'
   | '/notes'
   | '/inventory/system-prompts'
+  | '/inventory/agents'
   | '/datasets'
   | '/evals'
   | '/inbox'
@@ -43,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/datasets', label: 'Datasets', icon: DatabaseIcon, group: 'workbench' },
   { to: '/evals', label: 'Evals', icon: TestTubeIcon, group: 'workbench' },
   { to: '/inventory/system-prompts', label: 'System Prompts', icon: Edit02Icon, group: 'inventory' },
+  { to: '/inventory/agents', label: 'Agents', icon: CubeIcon, group: 'inventory' },
   { to: '/mcp', label: 'MCP', icon: PuzzleIcon, group: 'inventory', soon: true },
   { to: '/inbox', label: 'Inbox', icon: InboxIcon, group: 'inbox' },
 ]

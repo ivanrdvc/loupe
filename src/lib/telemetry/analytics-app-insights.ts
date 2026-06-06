@@ -1,8 +1,9 @@
-import { extractAgentName, extractToolName } from '#/lib/spans/classify-span'
+import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { aiCoalesce } from './conventions'
 import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
 import { bucketSecondsFor, zeroFillBucketed } from './time-series'
 import type {
+  AgentMetrics,
   AppInsightsProvider,
   CacheHitPoint,
   InventoryDiscoveryKind,
@@ -242,7 +243,9 @@ export async function fetchInventory(
     | summarize
         first_seen = min(timestamp),
         last_seen  = max(timestamp),
-        sample_trace_id = any(operation_Id)
+        sample_trace_id = any(operation_Id),
+        system_instructions = any(tostring(customDimensions["gen_ai.system_instructions"])),
+        description = any(tostring(customDimensions["gen_ai.agent.description"]))
       by operation_name = name
     | top 1000 by first_seen desc
   `
@@ -255,18 +258,55 @@ function rowToInventoryObservation(
   row: Record<string, unknown>,
 ): InventoryObservation | null {
   const operationName = String(row.operation_name ?? '')
-  const name = kind === 'new_tool' ? extractToolName(operationName) : extractAgentName(operationName)
+  const isTool = kind === 'new_tool'
+  const name = isTool ? extractToolName(operationName) : extractAgentName(operationName)
   if (!name) return null
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : firstSeen
+  const systemPrompt = parseSystemInstructions(
+    typeof row.system_instructions === 'string' ? row.system_instructions : undefined,
+  )
+  const description = typeof row.description === 'string' && row.description ? row.description : undefined
   return {
-    kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
+    kind: isTool ? 'mcp_tool' : 'agent',
     name,
     namespace: '',
     firstSeenMs: firstSeen,
     lastSeenMs: lastSeen,
     traceId: typeof row.sample_trace_id === 'string' ? row.sample_trace_id : undefined,
+    ...(description ? { description } : {}),
+    ...(systemPrompt ? { systemPrompt } : {}),
+    ...(isTool ? {} : { nested: operationName.includes('(') }),
   }
+}
+
+export async function fetchAgentMetrics(p: AppInsightsProvider, opts?: TopOpts): Promise<AgentMetrics[]> {
+  const limit = opts?.limit ?? 1000
+  const q = `
+    union dependencies, requests
+    | where name startswith "invoke_agent "
+    | extend agent_name = tostring(customDimensions["gen_ai.agent.name"])
+    | where isnotempty(agent_name)
+    | summarize
+        calls = count(),
+        errors = countif(success == false),
+        p50_ms = percentile(duration, 50),
+        p95_ms = percentile(duration, 95)
+      by agent_name
+    | top ${limit} by calls desc
+  `
+  const rows = await p.query(q, opts ?? {})
+  return rows.map((r) => {
+    const calls = Number(r.calls ?? 0)
+    const errors = Number(r.errors ?? 0)
+    return {
+      name: String(r.agent_name ?? ''),
+      calls,
+      errorRate: calls > 0 ? errors / calls : 0,
+      p50Ms: Math.round(num(r.p50_ms) ?? 0),
+      p95Ms: Math.round(num(r.p95_ms) ?? 0),
+    }
+  })
 }
 
 // KQL `summarize ... by bin(ts, ...)` returns a string (sometimes with a `+`

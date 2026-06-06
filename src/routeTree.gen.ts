@@ -26,6 +26,7 @@ import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessio
 import { Route as EvalsEvalIdRouteImport } from './routes/evals/$evalId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as InventorySystemPromptsIndexRouteImport } from './routes/inventory/system-prompts/index'
+import { Route as InventoryAgentsIndexRouteImport } from './routes/inventory/agents/index'
 import { Route as InventorySystemPromptsPromptIdRouteImport } from './routes/inventory/system-prompts/$promptId'
 import { Route as EvalsRunsRunIdRouteImport } from './routes/evals/runs.$runId'
 import { Route as ApiEvalsIngestRouteImport } from './routes/api/evals/ingest'
@@ -116,6 +117,11 @@ const InventorySystemPromptsIndexRoute =
     path: '/inventory/system-prompts/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const InventoryAgentsIndexRoute = InventoryAgentsIndexRouteImport.update({
+  id: '/inventory/agents/',
+  path: '/inventory/agents/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InventorySystemPromptsPromptIdRoute =
   InventorySystemPromptsPromptIdRouteImport.update({
     id: '/inventory/system-prompts/$promptId',
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/inventory/agents/': typeof InventoryAgentsIndexRoute
   '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/inventory/agents': typeof InventoryAgentsIndexRoute
   '/inventory/system-prompts': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRoutesById {
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/inventory/agents/': typeof InventoryAgentsIndexRoute
   '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
 }
 export interface FileRouteTypes {
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
+    | '/inventory/agents/'
     | '/inventory/system-prompts/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
+    | '/inventory/agents'
     | '/inventory/system-prompts'
   id:
     | '__root__'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
+    | '/inventory/agents/'
     | '/inventory/system-prompts/'
   fileRoutesById: FileRoutesById
 }
@@ -289,6 +301,7 @@ export interface RootRouteChildren {
   ApiEvalsIngestRoute: typeof ApiEvalsIngestRoute
   EvalsRunsRunIdRoute: typeof EvalsRunsRunIdRoute
   InventorySystemPromptsPromptIdRoute: typeof InventorySystemPromptsPromptIdRoute
+  InventoryAgentsIndexRoute: typeof InventoryAgentsIndexRoute
   InventorySystemPromptsIndexRoute: typeof InventorySystemPromptsIndexRoute
 }
 
@@ -413,6 +426,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventorySystemPromptsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inventory/agents/': {
+      id: '/inventory/agents/'
+      path: '/inventory/agents'
+      fullPath: '/inventory/agents/'
+      preLoaderRoute: typeof InventoryAgentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inventory/system-prompts/$promptId': {
       id: '/inventory/system-prompts/$promptId'
       path: '/inventory/system-prompts/$promptId'
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEvalsIngestRoute: ApiEvalsIngestRoute,
   EvalsRunsRunIdRoute: EvalsRunsRunIdRoute,
   InventorySystemPromptsPromptIdRoute: InventorySystemPromptsPromptIdRoute,
+  InventoryAgentsIndexRoute: InventoryAgentsIndexRoute,
   InventorySystemPromptsIndexRoute: InventorySystemPromptsIndexRoute,
 }
 export const routeTree = rootRouteImport

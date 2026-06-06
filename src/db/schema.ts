@@ -13,6 +13,10 @@ export const inventory = sqliteTable(
     lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' }).notNull(),
     owner: text(),
     notes: text(),
+    description: text(),
+    systemPrompt: text('system_prompt'),
+    // Agents: true once seen only as a nested invocation, false once seen top-level.
+    nested: integer({ mode: 'boolean' }),
   },
   (table) => [uniqueIndex('inventory_kind_name_namespace_idx').on(table.kind, table.name, table.namespace)],
 )

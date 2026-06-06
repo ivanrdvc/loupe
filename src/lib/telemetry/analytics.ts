@@ -13,6 +13,7 @@ import {
   fixtureToolRecentCalls,
 } from './fixtures'
 import type {
+  AgentMetrics,
   CacheHitPoint,
   InventoryDiscoveryKind,
   InventoryObservation,
@@ -134,6 +135,17 @@ export async function fetchInventory(
       return oo.fetchInventory(p, kind, opts)
     case 'app-insights':
       return ai.fetchInventory(p, kind, opts)
+    case 'fixtures':
+      return []
+  }
+}
+
+export async function fetchAgentMetrics(p: TelemetryProvider, opts?: TopOpts): Promise<AgentMetrics[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchAgentMetrics(p, opts)
+    case 'app-insights':
+      return ai.fetchAgentMetrics(p, opts)
     case 'fixtures':
       return []
   }

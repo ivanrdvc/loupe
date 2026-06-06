@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '#/components/ui/chart'
+import { Skeleton } from '#/components/ui/skeleton'
 import type { RunsPoint } from '#/lib/telemetry'
 import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { runsPerHourQuery } from '../-home-data'
@@ -15,7 +16,8 @@ export function ThroughputAreaChart() {
 }
 
 function ThroughputChart({ range }: { range: TimeRange }) {
-  const { data = [] } = useQuery(runsPerHourQuery(range))
+  const { data = [], isPending } = useQuery(runsPerHourQuery(range))
+  if (isPending) return <Skeleton className="h-[200px] w-full" />
   return <ThroughputChartInner data={data} range={range} />
 }
 

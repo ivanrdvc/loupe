@@ -113,6 +113,17 @@ export interface InventoryObservation {
   firstSeenMs: number
   lastSeenMs: number
   traceId?: string
+  description?: string
+  systemPrompt?: string
+  nested?: boolean
+}
+
+export interface AgentMetrics {
+  name: string
+  calls: number
+  errorRate: number
+  p50Ms: number
+  p95Ms: number
 }
 
 export interface ToolErrorRow {
