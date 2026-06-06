@@ -1,4 +1,4 @@
-import { type UseQueryOptions, useQuery } from '@tanstack/react-query'
+import { type QueryKey, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import { type ComponentProps, useEffect, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { InspectDrawer } from '#/components/inspect/drawer'
@@ -11,7 +11,7 @@ const CLOSE_RETENTION_MS = 220
 
 type ExpandProps = Pick<ComponentProps<typeof InspectDrawer>, 'expandSession' | 'expandTrace'>
 
-interface InspectDrawerHostProps<T extends { spans: Span[] }, K extends readonly unknown[]> {
+interface InspectDrawerHostProps<T extends { spans: Span[] }, K extends QueryKey> {
   previewId: string | null
   onClose: () => void
   query: (id: string) => UseQueryOptions<T | null, Error, T | null, K>
@@ -20,7 +20,7 @@ interface InspectDrawerHostProps<T extends { spans: Span[] }, K extends readonly
 
 /** Cross-page session/trace drawer: fetches an entity's spans, retaining the last
  * preview briefly on close so the Sheet animates out without flashing empty. */
-export function InspectDrawerHost<T extends { spans: Span[] }, K extends readonly unknown[]>({
+export function InspectDrawerHost<T extends { spans: Span[] }, K extends QueryKey>({
   previewId,
   onClose,
   query,

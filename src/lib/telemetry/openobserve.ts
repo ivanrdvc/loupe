@@ -70,23 +70,23 @@ function maxOf(cols: readonly string[]): string {
   return `COALESCE(${cols.map((c) => `MAX(${c})`).join(', ')})`
 }
 
+const coalesce = (cols: readonly string[]): string => (cols.length === 1 ? cols[0] : `COALESCE(${cols.join(', ')})`)
+
 // SUM() of `cols` restricted to chat-op rows. Returns '0' when no candidate
 // columns are present.
 function sumChatOf(cols: readonly string[]): string {
   if (cols.length === 0) return '0'
-  const expr = cols.length === 1 ? cols[0] : `COALESCE(${cols.join(', ')})`
-  return `SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN ${expr} ELSE 0 END)`
+  return `SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN ${coalesce(cols)} ELSE 0 END)`
 }
 
 function chatTokensExpr(known: ReadonlySet<string>): string {
   const total = ooColumns('totalTokens', { known })
   const input = ooColumns('inputTokens', { known })
   const output = ooColumns('outputTokens', { known })
-  const totalExpr = total.length === 0 ? null : total.length === 1 ? total[0] : `COALESCE(${total.join(', ')})`
+  const totalExpr = total.length === 0 ? null : coalesce(total)
   const ioParts: string[] = []
-  if (input.length) ioParts.push(input.length === 1 ? `COALESCE(${input[0]}, 0)` : `COALESCE(${input.join(', ')}, 0)`)
-  if (output.length)
-    ioParts.push(output.length === 1 ? `COALESCE(${output[0]}, 0)` : `COALESCE(${output.join(', ')}, 0)`)
+  if (input.length) ioParts.push(`COALESCE(${[...input, '0'].join(', ')})`)
+  if (output.length) ioParts.push(`COALESCE(${[...output, '0'].join(', ')})`)
   const ioExpr = ioParts.length ? ioParts.join(' + ') : null
   if (totalExpr && ioExpr) return `COALESCE(${totalExpr}, ${ioExpr})`
   return totalExpr ?? ioExpr ?? '0'

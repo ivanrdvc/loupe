@@ -72,6 +72,6 @@ export function turnTotals(turn: Turn): TurnTotals {
   }
   const durationMs = Math.max(0, turn.run.endMs - turn.run.startMs)
   // Final orchestrator chat wins on model — what produced the user-visible answer.
-  const model = turn.chats[turn.chats.length - 1]?.model
+  const model = turn.chats.at(-1)?.model
   return { inputTokens, outputTokens, cachedTokens, costUsd, durationMs, model }
 }

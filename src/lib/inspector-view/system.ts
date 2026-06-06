@@ -135,14 +135,10 @@ function findAguiValues(value: JsonValue | undefined, path: string[] = []): { la
   if (Array.isArray(value)) {
     return value.flatMap((item, index) => findAguiValues(item, [...path, String(index)]))
   }
-  const out: { label: string; value: string }[] = []
-  for (const [key, child] of Object.entries(value)) {
+  return Object.entries(value).flatMap(([key, child]) => {
     const nextPath = [...path, key]
-    if (/(ag_ui|agui|thread|runtime|context|state)/i.test(key)) {
-      out.push({ label: nextPath.join('.'), value: formatJson(child) })
-    } else {
-      out.push(...findAguiValues(child, nextPath))
-    }
-  }
-  return out
+    return /(ag_ui|agui|thread|runtime|context|state)/i.test(key)
+      ? [{ label: nextPath.join('.'), value: formatJson(child) }]
+      : findAguiValues(child, nextPath)
+  })
 }

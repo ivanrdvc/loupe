@@ -49,13 +49,10 @@ const ATTRS = {
 export type CanonicalField = keyof typeof ATTRS
 
 function bothForms(keys: readonly string[]): string[] {
-  const out: string[] = []
-  for (const k of keys) {
-    out.push(k)
+  return keys.flatMap((k) => {
     const flat = k.replaceAll('.', '_')
-    if (flat !== k) out.push(flat)
-  }
-  return out
+    return flat === k ? [k] : [k, flat]
+  })
 }
 
 export function attrKeysFor(field: CanonicalField): readonly string[] {
@@ -120,6 +117,6 @@ export function ooCol(field: CanonicalField, known: ReadonlySet<string>): string
 // instrumentations write `ag_ui_thread_id` into customDimensions, while
 // others write `ag_ui.thread_id`.
 export function aiCoalesce(field: CanonicalField): string {
-  const all = bothForms([...ATTRS[field]])
+  const all = bothForms(ATTRS[field])
   return `coalesce(${all.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
 }

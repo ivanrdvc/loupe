@@ -77,13 +77,9 @@ function resultToRows(result: LogsQueryResult): Array<Record<string, unknown>> {
         ? result.partialTables[0]
         : undefined
   if (!table) return []
-  return table.rows.map((row) => {
-    const out: Record<string, unknown> = {}
-    table.columnDescriptors.forEach((c, i) => {
-      out[c.name] = (row as unknown[])[i]
-    })
-    return out
-  })
+  return table.rows.map((row) =>
+    Object.fromEntries(table.columnDescriptors.map((c, i) => [c.name, (row as unknown[])[i]])),
+  )
 }
 
 export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsProvider {
@@ -475,7 +471,7 @@ function isSafeId(id: string): boolean {
 
 function aiRowToLogRecord(r: Record<string, unknown>): LogRecord {
   const tsRaw = r.timestamp
-  const tsMs = tsRaw instanceof Date ? tsRaw.getTime() : Number(new Date(String(tsRaw)))
+  const tsMs = tsRaw instanceof Date ? tsRaw.getTime() : Date.parse(String(tsRaw))
   // KQL `union` of `traces` (severityLevel:int) with `exceptions` (we extend
   // severityLevel as `3` → long) splits the column into severityLevel_int
   // and severityLevel_long. Read whichever the row carries.

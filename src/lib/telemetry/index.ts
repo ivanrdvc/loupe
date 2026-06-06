@@ -35,7 +35,10 @@ export type * from './types'
 // UI choice (cookie) wins, then TELEMETRY_PROVIDER, then auto.
 export const PROVIDER_COOKIE = 'tp'
 
-export type ProviderId = 'openobserve' | 'app-insights' | 'fixtures'
+export const PROVIDER_IDS = ['openobserve', 'app-insights', 'fixtures'] as const
+export type ProviderId = (typeof PROVIDER_IDS)[number]
+
+const isProviderId = (v: unknown): v is ProviderId => PROVIDER_IDS.includes(v as ProviderId)
 
 export interface ProviderStatus {
   id: ProviderId
@@ -101,7 +104,7 @@ export function listProviderStatus(): ProviderStatus[] {
 function readCookieChoice(): ProviderId | undefined {
   try {
     const v = getCookie(PROVIDER_COOKIE)
-    if (v === 'openobserve' || v === 'app-insights' || v === 'fixtures') return v
+    if (isProviderId(v)) return v
   } catch {
     // outside a request context (e.g. ad-hoc scripts)
   }
@@ -109,15 +112,14 @@ function readCookieChoice(): ProviderId | undefined {
 }
 
 function isUsable(id: ProviderId): boolean {
-  return !!listProviderStatus().find((p) => p.id === id)?.configured
+  return listProviderStatus().some((p) => p.id === id && p.configured)
 }
 
 function resolveProviderId(): ProviderId {
   const fromCookie = readCookieChoice()
   if (fromCookie && isUsable(fromCookie)) return fromCookie
   const fromEnv = process.env.TELEMETRY_PROVIDER
-  if ((fromEnv === 'app-insights' || fromEnv === 'openobserve' || fromEnv === 'fixtures') && isUsable(fromEnv))
-    return fromEnv
+  if (isProviderId(fromEnv) && isUsable(fromEnv)) return fromEnv
   return isUsable('app-insights') ? 'app-insights' : 'openobserve'
 }
 

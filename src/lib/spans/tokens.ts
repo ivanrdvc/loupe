@@ -26,7 +26,7 @@ interface ResolvedEncoder {
   count: Encoder
 }
 
-const encoderCache = new Map<Family, Promise<Encoder>>()
+let encoderPromise: Promise<Encoder> | undefined
 
 function resolveFamily(model: string | undefined): Family {
   const m = (model ?? '').toLowerCase()
@@ -47,22 +47,19 @@ function resolveFamily(model: string | undefined): Family {
   return 'openai-cl100k'
 }
 
-async function loadEncoder(family: Family): Promise<Encoder> {
-  const cached = encoderCache.get(family)
-  if (cached) return cached
-  // Only o200k BPE is loaded locally; cl100k/Anthropic have no accurate local
-  // tokenizer so they estimate with the same encoder.
-  const p = import('gpt-tokenizer/encoding/o200k_base').then(
-    (mod): Encoder => (text: string) => mod.encode(text).length,
+// Only o200k BPE is loaded locally; cl100k/Anthropic have no accurate local
+// tokenizer so they estimate with the same encoder.
+function loadEncoder(): Promise<Encoder> {
+  encoderPromise ??= import('gpt-tokenizer/encoding/o200k_base').then(
+    (mod): Encoder =>
+      (text: string) =>
+        mod.encode(text).length,
   )
-  encoderCache.set(family, p)
-  return p
+  return encoderPromise
 }
 
 async function resolveEncoder(model: string | undefined): Promise<ResolvedEncoder> {
-  const family = resolveFamily(model)
-  const count = await loadEncoder(family)
-  return { family, count }
+  return { family: resolveFamily(model), count: await loadEncoder() }
 }
 
 function partText(parts: ChatMessage['parts']): string {
@@ -88,7 +85,7 @@ function countMessages(messages: ChatMessage[], enc: ResolvedEncoder): number {
 }
 
 function toolDefsCount(defs: JsonValue | undefined): number {
-  if (defs === undefined || defs === null) return 0
+  if (defs == null) return 0
   return Array.isArray(defs) ? defs.length : 1
 }
 

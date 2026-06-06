@@ -100,7 +100,7 @@ export async function fetchAllTools(p: OpenObserveProvider, opts?: TopOpts): Pro
     const raw = String(h.name ?? '')
     const lastNs = Number(h.last_seen_ns ?? 0)
     return {
-      name: raw.startsWith('execute_tool ') ? raw.slice('execute_tool '.length) : raw,
+      name: extractToolName(raw) ?? raw,
       calls,
       errors,
       errorRate: calls > 0 ? errors / calls : 0,

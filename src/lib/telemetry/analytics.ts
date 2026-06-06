@@ -29,6 +29,10 @@ import type {
   WindowOpts,
 } from './types'
 
+function assertNever(p: never): never {
+  throw new Error(`unhandled telemetry provider: ${(p as TelemetryProvider).name}`)
+}
+
 export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {
   switch (p.name) {
     case 'openobserve':
@@ -37,6 +41,8 @@ export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts):
       return ai.fetchToolErrorRates(p, opts)
     case 'fixtures':
       return FIXTURE_TOOL_ERRORS
+    default:
+      return assertNever(p)
   }
 }
 
@@ -48,6 +54,8 @@ export async function fetchToolPayloadSizes(p: TelemetryProvider, opts?: TopOpts
       return ai.fetchToolPayloadSizes(p, opts)
     case 'fixtures':
       return FIXTURE_TOOL_PAYLOADS
+    default:
+      return assertNever(p)
   }
 }
 
@@ -59,6 +67,8 @@ export async function fetchChatLatencyOverTime(p: TelemetryProvider, opts?: Wind
       return ai.fetchChatLatencyOverTime(p, opts)
     case 'fixtures':
       return []
+    default:
+      return assertNever(p)
   }
 }
 
@@ -70,6 +80,8 @@ export async function fetchCacheHitRateOverTime(p: TelemetryProvider, opts?: Win
       return ai.fetchCacheHitRateOverTime(p, opts)
     case 'fixtures':
       return []
+    default:
+      return assertNever(p)
   }
 }
 
@@ -81,6 +93,8 @@ export async function fetchRunsPerHour(p: TelemetryProvider, opts?: WindowOpts):
       return ai.fetchRunsPerHour(p, opts)
     case 'fixtures':
       return []
+    default:
+      return assertNever(p)
   }
 }
 
@@ -92,6 +106,8 @@ export async function fetchAllTools(p: TelemetryProvider, opts?: TopOpts): Promi
       return ai.fetchAllTools(p, opts)
     case 'fixtures':
       return FIXTURE_TOOL_CATALOG
+    default:
+      return assertNever(p)
   }
 }
 
@@ -107,6 +123,8 @@ export async function fetchToolDetail(
       return ai.fetchToolDetail(p, name, opts)
     case 'fixtures':
       return fixtureToolDetail(name)
+    default:
+      return assertNever(p)
   }
 }
 
@@ -122,6 +140,8 @@ export async function fetchToolRecentCalls(
       return ai.fetchToolRecentCalls(p, name, opts)
     case 'fixtures':
       return fixtureToolRecentCalls(name)
+    default:
+      return assertNever(p)
   }
 }
 
@@ -137,6 +157,8 @@ export async function fetchInventory(
       return ai.fetchInventory(p, kind, opts)
     case 'fixtures':
       return []
+    default:
+      return assertNever(p)
   }
 }
 
@@ -148,5 +170,7 @@ export async function fetchAgentMetrics(p: TelemetryProvider, opts?: TopOpts): P
       return ai.fetchAgentMetrics(p, opts)
     case 'fixtures':
       return []
+    default:
+      return assertNever(p)
   }
 }

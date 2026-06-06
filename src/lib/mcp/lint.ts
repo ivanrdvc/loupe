@@ -23,7 +23,7 @@ function lintServer(server: McpServer): McpLintFinding[] {
   }
 
   const count = server.tools.length
-  if (count > TOOL_COUNT_ERROR || count > TOOL_COUNT_WARN) {
+  if (count > TOOL_COUNT_WARN) {
     findings.push({
       severity: count > TOOL_COUNT_ERROR ? 'error' : 'warning',
       ruleId: 'server.tool_count',

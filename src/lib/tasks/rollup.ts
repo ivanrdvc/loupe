@@ -83,13 +83,11 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
   const bucketMs = span / buckets
 
   const groups = new Map<string, TraceSummary[]>()
-  const sources = new Map<string, IdentitySource>()
   for (const t of fires) {
-    const { key, source } = taskIdentity(t)
+    const { key } = taskIdentity(t)
     const arr = groups.get(key) ?? []
     arr.push(t)
     groups.set(key, arr)
-    sources.set(key, source)
   }
 
   const rows: TaskRow[] = []
@@ -116,7 +114,7 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
 
     rows.push({
       key,
-      identitySource: sources.get(key) ?? 'derived',
+      identitySource: taskIdentity(sample).source,
       kind: deriveKind(sample),
       name: sample.taskName,
       taskId: sample.taskId,

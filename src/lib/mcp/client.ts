@@ -43,23 +43,17 @@ export async function listServerTools(ref: McpServerRef): Promise<McpTool[]> {
 }
 
 async function postToolsList(endpoint: string): Promise<JsonRpcToolsList> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  try {
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 'loupe-tools-list', method: 'tools/list', params: {} }),
-      signal: controller.signal,
-    })
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    return (await resp.json()) as JsonRpcToolsList
-  } finally {
-    clearTimeout(timeout)
-  }
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json, text/event-stream',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 'loupe-tools-list', method: 'tools/list', params: {} }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  return (await resp.json()) as JsonRpcToolsList
 }
 
 function toJsonValue(value: unknown): JsonValue | undefined {

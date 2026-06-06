@@ -349,16 +349,15 @@ export function buildTraceSummary(
   if (derived.agent) summary.agent = derived.agent
   if (hasSession) summary.sessionId = String(row.session_id)
   if (rootLlmPurpose) summary.llmPurpose = rootLlmPurpose
-  const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
-  summary.serviceName = str(row.service_name)
-  summary.rootOperation = str(row.root_operation)
-  summary.userId = str(row.trace_user_id)
-  summary.userName = str(row.trace_user_name)
-  summary.taskId = str(row.root_task_id)
-  summary.taskKind = str(row.root_task_kind)
-  summary.taskSchedule = str(row.root_task_schedule)
-  summary.taskName = str(row.root_task_name)
-  summary.taskSource = str(row.root_task_source)
+  summary.serviceName = pickStringValue(row.service_name)
+  summary.rootOperation = pickStringValue(row.root_operation)
+  summary.userId = pickStringValue(row.trace_user_id)
+  summary.userName = pickStringValue(row.trace_user_name)
+  summary.taskId = pickStringValue(row.root_task_id)
+  summary.taskKind = pickStringValue(row.root_task_kind)
+  summary.taskSchedule = pickStringValue(row.root_task_schedule)
+  summary.taskName = pickStringValue(row.root_task_name)
+  summary.taskSource = pickStringValue(row.root_task_source)
   return summary
 }
 

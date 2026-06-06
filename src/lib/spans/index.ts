@@ -117,13 +117,7 @@ export function normalizeTraceRoots(spans: Span[]): void {
 // source wins; otherwise fall back to the trace_id (one trace = one session)
 // so the UI never invents cross-trace stitching that the data doesn't support.
 export function propagateSessionInTrace(spans: Span[]): void {
-  let attrId: string | undefined
-  for (const s of spans) {
-    if (s.sessionSource === 'attribute' && s.sessionId) {
-      attrId = s.sessionId
-      break
-    }
-  }
+  const attrId = spans.find((s) => s.sessionSource === 'attribute' && s.sessionId)?.sessionId
   if (attrId) {
     for (const s of spans) {
       if (!s.sessionId) {

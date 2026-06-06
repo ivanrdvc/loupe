@@ -240,13 +240,16 @@ export function parseSystemInstructions(raw: string | undefined): string | undef
   if (!raw) return undefined
   const parsed = parseJson(raw)
   if (Array.isArray(parsed)) {
-    const parts: string[] = []
-    for (const item of parsed) {
-      if (item && typeof item === 'object' && !Array.isArray(item) && item.type === 'text') {
-        const content = item.content
-        if (typeof content === 'string' && content) parts.push(content)
-      }
-    }
+    const parts = parsed.flatMap((item) =>
+      item &&
+      typeof item === 'object' &&
+      !Array.isArray(item) &&
+      item.type === 'text' &&
+      typeof item.content === 'string' &&
+      item.content
+        ? [item.content]
+        : [],
+    )
     const joined = parts.join('\n\n').trim()
     if (joined) return joined
   }
@@ -355,7 +358,7 @@ function pickStringArray(attrs: Record<string, unknown>, keys: readonly string[]
 
 // Accepts numbers and numeric strings — OpenObserve serializes some SUM()
 // aggregates as strings, and we'd rather take the value than drop it.
-function pickNumber(attrs: Record<string, unknown>, keys: string[]): number | undefined {
+function pickNumber(attrs: Record<string, unknown>, keys: readonly string[]): number | undefined {
   for (const k of keys) {
     const v = attrs[k]
     if (typeof v === 'number' && Number.isFinite(v)) return v
