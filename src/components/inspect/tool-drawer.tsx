@@ -9,12 +9,10 @@ import { ScrollArea } from '#/components/ui/scroll-area'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { formatDuration, formatPercent, formatTokens, truncateId } from '#/lib/format'
+import { formatDuration, formatPercent, formatTokens, tokensFromChars, truncateId } from '#/lib/format'
 import type { ToolCallSample, ToolDetail } from '#/lib/telemetry'
 import { toolDisplayName, toolTone } from '#/lib/tools'
 import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
-
-const CHARS_PER_TOKEN = 4
 
 interface Props {
   toolName: string | null
@@ -124,7 +122,7 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 
 function TokensFromChars({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
-  const tokens = Math.ceil(chars / CHARS_PER_TOKEN)
+  const tokens = tokensFromChars(chars)
   return (
     <span title={`${chars.toLocaleString()} chars · ≈${tokens.toLocaleString()} tokens`}>
       {formatTokens(tokens)}

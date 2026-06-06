@@ -46,6 +46,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
+import { errMessage } from '#/lib/format'
+import { looksLikeJson as isJsonShape, parseJson } from '#/lib/json'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { judgeDatasetRun } from '#/server/dataset-judge'
@@ -182,7 +184,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
       const rate = result.passRate != null ? `${Math.round(result.passRate * 100)}% pass` : `${result.judged} judged`
       toast.success(`Scored ${result.judged} answers · ${rate}`)
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const onRunSuccess = async (runId: string, message: string) => {
@@ -197,7 +199,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     mutationFn: () =>
       runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, overrides } }),
     onSuccess: ({ runId }) => onRunSuccess(runId, 'Run complete'),
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const [runningExampleId, setRunningExampleId] = useState<string | null>(null)
@@ -208,7 +210,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
       }),
     onMutate: (exampleId) => setRunningExampleId(exampleId),
     onSuccess: ({ runId }) => onRunSuccess(runId, 'Example run complete'),
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
     onSettled: () => setRunningExampleId(null),
   })
 
@@ -876,18 +878,11 @@ function StatusIcon({ status }: { status: RunItemStatus }) {
   return <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
 }
 
-const isValidJson = (s: string) => {
-  try {
-    JSON.parse(s)
-    return true
-  } catch {
-    return false
-  }
-}
+const isValidJson = (s: string) => parseJson(s) !== undefined
 // Default an example's Expected to JSON mode only when it already holds a JSON object/array.
 const looksLikeJson = (s: string | null | undefined) => {
   const t = (s ?? '').trim()
-  return /^[{[]/.test(t) && isValidJson(t)
+  return isJsonShape(t) && isValidJson(t)
 }
 
 function ExampleSheet({
@@ -928,7 +923,7 @@ function ExampleSheet({
       toast.success(example ? 'Example saved' : 'Example added')
       await onSaved()
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const deleteMutation = useMutation({
@@ -937,7 +932,7 @@ function ExampleSheet({
       toast.success('Example deleted')
       await onSaved()
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const jsonInvalid = expectedMode === 'json' && expected.trim().length > 0 && !isValidJson(expected)
@@ -1270,14 +1265,9 @@ function TranscriptView({ turns }: { turns: ChatMessage[] }) {
 const OVERRIDE_MODELS = ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4-6']
 
 function countOverrides(o: AgentOverrides): number {
-  let n = 0
-  if (o.model) n++
-  if (o.temperature != null) n++
-  if (o.top_p != null) n++
-  if (o.max_tokens != null) n++
-  if (o.system_prompt?.trim()) n++
-  if (o.tools?.some((t) => t.name.trim())) n++
-  return n
+  return [o.model, o.temperature, o.top_p, o.max_tokens, o.system_prompt?.trim(), o.tools?.some((t) => t.name.trim())]
+    .filter((v) => v != null && v !== '' && v !== false)
+    .length
 }
 
 // Per-run overrides sent to the agent. Sampling/model/system map to native Responses

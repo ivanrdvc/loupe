@@ -3,14 +3,12 @@ import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { ToolLink } from '#/components/tool-link'
 import { Badge } from '#/components/ui/badge'
-import { formatDuration, formatPercent, formatTokens } from '#/lib/format'
+import { formatDuration, formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolCatalogRow } from '#/lib/telemetry'
-
-const CHARS_PER_TOKEN = 4
 
 function Tokens({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
-  const tokens = Math.ceil(chars / CHARS_PER_TOKEN)
+  const tokens = tokensFromChars(chars)
   return (
     <span title={`${chars.toLocaleString()} chars · ≈${tokens.toLocaleString()} tokens`}>
       {formatTokens(tokens)}

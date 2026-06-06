@@ -1,4 +1,4 @@
-import { estimateTokens } from '#/lib/format'
+import { tokensFromChars } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { asMessages, type MessagePart } from '#/lib/spans/conversation'
@@ -21,7 +21,7 @@ export function collectSystemAndAgui(
   const sessionIds = new Set<string>()
   for (const s of spans) if (s.sessionId) sessionIds.add(s.sessionId)
   for (const id of sessionIds) {
-    aguiItems.push({ id: `session-${id}`, label: 'Session / thread id', value: id, tokens: estimateTokens(id) })
+    aguiItems.push({ id: `session-${id}`, label: 'Session / thread id', value: id, tokens: tokensFromChars(id.length) })
   }
 
   // Details panel reads the first system message (any kind) — AG-UI items
@@ -44,7 +44,7 @@ export function collectSystemAndAgui(
           id: `${span.id}-sys-${aguiItems.length}`,
           label: aguiLabelFor(content),
           value: content,
-          tokens: estimateTokens(content),
+          tokens: tokensFromChars(content.length),
         })
       }
     }
@@ -56,7 +56,7 @@ export function collectSystemAndAgui(
         id: `${span.id}-${aguiItems.length}`,
         label: hit.label,
         value: hit.value,
-        tokens: estimateTokens(hit.value),
+        tokens: tokensFromChars(hit.value.length),
       })
     }
   }

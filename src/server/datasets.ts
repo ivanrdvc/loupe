@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { datasetExamples, datasetRunItems, datasetRuns, datasets, scores } from '#/db/schema'
 import { scorePassFail } from '#/lib/eval/evaluation'
+import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
 import {
   type AgentOverrides,
@@ -473,7 +474,7 @@ export const runDataset = createServerFn({ method: 'POST' })
           output: '',
           status: 'error',
           conversationId,
-          errorText: err instanceof Error ? err.message : String(err),
+          errorText: errMessage(err),
           createdAt: new Date(),
         })
       }

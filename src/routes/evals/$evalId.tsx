@@ -63,7 +63,7 @@ import {
   SCORE_TONE_CLASS,
   scoreIsBad,
 } from '#/lib/eval/evaluation'
-import { formatCost } from '#/lib/format'
+import { errMessage, formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import {
@@ -184,7 +184,7 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
       await queryClient.invalidateQueries({ queryKey: queryKeys.evals.definitions() })
       toast.success(live ? 'Now scoring live traffic' : 'Moved to library')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const deleteMutation = useMutation({
@@ -194,7 +194,7 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
       toast.success('Evaluator deleted')
       void navigate({ to: '/evals' })
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const blessMutation = useMutation({
@@ -204,7 +204,7 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
       await invalidateDetail()
       toast.success(vars.blessed ? 'Run blessed' : 'Run unblessed')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const live = definition.mode === 'online'
@@ -737,7 +737,7 @@ function EditDialog({
       toast.success('Evaluator updated')
       await onSaved()
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const canSubmit = name.trim().length > 0 && !mutation.isPending

@@ -1,4 +1,4 @@
-import { estimateTokens } from '#/lib/format'
+import { tokensFromChars } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { isAgentSpan, isChatSpan, spanHasError } from './predicates'
@@ -52,7 +52,7 @@ export function collectToolGroups(spans: Span[]): ToolGroup[] {
       const domain = explicit ?? DEFAULT_LABEL
       const key = `${kind}:${domain}:${name}:${description}`
       if (byKey.has(key)) continue
-      byKey.set(key, { id: key, name, domain, kind, description, tokens: estimateTokens(formatJson(raw)), raw })
+      byKey.set(key, { id: key, name, domain, kind, description, tokens: tokensFromChars(formatJson(raw).length), raw })
     }
   }
 
@@ -113,7 +113,7 @@ export function collectFrontendTools(spans: Span[]): FrontendTool[] {
       name,
       description: def.description,
       raw: def.raw,
-      tokens: estimateTokens(formatJson(def.raw)),
+      tokens: tokensFromChars(formatJson(def.raw).length),
     })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name))

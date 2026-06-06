@@ -50,15 +50,11 @@ function resolveFamily(model: string | undefined): Family {
 async function loadEncoder(family: Family): Promise<Encoder> {
   const cached = encoderCache.get(family)
   if (cached) return cached
-  const p = (async (): Promise<Encoder> => {
-    if (family === 'openai-o200k') {
-      const mod = await import('gpt-tokenizer/encoding/o200k_base')
-      return (text: string) => mod.encode(text).length
-    }
-    // Anthropic has no accurate local tokenizer — estimate with o200k BPE.
-    const mod = await import('gpt-tokenizer/encoding/o200k_base')
-    return (text: string) => mod.encode(text).length
-  })()
+  // Only o200k BPE is loaded locally; cl100k/Anthropic have no accurate local
+  // tokenizer so they estimate with the same encoder.
+  const p = import('gpt-tokenizer/encoding/o200k_base').then(
+    (mod): Encoder => (text: string) => mod.encode(text).length,
+  )
   encoderCache.set(family, p)
   return p
 }

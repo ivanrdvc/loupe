@@ -1,3 +1,4 @@
+import { errMessage } from '#/lib/format'
 import { listServerTools } from './client'
 import { lintMcpRegistry } from './lint'
 import { getRegistrySource } from './registry'
@@ -20,7 +21,7 @@ async function listMcpRegistry(): Promise<McpRegistryResult> {
       const tools = await listServerTools(ref)
       return { ...ref, tools, fetchStatus: 'ok', fetchedAt }
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
+      const message = errMessage(e)
       errors.push({ serverId: ref.id, serverName: ref.name, message })
       return { ...ref, tools: [], fetchStatus: 'error', fetchError: message, fetchedAt }
     }

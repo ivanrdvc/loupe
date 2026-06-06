@@ -7,13 +7,12 @@ import { RelativeTime } from '#/components/relative-time'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { formatPercent, formatTokens } from '#/lib/format'
+import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import { toolDisplayName, toolTone } from '#/lib/tools'
 import type { InventoryRow } from '#/server/inbox'
 
 const PREVIEW_ROWS = 5
-const CHARS_PER_TOKEN = 4
 
 export function Section({
   title,
@@ -86,8 +85,6 @@ export function Expandable<T>({ rows, children }: { rows: T[]; children: (visibl
     </>
   )
 }
-
-const tokensFromChars = (chars: number) => Math.ceil(chars / CHARS_PER_TOKEN)
 
 function rateTextTone(rate: number): string {
   if (rate >= 0.05) return 'text-destructive'

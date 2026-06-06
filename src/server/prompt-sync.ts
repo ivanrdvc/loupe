@@ -5,6 +5,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { promptFolders, prompts, promptVersions } from '#/db/schema'
+import { errMessage } from '#/lib/format'
 import type { Message, ModelParams } from '#/routes/inventory/system-prompts/-types'
 
 export type SyncConfig = {
@@ -225,7 +226,7 @@ async function runSyncImpl(): Promise<SyncResult> {
         .where(eq(prompts.id, existingPrompt.id))
       result.updated += 1
     } catch (err) {
-      result.errors.push({ file, message: err instanceof Error ? err.message : String(err) })
+      result.errors.push({ file, message: errMessage(err) })
     }
   }
 

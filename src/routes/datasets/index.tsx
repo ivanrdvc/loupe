@@ -33,6 +33,7 @@ import { Label } from '#/components/ui/label'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { queryKeys } from '#/lib/query-keys'
+import { errMessage } from '#/lib/format'
 import { createDataset, runDataset } from '#/server/datasets'
 import { DataGridBody } from './-components/data-grid'
 import { type DatasetListItem, datasetsListQuery } from './-data'
@@ -151,7 +152,7 @@ function DatasetsListPage() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.datasets.all() })
       toast.success('Run complete')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
     onSettled: () => setRunningId(null),
   })
 
@@ -278,7 +279,7 @@ function NewDatasetDialog({
       onClose()
       onCreated(ds.id)
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   return (

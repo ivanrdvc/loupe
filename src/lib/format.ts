@@ -1,3 +1,7 @@
+export function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 export function formatAgo(ms: number): string {
   const s = Math.max(0, (Date.now() - ms) / 1000)
   if (s < 60) return `${Math.round(s)}s ago`
@@ -64,8 +68,8 @@ export function formatTokens(tokens: number | undefined): string {
   return tokens.toLocaleString()
 }
 
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4)
+export function tokensFromChars(chars: number): number {
+  return Math.ceil(chars / 4)
 }
 
 export function truncateId(id: string): string {

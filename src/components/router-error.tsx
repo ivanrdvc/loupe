@@ -1,9 +1,10 @@
 import { type ErrorComponentProps, useRouter } from '@tanstack/react-router'
+import { errMessage } from '#/lib/format'
 import { Button } from './ui/button'
 
 export function RouterError({ error, reset }: ErrorComponentProps) {
   const router = useRouter()
-  const message = error instanceof Error ? error.message : String(error)
+  const message = errMessage(error)
 
   return (
     <div className="flex h-full items-center justify-center px-6 py-16">

@@ -6,7 +6,7 @@ import { Markdown } from '#/components/markdown'
 import { ScaffoldGroup } from '#/components/scaffold-group'
 import { Badge } from '#/components/ui/badge'
 import { groupScaffolding } from '#/lib/agui-scaffolding'
-import { estimateTokens, formatTime, formatTokens, metricTone } from '#/lib/format'
+import { formatTime, formatTokens, metricTone, tokensFromChars } from '#/lib/format'
 import type { ConversationEvent, InspectorView } from '#/lib/inspector-view'
 import { prettyJson } from '#/lib/json'
 import { toolTone } from '#/lib/tools'
@@ -259,8 +259,8 @@ interface ToolCardProps {
 
 function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: ToolCardProps) {
   const status = !result ? 'pending' : result.success ? 'completed' : 'failed'
-  const argumentTokens = estimateTokens(formatValue(call.arguments))
-  const resultTokens = result ? estimateTokens(formatValue(result.result)) : undefined
+  const argumentTokens = tokensFromChars(prettyJson(call.arguments).length)
+  const resultTokens = result ? tokensFromChars(prettyJson(result.result).length) : undefined
   const tone = toolTone('tool')
 
   return (
@@ -329,8 +329,8 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
   // agent calls).
   const actions = useMemo(() => nested.filter((e) => e.kind === 'tool_call' || e.kind === 'agent_call'), [nested])
   const hasActions = actions.length > 0
-  const inputTokens = estimateTokens(formatValue(event.input))
-  const outputTokens = estimateTokens(formatValue(event.result))
+  const inputTokens = tokensFromChars(prettyJson(event.input).length)
+  const outputTokens = tokensFromChars(prettyJson(event.result).length)
   const tone = toolTone('agent')
 
   return (
@@ -384,7 +384,7 @@ function StatusPill({ status }: { status: 'pending' | 'completed' | 'failed' }) 
 }
 
 function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
-  const formatted = formatValue(value)
+  const formatted = prettyJson(value)
   return (
     <div className="group/kv relative">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -398,6 +398,3 @@ function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
   )
 }
 
-function formatValue(v: unknown): string {
-  return prettyJson(v)
-}

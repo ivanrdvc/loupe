@@ -7,6 +7,7 @@ import { Button } from '#/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '#/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { queryKeys } from '#/lib/query-keys'
+import { errMessage } from '#/lib/format'
 import { cn } from '#/lib/utils'
 import { createTag, listTags, setPromptTags } from '#/server/prompts'
 import type { Tag } from '../-types'
@@ -33,7 +34,7 @@ export function TagPicker({ promptId, selectedIds }: { promptId: number; selecte
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.detail(promptId) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.list() })
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const createTagMutation = useMutation({
@@ -43,7 +44,7 @@ export function TagPicker({ promptId, selectedIds }: { promptId: number; selecte
       setTagsMutation.mutate([...selectedIds, tag.id])
       setQuery('')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const toggle = (tagId: number) => {

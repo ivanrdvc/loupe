@@ -1,3 +1,4 @@
+import { errMessage } from '#/lib/format'
 import type { JsonValue } from '#/lib/json'
 import {
   dedupeById,
@@ -146,7 +147,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     try {
       return await run(await getKnownColumns())
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const msg = errMessage(e)
       if (!msg.includes('"code":20004')) throw e
       forgetSchema()
       return await run(await getKnownColumns())

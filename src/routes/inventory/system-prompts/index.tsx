@@ -28,6 +28,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { getSyncConfig, syncSystemPrompts } from '#/server/prompt-sync'
+import { errMessage } from '#/lib/format'
 import { listFolders, listPrompts, listTags } from '#/server/prompts'
 import { buildPromptColumns } from './-components/prompts-columns'
 import type { PromptFolder } from './-types'
@@ -120,7 +121,7 @@ function SystemPromptsListPage() {
       if (result.errors.length) parts.push(`${result.errors.length} failed`)
       toast.success(parts.length ? `Sync: ${parts.join(', ')}` : 'Sync ran. No prompts found.')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+    onError: (err) => toast.error(errMessage(err)),
   })
 
   const tagFilterOptions = useMemo(() => tags.map((t) => ({ label: t.name, value: String(t.id) })), [tags])

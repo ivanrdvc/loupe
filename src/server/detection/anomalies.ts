@@ -1,5 +1,6 @@
 import { db } from '#/db'
 import { inboxItems } from '#/db/schema'
+import { tokensFromChars } from '#/lib/format'
 import { listToolErrorRates, listToolPayloadSizes, type ToolErrorRow, type ToolPayloadRow } from '#/lib/telemetry'
 
 // Noise-floor thresholds. A 1/1 = 100% error rate is meaningless until there
@@ -93,11 +94,11 @@ function errorSummary(cur: ToolErrorRow, prev?: ToolErrorRow): string {
 }
 
 function payloadSummary(cur: ToolPayloadRow, prev?: ToolPayloadRow): string {
-  const tokens = Math.ceil(cur.p95Chars / 4)
+  const tokens = tokensFromChars(cur.p95Chars)
   if (!prev) {
     return `${cur.name} p95 output ~${formatK(tokens)} tokens (${formatK(cur.p95Chars)} chars) — first observed at this size`
   }
-  const prevTokens = Math.ceil(prev.p95Chars / 4)
+  const prevTokens = tokensFromChars(prev.p95Chars)
   return `${cur.name} p95 output ~${formatK(tokens)} tokens — was ~${formatK(prevTokens)} prior window`
 }
 
