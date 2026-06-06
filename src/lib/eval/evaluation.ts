@@ -220,12 +220,6 @@ export type LiveFilter = {
   agentName?: string
 } | null
 
-// A run targets either a dataset or a live trace filter.
-export type EvalTargetSelector =
-  | { kind: 'dataset'; datasetId: number }
-  | { kind: 'traces'; traceIds: string[] }
-  | { kind: 'spans'; spanIds: string[] }
-
 // Per-dimension delta between a baseline run and a head run (regression view).
 // `baseTotal`/`headTotal` are the counts of classifiable (non-errored) cases on
 // each side — 0 means "no cases", distinct from a genuine 0% pass rate.

@@ -3,7 +3,6 @@ import { desc, eq, inArray } from 'drizzle-orm'
 import { db } from '#/db'
 import { evalDefinitions, evalRuns, scoreConfigs, scores } from '#/db/schema'
 import {
-  type ConfigHint,
   type EvalCompareRow,
   type EvalDefinition,
   type EvalMode,
@@ -11,21 +10,18 @@ import {
   type EvalRunSummary,
   type EvalScope,
   type EvalStatus,
-  type EvalTargetSelector,
   SCORE_DATA_TYPES,
   SCORE_TARGET_KINDS,
   type ScoreDataType,
   type ScoreTargetKind,
   scoreIsBad,
-  scorePassFail,
   type UpsertEvalDefinitionInput,
 } from '#/lib/eval/evaluation'
 import { DEFAULT_JUDGE_MODEL } from '#/lib/eval/models'
 import type { JsonValue } from '#/lib/json'
-import type { JudgeCaseInput } from './eval-jobs'
-import { MAX_JUDGE_SAMPLES, resolveJudgeDefaults, runJudgeSamples } from './judge'
+import { resolveJudgeDefaults } from './judge'
 import { parseLiveFilter } from './online-eval-filter'
-import { configToHint, scaleMap } from './scores'
+import { scaleMap } from './scores'
 
 function asScope(v: unknown): EvalScope {
   if (typeof v === 'string' && SCORE_TARGET_KINDS.includes(v as ScoreTargetKind)) return v as EvalScope
@@ -47,28 +43,6 @@ function asOptString(v: unknown): string | null {
   return s.length > 0 ? s : null
 }
 
-function asRecord(v: unknown, label: string): Record<string, unknown> {
-  if (v == null || typeof v !== 'object' || Array.isArray(v)) throw new Error(`${label} must be an object`)
-  return v as Record<string, unknown>
-}
-
-function asRequiredInt(v: unknown, label: string): number {
-  const n = Number(v)
-  if (!Number.isFinite(n)) throw new Error(`${label} must be a number`)
-  return Math.trunc(n)
-}
-
-function asOptionalInt(v: unknown, label: string): number | null {
-  if (v == null || v === '') return null
-  return asRequiredInt(v, label)
-}
-
-function asRequiredString(v: unknown, label: string): string {
-  const s = asOptString(v)
-  if (!s) throw new Error(`${label} is required`)
-  return s
-}
-
 function asJsonValue(v: unknown, label: string): JsonValue {
   if (v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
     if (typeof v === 'number' && !Number.isFinite(v)) throw new Error(`${label} must be JSON-serializable`)
@@ -81,53 +55,6 @@ function asJsonValue(v: unknown, label: string): JsonValue {
     return out
   }
   throw new Error(`${label} must be JSON-serializable`)
-}
-
-function asJsonObject(v: unknown, label: string): Record<string, JsonValue> {
-  const obj = asRecord(v, label)
-  const out: Record<string, JsonValue> = {}
-  for (const [key, value] of Object.entries(obj)) out[key] = asJsonValue(value, `${label}.${key}`)
-  return out
-}
-
-function asRunTargetKind(v: unknown, label: string): ScoreTargetKind {
-  if (typeof v === 'string' && SCORE_TARGET_KINDS.includes(v as ScoreTargetKind)) return v as ScoreTargetKind
-  throw new Error(`Invalid ${label}: ${String(v)}`)
-}
-
-function asTargetSelector(v: unknown): EvalTargetSelector | null {
-  if (v == null) return null
-  const obj = asRecord(v, 'targetSelector')
-  if (obj.kind === 'dataset')
-    return { kind: 'dataset', datasetId: asRequiredInt(obj.datasetId, 'targetSelector.datasetId') }
-  if (obj.kind === 'traces') {
-    if (!Array.isArray(obj.traceIds)) throw new Error('targetSelector.traceIds must be an array')
-    return {
-      kind: 'traces',
-      traceIds: obj.traceIds.map((id, i) => asRequiredString(id, `targetSelector.traceIds[${i}]`)),
-    }
-  }
-  if (obj.kind === 'spans') {
-    if (!Array.isArray(obj.spanIds)) throw new Error('targetSelector.spanIds must be an array')
-    return { kind: 'spans', spanIds: obj.spanIds.map((id, i) => asRequiredString(id, `targetSelector.spanIds[${i}]`)) }
-  }
-  throw new Error(`Invalid targetSelector.kind: ${String(obj.kind)}`)
-}
-
-function asJudgeCase(raw: unknown, index: number): JudgeCaseInput {
-  const label = `cases[${index}]`
-  const obj = asRecord(raw, label)
-  return {
-    targetKind: asRunTargetKind(obj.targetKind, `${label}.targetKind`),
-    targetId: asRequiredString(obj.targetId, `${label}.targetId`),
-    parentTraceId: asOptString(obj.parentTraceId),
-    parentSessionId: asOptString(obj.parentSessionId),
-    sessionSource: obj.sessionSource === 'attribute' || obj.sessionSource === 'trace' ? obj.sessionSource : null,
-    datasetRunItemId: asOptionalInt(obj.datasetRunItemId, `${label}.datasetRunItemId`),
-    promptVersionId: asOptionalInt(obj.promptVersionId, `${label}.promptVersionId`),
-    fields: asJsonObject(obj.fields, `${label}.fields`),
-    expected: obj.expected == null ? null : asJsonValue(obj.expected, `${label}.expected`),
-  }
 }
 
 function toDefinition(row: typeof evalDefinitions.$inferSelect): EvalDefinition {
@@ -314,165 +241,6 @@ export const blessEvalRun = createServerFn({ method: 'POST' })
     }
     return toRun(row)
   })
-
-// the run executor (Path B)
-// Creates the run row and returns immediately as 'running'; the judge loop runs as
-// a background job, writing scores + updating the summary per case as the UI polls.
-export const runEval = createServerFn({ method: 'POST' })
-  .inputValidator(
-    (
-      input: unknown,
-    ): {
-      definitionId: number
-      model: string | null
-      samples: number
-      cases: JudgeCaseInput[]
-      targetSelector: EvalTargetSelector | null
-      gitSha: string | null
-      env: string | null
-    } => {
-      const obj = asRecord(input, 'runEval input')
-      if (!Array.isArray(obj.cases)) throw new Error('cases must be an array')
-      return {
-        definitionId: asRequiredInt(obj.definitionId, 'definitionId'),
-        model: asOptString(obj.model),
-        samples:
-          obj.samples == null ? 1 : Math.max(1, Math.min(MAX_JUDGE_SAMPLES, asRequiredInt(obj.samples, 'samples'))),
-        cases: obj.cases.map(asJudgeCase),
-        targetSelector: asTargetSelector(obj.targetSelector),
-        gitSha: asOptString(obj.gitSha),
-        env: asOptString(obj.env),
-      }
-    },
-  )
-  .handler(async ({ data }): Promise<EvalRun> => {
-    const [defRow] = await db.select().from(evalDefinitions).where(eq(evalDefinitions.id, data.definitionId)).limit(1)
-    if (!defRow) throw new Error('Evaluator not found')
-    const def = toDefinition(defRow)
-    // No code runner yet — refuse rather than produce LLM verdicts mislabeled source='code'.
-    if (def.source !== 'llm')
-      throw new Error('Only LLM-judge evaluators can be run today (code evaluators are not yet supported)')
-    const model = data.model || def.model
-
-    const now = new Date()
-    const [runRow] = await db
-      .insert(evalRuns)
-      .values({
-        definitionId: def.id,
-        definitionVersion: def.version,
-        status: 'running',
-        targetSelector: data.targetSelector,
-        gitSha: data.gitSha,
-        env: data.env,
-        startedAt: now,
-        summary: { total: data.cases.length, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model },
-        createdAt: now,
-      })
-      .returning()
-    if (!runRow) throw new Error('runEval: could not create run')
-
-    // Fire-and-forget: the response returns now; errors are caught and recorded.
-    void executeEvalRun({ runId: runRow.id, def, model, samples: data.samples, cases: data.cases }).catch(
-      async (err) => {
-        await db.update(evalRuns).set({ status: 'error', endedAt: new Date() }).where(eq(evalRuns.id, runRow.id))
-        console.error('[runEval] background run failed', err)
-      },
-    )
-
-    return toRun(runRow)
-  })
-
-async function executeEvalRun(opts: {
-  runId: number
-  def: EvalDefinition
-  model: string
-  samples: number
-  cases: JudgeCaseInput[]
-}): Promise<void> {
-  const { runId, def, model, samples, cases } = opts
-  const { configured } = resolveJudgeDefaults()
-  const summary: EvalRunSummary = { total: cases.length, done: 0, pass: 0, fail: 0, errors: 0, costUsd: 0, model }
-
-  if (!configured) {
-    await db
-      .update(evalRuns)
-      .set({ status: 'error', endedAt: new Date(), summary: { ...summary, errors: cases.length } })
-      .where(eq(evalRuns.id, runId))
-    return
-  }
-
-  const [cfg] = await db.select().from(scoreConfigs).where(eq(scoreConfigs.name, def.name)).limit(1)
-  const categories = (cfg?.categories ?? null) as string[] | null
-  // Full polarity/scale hint so the summary's pass/fail honors the config.
-  const scale: ConfigHint | undefined = cfg ? configToHint(cfg) : undefined
-
-  for (const c of cases) {
-    const verdict = await runJudgeSamples(
-      {
-        model,
-        judgePrompt: def.judgePrompt,
-        dataType: def.dataType,
-        categories,
-        // Bound the numeric verdict to the configured range via the output schema.
-        minValue: cfg?.minValue ?? null,
-        maxValue: cfg?.maxValue ?? null,
-        fields: c.fields,
-        expected: c.expected ?? null,
-      },
-      samples,
-    )
-    summary.costUsd = (summary.costUsd ?? 0) + verdict.costUsd
-    summary.done = (summary.done ?? 0) + 1
-    if (verdict.errorType) {
-      summary.errors = (summary.errors ?? 0) + 1
-    } else {
-      // Only classifiable cases bucket; text/unknown-categorical count as neither.
-      const pf = scorePassFail({ dataType: def.dataType, value: verdict.value, label: verdict.label }, scale)
-      if (pf === 'fail') summary.fail = (summary.fail ?? 0) + 1
-      else if (pf === 'pass') summary.pass = (summary.pass ?? 0) + 1
-    }
-    await db.insert(scores).values({
-      targetKind: c.targetKind,
-      targetId: c.targetId,
-      parentTraceId: c.parentTraceId ?? null,
-      parentSessionId: c.parentSessionId ?? null,
-      sessionSource: c.sessionSource ?? null,
-      name: def.name,
-      dataType: def.dataType,
-      value: verdict.value,
-      label: verdict.label,
-      explanation: verdict.explanation,
-      source: def.source,
-      evaluator: `judge:${model}`,
-      evaluatorVersion: def.version,
-      errorType: verdict.errorType,
-      runId,
-      definitionId: def.id,
-      promptVersionId: c.promptVersionId ?? null,
-      datasetRunItemId: c.datasetRunItemId ?? null,
-      metadata: {
-        samples: verdict.samples,
-        variance: verdict.variance,
-        perSample: verdict.perSample,
-        inputTokens: verdict.inputTokens,
-        outputTokens: verdict.outputTokens,
-        raw: verdict.raw.slice(0, 2000),
-      },
-      createdAt: new Date(),
-    })
-    // Update the run summary incrementally so pollers see progress fill in.
-    await db.update(evalRuns).set({ summary }).where(eq(evalRuns.id, runId))
-  }
-
-  // A run where every case errored (e.g. the judge provider was reachable-but-failing
-  // the whole time) is itself an error, not a "done" run with incidental errors — this
-  // also lets the run detail surface the judge hint (judgeErrorHint).
-  const allErrored = (summary.total ?? 0) > 0 && summary.errors === summary.total
-  await db
-    .update(evalRuns)
-    .set({ status: allErrored ? 'error' : 'done', endedAt: new Date(), summary })
-    .where(eq(evalRuns.id, runId))
-}
 
 // compare / baselines
 export const compareRuns = createServerFn({ method: 'GET' })

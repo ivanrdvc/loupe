@@ -284,12 +284,6 @@ export const updateDataset = createServerFn({ method: 'POST' })
     return toDataset(row)
   })
 
-export const deleteDataset = createServerFn({ method: 'POST' })
-  .inputValidator((input: { datasetId: string | number }) => ({ datasetId: Number(input.datasetId) }))
-  .handler(async ({ data }): Promise<void> => {
-    await db.delete(datasets).where(eq(datasets.id, data.datasetId))
-  })
-
 function bumpVersion(datasetId: number, now: Date) {
   return db
     .update(datasets)
