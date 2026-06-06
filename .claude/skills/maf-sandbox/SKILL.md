@@ -14,15 +14,15 @@ Test rig for generating agent telemetry into local OpenObserve so we can inspect
 ./fire.py "your prompt here" --stream  # SSE stream
 ```
 
-`fire.py` handles everything: spawns `maf.py` via `uv` if not already running (logs → `/tmp/maf-sandbox.log`), discovers the entity_id, sends a correctly-shaped Responses API body, and returns the reply. The sandbox listens on `localhost:4280`, exports OTel to `http://localhost:5080/api/default` (OpenObserve), reads `OPENAI_API_KEY` from `loupe/.env.local`.
+`fire.py` handles everything: spawns `maf.py` via `uv` if not already running (logs → `/tmp/maf-sandbox.log`), discovers the entity_id, sends a correctly-shaped Responses API body, and returns the reply. The sandbox listens on `localhost:4280`, exports OTel to `http://localhost:5080/api/default` (OpenObserve), reads `OPENAI_API_KEY` from `loupe/.env` (or the gitignored `.env.local`, which takes precedence).
 
 ## Optional: dual-emit to App Insights
 
-loupe reads from App Insights by default — so to make sandbox traces visible in the loupe UI, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` in `loupe/.env.local`. Without it, sandbox traces land only in OpenObserve and **loupe will not see them**; `maf.py`'s startup banner prints a warning in that case. AppInsights export is purely additive — OO emission continues either way.
+loupe reads from App Insights by default — so to make sandbox traces visible in the loupe UI, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` in `loupe/.env` (or the gitignored `.env.local`, which takes precedence). Without it, sandbox traces land only in OpenObserve and **loupe will not see them**; `maf.py`'s startup banner prints a warning in that case. AppInsights export is purely additive — OO emission continues either way.
 
 ## What the sandbox agent can do
 
-The agent (`sandbox-agent`) is wired to exercise these telemetry categories. **Pick a different one each session** — repeating the same payloads makes the rig pointless.
+The agent (`sandbox-agent`) is wired to exercise these telemetry categories — including dynamic mid-turn tool loading, so the visible tool set can change within a single run. **Pick a different one each session** — repeating the same payloads makes the rig pointless.
 
 - **Single tool call** — `add`, `multiply`, `random_number`, `echo`, `lookup_user`
 - **Parallel tool calls** — ask for the weather in several cities at once, or multiple math ops
@@ -32,6 +32,7 @@ The agent (`sandbox-agent`) is wired to exercise these telemetry categories. **P
 - **Errors** — `fail_sometimes(probability)` raises mid-tool; produces error spans
 - **Streaming** — pass `--stream` to see SSE + chunked spans
 - **Result shapes** — `list_items` returns arrays, `lookup_user` returns dicts (different span content shapes)
+- **Dynamic tool loading** — ask for files/math/weather utilities; the agent calls `load_tools(domain)` first, so the visible tool set changes mid-run (domain tools like `files_read`, `math_factorial` only appear after their domain is loaded)
 
 ## Workflow
 

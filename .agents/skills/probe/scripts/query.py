@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-loupe debug query — pulls trace/session diagnostics from whichever
+loupe probe query — pulls trace/session diagnostics from whichever
 telemetry provider the loupe .env points at, and prints lean JSON.
 
 Usage:
@@ -53,10 +53,6 @@ NON_BLOCKING_KEYS = {
     "user.name", "user_name", "enduser.name", "enduser_name",
 }
 
-# Mirrors src/lib/telemetry/field-config.ts ident regex — keys with chars
-# outside this set are silently dropped from CUSTOM_*_FIELD env vars.
-ENV_IDENT_REGEX = re.compile(r"^[A-Za-z0-9_.]+$")
-
 
 def load_env() -> dict[str, str]:
     """Read loupe .env. Returns a dict; missing file = empty dict."""
@@ -77,32 +73,8 @@ def detect_provider(env: dict[str, str]) -> str:
 
 
 def recognized_keys(env: dict[str, str]) -> dict[str, set[str]]:
-    """Keys loupe will actually look at, given conventions.ts + .env overrides."""
-    sess = set(SESSION_KEYS)
-    usr = set(USER_KEYS)
-    purp = set(PURPOSE_KEYS)
-    for f in (env.get("CUSTOM_SESSION_ID_FIELDS") or "").split(","):
-        if f.strip() and ENV_IDENT_REGEX.match(f.strip()): sess.add(f.strip())
-    for f in (env.get("CUSTOM_USER_ID_FIELDS") or "").split(","):
-        if f.strip() and ENV_IDENT_REGEX.match(f.strip()): usr.add(f.strip())
-    p = (env.get("CUSTOM_LLM_PURPOSE_FIELD") or "").strip()
-    if p and ENV_IDENT_REGEX.match(p): purp.add(p)
-    return {"session": sess, "user": usr, "purpose": purp}
-
-
-def env_health(env: dict[str, str]) -> list[dict[str, str]]:
-    """Flag CUSTOM_* env values that field-config.ts would silently reject."""
-    out: list[dict[str, str]] = []
-    for var in ("CUSTOM_SESSION_ID_FIELDS", "CUSTOM_USER_ID_FIELDS",
-                "CUSTOM_LLM_PURPOSE_FIELD", "CUSTOM_SESSION_KIND_FIELD"):
-        raw = (env.get(var) or "").strip()
-        if not raw: continue
-        bad = [p.strip() for p in raw.split(",")
-               if p.strip() and not ENV_IDENT_REGEX.match(p.strip())]
-        if bad:
-            out.append({"var": var, "value": raw, "rejected": bad,
-                        "note": "field-config.ts ident() silently drops these — chars outside [A-Za-z0-9_.]"})
-    return out
+    """Keys loupe will actually look at, given conventions.ts ATTRS."""
+    return {"session": set(SESSION_KEYS), "user": set(USER_KEYS), "purpose": set(PURPOSE_KEYS)}
 
 
 # ---------- App Insights ----------
@@ -197,9 +169,7 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
         spans_by_id[r.get("id")] = {"name": r.get("name"), "parent": r.get("operation_ParentId"), "cd": cd}
         sess_keys = [k for k in SESSION_KEYS if cd.get(k)]
         user_keys = [k for k in USER_KEYS if cd.get(k)]
-        # purpose lives under multiple keys depending on producer rev — check both standard and legacy
         purpose_keys = [k for k in PURPOSE_KEYS if cd.get(k)]
-        if cd.get("teammate.llm.purpose"): purpose_keys.append("teammate.llm.purpose")
         for k in sess_keys: t["session_attr_keys"].add(k)
         for k in purpose_keys: t["purpose_keys"].add(k)
         # tokens (only chat spans)
@@ -237,14 +207,13 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
             or cd.get("session.trigger_type")
             or (r.get("success") is False)
             or cd.get("gen_ai.operation.purpose")
-            or cd.get("teammate.llm.purpose")
         )
         if is_ai_relevant or full:
             entry_tl: dict[str, Any] = {
                 "name": op_name,
                 "duration_ms": int(r.get("duration") or 0),
                 "gen_ai_op": cd.get("gen_ai.operation.name") or None,
-                "purpose": cd.get("gen_ai.operation.purpose") or cd.get("teammate.llm.purpose") or None,
+                "purpose": cd.get("gen_ai.operation.purpose") or None,
                 "error": (r.get("success") is False) or None,
             }
             if cd.get("gen_ai.operation.name") == "chat":
@@ -267,7 +236,7 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
             seen.add(cur["parent"])
             parent = spans_by_id.get(cur["parent"])
             if not parent: return None
-            for k in PURPOSE_KEYS + ["teammate.llm.purpose"]:
+            for k in PURPOSE_KEYS:
                 if parent["cd"].get(k):
                     return f"{k}={parent['cd'][k]} (on '{parent['name']}')"
             cur = parent
@@ -276,7 +245,7 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
     recog = recognized_keys(env)
     for tid, t in traces.items():
         for sid, sp in spans_by_id.items():
-            if str(sp["name"] or "").startswith("chat ") and not any(sp["cd"].get(k) for k in PURPOSE_KEYS + ["teammate.llm.purpose"]):
+            if str(sp["name"] or "").startswith("chat ") and not any(sp["cd"].get(k) for k in PURPOSE_KEYS):
                 anc = find_ancestor_purpose(sid)
                 if anc:
                     t["_chat_purpose_drift"].append({"chat_span": sid, "ancestor_purpose": anc})
@@ -305,15 +274,12 @@ def diagnose_session_app_insights(env: dict[str, str], session_id: str, full: bo
         if drift:
             t["key_drift"] = drift
 
-    out: dict[str, Any] = {
+    return {
         "session_id": session_id,
         "provider": "app-insights",
         "trace_ids": trace_ids,
         "traces": list(traces.values()),
     }
-    health = env_health(env)
-    if health: out["env_health"] = health
-    return out
 
 
 def diagnose_session_openobserve(env: dict[str, str], session_id: str, full: bool) -> dict[str, Any]:
@@ -322,7 +288,7 @@ def diagnose_session_openobserve(env: dict[str, str], session_id: str, full: boo
         raise SystemExit(f"Refusing unsafe id: {session_id!r}")
     # Use ag_ui_thread_id (the underscore form is what OO ingests dotted attrs as)
     sql = (
-        f"SELECT trace_id, span_id, references_parent_span_id, operation_name, "
+        f"SELECT trace_id, span_id, reference_parent_span_id, operation_name, "
         f"start_time, end_time, span_status, gen_ai_operation_name, gen_ai_request_model, "
         f"gen_ai_usage_input_tokens, gen_ai_usage_output_tokens, "
         f"ag_ui_thread_id, session_id, gen_ai_conversation_id, user_id, "
@@ -443,7 +409,6 @@ def audit_app_insights(env: dict[str, str]) -> dict[str, Any]:
         "provider": "app-insights",
         "window": "last 3 days",
         "audit": rows[0] if rows else {},
-        "env_health": env_health(env),
         "emitted_keys_unrecognized_for_concept": blocking,
         "recognized_now": {"session": sorted(recog["session"]),
                             "user": sorted(recog["user"]),

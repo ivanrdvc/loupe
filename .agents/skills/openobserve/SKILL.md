@@ -17,7 +17,7 @@ User says things like:
 - "list recent agent runs"
 - "query openobserve for `<X>`"
 
-Even if they don't name OpenObserve, if the local URL is `localhost:5080` or you can see `openobserve` in their `docker-compose.yml` / env, it's the right tool.
+Even if they don't name OpenObserve, if the local URL is `localhost:5080` or you can see `openobserve` in their `.env` / env, it's the right tool.
 
 ## Connection setup
 
@@ -31,7 +31,7 @@ OpenObserve runs locally with HTTP Basic auth. Defaults (from the official `open
 | `OO_USER` | `root@example.com` |
 | `OO_PASS` | `Complexpass#123` |
 
-The user may have overridden them — check `docker-compose.yml` (`ZO_ROOT_USER_EMAIL` / `ZO_ROOT_USER_PASSWORD`) or `.env` files first if defaults fail. Auth header is `Basic <base64(user:pass)>`.
+The user may have overridden them — check `.env` or `.env.example` for `OO_BASE_URL` / `OO_USER` / `OO_PASS` / `OO_ORG` / `OO_STREAM` first if defaults fail. Auth header is `Basic <base64(user:pass)>`.
 
 ## The search endpoint
 
@@ -89,17 +89,20 @@ SELECT * FROM "default" WHERE trace_id='<id>'
 SELECT * FROM "default" WHERE gen_ai_operation_name='chat'
 
 -- All tool invocations
-SELECT * FROM "default" WHERE operation_name LIKE 'execute_tool%'
+SELECT * FROM "default" WHERE operation_name LIKE 'execute_tool %'
 
 -- All sub-agent invocations (the orchestrator-spawning-another-agent pattern)
-SELECT * FROM "default" WHERE operation_name LIKE 'invoke_agent%'
+SELECT * FROM "default" WHERE operation_name LIKE 'invoke_agent %'
 
--- Top cost spans
-SELECT trace_id, operation_name, llm_usage_cost_total
+-- Top cost spans (cost/tokens land under either family — COALESCE both)
+SELECT trace_id, operation_name,
+       COALESCE(llm_usage_cost_total, gen_ai_usage_cost_total) AS cost_total
 FROM "default"
-WHERE llm_usage_cost_total IS NOT NULL
-ORDER BY llm_usage_cost_total DESC LIMIT 20
+WHERE llm_usage_cost_total IS NOT NULL OR gen_ai_usage_cost_total IS NOT NULL
+ORDER BY cost_total DESC LIMIT 20
 ```
+
+Cost and token usage live under either the `llm_usage_*` or the `gen_ai_usage_*` family depending on the instrumentation — COALESCE both when you query (e.g. `gen_ai_usage_cost_total`, `gen_ai_usage_total_tokens`).
 
 ## Reconstructing the span tree
 
