@@ -9,7 +9,6 @@ export type ScoreSource = 'human' | 'llm' | 'code'
 
 export const SCORE_DATA_TYPES: ScoreDataType[] = ['numeric', 'categorical', 'boolean', 'text']
 export const SCORE_TARGET_KINDS: ScoreTargetKind[] = ['span', 'trace', 'session']
-export const SCORE_SOURCES: ScoreSource[] = ['human', 'llm', 'code']
 
 export type Score = {
   id: number
@@ -354,7 +353,7 @@ function trimNum(n: number): string {
 }
 
 // The polarity/scale hints a dimension's score_config carries, for classifying scores.
-export function configToHint(c: ScoreConfig): ConfigHint {
+function configToHint(c: ScoreConfig): ConfigHint {
   return {
     minValue: c.minValue,
     maxValue: c.maxValue,

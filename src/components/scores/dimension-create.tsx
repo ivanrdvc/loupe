@@ -2,14 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
@@ -196,25 +188,5 @@ export function DimensionForm({ onCreated, onCancel }: { onCreated: (c: ScoreCon
         </Button>
       </div>
     </div>
-  )
-}
-
-export function DimensionCreateButton() {
-  const [open, setOpen] = useState(false)
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
-          Define a dimension
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New score dimension</DialogTitle>
-          <DialogDescription>A named dimension humans and judges both score on.</DialogDescription>
-        </DialogHeader>
-        <DimensionForm onCreated={() => setOpen(false)} onCancel={() => setOpen(false)} />
-      </DialogContent>
-    </Dialog>
   )
 }

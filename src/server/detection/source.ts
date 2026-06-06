@@ -11,9 +11,7 @@ export interface DetectionSource {
   discover(kind: InventoryDiscoveryKind, window: DetectionWindow): Promise<InventoryObservation[] | null>
 }
 
-const sources: DetectionSource[] = [
-  { name: 'provider', discover: (kind, w) => discoverInventory(kind, w) },
-]
+const sources: DetectionSource[] = [{ name: 'provider', discover: (kind, w) => discoverInventory(kind, w) }]
 
 export function registerDetectionSource(source: DetectionSource): void {
   sources.unshift(source)

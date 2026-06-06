@@ -1,4 +1,4 @@
-export { type ToolKind, type ToolTone, toolTone } from './tone'
+export { toolTone } from './tone'
 
 const PREFIXES = ['execute_tool ', 'tools/call ']
 

@@ -29,7 +29,3 @@ const BY_ID = new Map(JUDGE_MODELS.map((m) => [m.id, m]))
 export function judgeModelProvider(id: string): JudgeProvider {
   return BY_ID.get(id)?.provider ?? 'openai'
 }
-
-export function judgeModelLabel(id: string): string {
-  return BY_ID.get(id)?.label ?? id
-}
