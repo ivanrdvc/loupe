@@ -1,19 +1,19 @@
-import { ArrowTopRightOnSquareIcon, ChevronDownIcon } from '@heroicons/react/20/solid'
+import { ChevronDownIcon } from '@heroicons/react/20/solid'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
-import { ToolLink } from '#/components/tool-link'
-import { Badge } from '#/components/ui/badge'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { formatPercent, formatTokens } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
+import { toolDisplayName, toolTone } from '#/lib/tools'
 import type { InventoryRow } from '#/server/inbox'
 
 const PREVIEW_ROWS = 5
+const CHARS_PER_TOKEN = 4
 
 export function Section({
   title,
@@ -87,44 +87,70 @@ export function Expandable<T>({ rows, children }: { rows: T[]; children: (visibl
   )
 }
 
-export function OpenLink({ traceId, sessionId }: { traceId?: string | null; sessionId?: string | null }) {
-  const cls = 'inline-flex items-center text-muted-foreground hover:text-foreground'
-  if (sessionId) {
-    return (
-      <Link to="/sessions" search={{ session: sessionId }} className={cls} aria-label="Open session">
-        <ArrowTopRightOnSquareIcon className="size-3.5" />
-      </Link>
-    )
-  }
-  if (traceId) {
-    return (
-      <Link to="." search={(prev) => ({ ...(prev as object), trace: traceId })} className={cls} aria-label="Open trace">
-        <ArrowTopRightOnSquareIcon className="size-3.5" />
-      </Link>
-    )
-  }
-  return (
-    <Link to="/sessions" className={cls} aria-label="Open sessions">
-      <ArrowTopRightOnSquareIcon className="size-3.5" />
-    </Link>
-  )
+const tokensFromChars = (chars: number) => Math.ceil(chars / CHARS_PER_TOKEN)
+
+function rateTextTone(rate: number): string {
+  if (rate >= 0.05) return 'text-destructive'
+  if (rate > 0) return 'text-warning'
+  return 'text-foreground'
 }
 
-const CHARS_PER_TOKEN = 4
-
-function Chars({ chars }: { chars: number }) {
-  if (!chars) return <span className="text-muted-foreground">—</span>
-  const tokens = Math.ceil(chars / CHARS_PER_TOKEN)
-  return (
-    <span title={`${chars.toLocaleString()} chars · ≈${tokens.toLocaleString()} tokens`}>
-      {formatTokens(tokens)}
-      <span className="text-muted-foreground"> tok</span>
-    </span>
-  )
+function rateBarTone(rate: number): string {
+  if (rate >= 0.05) return 'bg-destructive'
+  if (rate > 0) return 'bg-warning'
+  return 'bg-muted-foreground/40'
 }
 
-function stripPrefix(name: string, prefix: string): string {
-  return name.startsWith(`${prefix} `) ? name.slice(prefix.length + 1) : name
+function sizeTextTone(tokens: number): string {
+  if (tokens >= 2000) return 'text-destructive'
+  if (tokens >= 500) return 'text-warning'
+  return 'text-foreground'
+}
+
+// One tool metric row — the whole row drills into the tool's profile drawer.
+function ToolStatRow({
+  name,
+  value,
+  valueTone,
+  meta,
+  bar,
+}: {
+  name: string
+  value: string
+  valueTone: string
+  meta: string
+  bar?: { pct: number; tone: string }
+}) {
+  const display = toolDisplayName(name)
+  const tone = toolTone('tool')
+  return (
+    <li>
+      <Link
+        to="."
+        search={(prev) => ({ ...(prev as object), tool: display })}
+        className="group flex flex-col gap-1 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
+      >
+        <div className="flex items-center gap-2">
+          <HugeiconsIcon icon={tone.icon} strokeWidth={1.5} className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
+          <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-foreground" title={display}>
+            {display}
+          </span>
+          <span className={`shrink-0 text-sm font-semibold tabular-nums ${valueTone}`}>{value}</span>
+        </div>
+        <div className="flex items-center gap-3 pl-[1.375rem]">
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{meta}</span>
+          {bar && (
+            <span className="ml-auto h-1 w-20 shrink-0 overflow-hidden rounded-full bg-muted">
+              <span
+                className={`block h-full rounded-full ${bar.tone}`}
+                style={{ width: `${Math.max(2, Math.min(100, Math.round(bar.pct * 100)))}%` }}
+              />
+            </span>
+          )}
+        </div>
+      </Link>
+    </li>
+  )
 }
 
 export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
@@ -134,34 +160,18 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
   return (
     <Expandable rows={rows}>
       {(visible) => (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tool</TableHead>
-              <TableHead className="w-20 text-right tabular-nums">Errors</TableHead>
-              <TableHead className="w-20 text-right tabular-nums">Calls</TableHead>
-              <TableHead className="w-20 text-right tabular-nums">Rate ▼</TableHead>
-              <TableHead className="w-8" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((row) => (
-              <TableRow key={row.name}>
-                <TableCell className="max-w-0 truncate" title={row.name}>
-                  <ToolLink name={stripPrefix(row.name, 'execute_tool')} />
-                </TableCell>
-                <TableCell className="text-right tabular-nums">{row.errors}</TableCell>
-                <TableCell className="text-right tabular-nums">{row.total}</TableCell>
-                <TableCell className="text-right">
-                  <Badge variant="destructive">{formatPercent(row.errorRate, 1)}</Badge>
-                </TableCell>
-                <TableCell>
-                  <OpenLink traceId={row.lastErrorTraceId} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <ul className="-mx-2 flex flex-col">
+          {visible.map((row) => (
+            <ToolStatRow
+              key={row.name}
+              name={row.name}
+              value={formatPercent(row.errorRate, 1)}
+              valueTone={rateTextTone(row.errorRate)}
+              meta={`${row.errors.toLocaleString()} / ${row.total.toLocaleString()} calls`}
+              bar={{ pct: row.errorRate, tone: rateBarTone(row.errorRate) }}
+            />
+          ))}
+        </ul>
       )}
     </Expandable>
   )
@@ -171,41 +181,25 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No tool-call payloads" description="No execute_tool spans in this window." />
   }
+  const maxP95 = Math.max(...rows.map((r) => r.p95Chars), 1)
   return (
     <Expandable rows={rows}>
       {(visible) => (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tool</TableHead>
-              <TableHead className="w-20 text-right tabular-nums">Avg</TableHead>
-              <TableHead className="w-20 text-right tabular-nums">p95 ▼</TableHead>
-              <TableHead className="w-20 text-right tabular-nums">Max</TableHead>
-              <TableHead className="w-16" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((row) => (
-              <TableRow key={row.name}>
-                <TableCell className="max-w-0 truncate" title={row.name}>
-                  <ToolLink name={stripPrefix(row.name, 'execute_tool')} />
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  <Chars chars={row.avgChars} />
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  <Chars chars={row.p95Chars} />
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  <Chars chars={row.maxChars} />
-                </TableCell>
-                <TableCell>
-                  <OpenLink traceId={row.sampleTraceId} sessionId={row.sampleSessionId} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <ul className="-mx-2 flex flex-col">
+          {visible.map((row) => {
+            const p95Tok = tokensFromChars(row.p95Chars)
+            return (
+              <ToolStatRow
+                key={row.name}
+                name={row.name}
+                value={`${formatTokens(p95Tok)} tok`}
+                valueTone={sizeTextTone(p95Tok)}
+                meta={`avg ${formatTokens(tokensFromChars(row.avgChars))} · max ${formatTokens(tokensFromChars(row.maxChars))}`}
+                bar={{ pct: row.p95Chars / maxP95, tone: 'bg-primary/60' }}
+              />
+            )
+          })}
+        </ul>
       )}
     </Expandable>
   )
@@ -215,34 +209,34 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No new MCP tools" description="Nothing newly observed in this window." />
   }
+  const tone = toolTone('mcp')
   const visible = rows.slice(0, PREVIEW_ROWS)
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Tool</TableHead>
-          <TableHead>Server</TableHead>
-          <TableHead>First seen</TableHead>
-          <TableHead />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {visible.map((row) => (
-          <TableRow key={row.id}>
-            <TableCell>
-              <ToolLink name={row.name} />
-            </TableCell>
-            <TableCell>{row.namespace || 'unknown'}</TableCell>
-            <TableCell className="tabular-nums text-muted-foreground">
-              <RelativeTime ts={row.firstSeenAtMs} />
-            </TableCell>
-            <TableCell>
-              <OpenLink traceId={row.firstSeenTraceId} />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <ul className="-mx-2 flex flex-col">
+      {visible.map((row) => (
+        <li key={row.id}>
+          <Link
+            to="."
+            search={(prev) => ({ ...(prev as object), tool: toolDisplayName(row.name) })}
+            className="group flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
+          >
+            <HugeiconsIcon
+              icon={tone.icon}
+              strokeWidth={1.5}
+              className={`size-3.5 shrink-0 ${tone.text}`}
+              aria-hidden
+            />
+            <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-foreground" title={row.name}>
+              {toolDisplayName(row.name)}
+            </span>
+            <span className="shrink-0 truncate text-[11px] text-muted-foreground" title={row.namespace || 'unknown'}>
+              {row.namespace || 'unknown'}
+            </span>
+            <RelativeTime ts={row.firstSeenAtMs} className="shrink-0 text-[11px] tabular-nums text-muted-foreground" />
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -250,35 +244,46 @@ export function NewAgentsTable({ rows }: { rows: InventoryRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No new agents" description="Nothing newly observed in this window." />
   }
+  const tone = toolTone('agent')
   return (
     <Expandable rows={rows}>
       {(visible) => (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Agent</TableHead>
-              <TableHead>First seen</TableHead>
-              <TableHead>Last seen</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-medium">{row.name}</TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">
-                  <RelativeTime ts={row.firstSeenAtMs} />
-                </TableCell>
-                <TableCell className="tabular-nums text-muted-foreground">
-                  <RelativeTime ts={row.lastSeenAtMs} />
-                </TableCell>
-                <TableCell>
-                  <OpenLink traceId={row.firstSeenTraceId} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <ul className="-mx-2 flex flex-col">
+          {visible.map((row) => {
+            const inner = (
+              <>
+                <HugeiconsIcon
+                  icon={tone.icon}
+                  strokeWidth={1.5}
+                  className={`size-3.5 shrink-0 ${tone.text}`}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground" title={row.name}>
+                  {row.name}
+                </span>
+                <RelativeTime
+                  ts={row.firstSeenAtMs}
+                  className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+                />
+              </>
+            )
+            return (
+              <li key={row.id}>
+                {row.firstSeenTraceId ? (
+                  <Link
+                    to="."
+                    search={(prev) => ({ ...(prev as object), trace: row.firstSeenTraceId ?? undefined })}
+                    className="group flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-md px-2 py-2">{inner}</div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
       )}
     </Expandable>
   )

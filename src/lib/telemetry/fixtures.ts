@@ -1,5 +1,17 @@
 import type { Span } from '#/lib/spans'
-import type { FixturesProvider, SessionFetch, SessionSummary, SpanSummary, TraceFetch, TraceSummary } from './types'
+import type {
+  FixturesProvider,
+  SessionFetch,
+  SessionSummary,
+  SpanSummary,
+  ToolCallSample,
+  ToolCatalogRow,
+  ToolDetail,
+  ToolErrorRow,
+  ToolPayloadRow,
+  TraceFetch,
+  TraceSummary,
+} from './types'
 
 // Deterministic, in-memory telemetry for the e2e suite. Selected when
 // TELEMETRY_PROVIDER=fixtures (see index.ts). The span/session ids, titles, and
@@ -176,6 +188,102 @@ const SPAN_SUMMARIES: SpanSummary[] = [
     durationMs: 100,
   },
 ]
+
+// Deterministic tool aggregates so the dashboard, catalog, and drilldown
+// drawer have data under TELEMETRY_PROVIDER=fixtures. `run_sql` carries a
+// high error rate and `get_weather` a notable one so the home error widget
+// and the inspector health hint both render. Asserted in e2e/tools.spec.ts.
+export const FIXTURE_TOOL_CATALOG: ToolCatalogRow[] = [
+  {
+    name: 'run_sql',
+    calls: 100,
+    errors: 12,
+    errorRate: 0.12,
+    avgChars: 520,
+    p95Chars: 1600,
+    p50Ms: 40,
+    p95Ms: 1200,
+    lastSeenMs: 1_700_000_000_000,
+  },
+  {
+    name: 'get_weather',
+    calls: 40,
+    errors: 3,
+    errorRate: 0.075,
+    avgChars: 1200,
+    p95Chars: 4000,
+    p50Ms: 30,
+    p95Ms: 900,
+    lastSeenMs: 1_700_000_000_000,
+  },
+  {
+    name: 'search_docs',
+    calls: 25,
+    errors: 0,
+    errorRate: 0,
+    avgChars: 800,
+    p95Chars: 1600,
+    p50Ms: 20,
+    p95Ms: 400,
+    lastSeenMs: 1_700_000_000_000,
+  },
+]
+
+export const FIXTURE_TOOL_ERRORS: ToolErrorRow[] = [
+  { name: 'run_sql', errors: 12, total: 100, errorRate: 0.12, lastErrorTraceId: 'tr-chat' },
+  { name: 'get_weather', errors: 3, total: 40, errorRate: 0.075, lastErrorTraceId: 'tr-chat' },
+]
+
+export const FIXTURE_TOOL_PAYLOADS: ToolPayloadRow[] = [
+  {
+    name: 'get_weather',
+    avgChars: 1200,
+    p95Chars: 4000,
+    maxChars: 8200,
+    count: 40,
+    sampleTraceId: 'tr-chat',
+    sampleSessionId: 'e2e-session-chat',
+  },
+  { name: 'search_docs', avgChars: 800, p95Chars: 1600, maxChars: 3100, count: 25, sampleTraceId: 'tr-chat' },
+]
+
+export function fixtureToolDetail(name: string): ToolDetail | null {
+  const row = FIXTURE_TOOL_CATALOG.find((r) => r.name === name)
+  if (!row) return null
+  return {
+    name: row.name,
+    calls: row.calls,
+    errors: row.errors,
+    errorRate: row.errorRate,
+    avgChars: row.avgChars,
+    p95Chars: row.p95Chars,
+    maxChars: Math.round(row.p95Chars * 1.5),
+    p50Ms: row.p50Ms,
+    p95Ms: row.p95Ms,
+    firstSeenMs: 1_700_000_000_000,
+    lastSeenMs: row.lastSeenMs,
+  }
+}
+
+export function fixtureToolRecentCalls(name: string): ToolCallSample[] {
+  if (!FIXTURE_TOOL_CATALOG.some((r) => r.name === name)) return []
+  return [
+    {
+      traceId: 'tr-chat',
+      sessionId: 'e2e-session-chat',
+      startedAtMs: 1_700_000_000_000,
+      durationMs: 40,
+      hasError: false,
+    },
+    {
+      traceId: 'tr-chat',
+      sessionId: 'e2e-session-chat',
+      startedAtMs: 1_700_000_000_050,
+      durationMs: 1200,
+      hasError: name === 'run_sql',
+    },
+  ]
+}
 
 export function createFixturesProvider(): FixturesProvider {
   return {

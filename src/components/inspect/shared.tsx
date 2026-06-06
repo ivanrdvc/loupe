@@ -1,6 +1,7 @@
-import { AiBrain01Icon, Robot01Icon, Wrench01Icon } from '@hugeicons/core-free-icons'
+import { AiBrain01Icon } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
 import type { Span } from '#/lib/spans'
+import { toolTone } from '#/lib/tools'
 
 export interface Display {
   name: string
@@ -13,10 +14,10 @@ export interface Display {
 }
 
 const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: IconSvgElement; tagColor: string }> = {
-  invoke_agent: { tagLabel: 'agent', tagIcon: Robot01Icon, tagColor: 'text-emerald-500 dark:text-emerald-400' },
+  invoke_agent: { tagLabel: 'agent', tagIcon: toolTone('agent').icon, tagColor: toolTone('agent').text },
   chat: { tagLabel: 'llm', tagIcon: AiBrain01Icon, tagColor: 'text-violet-500 dark:text-violet-400' },
-  tool: { tagLabel: 'tool', tagIcon: Wrench01Icon, tagColor: 'text-sky-500 dark:text-sky-400' },
-  mcp: { tagLabel: 'mcp', tagIcon: Wrench01Icon, tagColor: 'text-sky-300 dark:text-sky-500' },
+  tool: { tagLabel: 'tool', tagIcon: toolTone('tool').icon, tagColor: toolTone('tool').text },
+  mcp: { tagLabel: 'mcp', tagIcon: toolTone('mcp').icon, tagColor: toolTone('mcp').text },
 }
 
 const OPERATION_LABELS: Record<string, string> = {

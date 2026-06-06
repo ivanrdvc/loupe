@@ -3,10 +3,10 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import type { SortingState } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
+import { toolsCatalogQuery } from '#/components/inspect/tool-data'
 import { Page } from '#/components/page'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { toolsCatalogQuery } from './-data'
 import { ToolsDataTable } from './-tools-data-table'
 
 const SORTABLE_COLUMNS = new Set(['name', 'calls', 'errorRate', 'p50Ms', 'p95Ms', 'avgChars', 'p95Chars', 'lastSeenMs'])

@@ -5,6 +5,13 @@
 
 import * as ai from './analytics-app-insights'
 import * as oo from './analytics-openobserve'
+import {
+  FIXTURE_TOOL_CATALOG,
+  FIXTURE_TOOL_ERRORS,
+  FIXTURE_TOOL_PAYLOADS,
+  fixtureToolDetail,
+  fixtureToolRecentCalls,
+} from './fixtures'
 import type {
   CacheHitPoint,
   InventoryDiscoveryKind,
@@ -28,7 +35,7 @@ export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts):
     case 'app-insights':
       return ai.fetchToolErrorRates(p, opts)
     case 'fixtures':
-      return []
+      return FIXTURE_TOOL_ERRORS
   }
 }
 
@@ -39,7 +46,7 @@ export async function fetchToolPayloadSizes(p: TelemetryProvider, opts?: TopOpts
     case 'app-insights':
       return ai.fetchToolPayloadSizes(p, opts)
     case 'fixtures':
-      return []
+      return FIXTURE_TOOL_PAYLOADS
   }
 }
 
@@ -83,7 +90,7 @@ export async function fetchAllTools(p: TelemetryProvider, opts?: TopOpts): Promi
     case 'app-insights':
       return ai.fetchAllTools(p, opts)
     case 'fixtures':
-      return []
+      return FIXTURE_TOOL_CATALOG
   }
 }
 
@@ -98,7 +105,7 @@ export async function fetchToolDetail(
     case 'app-insights':
       return ai.fetchToolDetail(p, name, opts)
     case 'fixtures':
-      return null
+      return fixtureToolDetail(name)
   }
 }
 
@@ -113,7 +120,7 @@ export async function fetchToolRecentCalls(
     case 'app-insights':
       return ai.fetchToolRecentCalls(p, name, opts)
     case 'fixtures':
-      return []
+      return fixtureToolRecentCalls(name)
   }
 }
 

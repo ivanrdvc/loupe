@@ -1,14 +1,17 @@
+import { HugeiconsIcon } from '@hugeicons/react'
 import { IconInfoCircle, IconX } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { formatDuration, formatPercent, formatTokens, truncateId } from '#/lib/format'
 import type { ToolCallSample, ToolDetail } from '#/lib/telemetry'
+import { toolDisplayName, toolTone } from '#/lib/tools'
 import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
 
 const CHARS_PER_TOKEN = 4
@@ -39,7 +42,13 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
       >
         <header className="flex items-center justify-between gap-3 border-b px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <SheetTitle className="truncate text-sm font-medium">{name}</SheetTitle>
+            <HugeiconsIcon
+              icon={toolTone('tool').icon}
+              strokeWidth={1.5}
+              className={`size-4 shrink-0 ${toolTone('tool').text}`}
+              aria-hidden
+            />
+            <SheetTitle className="truncate font-mono text-sm font-medium">{toolDisplayName(name)}</SheetTitle>
             <SheetDescription className="sr-only">Tool detail</SheetDescription>
           </div>
           <SheetClose asChild>
@@ -49,10 +58,10 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
           </SheetClose>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <ScrollArea className="min-h-0 flex-1">
           <StatsGrid detail={detail ?? null} loading={detailLoading} />
           <RecentCallsSection rows={recent ?? []} loading={recentLoading} />
-        </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   )
@@ -82,27 +91,11 @@ function StatsGrid({ detail, loading }: { detail: ToolDetail | null; loading: bo
           </span>
         }
       />
-      <Stat label="p50 latency" hint="Median wall-clock duration. Target: < 1s." value={formatDuration(detail.p50Ms)} />
       <Stat label="p95 latency" hint="95th percentile duration. Target: < 5s." value={formatDuration(detail.p95Ms)} />
-      <Stat
-        label="Avg tokens"
-        hint="Avg result size. Target: < 500 tokens."
-        value={<TokensFromChars chars={detail.avgChars} />}
-      />
       <Stat
         label="p95 tokens"
         hint="95th percentile result size. Target: < 2k tokens."
         value={<TokensFromChars chars={detail.p95Chars} />}
-      />
-      <Stat
-        label="Max tokens"
-        hint="Largest single result observed."
-        value={<TokensFromChars chars={detail.maxChars} />}
-      />
-      <Stat
-        label="Last seen"
-        hint="Most recent invocation."
-        value={<RelativeTime ts={detail.lastSeenMs} className="tabular-nums" />}
       />
     </div>
   )
@@ -160,7 +153,7 @@ function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading
           </TableHeader>
           <TableBody>
             {rows.map((r) => (
-              <TableRow key={r.traceId}>
+              <TableRow key={`${r.traceId}:${r.startedAtMs}`}>
                 <TableCell>
                   <Link
                     to="."

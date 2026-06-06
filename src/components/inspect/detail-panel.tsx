@@ -23,6 +23,7 @@ import {
   turnTailStart,
 } from '#/lib/spans/conversation'
 import type { LogLevel } from '#/lib/telemetry/types'
+import { toolTone } from '#/lib/tools'
 import { fetchSessionLogs } from '#/server/logs'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
@@ -321,19 +322,6 @@ const ROLE_LABELS: Record<RoleKey, string> = {
   agent: 'Agent',
 }
 
-const TOOL_CALL_TONES = {
-  agent: {
-    card: 'rounded-md bg-emerald-500/5 px-2 py-1.5 ring-1 ring-emerald-500/25 dark:bg-emerald-500/10 dark:ring-emerald-400/25',
-    badge: 'rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300',
-    label: 'sub_agent',
-  },
-  tool: {
-    card: 'rounded-md bg-sky-500/5 px-2 py-1.5 ring-1 ring-sky-500/20 dark:bg-sky-500/10 dark:ring-sky-400/20',
-    badge: 'rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:text-sky-300',
-    label: 'tool_call',
-  },
-} as const
-
 function HistoryDisclosure({
   msgs,
   callResolutions,
@@ -447,13 +435,13 @@ function MessagePartView({
     const resolved = callResolutions.get(part.id)
     const subAgent = resolved?.subAgent
     const subAgentName = subAgent?.agentName ?? subAgent?.name
-    const tone = TOOL_CALL_TONES[subAgent ? 'agent' : 'tool']
+    const tone = toolTone(subAgent ? 'agent' : 'tool')
     const hasResult = resolved?.result !== undefined
     const errored = resolved && !resolved.success
     return (
-      <Collapsible className={`group min-w-0 overflow-hidden ${tone.card}`}>
+      <Collapsible className={`group min-w-0 overflow-hidden rounded-md px-2 py-1.5 ${tone.bg} ${tone.ring}`}>
         <CollapsibleTrigger className="flex w-full min-w-0 items-center gap-2 text-[11px]">
-          <span className={`shrink-0 ${tone.badge}`}>{tone.label}</span>
+          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${tone.badge}`}>{tone.label}</span>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
           <span
             className="min-w-0 truncate font-mono text-foreground"
