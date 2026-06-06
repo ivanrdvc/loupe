@@ -3,14 +3,18 @@ import { createRootRouteWithContext, HeadContent, Link, Scripts, useNavigate, us
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
+import { InspectDrawerHost } from '#/components/inspect/drawer-host'
 import { ToolInspectDrawer } from '#/components/inspect/tool-drawer'
 import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
-import { SessionsDrawerHost } from '#/routes/sessions/-components/sessions-drawer-host'
-import { TraceInspectDrawerHost } from '#/routes/traces/-components/trace-drawer-host'
+import { sessionQuery } from '#/routes/sessions/-data'
+import { traceSpansQuery } from '#/routes/traces/-data'
 import appCss from '../styles.css?url'
+
+/** Wide default window for the cross-page session drawer; full page uses the toolbar range. */
+const SESSION_DRAWER_RANGE = 30
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -122,11 +126,13 @@ function TraceDrawerMount() {
   const navigate = useNavigate()
   const previewTraceId = typeof search.trace === 'string' && search.trace ? search.trace : null
   return (
-    <TraceInspectDrawerHost
-      previewTraceId={previewTraceId}
+    <InspectDrawerHost
+      previewId={previewTraceId}
       onClose={() => {
         void navigate({ search: clearKey('trace') as never, replace: true })
       }}
+      query={(id) => traceSpansQuery(id)}
+      expand={(id) => ({ expandTrace: { traceId: id } })}
     />
   )
 }
@@ -137,11 +143,13 @@ function SessionDrawerMount() {
   // When both are set, the trace drawer takes priority — never stack two Sheets.
   const previewSessionId = !search.trace && typeof search.session === 'string' && search.session ? search.session : null
   return (
-    <SessionsDrawerHost
-      previewSessionId={previewSessionId}
+    <InspectDrawerHost
+      previewId={previewSessionId}
       onClose={() => {
         void navigate({ search: clearKey('session') as never, replace: true })
       }}
+      query={(id) => sessionQuery(id, SESSION_DRAWER_RANGE)}
+      expand={(id) => ({ expandSession: { sessionId: id, range: SESSION_DRAWER_RANGE } })}
     />
   )
 }

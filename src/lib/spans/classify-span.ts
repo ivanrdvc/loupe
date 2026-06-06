@@ -47,6 +47,9 @@ export interface Classification {
   systemFingerprint?: string
   sessionId?: string
   sessionSource?: 'attribute' | 'trace'
+  // Explicit `ag_ui.thread_id` only — unlike `sessionId`, which is aliased from
+  // generic attrs and can hold a non-AG-UI value (e.g. an OpenAI `resp_…` id).
+  agUiThreadId?: string
   // Present on chat spans that are part of a CopilotKit/AG-UI run. Absent on
   // utility LLM calls (title generation, summarization, etc.) that share the
   // same trace but are not part of the conversation flow.
@@ -142,6 +145,9 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
   // UI can label heuristics.
   const agUiRunId = pickString(attrs, ['ag_ui.run_id', 'ag_ui_run_id'])
   if (agUiRunId) c.agUiRunId = agUiRunId
+
+  const agUiThreadId = pickString(attrs, ['ag_ui.thread_id', 'ag_ui_thread_id'])
+  if (agUiThreadId) c.agUiThreadId = agUiThreadId
 
   const operationName = pickCanonical(attrs, 'llmPurpose')
   if (operationName) c.operationName = operationName

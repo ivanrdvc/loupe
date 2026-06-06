@@ -18,10 +18,12 @@ export function collectSystemAndAgui(
   const aguiItems: AguiItem[] = []
   const seenAgui = new Set<string>()
 
-  const sessionIds = new Set<string>()
-  for (const s of spans) if (s.sessionId) sessionIds.add(s.sessionId)
-  for (const id of sessionIds) {
-    aguiItems.push({ id: `session-${id}`, label: 'Session / thread id', value: id, tokens: tokensFromChars(id.length) })
+  // Gate on the explicit `ag_ui.thread_id`, not the generic `sessionId` (which
+  // can be a non-AG-UI value like an OpenAI `resp_…` id).
+  const threadIds = new Set<string>()
+  for (const s of spans) if (s.agUiThreadId) threadIds.add(s.agUiThreadId)
+  for (const id of threadIds) {
+    aguiItems.push({ id: `thread-${id}`, label: 'Session / thread id', value: id, tokens: tokensFromChars(id.length) })
   }
 
   // Details panel reads the first system message (any kind) — AG-UI items

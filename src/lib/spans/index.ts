@@ -56,6 +56,8 @@ export interface Span {
   // masquerade as multi-turn conversations.
   sessionId?: string
   sessionSource?: 'attribute' | 'trace'
+  // Explicit `ag_ui.thread_id` only — gates the AG-UI panel's thread-id row.
+  agUiThreadId?: string
   agUiRunId?: string
   // Semantic purpose — e.g. "title_generation", "summarization". Set from
   // `gen_ai.operation.purpose`. Distinct from `gen_ai.operation.name` which

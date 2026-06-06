@@ -1,7 +1,7 @@
-import { LockedIcon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { LockedIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { IconSearch } from '@tabler/icons-react'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   type ColumnFiltersState,
@@ -16,7 +16,6 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { Fragment, useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { Page } from '#/components/page'
 import { Button } from '#/components/ui/button'
@@ -24,11 +23,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Input } from '#/components/ui/input'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { getSyncConfig, syncSystemPrompts } from '#/server/prompt-sync'
-import { errMessage } from '#/lib/format'
 import { listFolders, listPrompts, listTags } from '#/server/prompts'
 import { buildPromptColumns } from './-components/prompts-columns'
 import type { PromptFolder } from './-types'
@@ -48,19 +44,12 @@ const tagsQuery = queryOptions({
   queryFn: () => listTags(),
 })
 
-const syncConfigQuery = queryOptions({
-  queryKey: ['prompts', 'sync-config'] as const,
-  queryFn: () => getSyncConfig(),
-  staleTime: 30_000,
-})
-
 export const Route = createFileRoute('/inventory/system-prompts/')({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(foldersQuery),
       context.queryClient.ensureQueryData(promptsQuery),
       context.queryClient.ensureQueryData(tagsQuery),
-      context.queryClient.ensureQueryData(syncConfigQuery),
     ]),
   component: SystemPromptsListPage,
 })
@@ -69,11 +58,9 @@ const UNFILED_KEY = '__unfiled__'
 
 function SystemPromptsListPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { data: folders = [], isLoading: foldersLoading } = useQuery(foldersQuery)
   const { data: allPrompts = [], isLoading: promptsLoading } = useQuery(promptsQuery)
   const { data: tags = [] } = useQuery(tagsQuery)
-  const { data: syncConfig } = useQuery(syncConfigQuery)
 
   const folderById = useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders])
   const tagsById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
@@ -109,20 +96,6 @@ function SystemPromptsListPage() {
   const searchColumn = table.getColumn('name')
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
   const isFiltered = table.getState().columnFilters.length > 0
-
-  const syncMutation = useMutation({
-    mutationFn: () => syncSystemPrompts(),
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all() })
-      const parts: string[] = []
-      if (result.created) parts.push(`${result.created} created`)
-      if (result.updated) parts.push(`${result.updated} updated`)
-      if (result.skipped) parts.push(`${result.skipped} unchanged`)
-      if (result.errors.length) parts.push(`${result.errors.length} failed`)
-      toast.success(parts.length ? `Sync: ${parts.join(', ')}` : 'Sync ran. No prompts found.')
-    },
-    onError: (err) => toast.error(errMessage(err)),
-  })
 
   const tagFilterOptions = useMemo(() => tags.map((t) => ({ label: t.name, value: String(t.id) })), [tags])
 
@@ -176,14 +149,6 @@ function SystemPromptsListPage() {
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <SyncFromCodeButton
-              configured={syncConfig?.configured ?? false}
-              repoPath={syncConfig?.repoPath ?? null}
-              pending={syncMutation.isPending}
-              onSync={() => syncMutation.mutate()}
-            />
-          </div>
         </div>
 
         {isLoading ? (
@@ -198,7 +163,7 @@ function SystemPromptsListPage() {
             <EmptyHeader>
               <EmptyMedia variant="icon" />
               <EmptyTitle>No system prompts yet</EmptyTitle>
-              <EmptyDescription>Sync from your agent repo to populate this inventory.</EmptyDescription>
+              <EmptyDescription>System prompts captured from your agents will appear here.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -269,45 +234,5 @@ function SystemPromptsListPage() {
         )}
       </div>
     </Page>
-  )
-}
-
-function SyncFromCodeButton({
-  configured,
-  repoPath,
-  pending,
-  onSync,
-}: {
-  configured: boolean
-  repoPath: string | null
-  pending: boolean
-  onSync: () => void
-}) {
-  const button = (
-    <Button variant="outline" size="sm" onClick={onSync} disabled={!configured || pending}>
-      <HugeiconsIcon icon={Refresh01Icon} strokeWidth={2} data-icon="inline-start" />
-      {pending ? 'Syncing…' : 'Sync from code'}
-    </Button>
-  )
-  if (configured && repoPath) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          Reads system prompts from <span className="font-mono text-foreground">{repoPath}</span>
-        </TooltipContent>
-      </Tooltip>
-    )
-  }
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span>{button}</span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs">
-        Set <span className="font-mono text-foreground">AGENT_REPO_PATH</span> in{' '}
-        <span className="font-mono text-foreground">.env</span> to enable sync.
-      </TooltipContent>
-    </Tooltip>
   )
 }
