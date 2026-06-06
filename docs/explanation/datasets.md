@@ -72,8 +72,7 @@ harness.
 - **Not a playground.** loupe does not author prompts (Arize's Playground model); the
   agent owns its prompt and tools. We only hand it inputs and optional overrides.
 - **Run-comparison here, trace-diff elsewhere.** Comparing dataset runs lives in this
-  feature; diffing two arbitrary trace trees is a separate plan
-  ([compare-traces.md](../plans/compare-traces.md)).
+  feature; diffing two arbitrary trace trees is a separate concern.
 
 ## Open questions
 

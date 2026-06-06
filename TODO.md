@@ -2,10 +2,10 @@
 
 <!-- Keep it simple: no sections, one line per item. -->
 
-- Compare two runs side-by-side — `docs/plans/compare-runs.md`
-- MCP — `docs/plans/mcp.md`
+- Compare two runs side-by-side — `plans/compare-traces.md`
+- MCP — `plans/mcp.md`
 - Experiment tags (UI only) — promote "env" filter to "Tag" filter (`tag.tags`), pull values dynamically from spans, render as chips on `/traces` and `/sessions`
-- HTTP API for LLM debugging — `docs/plans/http-api.md`
+- HTTP API for LLM debugging — `plans/http-api.md`
 - Historic data across agent versions (compare runs over time)
 - Run execution is synchronous — move `runDataset` to a background job + polling (`src/server/datasets.ts`)
 - Anthropic token counts are estimated (o200k BPE); exact would need the Anthropic count_tokens API (`src/lib/spans/tokens.ts`)

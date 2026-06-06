@@ -8,15 +8,14 @@ In-repo engineering docs for loupe.
   trade-offs. The highest-leverage section; longer-form prose.
 - **`reference/`** — flat lookup tables. Attribute catalogs, error codes, etc.
   Each file is one self-contained table.
-- **`plans/`** — forward-looking design proposals for unbuilt features.
-  Distinct from `explanation/` (which is current-state) and from ADRs (which
-  record decided choices). Each plan links back to the relevant subsystem.
 - **`_templates/`** — copy-paste starting points (`explanation.md`,
   `guide.md`, `reference.md`). The `/docs` skill copies from here.
 
 Each folder has its own `README.md` index listing every file with its
 `summary:` line — that's the catalog. Open the index, decide which file
 to read, then open the file.
+
+`docs/` is current-state only.
 
 The glossary of domain nouns lives at `reference/glossary.md`. ADRs will get
 their own folder when the first one is written; premature to scaffold now.
@@ -27,12 +26,10 @@ their own folder when the first one is written; premature to scaffold now.
 1. Steps to do a task ("how do I X?")     → guides/
 2. A flat lookup table or registry        → reference/
 3. The "why" of a subsystem               → explanation/
-4. A proposal for an unbuilt feature      → plans/
 
 Test: step 1, step 2, step 3                  → guide.
       flat table, rows are independent         → reference.
       prose explaining a design                → explanation.
-      "we should build X and here's how"       → plan.
 ```
 
 ## Conventions

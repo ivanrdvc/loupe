@@ -89,4 +89,4 @@ In short: the **Task** chip is the *schedule registration* (the cron/event subsc
 - Parsing `task.schedule` cron expressions to compute exact expected-fire times. We use empirical median interval instead — works for cron, interval, and event-driven cadences with one path.
 - Cross-provider identity normalization beyond the priority order above. Apps that emit `cloud.scheduler.job.name` and apps that emit `task.id` show up as separate rows even if they're conceptually the same job.
 
-See `docs/plans/trace-drawer.md` for the in-flight work that lets clicking a fire open the trace as a drawer instead of a full-page navigation.
+Clicking a fire opens the trace as a drawer (via `?trace=`), not a full-page navigation.
