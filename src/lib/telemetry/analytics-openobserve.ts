@@ -1,7 +1,7 @@
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { ooColumns } from './conventions'
 import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
-import { bucketSecondsFor, zeroFillBucketed } from './time-series'
+import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
 import type {
   AgentMetrics,
   CacheHitPoint,
@@ -212,7 +212,7 @@ export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: Wi
     ORDER BY bucket
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
-  return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => ({
+  return zeroFillBucketedAt(hits, fromUs, toUs, bucketSec, (h) => ({
     p50Ms: Math.round(num(h.p50_ms) ?? 0),
     p95Ms: Math.round(num(h.p95_ms) ?? 0),
     count: Number(h.count ?? 0),
@@ -243,7 +243,7 @@ export async function fetchCacheHitRateOverTime(p: OpenObserveProvider, opts?: W
     ORDER BY bucket
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
-  return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => {
+  return zeroFillBucketedAt(hits, fromUs, toUs, bucketSec, (h) => {
     const cache = num(h.cache_tokens) ?? 0
     const input = num(h.input_tokens) ?? 0
     return { ratio: input > 0 ? cache / input : 0, inputTokens: input }
@@ -266,7 +266,7 @@ export async function fetchRunsPerHour(p: OpenObserveProvider, opts?: WindowOpts
     ORDER BY bucket
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
-  return zeroFillPoints(hits, fromUs, toUs, bucketSec, (h) => ({ runs: Number(h.runs ?? 0) })).map((b) => ({
+  return zeroFillBucketedAt(hits, fromUs, toUs, bucketSec, (h) => ({ runs: Number(h.runs ?? 0) })).map((b) => ({
     ts: b.ts,
     runs: b.value.runs,
   }))
@@ -370,21 +370,3 @@ export async function fetchAgentMetrics(p: OpenObserveProvider, opts?: TopOpts):
 }
 
 // date_bin returns ISO string or epoch number depending on column type.
-function parseBucketMs(raw: unknown): number | undefined {
-  if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
-  if (typeof raw === 'string') {
-    const ms = Date.parse(raw.endsWith('Z') ? raw : `${raw}Z`)
-    return Number.isFinite(ms) ? ms : undefined
-  }
-  return undefined
-}
-
-function zeroFillPoints<V>(
-  hits: Array<Record<string, unknown>>,
-  fromUs: number,
-  toUs: number,
-  bucketSec: number,
-  mapValue: (h: Record<string, unknown>) => V,
-): Array<{ ts: number; value: V }> {
-  return zeroFillBucketed(hits, fromUs, toUs, bucketSec, (h) => parseBucketMs(h.bucket), mapValue)
-}

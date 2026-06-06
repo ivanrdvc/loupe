@@ -1,6 +1,6 @@
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
@@ -11,16 +11,9 @@ import { useRawRoots } from '#/components/inspect/use-raw-roots'
 import { useInspectShortcuts } from '#/components/inspect/use-shortcuts'
 import { useSpanSearch } from '#/components/inspect/use-span-search'
 import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
+import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { SiteHeader } from '#/components/site-header'
 import { Badge } from '#/components/ui/badge'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import { buildInspectorView } from '#/lib/inspector-view'
@@ -139,21 +132,16 @@ function SessionDetail() {
         title={
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h1 className="sr-only">Session</h1>
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/sessions">Sessions</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className={data?.title ? undefined : 'truncate font-mono'} title={sessionId}>
-                    {crumbLabel}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+            <PageBreadcrumb
+              crumbs={[
+                { label: 'Sessions', to: '/sessions' },
+                {
+                  label: crumbLabel,
+                  className: data?.title ? undefined : 'truncate font-mono',
+                  title: sessionId,
+                },
+              ]}
+            />
             <CopyButton value={sessionId} label="Copy session id" />
             {source === 'trace' && (
               <Badge

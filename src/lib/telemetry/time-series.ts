@@ -52,3 +52,26 @@ export function zeroFillBucketed<R extends Record<string, unknown>, V>(
     return { ts, value: mapValue({}) }
   })
 }
+
+// Bucket key → epoch ms. Accepts epoch seconds/ms numbers, ISO strings (with or
+// without trailing Z / +offset), and Date objects (App Insights returns these).
+function parseBucketMs(raw: unknown): number | undefined {
+  if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
+  if (typeof raw === 'string') {
+    const ms = Date.parse(raw.endsWith('Z') || raw.includes('+') ? raw : `${raw}Z`)
+    return Number.isFinite(ms) ? ms : undefined
+  }
+  if (raw instanceof Date) return raw.getTime()
+  return undefined
+}
+
+// zeroFillBucketed where the bucket timestamp lives on a `bucket` column.
+export function zeroFillBucketedAt<V>(
+  rows: Array<Record<string, unknown>>,
+  fromUs: number,
+  toUs: number,
+  bucketSec: number,
+  mapValue: (row: Record<string, unknown>) => V,
+): Array<{ ts: number; value: V }> {
+  return zeroFillBucketed(rows, fromUs, toUs, bucketSec, (r) => parseBucketMs(r.bucket), mapValue)
+}

@@ -30,15 +30,6 @@ export type ConversationEvent =
       outputTokens?: number
     }
   | {
-      kind: 'utility_chat'
-      timestamp: number
-      spanId: string
-      model?: string
-      inputTokens?: number
-      outputTokens?: number
-      label?: string
-    }
-  | {
       kind: 'tool_call'
       timestamp: number
       toolName: string
@@ -66,10 +57,6 @@ export type ConversationEvent =
       spanId: string
       parentAgentSpanId?: string
     }
-
-// Off until ConversationView shows a placeholder when every event is filtered
-// out — otherwise traces whose chats are all classified as utility render blank.
-const HIDE_UTILITY_CHATS = false
 
 // Build an ordered list of conversation events from spans. Pure — no React,
 // no fetches. Test with span fixtures.
@@ -122,16 +109,10 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
   const seen = new Set<string>()
   const sorted = [...spans].sort((a, b) => a.startMs - b.startMs)
 
-  const utilityChatIds = findUtilityChatIds(spans)
-
   for (const span of sorted) {
     const parentAgentSpanId = parentAgentBySpanId.get(span.id)
     if (span.operation === 'chat') {
-      if (HIDE_UTILITY_CHATS && utilityChatIds.has(span.id)) {
-        emitUtilityChat(span, events)
-      } else {
-        emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
-      }
+      emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
     } else if (span.operation === 'tool') {
       emitTool(span, wrappedAgentByToolId.get(span.id), events, parentAgentSpanId)
     }
@@ -139,35 +120,6 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
 
   events.sort((a, b) => a.timestamp - b.timestamp)
   return events
-}
-
-// Side-channel LLM calls (title gen, summarization). Explicit signal:
-// `gen_ai.operation.purpose`. Fallback: in an AG-UI trace, conversation chats
-// carry `ag_ui.run_id` and utility chats don't.
-export function findUtilityChatIds(spans: Span[]): Set<string> {
-  const traceHasAgUiRun = spans.some((s) => s.agUiRunId != null)
-  const out = new Set<string>()
-  for (const s of spans) {
-    if (s.operation !== 'chat') continue
-    if (s.operationName) out.add(s.id)
-    else if (traceHasAgUiRun && !s.agUiRunId) out.add(s.id)
-  }
-  return out
-}
-
-function emitUtilityChat(span: Span, events: ConversationEvent[]): void {
-  const firstSystem = asMessages(span.llmInput).find((m) => m.role === 'system')
-  const labelPart = firstSystem?.parts.find((p): p is Extract<MessagePart, { kind: 'text' }> => p.kind === 'text')
-  const label = labelPart?.content.slice(0, 80).replace(/\n.*/s, '')
-  events.push({
-    kind: 'utility_chat',
-    timestamp: span.startMs,
-    spanId: span.id,
-    model: span.model,
-    inputTokens: span.inputTokens,
-    outputTokens: span.outputTokens,
-    label,
-  })
 }
 
 // llm_input carries this turn's full prior history. The "tail" — everything

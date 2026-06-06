@@ -17,15 +17,8 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
+import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Badge } from '#/components/ui/badge'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb'
 import { Button } from '#/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Input } from '#/components/ui/input'
@@ -117,21 +110,7 @@ function DatasetDetailPage() {
 }
 
 function DatasetBreadcrumb({ name }: { name?: string }) {
-  return (
-    <Breadcrumb>
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link to="/datasets">Datasets</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{name ?? '—'}</BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
-  )
+  return <PageBreadcrumb crumbs={[{ label: 'Datasets', to: '/datasets' }, { label: name ?? '—' }]} />
 }
 
 function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
@@ -1265,9 +1244,14 @@ function TranscriptView({ turns }: { turns: ChatMessage[] }) {
 const OVERRIDE_MODELS = ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4-6']
 
 function countOverrides(o: AgentOverrides): number {
-  return [o.model, o.temperature, o.top_p, o.max_tokens, o.system_prompt?.trim(), o.tools?.some((t) => t.name.trim())]
-    .filter((v) => v != null && v !== '' && v !== false)
-    .length
+  return [
+    o.model,
+    o.temperature,
+    o.top_p,
+    o.max_tokens,
+    o.system_prompt?.trim(),
+    o.tools?.some((t) => t.name.trim()),
+  ].filter((v) => v != null && v !== '' && v !== false).length
 }
 
 // Per-run overrides sent to the agent. Sampling/model/system map to native Responses

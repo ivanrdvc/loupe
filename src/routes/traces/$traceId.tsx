@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
@@ -8,16 +8,9 @@ import { InspectLayout } from '#/components/inspect/overview'
 import { useRawRoots } from '#/components/inspect/use-raw-roots'
 import { useSpanSearch } from '#/components/inspect/use-span-search'
 import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
+import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { SiteHeader } from '#/components/site-header'
 import { Badge } from '#/components/ui/badge'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb'
 import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import { buildInspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
@@ -79,21 +72,7 @@ function TraceDetail() {
         title={
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h1 className="sr-only">Trace {traceId}</h1>
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/traces" search={(prev) => prev}>
-                      Traces
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{traceId}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+            <PageBreadcrumb crumbs={[{ label: 'Traces', to: '/traces', search: (prev) => prev }, { label: traceId }]} />
             <span className="text-sm text-muted-foreground">
               {spans[0]?.service ?? '—'} · {(total / 1000).toFixed(2)}s · {spans.length} spans
             </span>

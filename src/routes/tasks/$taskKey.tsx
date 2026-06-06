@@ -1,16 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb'
+import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
@@ -63,21 +56,12 @@ function TaskDetail() {
     <div className="flex h-full flex-col">
       <Page
         title={
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/tasks">Tasks</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="max-w-[420px] truncate">
-                  {row?.name ?? row?.taskId ?? humanizeKey(taskKey)}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+          <PageBreadcrumb
+            crumbs={[
+              { label: 'Tasks', to: '/tasks' },
+              { label: row?.name ?? row?.taskId ?? humanizeKey(taskKey), className: 'max-w-[420px] truncate' },
+            ]}
+          />
         }
       >
         {!row ? (

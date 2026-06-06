@@ -187,8 +187,6 @@ function renderEvent(event: ConversationEvent, ctx: EventContext) {
     )
   }
 
-  if (event.kind === 'utility_chat') return null
-
   return null
 }
 
@@ -397,4 +395,3 @@ function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
     </div>
   )
 }
-

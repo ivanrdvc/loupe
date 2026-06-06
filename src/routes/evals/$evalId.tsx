@@ -14,18 +14,11 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Markdown } from '#/components/markdown'
 import { Page } from '#/components/page'
+import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { RelativeTime } from '#/components/relative-time'
 import { ModelSelect } from '#/components/scores/model-select'
 import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -151,21 +144,7 @@ function EvalDetailPage() {
 }
 
 function EvalBreadcrumb({ name }: { name?: string }) {
-  return (
-    <Breadcrumb>
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link to="/evals">Evals</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{name ?? '—'}</BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
-  )
+  return <PageBreadcrumb crumbs={[{ label: 'Evals', to: '/evals' }, { label: name ?? '—' }]} />
 }
 
 function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; runs: EvalRun[] }) {

@@ -1,7 +1,7 @@
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { aiCoalesce } from './conventions'
 import { mapToolErrorRow, mapToolPayloadRow, num } from './shared'
-import { bucketSecondsFor, zeroFillBucketed } from './time-series'
+import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
 import type {
   AgentMetrics,
   AppInsightsProvider,
@@ -185,7 +185,7 @@ export async function fetchChatLatencyOverTime(p: AppInsightsProvider, opts?: Wi
     | order by bucket asc
   `
   const rows = await p.query(q, opts ?? {})
-  return zeroFillSeries(rows, fromUs, toUs, bucketSec, (r) => ({
+  return zeroFillBucketedAt(rows, fromUs, toUs, bucketSec, (r) => ({
     p50Ms: Math.round(num(r.p50_ms) ?? 0),
     p95Ms: Math.round(num(r.p95_ms) ?? 0),
     count: Number(r.count ?? 0),
@@ -206,7 +206,7 @@ export async function fetchCacheHitRateOverTime(p: AppInsightsProvider, opts?: W
     | order by bucket asc
   `
   const rows = await p.query(q, opts ?? {})
-  return zeroFillSeries(rows, fromUs, toUs, bucketSec, (r) => {
+  return zeroFillBucketedAt(rows, fromUs, toUs, bucketSec, (r) => {
     const cache = num(r.cache_tokens) ?? 0
     const input = num(r.input_tokens) ?? 0
     return { ratio: input > 0 ? cache / input : 0, inputTokens: input }
@@ -225,7 +225,7 @@ export async function fetchRunsPerHour(p: AppInsightsProvider, opts?: WindowOpts
     | order by bucket asc
   `
   const rows = await p.query(q, opts ?? {})
-  return zeroFillSeries(rows, fromUs, toUs, bucketSec, (r) => ({ runs: Number(r.runs ?? 0) })).map((b) => ({
+  return zeroFillBucketedAt(rows, fromUs, toUs, bucketSec, (r) => ({ runs: Number(r.runs ?? 0) })).map((b) => ({
     ts: b.ts,
     runs: b.value.runs,
   }))
@@ -307,26 +307,4 @@ export async function fetchAgentMetrics(p: AppInsightsProvider, opts?: TopOpts):
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
     }
   })
-}
-
-// KQL `summarize ... by bin(ts, ...)` returns a string (sometimes with a `+`
-// offset) or a JS Date depending on the column type.
-function parseBucketMs(raw: unknown): number | undefined {
-  if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw
-  if (typeof raw === 'string') {
-    const ms = Date.parse(raw.endsWith('Z') || raw.includes('+') ? raw : `${raw}Z`)
-    return Number.isFinite(ms) ? ms : undefined
-  }
-  if (raw instanceof Date) return raw.getTime()
-  return undefined
-}
-
-function zeroFillSeries<V>(
-  rows: Array<Record<string, unknown>>,
-  fromUs: number,
-  toUs: number,
-  bucketSec: number,
-  mapValue: (r: Record<string, unknown>) => V,
-): Array<{ ts: number; value: V }> {
-  return zeroFillBucketed(rows, fromUs, toUs, bucketSec, (r) => parseBucketMs(r.bucket), mapValue)
 }

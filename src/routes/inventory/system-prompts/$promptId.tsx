@@ -1,15 +1,8 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb'
+import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Skeleton } from '#/components/ui/skeleton'
 import { queryKeys } from '#/lib/query-keys'
@@ -67,19 +60,7 @@ function SystemPromptDetailPage() {
 
 function SystemPromptBreadcrumb({ name }: { name?: string }) {
   return (
-    <Breadcrumb>
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link to="/inventory/system-prompts">System Prompts</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{name ?? '—'}</BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
+    <PageBreadcrumb crumbs={[{ label: 'System Prompts', to: '/inventory/system-prompts' }, { label: name ?? '—' }]} />
   )
 }
 
