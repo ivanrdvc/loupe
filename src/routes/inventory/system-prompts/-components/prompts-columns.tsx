@@ -5,7 +5,7 @@ import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import type { Prompt, PromptFolder, Tag } from '../-types'
+import type { Prompt, PromptFolder, Tag } from '#/features/inventory/system-prompts/types'
 import { TagChip } from './tag-chip'
 
 export type PromptRowMeta = {

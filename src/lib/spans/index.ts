@@ -38,8 +38,9 @@ export interface Span {
   responseId?: string
   systemFingerprint?: string
   // True when OTel span_status was ERROR. Set at the provider boundary;
-  // classify-span.ts (attribute-only) does not populate it. spanHasError()
-  // ORs this with tool-result error detection.
+  // classify-span.ts (attribute-only) does not populate it. toolError()/
+  // spanHasError() treat this OR errorType/errorMessage OR an error-shaped
+  // toolResult (error/status/is_error/isError) as a failure.
   hasError?: boolean
 
   errorType?: string

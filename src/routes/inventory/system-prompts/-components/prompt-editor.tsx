@@ -1,7 +1,7 @@
 import { Add01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Button } from '#/components/ui/button'
-import type { Message } from '../-types'
+import type { Message } from '#/features/inventory/system-prompts/types'
 import { MessageCard } from './message-card'
 
 export function PromptEditor({

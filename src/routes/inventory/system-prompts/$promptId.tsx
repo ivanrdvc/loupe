@@ -7,11 +7,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Skeleton } from '#/components/ui/skeleton'
 import { queryKeys } from '#/lib/query-keys'
 import { NoteSheetButton } from '#/features/notes'
-import { getPrompt } from '#/server/prompts'
+import { getPrompt } from '#/features/inventory/system-prompts/server'
 import { PromptDetailMeta } from './-components/prompt-detail-header'
 import { PromptEditor } from './-components/prompt-editor'
 import { VersionList } from './-components/version-list'
-import type { PromptWithVersions } from './-types'
+import type { PromptWithVersions } from '#/features/inventory/system-prompts/types'
 
 const promptQuery = (id: number) =>
   queryOptions({

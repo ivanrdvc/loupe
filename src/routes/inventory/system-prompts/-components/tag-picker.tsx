@@ -9,8 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { createTag, listTags, setPromptTags } from '#/server/prompts'
-import type { Tag } from '../-types'
+import { createTag, listTags, setPromptTags } from '#/features/inventory/system-prompts/server'
+import type { Tag } from '#/features/inventory/system-prompts/types'
 import { TagChip } from './tag-chip'
 import { nextTagColor, tagColorClass } from './tag-utils'
 

@@ -23,7 +23,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { formatDuration, formatPercent } from '#/lib/format'
 import { cn } from '#/lib/utils'
-import { type AgentRow, listAgents } from '#/server/agents'
+import { type AgentRow, listAgents } from '#/features/inventory/agents/server'
 
 const agentsQuery = queryOptions({
   queryKey: ['agents', 'list'] as const,

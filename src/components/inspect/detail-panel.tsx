@@ -485,7 +485,7 @@ function MessagePartView({
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2 min-w-0 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
           {part.arguments != null && <ToolInput input={part.arguments} />}
-          {errored && resolved.error && (
+          {resolved?.error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2">
               <ErrorLine type={resolved.error.kind} message={resolved.error.message} size="sm" />
               {resolved.error.stack && (
@@ -495,10 +495,7 @@ function MessagePartView({
               )}
             </div>
           )}
-          {hasResult && !errored && <ToolOutput output={resolved.result} errorText={undefined} />}
-          {hasResult && errored && typeof resolved.result === 'string' && (
-            <ToolOutput output={undefined} errorText={resolved.result} />
-          )}
+          {hasResult && <ToolOutput output={resolved.result} errorText={undefined} />}
         </CollapsibleContent>
       </Collapsible>
     )

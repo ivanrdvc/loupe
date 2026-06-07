@@ -5,7 +5,7 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
-import type { PromptVersion } from '../-types'
+import type { PromptVersion } from '#/features/inventory/system-prompts/types'
 
 export function VersionList({
   versions,

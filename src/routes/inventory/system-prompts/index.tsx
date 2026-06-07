@@ -25,9 +25,9 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { listFolders, listPrompts, listTags } from '#/server/prompts'
+import { listFolders, listPrompts, listTags } from '#/features/inventory/system-prompts/server'
 import { buildPromptColumns } from './-components/prompts-columns'
-import type { PromptFolder } from './-types'
+import type { PromptFolder } from '#/features/inventory/system-prompts/types'
 
 const foldersQuery = queryOptions({
   queryKey: queryKeys.prompts.folders(),

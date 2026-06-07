@@ -141,10 +141,10 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
       continue
     }
     members.sort((a, b) => a.startMs - b.startMs)
-    const inputSpan = members.reduce((best, s) =>
-      asMessages(s.llmInput).length > asMessages(best.llmInput).length ? s : best,
-    )
+    // First call's input is the clean opening prompt; later iterations re-send
+    // it behind an assistant that turnTailStart would skip.
     const seq = { n: 0 }
+    const inputSpan = members[0]
     emitChatInput(inputSpan, events, seen, agentWrappedCallIds, realCallIds, parentAgentBySpanId.get(inputSpan.id), seq)
     // The wrapping generation mirrors its steps' final output. Read the steps
     // when any carries output; otherwise the wrapper is the only source.
@@ -439,11 +439,14 @@ function contentToParts(v: JsonValue | undefined): MessagePart[] {
 // error-shaped payload. Span-level wins; undefined on success.
 export function toolError(span: Span): ToolError | undefined {
   if (span.hasError || span.errorType || span.errorMessage) {
-    return {
+    const fromSpan: ToolError = {
       kind: span.errorType ?? 'error',
       message: span.errorMessage ?? '',
       ...(span.errorStack ? { stack: span.errorStack } : {}),
     }
+    // ERROR status but no exception detail — recover it from the payload.
+    if (fromSpan.kind === 'error' && !fromSpan.message) return toolResultError(span.toolResult) ?? fromSpan
+    return fromSpan
   }
   return toolResultError(span.toolResult)
 }

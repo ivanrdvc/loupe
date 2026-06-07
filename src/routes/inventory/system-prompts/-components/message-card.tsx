@@ -6,7 +6,7 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader } from '#/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
-import type { Message, MessageRole } from '../-types'
+import type { Message, MessageRole } from '#/features/inventory/system-prompts/types'
 
 const ROLES: MessageRole[] = ['system', 'user', 'assistant']
 

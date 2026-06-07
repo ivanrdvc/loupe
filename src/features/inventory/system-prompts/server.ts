@@ -12,7 +12,7 @@ import type {
   ResponseFormat,
   Tag,
   Tool,
-} from '#/routes/inventory/system-prompts/-types'
+} from '#/features/inventory/system-prompts/types'
 
 function toFolder(row: typeof promptFolders.$inferSelect): PromptFolder {
   return {

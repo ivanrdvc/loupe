@@ -123,6 +123,26 @@ describe('buildConversation — multi-iteration turn collapse', () => {
     expect(out).toContain('assistant:done')
   })
 
+  it('keeps the opening prompt when later iterations re-send the prior assistant (ReAct loop)', () => {
+    // Each iteration re-sends history incl. the prior assistant, which
+    // turnTailStart skips — the opening prompt must still survive.
+    const spans: Span[] = [
+      chatSpan({ id: 'root', startMs: 0, endMs: 100, llmInput: [sysMsg('S'), userMsg('Q')] }),
+      chatSpan({ id: 'i0', parentId: 'root', startMs: 10, llmInput: [sysMsg('S'), userMsg('Q')], llmOutput: [asstMsg('let me check')] }),
+      chatSpan({
+        id: 'i1',
+        parentId: 'root',
+        startMs: 30,
+        llmInput: [sysMsg('S'), userMsg('Q'), asstMsg('let me check'), { role: 'tool', content: 'data' }],
+        llmOutput: [asstMsg('FINAL')],
+      }),
+    ]
+    const out = texts(buildConversation(spans))
+    expect(out.filter((t) => t === 'system:S')).toHaveLength(1)
+    expect(out.filter((t) => t === 'user:Q')).toHaveLength(1)
+    expect(out).toEqual(['system:S', 'user:Q', 'assistant:let me check', 'assistant:FINAL'])
+  })
+
   it('leaves a single-span turn (MEAI/App Insights) byte-identical', () => {
     const spans: Span[] = [
       chatSpan({
@@ -222,6 +242,11 @@ describe('toolError', () => {
       toolErrSpan({ hasError: true, errorType: 'X', toolResult: { error: true, message: 'y' } }),
     )
     expect(err).toEqual({ kind: 'X', message: '' })
+  })
+
+  it('recovers payload detail when the span flags an error but carries no type/message', () => {
+    const err = toolError(toolErrSpan({ hasError: true, toolResult: { is_error: true, message: 'real detail' } }))
+    expect(err).toEqual({ kind: 'error', message: 'real detail' })
   })
 })
 
