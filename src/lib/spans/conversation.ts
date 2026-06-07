@@ -107,14 +107,51 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
 
   const events: ConversationEvent[] = []
   const seen = new Set<string>()
-  const sorted = [...spans].sort((a, b) => a.startMs - b.startMs)
 
-  for (const span of sorted) {
-    const parentAgentSpanId = parentAgentBySpanId.get(span.id)
-    if (span.operation === 'chat') {
-      emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId)
-    } else if (span.operation === 'tool') {
-      emitTool(span, wrappedAgentByToolId.get(span.id), events, parentAgentSpanId)
+  // Group chat spans into turns (a chat span + any chat spans nested beneath it
+  // — an agent's per-iteration model calls). One-span-per-turn producers (MEAI)
+  // yield turns of one. For multi-iteration turns, each call's input re-sends
+  // the full history, so we read it once from the largest input rather than
+  // concatenating every call.
+  const chatById = new Map<string, Span>()
+  for (const span of spans) if (span.operation === 'chat') chatById.set(span.id, span)
+  const turns = new Map<string, Span[]>()
+  for (const span of chatById.values()) {
+    let root = span
+    while (root.parentId) {
+      const parent = chatById.get(root.parentId)
+      if (!parent) break
+      root = parent
+    }
+    const members = turns.get(root.id)
+    if (members) members.push(span)
+    else turns.set(root.id, [span])
+  }
+
+  for (const [rootId, members] of turns) {
+    if (members.length === 1) {
+      const span = members[0]
+      emitChat(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentBySpanId.get(span.id))
+      continue
+    }
+    members.sort((a, b) => a.startMs - b.startMs)
+    const inputSpan = members.reduce((best, s) =>
+      asMessages(s.llmInput).length > asMessages(best.llmInput).length ? s : best,
+    )
+    const seq = { n: 0 }
+    emitChatInput(inputSpan, events, seen, agentWrappedCallIds, realCallIds, parentAgentBySpanId.get(inputSpan.id), seq)
+    // The wrapping generation mirrors its steps' final output. Read the steps
+    // when any carries output; otherwise the wrapper is the only source.
+    const steps = members.filter((s) => s.id !== rootId)
+    const outputSpans = steps.some((s) => asMessages(s.llmOutput).length > 0) ? steps : members
+    for (const span of outputSpans) {
+      emitChatOutput(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentBySpanId.get(span.id), seq)
+    }
+  }
+
+  for (const span of spans) {
+    if (span.operation === 'tool') {
+      emitTool(span, wrappedAgentByToolId.get(span.id), events, seen, parentAgentBySpanId.get(span.id))
     }
   }
 
@@ -135,6 +172,7 @@ export function turnTailStart(inputMsgs: ChatMessage[]): number {
   return 0
 }
 
+// Input and output share one seq counter so React keys stay unique across both.
 function emitChat(
   span: Span,
   events: ConversationEvent[],
@@ -143,9 +181,22 @@ function emitChat(
   realCallIds: Set<string>,
   parentAgentSpanId: string | undefined,
 ): void {
+  const seq = { n: 0 }
+  emitChatInput(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId, seq)
+  emitChatOutput(span, events, seen, agentWrappedCallIds, realCallIds, parentAgentSpanId, seq)
+}
+
+function emitChatInput(
+  span: Span,
+  events: ConversationEvent[],
+  seen: Set<string>,
+  agentWrappedCallIds: Set<string>,
+  realCallIds: Set<string>,
+  parentAgentSpanId: string | undefined,
+  seq: { n: number },
+): void {
   const inputMsgs = asMessages(span.llmInput)
   const tailStart = turnTailStart(inputMsgs)
-  const seq = { n: 0 }
   for (let i = tailStart; i < inputMsgs.length; i++) {
     emitFromMessage(
       inputMsgs[i],
@@ -159,6 +210,17 @@ function emitChat(
       seq,
     )
   }
+}
+
+function emitChatOutput(
+  span: Span,
+  events: ConversationEvent[],
+  seen: Set<string>,
+  agentWrappedCallIds: Set<string>,
+  realCallIds: Set<string>,
+  parentAgentSpanId: string | undefined,
+  seq: { n: number },
+): void {
   // Tokens belong to the LLM call and attach only to its assistant output —
   // not to the user/system/tool input messages.
   const usage = { inputTokens: span.inputTokens, outputTokens: span.outputTokens }
@@ -192,9 +254,6 @@ function emitFromMessage(
 ): void {
   for (const part of msg.parts) {
     if (part.kind === 'text') {
-      // No content-based dedupe — the caller (emitChat) restricts llm_input
-      // to the tail past the last assistant message, so prior-turn echoes
-      // never reach this code. Genuinely repeated messages emit twice.
       const event: Extract<ConversationEvent, { kind: 'message' }> = {
         kind: 'message',
         timestamp,
@@ -235,6 +294,7 @@ function emitTool(
   span: Span,
   wrappedAgent: Span | undefined,
   events: ConversationEvent[],
+  seen: Set<string>,
   parentAgentSpanId: string | undefined,
 ): void {
   if (!span.toolName || !span.toolCallId) return
@@ -255,8 +315,23 @@ function emitTool(
     return
   }
 
-  // Leaf tool — result only. The matching tool_call was emitted by the chat
-  // span whose llm_output carried this call.
+  // Some instrumentations record only the execution span, never the assistant's
+  // tool_call, leaving the result an orphan. Synthesize the call when missing.
+  const callKey = `call:${span.toolCallId}`
+  if (!seen.has(callKey)) {
+    seen.add(callKey)
+    const call: Extract<ConversationEvent, { kind: 'tool_call' }> = {
+      kind: 'tool_call',
+      timestamp: span.startMs,
+      toolName: span.toolName,
+      arguments: parseInputParams(span.inputParams),
+      callId: span.toolCallId,
+      spanId: span.id,
+    }
+    if (parentAgentSpanId) call.parentAgentSpanId = parentAgentSpanId
+    events.push(call)
+  }
+
   const { success, error } = parseToolResultStatus(span.toolResult)
   const result: Extract<ConversationEvent, { kind: 'tool_result' }> = {
     kind: 'tool_result',

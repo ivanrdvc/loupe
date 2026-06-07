@@ -47,6 +47,8 @@ The orchestrator/subagent/utility distinction is **derived**, not stored:
 
 Aliases the normaliser accepts on ingest: `graph.node.id` / `graph.node.parent_id` map to `gen_ai.task.id` / `gen_ai.task.parent.id`.
 
+**Tool-call I/O has two forms.** On `execute_tool` spans loupe reads args/result from the scalar keys `gen_ai.tool.call.arguments` / `gen_ai.tool.call.result` (App Insights, MAF). When those are absent it falls back to the chat-message form `gen_ai.input.messages` / `gen_ai.output.messages` — a `[{role,content}]` array whose last entry's `content` is the payload. Producers like `@tanstack/ai` emit only the message form, and OpenObserve renames it on ingest to `llm_input` / `llm_output`; the canonical `llmInput` alias already covers `llm.input`. The scalar keys win when both are present, so this never alters a MAF/App-Insights span.
+
 ## Two `task.*` namespaces — disambiguation
 
 - `task.*` = the **scheduling identity** — what fires, why, on what cadence.

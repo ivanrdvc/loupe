@@ -150,7 +150,16 @@ function SpanContextBreakdown({ span }: { span: Span }) {
   const { ready, total } = useBreakdowns([span])
   const hasSignal = span.llmInput != null || span.toolDefinitions != null
   if (!hasSignal) return null
-  if (!ready) return null
+  // Reserve the bar's space while the async breakdown loads, else the panel
+  // shifts when it pops in — a flash on every span select.
+  if (!ready)
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Context breakdown</div>
+        <div className="h-1.5 w-full animate-pulse rounded-full bg-muted" />
+        <div className="h-4" />
+      </div>
+    )
   if (!total.inputTokens) return null
 
   const segments = computeContextSegments({
