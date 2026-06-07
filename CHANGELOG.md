@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.4.0...loupe-v0.5.0) (2026-06-07)
+
+
+### Features
+
+* **datasets:** wire real backend and retire standalone prompts ([#46](https://github.com/ivanrdvc/loupe/issues/46)) ([57589aa](https://github.com/ivanrdvc/loupe/commit/57589aae26087e41902c9699389e4836383a1e0d))
+* **evals:** evaluation suite for scores, judges, datasets & tool grading ([#48](https://github.com/ivanrdvc/loupe/issues/48)) ([ef2cde7](https://github.com/ivanrdvc/loupe/commit/ef2cde72eb2e587df25e3db66f293abbe695147f))
+* **notifications:** header bell + sidebar changelog dot ([#45](https://github.com/ivanrdvc/loupe/issues/45)) ([ea2e128](https://github.com/ivanrdvc/loupe/commit/ea2e12867c52fa3688a7108d912c1254a8cff8bd))
+* **tools:** tool drawer + catalog + home rework ([#41](https://github.com/ivanrdvc/loupe/issues/41)) ([0f077d3](https://github.com/ivanrdvc/loupe/commit/0f077d35fbd8155d787a4cb630a56f1fa49e7568))
+* **tools:** unify tool viz, decouple detection from reads ([#51](https://github.com/ivanrdvc/loupe/issues/51)) ([69ba0ea](https://github.com/ivanrdvc/loupe/commit/69ba0ea371058582ccbcca069d2232aa6a37b7aa))
+
+
+### Bug Fixes
+
+* **inspect:** scoped auto-refresh + decouple raw-spans toggles ([#43](https://github.com/ivanrdvc/loupe/issues/43)) ([5b950ce](https://github.com/ivanrdvc/loupe/commit/5b950cee46e17d38da4a550060a4cc73d6f05cb7))
+* share auto-refresh interval across consumers ([#37](https://github.com/ivanrdvc/loupe/issues/37)) ([c7e811e](https://github.com/ivanrdvc/loupe/commit/c7e811eaf11833467fdf520105ebaa9407cfd2c7))
+
 ## [0.4.0](https://github.com/ivanrdvc/loupe/compare/agentops-v0.3.0...agentops-v0.4.0) (2026-05-26)
 
 
