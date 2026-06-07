@@ -485,12 +485,20 @@ function MessagePartView({
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2 min-w-0 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
           {part.arguments != null && <ToolInput input={part.arguments} />}
-          {hasResult &&
-            (errored && typeof resolved.result === 'string' ? (
-              <ToolOutput output={undefined} errorText={resolved.result} />
-            ) : (
-              <ToolOutput output={resolved.result} errorText={undefined} />
-            ))}
+          {errored && resolved.error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2">
+              <ErrorLine type={resolved.error.kind} message={resolved.error.message} size="sm" />
+              {resolved.error.stack && (
+                <pre className="mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
+                  {resolved.error.stack}
+                </pre>
+              )}
+            </div>
+          )}
+          {hasResult && !errored && <ToolOutput output={resolved.result} errorText={undefined} />}
+          {hasResult && errored && typeof resolved.result === 'string' && (
+            <ToolOutput output={undefined} errorText={resolved.result} />
+          )}
         </CollapsibleContent>
       </Collapsible>
     )

@@ -1,5 +1,5 @@
 import { errMessage } from '#/lib/format'
-import type { JsonValue } from '#/lib/json'
+import { type JsonValue, parseJson } from '#/lib/json'
 import {
   dedupeById,
   normalizeRunGraph,
@@ -448,6 +448,24 @@ function hitToSummary(h: Record<string, unknown>): ReturnType<typeof buildTraceS
   })
 }
 
+// A raised tool's message/stacktrace live only in the OTel `exception` span
+// event (OO serializes the events array as a JSON string), not top-level columns.
+function exceptionEvent(raw: unknown): { type?: string; message?: string; stack?: string } | undefined {
+  const arr = typeof raw === 'string' ? parseJson(raw) : raw
+  if (!Array.isArray(arr)) return undefined
+  for (const ev of arr) {
+    if (!ev || typeof ev !== 'object' || (ev as Record<string, unknown>).name !== 'exception') continue
+    const e = ev as Record<string, unknown>
+    const pick = (k: string): string | undefined => (typeof e[k] === 'string' && e[k] ? (e[k] as string) : undefined)
+    return {
+      type: pick('exception.type') ?? pick('exception_type'),
+      message: pick('exception.message') ?? pick('exception_message'),
+      stack: pick('exception.stacktrace') ?? pick('exception_stacktrace'),
+    }
+  }
+  return undefined
+}
+
 // OpenObserve flattens span attributes into top-level row fields (underscore
 // form: `gen_ai_request_model`, `llm_usage_tokens_total`, ...). classifySpan
 // reads whatever Record we hand it, so we pass the whole hit.
@@ -458,11 +476,15 @@ export function normalizeOpenObserveHit(h: Record<string, unknown>): Span {
   const endMs = Math.floor(Number(h.end_time ?? 0) / 1_000_000)
   const failed = h.span_status === 'ERROR'
   // OO indexers vary between dot and underscore field names — try both.
-  const cdStack = firstString(h, ['exception.stacktrace', 'exception_stacktrace'])
+  const exc = exceptionEvent(h.events)
+  const cdStack = firstString(h, ['exception.stacktrace', 'exception_stacktrace']) ?? exc?.stack
   const { errorType, errorMessage } = classifyError({
     failed,
-    errorType: firstString(h, ['exception.type', 'exception_type', 'error.type', 'error_type']),
-    errorMessage: firstString(h, ['exception.message', 'exception_message', 'error.message', 'error_message']),
+    errorType: firstString(h, ['exception.type', 'exception_type', 'error.type', 'error_type']) ?? exc?.type,
+    errorMessage:
+      firstString(h, ['exception.message', 'exception_message', 'error.message', 'error_message']) ??
+      exc?.message ??
+      (failed ? firstString(h, ['status_message']) : undefined),
     httpStatus: firstString(h, [
       'http.response.status_code',
       'http_response_status_code',

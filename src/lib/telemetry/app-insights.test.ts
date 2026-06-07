@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeAiRow } from './app-insights'
+import { toolError } from '#/lib/spans/conversation'
+import { applyExceptionRows, normalizeAiRow } from './app-insights'
 
 // Hand-built to the Azure Monitor row shape (no local Azure to capture from).
 const CHAT_ROW = {
@@ -52,5 +53,59 @@ describe('normalizeAiRow', () => {
   it('derives kind from itemType/type: request→server, http→client', () => {
     expect(normalizeAiRow({ ...CHAT_ROW, itemType: 'request' }, 'trace-1').kind).toBe('server')
     expect(normalizeAiRow({ ...CHAT_ROW, type: 'HTTP' }, 'trace-1').kind).toBe('client')
+  })
+})
+
+// AI raised tool: row has success:false, exception detail in the `exceptions`
+// table joined by operation_ParentId — must surface via toolError like OO.
+describe('execute_tool error surfacing (App Insights)', () => {
+  const TOOL_ERROR_ROW = {
+    id: 'sp-tool-1',
+    operation_Id: 'trace-1',
+    operation_ParentId: 'sp-agent',
+    name: 'execute_tool crash',
+    timestamp: '2026-01-15T10:00:01.000Z',
+    duration: 5,
+    success: false,
+    cloud_RoleName: 'weather-svc',
+    itemType: 'dependency',
+    type: 'InProc',
+    customDimensions: JSON.stringify({
+      'gen_ai.operation.name': 'execute_tool',
+      'gen_ai.tool.name': 'crash',
+      'gen_ai.tool.call.id': 'call_l7LXnc8EEA9zCj1XyVW3L4tk',
+    }),
+  }
+
+  it('marks an errored execute_tool dependency as a failed tool span', () => {
+    const s = normalizeAiRow(TOOL_ERROR_ROW, 'trace-1')
+    expect(s.operation).toBe('tool')
+    expect(s.toolName).toBe('crash')
+    expect(s.toolCallId).toBe('call_l7LXnc8EEA9zCj1XyVW3L4tk')
+    expect(s.hasError).toBe(true)
+  })
+
+  it('enriches the failed tool span from the exceptions table, surfaced by toolError', () => {
+    const s = normalizeAiRow(TOOL_ERROR_ROW, 'trace-1')
+    applyExceptionRows(
+      [s],
+      [
+        {
+          operation_ParentId: 'sp-tool-1',
+          type: 'ToolExecutionException',
+          outerMessage: 'Error executing tool crash: intentional MCP tool failure',
+          outerMethod: 'invoke',
+          details: JSON.stringify([{ rawStack: 'Traceback (most recent call last):\n  ...\n' }]),
+        },
+      ],
+    )
+    expect(s.errorType).toBe('ToolExecutionException')
+    expect(s.errorMessage).toBe('Error executing tool crash: intentional MCP tool failure')
+    expect(s.errorStack).toContain('Traceback')
+    expect(toolError(s)).toEqual({
+      kind: 'ToolExecutionException',
+      message: 'Error executing tool crash: intentional MCP tool failure',
+      stack: 'Traceback (most recent call last):\n  ...\n',
+    })
   })
 })

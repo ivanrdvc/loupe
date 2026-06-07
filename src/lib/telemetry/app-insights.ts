@@ -142,24 +142,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       | summarize arg_min(timestamp, type, outerMessage, outerMethod, details) by operation_ParentId
     `
     const rows = await kql(q, timespan)
-    if (rows.length === 0) return
-    const bySpan = new Map<string, { type?: string; message?: string; stack?: string }>()
-    for (const r of rows) {
-      const sid = typeof r.operation_ParentId === 'string' ? r.operation_ParentId : ''
-      if (!sid) continue
-      bySpan.set(sid, {
-        type: typeof r.type === 'string' ? r.type : undefined,
-        message: typeof r.outerMessage === 'string' ? r.outerMessage : undefined,
-        stack: extractRawStack(r.details) ?? (typeof r.outerMethod === 'string' ? r.outerMethod : undefined),
-      })
-    }
-    for (const s of spans) {
-      const exc = bySpan.get(s.id)
-      if (!exc) continue
-      if (exc.type) s.errorType = exc.type
-      if (exc.message) s.errorMessage = exc.message
-      if (exc.stack) s.errorStack = exc.stack
-    }
+    applyExceptionRows(spans, rows)
   }
 
   return {
@@ -504,6 +487,29 @@ function parseDynamic(raw: unknown): unknown {
     return JSON.parse(raw)
   } catch {
     return undefined
+  }
+}
+
+// Pure apply step: stamp exception rows (keyed by `operation_ParentId`) onto
+// their spans. The kql fetch lives in attachExceptionsToSpans.
+export function applyExceptionRows(spans: Span[], rows: Record<string, unknown>[]): void {
+  if (rows.length === 0) return
+  const bySpan = new Map<string, { type?: string; message?: string; stack?: string }>()
+  for (const r of rows) {
+    const sid = typeof r.operation_ParentId === 'string' ? r.operation_ParentId : ''
+    if (!sid) continue
+    bySpan.set(sid, {
+      type: typeof r.type === 'string' ? r.type : undefined,
+      message: typeof r.outerMessage === 'string' ? r.outerMessage : undefined,
+      stack: extractRawStack(r.details) ?? (typeof r.outerMethod === 'string' ? r.outerMethod : undefined),
+    })
+  }
+  for (const s of spans) {
+    const exc = bySpan.get(s.id)
+    if (!exc) continue
+    if (exc.type) s.errorType = exc.type
+    if (exc.message) s.errorMessage = exc.message
+    if (exc.stack) s.errorStack = exc.stack
   }
 }
 

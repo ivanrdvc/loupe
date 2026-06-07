@@ -64,6 +64,15 @@ describe('spanHasError', () => {
     expect(spanHasError(span({ operation: 'tool', toolResult: { status: 'error' } }))).toBe(true)
   })
 
+  it('recognizes Anthropic/MCP is_error and isError payloads', () => {
+    expect(spanHasError(span({ operation: 'tool', toolResult: { is_error: true } }))).toBe(true)
+    expect(spanHasError(span({ operation: 'tool', toolResult: { isError: true } }))).toBe(true)
+  })
+
+  it('treats errorType without span_status=ERROR as errored (matches the tool card)', () => {
+    expect(spanHasError(span({ operation: 'tool', errorType: 'RuntimeError' }))).toBe(true)
+  })
+
   it('returns false for non-error tool results', () => {
     expect(spanHasError(span({ operation: 'tool', toolResult: { ok: true } }))).toBe(false)
     expect(spanHasError(span({ operation: 'tool', toolResult: 'plain string' }))).toBe(false)

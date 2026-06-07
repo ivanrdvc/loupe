@@ -175,6 +175,41 @@ describe('classifySpan — tool I/O', () => {
   })
 })
 
+describe('classifySpan — streaming: TTFT both forms, usage stays unknown', () => {
+  it('reads TTFT from the underscore form (OpenObserve), seconds → ms', () => {
+    const c = classifySpan('chat gpt-5-nano', {
+      'gen_ai.operation.name': 'chat',
+      gen_ai_response_time_to_first_chunk: 0.25,
+    })
+    expect(c.ttftMs).toBe(250)
+  })
+
+  it('reads TTFT from the dotted form (App Insights customDimensions)', () => {
+    const c = classifySpan('chat gpt-5-nano', {
+      'gen_ai.operation.name': 'chat',
+      'gen_ai.response.time_to_first_chunk': 0.25,
+    })
+    expect(c.ttftMs).toBe(250)
+  })
+
+  it('ignores a negative TTFT (no first chunk recorded)', () => {
+    const c = classifySpan('chat gpt-5-nano', {
+      'gen_ai.operation.name': 'chat',
+      'gen_ai.response.time_to_first_chunk': -1,
+    })
+    expect(c.ttftMs).toBeUndefined()
+  })
+
+  it('leaves usage unknown — not 0 — when an interrupted stream omits output tokens', () => {
+    const c = classifySpan('chat gpt-5-nano', {
+      'gen_ai.operation.name': 'chat',
+      'gen_ai.usage.input_tokens': 12,
+    })
+    expect(c.inputTokens).toBe(12)
+    expect(c.outputTokens).toBeUndefined()
+  })
+})
+
 describe('classifySpan — chat scalar completion', () => {
   it('wraps a scalar completion (llm_output_content) as one assistant message', () => {
     const c = classifySpan('chat gpt-5-nano', {

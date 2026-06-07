@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import type { Span } from '.'
-import { asMessages, buildConversation } from './conversation'
+import { asMessages, buildConversation, toolError, toolResultError } from './conversation'
+
+function toolErrSpan(p: Partial<Span> = {}): Span {
+  return {
+    id: 'tx',
+    traceId: 't',
+    parentId: null,
+    service: 's',
+    kind: 'internal',
+    operation: 'tool',
+    name: 'execute_tool x',
+    startMs: 0,
+    endMs: 0,
+    ...p,
+  } as Span
+}
 
 function chatSpan(p: Partial<Span> & { id: string; startMs: number }): Span {
   return {
@@ -152,6 +167,142 @@ describe('buildConversation — multi-iteration turn collapse', () => {
     ]
     const out = texts(buildConversation(spans))
     expect(out.filter((t) => t === 'assistant:done')).toHaveLength(1)
+  })
+})
+
+describe('toolError', () => {
+  it('reads a raised tool from span-level error fields (no toolResult)', () => {
+    const err = toolError(
+      toolErrSpan({
+        hasError: true,
+        errorType: 'RuntimeError',
+        errorMessage: 'simulated failure (p=1.0)',
+        errorStack: 'Traceback...',
+      }),
+    )
+    expect(err).toEqual({ kind: 'RuntimeError', message: 'simulated failure (p=1.0)', stack: 'Traceback...' })
+  })
+
+  it('falls back to kind=error, empty message when hasError is set but type/message are missing', () => {
+    const err = toolError(toolErrSpan({ hasError: true }))
+    expect(err).toEqual({ kind: 'error', message: '' })
+    expect(err && 'stack' in err).toBe(false)
+  })
+
+  it('detects an error-shaped payload when the span has no error status ({ error:true })', () => {
+    const err = toolError(toolErrSpan({ toolResult: { error: true, message: 'boom' } }))
+    expect(err).toEqual({ kind: 'error', message: 'boom' })
+  })
+
+  it('detects { status:"error" } payloads (kind falls through to "error")', () => {
+    const err = toolError(toolErrSpan({ toolResult: { status: 'error', message: 'bad' } }))
+    expect(err).toEqual({ kind: 'error', message: 'bad' })
+  })
+
+  it('detects Anthropic-style { is_error:true }', () => {
+    const err = toolError(toolErrSpan({ toolResult: { is_error: true, message: 'tool blew up' } }))
+    expect(err).toEqual({ kind: 'error', message: 'tool blew up' })
+  })
+
+  it('detects MCP-style { isError:true } with no message', () => {
+    const err = toolError(toolErrSpan({ toolResult: { isError: true } }))
+    expect(err).toEqual({ kind: 'error', message: '' })
+  })
+
+  it('returns undefined on success (no span error, no error-shaped payload)', () => {
+    expect(toolError(toolErrSpan())).toBeUndefined()
+    expect(toolError(toolErrSpan({ toolResult: { ok: true } }))).toBeUndefined()
+    expect(toolError(toolErrSpan({ toolResult: 'plain string' }))).toBeUndefined()
+    expect(toolError(toolErrSpan({ toolResult: [1, 2, 3] }))).toBeUndefined()
+    expect(toolError(toolErrSpan({ toolResult: null as never }))).toBeUndefined()
+  })
+
+  it('prefers span-level error over an error-shaped payload', () => {
+    const err = toolError(
+      toolErrSpan({ hasError: true, errorType: 'X', toolResult: { error: true, message: 'y' } }),
+    )
+    expect(err).toEqual({ kind: 'X', message: '' })
+  })
+})
+
+describe('toolResultError', () => {
+  it('detects each error discriminant set to true', () => {
+    expect(toolResultError({ error: true })).toEqual({ kind: 'error', message: '' })
+    expect(toolResultError({ status: 'error' })).toEqual({ kind: 'error', message: '' })
+    expect(toolResultError({ is_error: true })).toEqual({ kind: 'error', message: '' })
+    expect(toolResultError({ isError: true })).toEqual({ kind: 'error', message: '' })
+  })
+
+  it('uses a string `error` value as kind', () => {
+    expect(toolResultError({ error: true, message: 'm' })).toEqual({ kind: 'error', message: 'm' })
+    // A string `error` only drives `kind`; another discriminant must mark the error.
+    expect(toolResultError({ error: 'Timeout', status: 'error', message: 'm' })).toEqual({
+      kind: 'Timeout',
+      message: 'm',
+    })
+  })
+
+  it('uses a string `status` value as kind when `error` is not a string', () => {
+    expect(toolResultError({ status: 'error', message: 'm' })).toEqual({ kind: 'error', message: 'm' })
+  })
+
+  it('returns undefined for non-error / null / array / non-object payloads', () => {
+    expect(toolResultError({ ok: true })).toBeUndefined()
+    expect(toolResultError({ status: 'success' })).toBeUndefined()
+    expect(toolResultError(undefined)).toBeUndefined()
+    expect(toolResultError(null as never)).toBeUndefined()
+    expect(toolResultError([1, 2, 3])).toBeUndefined()
+    expect(toolResultError('plain string')).toBeUndefined()
+    expect(toolResultError(42)).toBeUndefined()
+  })
+})
+
+describe('buildConversation — tool_result error surfacing', () => {
+  function toolSpan(p: Partial<Span> & { id: string; startMs: number }): Span {
+    return {
+      traceId: 't',
+      parentId: null,
+      service: 's',
+      kind: 'internal',
+      operation: 'tool',
+      name: 'execute_tool crash',
+      endMs: p.startMs,
+      ...p,
+    } as Span
+  }
+
+  it('emits tool_result with success:false and an error when the execute_tool span raised', () => {
+    const spans: Span[] = [
+      chatSpan({
+        id: 'c',
+        startMs: 0,
+        endMs: 50,
+        llmInput: [userMsg('go')],
+        llmOutput: [
+          {
+            role: 'assistant',
+            parts: [{ type: 'tool_call', id: 'call-x', name: 'crash', arguments: {} }],
+          },
+        ],
+      }),
+      toolSpan({
+        id: 'tool',
+        startMs: 10,
+        endMs: 12,
+        toolName: 'crash',
+        toolCallId: 'call-x',
+        hasError: true,
+        errorType: 'ToolExecutionException',
+        errorMessage: 'intentional MCP tool failure',
+        errorStack: 'Traceback...',
+      }),
+    ]
+    const result = buildConversation(spans).find((e) => e.kind === 'tool_result')
+    expect(result).toMatchObject({
+      callId: 'call-x',
+      success: false,
+      error: { kind: 'ToolExecutionException', message: 'intentional MCP tool failure', stack: 'Traceback...' },
+    })
   })
 })
 

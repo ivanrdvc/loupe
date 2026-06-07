@@ -1,6 +1,12 @@
 import { type JsonValue, parseJson } from '#/lib/json'
 import type { Span } from '.'
 
+export interface ToolError {
+  kind: string
+  message: string
+  stack?: string
+}
+
 // Discriminated union for the conversation view. Each renderer pattern-
 // matches on `kind`; adding a new event type is one new arm. We deliberately
 // don't extend Span with optional message/tool fields — every renderer ends
@@ -44,7 +50,7 @@ export type ConversationEvent =
       callId: string
       result: JsonValue
       success: boolean
-      error?: { kind: string; message: string }
+      error?: ToolError
       spanId: string
       parentAgentSpanId?: string
     }
@@ -332,13 +338,13 @@ function emitTool(
     events.push(call)
   }
 
-  const { success, error } = parseToolResultStatus(span.toolResult)
+  const error = toolError(span)
   const result: Extract<ConversationEvent, { kind: 'tool_result' }> = {
     kind: 'tool_result',
     timestamp: span.endMs,
     callId: span.toolCallId,
     result: span.toolResult ?? null,
-    success,
+    success: !error,
     spanId: span.id,
   }
   if (error) result.error = error
@@ -429,19 +435,27 @@ function contentToParts(v: JsonValue | undefined): MessagePart[] {
   return out
 }
 
-// Tool failures don't set span_status=ERROR — the failure lives in the
-// result payload. Common shapes: `{ error: true, ... }` or
-// `{ status: 'error', message: ... }`.
-function parseToolResultStatus(v: JsonValue | undefined): {
-  success: boolean
-  error?: { kind: string; message: string }
-} {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return { success: true }
-  const isError = v.error === true || v.status === 'error'
-  if (!isError) return { success: true }
+// A tool raised (span error status, rich type/message/stack) or returned an
+// error-shaped payload. Span-level wins; undefined on success.
+export function toolError(span: Span): ToolError | undefined {
+  if (span.hasError || span.errorType || span.errorMessage) {
+    return {
+      kind: span.errorType ?? 'error',
+      message: span.errorMessage ?? '',
+      ...(span.errorStack ? { stack: span.errorStack } : {}),
+    }
+  }
+  return toolResultError(span.toolResult)
+}
+
+// Error-shaped result payload: `{error:true}` / `{status:'error'}` / Anthropic
+// `{is_error:true}` / MCP `{isError:true}`.
+export function toolResultError(v: JsonValue | undefined): ToolError | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
+  if (v.error !== true && v.status !== 'error' && v.is_error !== true && v.isError !== true) return undefined
   const kind = typeof v.error === 'string' ? v.error : typeof v.status === 'string' ? v.status : 'error'
   const message = typeof v.message === 'string' ? v.message : ''
-  return { success: false, error: { kind, message } }
+  return { kind, message }
 }
 
 function parseInputParams(s: string | undefined): JsonValue {

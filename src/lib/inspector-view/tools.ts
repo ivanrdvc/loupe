@@ -1,7 +1,8 @@
 import { tokensFromChars } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
-import { isAgentSpan, isChatSpan, spanHasError } from './predicates'
+import { type ToolError, toolError } from '#/lib/spans/conversation'
+import { isAgentSpan, isChatSpan } from './predicates'
 
 type ToolGroupKind = 'server' | 'default'
 
@@ -33,6 +34,7 @@ export interface ToolCallResolution {
   subAgent?: Span
   result?: JsonValue
   success: boolean
+  error?: ToolError
 }
 
 const DEFAULT_LABEL = 'tools'
@@ -129,7 +131,8 @@ export function resolveToolCalls(
   for (const t of spans) {
     if (t.operation !== 'tool' || !t.toolCallId) continue
     const subAgent = childrenByParent.get(t.id)?.find(isAgentSpan)
-    map.set(t.toolCallId, { subAgent, result: t.toolResult, success: !spanHasError(t) })
+    const error = toolError(t)
+    map.set(t.toolCallId, { subAgent, result: t.toolResult, success: !error, ...(error ? { error } : {}) })
   }
   return map
 }

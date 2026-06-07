@@ -1,4 +1,5 @@
 import type { Span } from '#/lib/spans'
+import { toolError } from '#/lib/spans/conversation'
 
 export const isChatSpan = (s: Span): boolean => s.operation === 'chat'
 export const isAgentSpan = (s: Span): boolean => s.operation === 'invoke_agent'
@@ -12,10 +13,5 @@ export const isCollapsibleInfra = (s: Span): boolean => s.operation === 'http' |
 export const isLlmLike = (s: Span): boolean =>
   isChatSpan(s) || s.llmInput != null || s.llmOutput != null || Boolean(s.model)
 
-// Tool failures don't always set hasError — the failure sits in toolResult.
-export function spanHasError(span: Span): boolean {
-  if (span.hasError) return true
-  const r = span.toolResult
-  if (!r || typeof r !== 'object' || Array.isArray(r)) return false
-  return r.error === true || r.status === 'error'
-}
+// One source of truth with the tool card / tool_result.success.
+export const spanHasError = (span: Span): boolean => toolError(span) !== undefined

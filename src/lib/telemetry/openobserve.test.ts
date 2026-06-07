@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { spanHasError } from '#/lib/inspector-view/predicates'
+import { toolError } from '#/lib/spans/conversation'
 import raw from './__fixtures__/oo-raw-hits.json'
 import { normalizeOpenObserveHit } from './openobserve'
 
@@ -41,5 +43,70 @@ describe('normalizeOpenObserveHit', () => {
     expect(s.agentId).toBe('c2d899bced824ea2b7493064e62864d0')
     expect(s.hasError).toBe(true)
     expect(s.errorType).toBe('System.Threading.Tasks.TaskCanceledException')
+  })
+})
+
+describe('raised execute_tool span surfaces as an error end-to-end', () => {
+  // Real OO `execute_tool crash` hit: type/message/stack live only in the
+  // serialized `events` array, with no gen_ai_tool_call_result.
+  const stack =
+    'Traceback (most recent call last):\n  File "_tools.py", line 734, in invoke\n    raise ToolExecutionException(...)\nagent_framework.exceptions.ToolExecutionException: Error executing tool crash: intentional MCP tool failure\n'
+  const crashHit = {
+    span_status: 'ERROR',
+    status_code: 2,
+    status_message: "ToolExecutionException('Error executing tool crash: intentional MCP tool failure')",
+    error_type: 'ToolExecutionException',
+    span_id: 'f8850ef32fe47108',
+    trace_id: '616d95d37db76bb490de6ce82b84d0fd',
+    reference_parent_span_id: '4d5826ef78012c37',
+    span_kind: 1,
+    service_name: 'maf-sandbox',
+    operation_name: 'execute_tool crash',
+    gen_ai_operation_name: 'execute_tool',
+    gen_ai_tool_call_id: 'call_l7LXnc8EEA9zCj1XyVW3L4tk',
+    gen_ai_tool_name: 'crash',
+    gen_ai_tool_type: 'function',
+    start_time: 1_780_836_257_291_874_000,
+    end_time: 1_780_836_257_390_126_000,
+    events: JSON.stringify([
+      {
+        name: 'exception',
+        _timestamp: 1_780_836_257_387_432_000,
+        'exception.type': 'agent_framework.exceptions.ToolExecutionException',
+        'exception.message': 'Error executing tool crash: intentional MCP tool failure',
+        'exception.stacktrace': stack,
+        'exception.escaped': 'False',
+      },
+    ]),
+  }
+
+  it('recovers error type/message/stack from the serialized events array', () => {
+    const s = normalizeOpenObserveHit(crashHit)
+    expect(s.operation).toBe('tool')
+    expect(s.toolName).toBe('crash')
+    expect(s.hasError).toBe(true)
+    // Short top-level error_type wins over the qualified events type.
+    expect(s.errorType).toBe('ToolExecutionException')
+    // Message + stack exist ONLY in the events array — recovered by the parser.
+    expect(s.errorMessage).toBe('Error executing tool crash: intentional MCP tool failure')
+    expect(s.errorStack).toContain('Traceback (most recent call last):')
+  })
+
+  it('toolError and spanHasError both report the failure with detail', () => {
+    const s = normalizeOpenObserveHit(crashHit)
+    expect(spanHasError(s)).toBe(true)
+    expect(toolError(s)).toEqual({
+      kind: 'ToolExecutionException',
+      message: 'Error executing tool crash: intentional MCP tool failure',
+      stack,
+    })
+  })
+
+  it('falls back to status_message when no exception event is present', () => {
+    const noEvents: Record<string, unknown> = { ...crashHit }
+    delete noEvents.events
+    const s = normalizeOpenObserveHit(noEvents)
+    expect(s.hasError).toBe(true)
+    expect(s.errorMessage).toBe("ToolExecutionException('Error executing tool crash: intentional MCP tool failure')")
   })
 })
