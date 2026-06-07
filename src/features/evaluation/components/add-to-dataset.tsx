@@ -14,9 +14,9 @@ import {
   CommandSeparator,
 } from '#/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
+import { createDataset, listDatasets, upsertExample } from '#/features/evaluation/server/datasets'
 import { queryKeys } from '#/lib/query-keys'
 import type { ExampleInput } from '#/routes/datasets/-types'
-import { createDataset, listDatasets, upsertExample } from '#/server/datasets'
 
 export type DatasetItemDraft = {
   input: ExampleInput

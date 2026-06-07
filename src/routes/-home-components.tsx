@@ -7,10 +7,10 @@ import { RelativeTime } from '#/components/relative-time'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import type { InventoryRow } from '#/features/inbox'
 import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import { toolDisplayName, toolTone } from '#/lib/tools'
-import type { InventoryRow } from '#/features/inbox'
 
 const PREVIEW_ROWS = 5
 

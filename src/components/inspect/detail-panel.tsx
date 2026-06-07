@@ -5,10 +5,10 @@ import { useMemo, useState } from 'react'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
 import { formatTokens } from '#/components/context-window'
-import { ReviewSheetButton } from '#/components/scores/review-sheet'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
+import { ReviewSheetButton } from '#/features/evaluation'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { formatCost } from '#/lib/format'
 import { type InspectorView, isChatSpan, type ToolCallResolution } from '#/lib/inspector-view'
@@ -131,10 +131,25 @@ export function DetailPanel({
       {isChatSpan(span) && <SpanContextBreakdown span={span} />}
 
       {span.agentDescription && <RoleCard kind="agent" label="description" content={span.agentDescription} />}
-      {systemPrompt && <RoleCard kind="system" label="system prompt" content={systemPrompt} />}
+      {systemPrompt ? (
+        <RoleCard kind="system" label="system prompt" content={systemPrompt} />
+      ) : span.truncatedAttrs?.systemInstructions ? (
+        <TruncatedAttrFallback span={span} field="systemInstructions" />
+      ) : null}
 
-      {span.inputParams && <JsonBlock label="Input" raw={span.inputParams} />}
-      {span.toolResult != null && <JsonBlock label="Result" value={span.toolResult} />}
+      {span.truncatedAttrs?.toolDefinitions && <TruncatedAttrFallback span={span} field="toolDefinitions" />}
+      {span.inputParams &&
+        (span.truncatedAttrs?.inputParams ? (
+          <TruncatedAttrFallback span={span} field="inputParams" />
+        ) : (
+          <JsonBlock label="Input" raw={span.inputParams} />
+        ))}
+      {span.toolResult != null &&
+        (span.truncatedAttrs?.toolResult ? (
+          <TruncatedAttrFallback span={span} field="toolResult" />
+        ) : (
+          <JsonBlock label="Result" value={span.toolResult} />
+        ))}
       {isChatSpan(span) && span.llmInput == null && span.inputTokens != null && span.inputTokens > 0 && (
         <TruncatedAttrFallback span={span} field="llmInput" tokens={span.inputTokens} />
       )}
@@ -495,7 +510,11 @@ function MessagePartView({
               )}
             </div>
           )}
-          {hasResult && <ToolOutput output={resolved.result} errorText={undefined} />}
+          {resolved?.span.truncatedAttrs?.toolResult ? (
+            <TruncatedAttrFallback span={resolved.span} field="toolResult" />
+          ) : (
+            hasResult && <ToolOutput output={resolved.result} errorText={undefined} />
+          )}
         </CollapsibleContent>
       </Collapsible>
     )

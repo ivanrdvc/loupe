@@ -2,8 +2,8 @@ import { StarIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { Table } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
-import { ReviewModeDialog, type ReviewQueueItem } from '#/components/scores/review-mode'
 import { Button } from '#/components/ui/button'
+import { ReviewModeDialog, type ReviewQueueItem } from '#/features/evaluation/components/review-mode'
 
 type Props<T> = {
   table: Table<T>

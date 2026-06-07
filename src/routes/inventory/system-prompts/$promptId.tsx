@@ -5,13 +5,13 @@ import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Skeleton } from '#/components/ui/skeleton'
-import { queryKeys } from '#/lib/query-keys'
-import { NoteSheetButton } from '#/features/notes'
 import { getPrompt } from '#/features/inventory/system-prompts/server'
+import type { PromptWithVersions } from '#/features/inventory/system-prompts/types'
+import { NoteSheetButton } from '#/features/notes'
+import { queryKeys } from '#/lib/query-keys'
 import { PromptDetailMeta } from './-components/prompt-detail-header'
 import { PromptEditor } from './-components/prompt-editor'
 import { VersionList } from './-components/version-list'
-import type { PromptWithVersions } from '#/features/inventory/system-prompts/types'
 
 const promptQuery = (id: number) =>
   queryOptions({

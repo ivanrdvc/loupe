@@ -21,9 +21,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/u
 import { Input } from '#/components/ui/input'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { type AgentRow, listAgents } from '#/features/inventory/agents/server'
 import { formatDuration, formatPercent } from '#/lib/format'
 import { cn } from '#/lib/utils'
-import { type AgentRow, listAgents } from '#/features/inventory/agents/server'
 
 const agentsQuery = queryOptions({
   queryKey: ['agents', 'list'] as const,

@@ -6,7 +6,6 @@ import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { type Crumb, PageBreadcrumb } from '#/components/page-breadcrumb'
 import { RelativeTime } from '#/components/relative-time'
-import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Label } from '#/components/ui/label'
@@ -14,6 +13,9 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Switch } from '#/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { ScoreValue } from '#/features/evaluation/components/score-value'
+import { getEvalDefinition, getEvalRun } from '#/features/evaluation/server/evals'
+import { listScoreConfigs, listScoresByRun } from '#/features/evaluation/server/scores'
 import {
   type ConfigHint,
   EVAL_RUN_STATUS_BADGE,
@@ -27,8 +29,6 @@ import {
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { getEvalDefinition, getEvalRun } from '#/server/evals'
-import { listScoreConfigs, listScoresByRun } from '#/server/scores'
 
 const runQuery = (id: number) =>
   queryOptions({

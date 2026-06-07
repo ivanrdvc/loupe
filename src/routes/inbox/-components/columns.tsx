@@ -4,8 +4,8 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
-import { ALERT_KINDS } from '#/lib/alerts/kinds'
 import type { InboxRow } from '#/features/inbox/server'
+import { ALERT_KINDS } from '#/lib/alerts/kinds'
 import { inboxItemTraceLink } from '../-meta'
 
 export interface InboxRowActions {

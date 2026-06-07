@@ -1,6 +1,6 @@
-import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { ScoreValue } from '#/features/evaluation/components/score-value'
 import { SCORE_TONE_CLASS, type ScoreSummary } from '#/lib/eval/evaluation'
 import { cn } from '#/lib/utils'
 

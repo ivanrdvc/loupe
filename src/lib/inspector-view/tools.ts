@@ -31,6 +31,7 @@ export interface FrontendTool {
 }
 
 export interface ToolCallResolution {
+  span: Span
   subAgent?: Span
   result?: JsonValue
   success: boolean
@@ -132,7 +133,7 @@ export function resolveToolCalls(
     if (t.operation !== 'tool' || !t.toolCallId) continue
     const subAgent = childrenByParent.get(t.id)?.find(isAgentSpan)
     const error = toolError(t)
-    map.set(t.toolCallId, { subAgent, result: t.toolResult, success: !error, ...(error ? { error } : {}) })
+    map.set(t.toolCallId, { span: t, subAgent, result: t.toolResult, success: !error, ...(error ? { error } : {}) })
   }
   return map
 }

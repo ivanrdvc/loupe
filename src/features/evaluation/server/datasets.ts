@@ -21,7 +21,7 @@ import {
   type RunItemStatus,
   type UpsertExampleInput,
 } from '#/routes/datasets/-types'
-import { callAgent } from './agent-run'
+import { callAgent } from '#/server/agent-run'
 import { toolCallsFromTrace } from './eval-jobs'
 
 function toDataset(row: typeof datasets.$inferSelect): Dataset {

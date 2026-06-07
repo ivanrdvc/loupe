@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AddToDatasetButton } from '#/components/scores/add-to-dataset'
+import { AddToDatasetButton } from '#/features/evaluation/components/add-to-dataset'
 import { datasetInputFromSnapshot } from '#/lib/eval/dataset-input'
 import { type JsonValue, prettyJson } from '#/lib/json'
 import { cn } from '#/lib/utils'

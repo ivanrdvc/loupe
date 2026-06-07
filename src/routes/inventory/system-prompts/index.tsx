@@ -23,11 +23,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Input } from '#/components/ui/input'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { listFolders, listPrompts, listTags } from '#/features/inventory/system-prompts/server'
+import type { PromptFolder } from '#/features/inventory/system-prompts/types'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { listFolders, listPrompts, listTags } from '#/features/inventory/system-prompts/server'
 import { buildPromptColumns } from './-components/prompts-columns'
-import type { PromptFolder } from '#/features/inventory/system-prompts/types'
 
 const foldersQuery = queryOptions({
   queryKey: queryKeys.prompts.folders(),

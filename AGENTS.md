@@ -9,7 +9,7 @@
 - `src/routes/` — file-based routes; `-name.tsx` files are route-scoped. Co-locate; lift to `src/lib/` or `src/components/` only when a 2nd route consumes it.
 - `src/components/ui/` shadcn primitives (radix-mira preset). `src/components/` app-specific composed.
 - `src/lib/` cross-cutting client utils + shared domain types. `src/server/` server-only. `src/db/` Drizzle. `src/integrations/` framework wiring.
-- `src/features/<name>/` — self-contained feature modules (domain + `components/` + `server.ts`), exposing a public surface via `index.ts` barrel that other features import. Route files stay in `src/routes/<name>/` (Start scans only `src/routes`); the slice holds everything else. Ongoing migration out of the flat `src/server/`/`src/lib`/`src/components/scores` split — done: tasks, notes.
+- `src/features/<name>/` — self-contained feature modules (domain + `components/` + `server.ts`), exposing a public surface via `index.ts` barrel that other features import. Route files stay in `src/routes/<name>/` (Start scans only `src/routes`); the slice holds everything else. Migration out of the flat `src/server/`/`src/components/scores` split — done: tasks, notes, inbox, inventory, evaluation (scores + evals + datasets are one bounded context; `lib/eval` stays as shared scoring kernel). `src/server/` now holds only cross-cutting core (`agent-run`, `breakdowns`, `detection`, `enrich-span`, `logs`).
 
 ## Map
 

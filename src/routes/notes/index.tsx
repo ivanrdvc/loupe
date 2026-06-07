@@ -23,12 +23,12 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
+import { NoteEditor } from '#/features/notes'
+import { listAllNotes } from '#/features/notes/server'
+import type { Note, NoteStatus, NoteTargetKind } from '#/features/notes/types'
 import { initialsFor } from '#/lib/current-user'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { listAllNotes } from '#/features/notes/server'
-import { NoteEditor } from '#/features/notes'
-import type { Note, NoteStatus, NoteTargetKind } from '#/features/notes/types'
 
 const notesListQuery = () =>
   queryOptions({

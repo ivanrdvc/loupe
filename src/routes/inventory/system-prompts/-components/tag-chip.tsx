@@ -1,7 +1,7 @@
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { cn } from '#/lib/utils'
 import type { Tag } from '#/features/inventory/system-prompts/types'
+import { cn } from '#/lib/utils'
 import { tagColorClass } from './tag-utils'
 
 export function TagChip({ tag, onRemove, className }: { tag: Tag; onRemove?: () => void; className?: string }) {

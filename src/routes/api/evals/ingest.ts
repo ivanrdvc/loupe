@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ingestScoreEvents, parseIngestScoreEvents } from '#/server/scores'
+import { ingestScoreEvents, parseIngestScoreEvents } from '#/features/evaluation/server/scores'
 
 function json(data: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(data), {

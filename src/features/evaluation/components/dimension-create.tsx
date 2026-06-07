@@ -5,6 +5,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
+import { upsertScoreConfig } from '#/features/evaluation/server/scores'
 import {
   defaultCategoryPolarity,
   SCORE_DATA_TYPES,
@@ -13,7 +14,6 @@ import {
   type ScoreDirection,
 } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
-import { upsertScoreConfig } from '#/server/scores'
 
 // Inline score_config create — keeps a dimension's vocab consistent across human + judge.
 export function DimensionForm({ onCreated, onCancel }: { onCreated: (c: ScoreConfig) => void; onCancel?: () => void }) {

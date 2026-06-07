@@ -7,6 +7,12 @@ import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import {
+  deleteScore,
+  listScoreConfigs,
+  listScoresForTarget,
+  upsertHumanScore,
+} from '#/features/evaluation/server/scores'
 import { useUser } from '#/hooks/use-user'
 import {
   type ConfigHint,
@@ -21,7 +27,6 @@ import {
 } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { deleteScore, listScoreConfigs, listScoresForTarget, upsertHumanScore } from '#/server/scores'
 import { DimensionForm } from './dimension-create'
 import { ScoreInput } from './score-input'
 import { ScoreValue } from './score-value'

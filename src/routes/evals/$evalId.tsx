@@ -16,8 +16,6 @@ import { Markdown } from '#/components/markdown'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { RelativeTime } from '#/components/relative-time'
-import { ModelSelect } from '#/components/scores/model-select'
-import { ScoreValue } from '#/components/scores/score-value'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -36,6 +34,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#
 import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Textarea } from '#/components/ui/textarea'
+import { ModelSelect } from '#/features/evaluation/components/model-select'
+import { ScoreValue } from '#/features/evaluation/components/score-value'
+import {
+  blessEvalRun,
+  compareRuns,
+  deleteEvalDefinition,
+  getEvalDefinition,
+  setEvalDefinitionLive,
+  upsertEvalDefinition,
+} from '#/features/evaluation/server/evals'
+import { listScoresByDefinition } from '#/features/evaluation/server/scores'
 import type {
   EvalCompareRow,
   EvalDefinition,
@@ -59,15 +68,6 @@ import {
 import { errMessage, formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import {
-  blessEvalRun,
-  compareRuns,
-  deleteEvalDefinition,
-  getEvalDefinition,
-  setEvalDefinitionLive,
-  upsertEvalDefinition,
-} from '#/server/evals'
-import { listScoresByDefinition } from '#/server/scores'
 
 const evalQuery = (id: number) =>
   queryOptions({
