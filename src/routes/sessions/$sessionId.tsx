@@ -6,17 +6,20 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
-import { InspectLayout } from '#/components/inspect/overview'
-import { useRawRoots } from '#/components/inspect/use-raw-roots'
-import { useInspectShortcuts } from '#/components/inspect/use-shortcuts'
-import { useSpanSearch } from '#/components/inspect/use-span-search'
-import { type InspectView, InspectViewBar } from '#/components/inspect/view-bar'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { SiteHeader } from '#/components/site-header'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
+import {
+  buildInspectorView,
+  InspectLayout,
+  type InspectView,
+  InspectViewBar,
+  useInspectShortcuts,
+  useRawRoots,
+  useSpanSearch,
+} from '#/features/inspect'
 import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
-import { buildInspectorView } from '#/lib/inspector-view'
 import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { parse, type TimeRange } from '#/lib/time-range'
 import { sessionQuery } from './-data'

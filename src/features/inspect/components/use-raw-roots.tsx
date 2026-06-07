@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { InspectorView } from '#/lib/inspector-view'
+import type { InspectorView } from '#/features/inspect/logic'
 
 export interface RawRootsControl {
   rawRoots: Set<string>

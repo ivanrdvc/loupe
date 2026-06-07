@@ -2,7 +2,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { Badge } from '#/components/ui/badge'
-import { type InspectorView, isCollapsibleInfra } from '#/lib/inspector-view'
+import { type InspectorView, isCollapsibleInfra } from '#/features/inspect/logic'
 import { displayFor } from './shared'
 
 export function useSpanSearch({ view, onSelect }: { view: InspectorView; onSelect: (id: string) => void }) {

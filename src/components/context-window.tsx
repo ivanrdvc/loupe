@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Progress } from '#/components/ui/progress'
+import type { InspectorView } from '#/features/inspect'
 import { useBreakdowns } from '#/hooks/use-breakdowns'
 import { formatCost, formatPercent } from '#/lib/format'
-import type { InspectorView } from '#/lib/inspector-view'
 import type { Span } from '#/lib/spans'
 
 interface ContextWindowProps {

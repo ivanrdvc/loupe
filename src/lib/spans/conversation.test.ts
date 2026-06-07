@@ -128,7 +128,13 @@ describe('buildConversation — multi-iteration turn collapse', () => {
     // turnTailStart skips — the opening prompt must still survive.
     const spans: Span[] = [
       chatSpan({ id: 'root', startMs: 0, endMs: 100, llmInput: [sysMsg('S'), userMsg('Q')] }),
-      chatSpan({ id: 'i0', parentId: 'root', startMs: 10, llmInput: [sysMsg('S'), userMsg('Q')], llmOutput: [asstMsg('let me check')] }),
+      chatSpan({
+        id: 'i0',
+        parentId: 'root',
+        startMs: 10,
+        llmInput: [sysMsg('S'), userMsg('Q')],
+        llmOutput: [asstMsg('let me check')],
+      }),
       chatSpan({
         id: 'i1',
         parentId: 'root',
@@ -238,9 +244,7 @@ describe('toolError', () => {
   })
 
   it('prefers span-level error over an error-shaped payload', () => {
-    const err = toolError(
-      toolErrSpan({ hasError: true, errorType: 'X', toolResult: { error: true, message: 'y' } }),
-    )
+    const err = toolError(toolErrSpan({ hasError: true, errorType: 'X', toolResult: { error: true, message: 'y' } }))
     expect(err).toEqual({ kind: 'X', message: '' })
   })
 

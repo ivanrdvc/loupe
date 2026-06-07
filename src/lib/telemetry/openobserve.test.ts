@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { spanHasError } from '#/lib/inspector-view/predicates'
+import { spanHasError } from '#/features/inspect/logic/predicates'
 import { toolError } from '#/lib/spans/conversation'
 import raw from './__fixtures__/oo-raw-hits.json'
 import { normalizeOpenObserveHit } from './openobserve'

@@ -18,10 +18,10 @@ import {
 import { Skeleton } from '#/components/ui/skeleton'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/features/notes/server'
 import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/features/notes/server'
 import type { NoteTargetKind } from '../types'
 
 type Props = {

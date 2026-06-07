@@ -1,7 +1,7 @@
 import { type QueryKey, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import { type ComponentProps, useEffect, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
-import { InspectDrawer } from '#/components/inspect/drawer'
+import { InspectDrawer } from '#/features/inspect/components/drawer'
 import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import type { Span } from '#/lib/spans'
 
