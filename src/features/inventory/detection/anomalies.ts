@@ -1,14 +1,10 @@
 import { db } from '#/db'
 import { inboxItems } from '#/db/schema'
 import { tokensFromChars } from '#/lib/format'
-import { listToolErrorRates, listToolPayloadSizes, type ToolErrorRow, type ToolPayloadRow } from '#/lib/telemetry'
+import { listToolPayloadSizes, type ToolPayloadRow } from '#/lib/telemetry'
 
-// Noise-floor thresholds. A 1/1 = 100% error rate is meaningless until there
-// are enough calls to draw a line under; same for payload spikes on rare tools.
-const MIN_ERRORS = 3
-const MIN_ERROR_RATE = 0.05
-const ERROR_SPIKE_RATIO = 2
-
+// Noise-floor thresholds. Payload spikes on rare tools are meaningless until
+// there are enough calls to draw a line under.
 const MIN_PAYLOAD_CHARS = 1000
 const MIN_PAYLOAD_CALLS = 3
 const PAYLOAD_SPIKE_RATIO = 2
@@ -16,39 +12,6 @@ const PAYLOAD_SPIKE_RATIO = 2
 export interface AnomalyWindow {
   fromUs: number
   toUs: number
-}
-
-export async function runToolErrorRateDetection(w: AnomalyWindow): Promise<{ fired: number }> {
-  const span = w.toUs - w.fromUs
-  const [current, prior] = await Promise.all([
-    listToolErrorRates({ fromUs: w.fromUs, toUs: w.toUs, limit: 50 }).catch(() => [] as ToolErrorRow[]),
-    listToolErrorRates({ fromUs: w.fromUs - span, toUs: w.fromUs, limit: 50 }).catch(() => [] as ToolErrorRow[]),
-  ])
-  const priorByName = new Map(prior.map((r) => [r.name, r]))
-  const day = bucketDay(w.toUs)
-  let fired = 0
-  for (const cur of current) {
-    if (cur.errors < MIN_ERRORS) continue
-    if (cur.errorRate < MIN_ERROR_RATE) continue
-    const prev = priorByName.get(cur.name)
-    const isNew = !prev || prev.errors === 0
-    const isSpike = !!prev && prev.errorRate > 0 && cur.errorRate >= prev.errorRate * ERROR_SPIKE_RATIO
-    if (!isNew && !isSpike) continue
-    const inserted = await db
-      .insert(inboxItems)
-      .values({
-        kind: 'tool_error_rate',
-        firedAt: new Date(),
-        summary: errorSummary(cur, prev),
-        payloadJson: { current: cur, prior: prev ?? null },
-        traceId: cur.lastErrorTraceId ?? null,
-        dedupeKey: `tool_error_rate:${cur.name}:${day}`,
-      })
-      .onConflictDoNothing()
-      .returning({ id: inboxItems.id })
-    if (inserted.length > 0) fired += 1
-  }
-  return { fired }
 }
 
 export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired: number }> {
@@ -82,15 +45,6 @@ export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired
     if (inserted.length > 0) fired += 1
   }
   return { fired }
-}
-
-function errorSummary(cur: ToolErrorRow, prev?: ToolErrorRow): string {
-  const pct = (cur.errorRate * 100).toFixed(1)
-  if (!prev || prev.errors === 0) {
-    return `${cur.name} errored ${cur.errors}/${cur.total} (${pct}%) — no prior failures`
-  }
-  const prevPct = (prev.errorRate * 100).toFixed(1)
-  return `${cur.name} errored ${cur.errors}/${cur.total} (${pct}%) — was ${prevPct}% prior window`
 }
 
 function payloadSummary(cur: ToolPayloadRow, prev?: ToolPayloadRow): string {

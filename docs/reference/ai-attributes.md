@@ -34,7 +34,7 @@ Spec: <https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/>
 
 Tag side-channel LLM calls (title gen, summarization, etc.) so the trace classifier buckets them as `utility` instead of `chat`. The span tree renders the value as a badge after the span name.
 
-Not a published OTel semconv attribute — `gen_ai.*` is OTel's GenAI namespace but only `gen_ai.operation.name` is standardized. `gen_ai.operation.purpose` is a vendor-neutral extension we picked because (a) it sits in the right namespace and (b) it's the canonical key loupe reads. Deployments that already emit a different key set `CUSTOM_LLM_PURPOSE_FIELD=<their.key>` and loupe picks it up alongside.
+Not a published OTel semconv attribute — `gen_ai.*` is OTel's GenAI namespace but only `gen_ai.operation.name` is standardized. `gen_ai.operation.purpose` is a vendor-neutral extension we picked because (a) it sits in the right namespace and (b) it's the canonical key loupe reads. Producers must emit `gen_ai.operation.purpose` directly — custom env-var field mapping is no longer supported.
 
 `gen_ai.operation.name` is set by the SDK instrumentation (e.g. MEAI's `OpenTelemetryChatClient`) and drives span classification — do **not** override it.
 
@@ -150,7 +150,7 @@ Stamped on the **root span** of a fire so the trace classifier and the Tasks pag
 | `session.trigger_type` | string | `scheduled`, `user`, `event`, `webhook`                 | Drives trace category. Read at `src/lib/telemetry/trace-category.ts`.                                |
 | `session.execution`    | string | `background`                                            | Requires `trigger_type=user` — only that combination yields category `background`. Ignored otherwise. |
 | `task.id`              | string | stable task-definition id                               | Primary key for the Tasks page rollup. Without it, every fire is its own row.                        |
-| `task.kind`            | string | `cron`, `one_shot`, `event`, `webhook`, `background`    | Sub-classification finer than `trigger_type` alone.                                                  |
+| `task.kind`            | string | `cron`, `one_shot`, `event`, `webhook`, `unknown`       | Sub-classification finer than `trigger_type` alone.                                                  |
 | `task.schedule`        | string | cron expr, ISO due-at, or interval                      | Shown in the Trigger column. Required for scheduled fires; ignored otherwise.                        |
 | `task.name`            | string | human label                                             | Optional; falls back to `task.id`.                                                                   |
 | `task.source`          | string | event topic, queue name, or webhook route               | Optional; identifies the source for event/webhook fires.                                             |

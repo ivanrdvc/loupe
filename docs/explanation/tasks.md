@@ -2,7 +2,7 @@
 title: Tasks
 type: explanation
 summary: What the Tasks page shows — machine-driven agent runs (scheduled, event,
-  webhook, background) rolled up by task identity.
+  webhook) rolled up by task identity.
 status: draft
 owner: "@ivan"
 audience: loupe-devs
@@ -18,7 +18,7 @@ Same posture as the rest of loupe: read-only over OTel, no local mirror, no prov
 
 ## Where a fire comes from
 
-A fire is any root trace whose category is `scheduled`, `event`, `webhook`, or `background`. These four buckets are read off the root span's `session.trigger_type` (plus `session.execution=background` when `trigger_type=user` for the background bucket) by `classifyTraceCategory` in [`src/lib/telemetry/trace-category.ts`](../../src/lib/telemetry/trace-category.ts).
+A fire is any root trace whose category is `scheduled`, `event`, or `webhook`. These three buckets are read off the root span's `session.trigger_type` by `classifyTraceCategory` in [`src/lib/telemetry/trace-category.ts`](../../src/lib/telemetry/trace-category.ts). (`classifyTraceCategory` also derives a `background` category from `session.execution=background` when `trigger_type=user`, but `background` is not a fire bucket — `FIRE_CATEGORIES` in `rollupTasks` excludes it, so background traces are categorized but never shown on the Tasks page.)
 
 ## OTel attributes the Tasks UI reads
 
@@ -28,10 +28,10 @@ The reference table in [ai-attributes.md → Triggers & tasks](../reference/ai-a
 
 | Attribute              | Used for                                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `session.trigger_type` | Bucket selection (`scheduled` / `event` / `webhook` / `background`-when-`user`). Drives the trace category that filters fires. |
-| `session.execution`    | Set to `background` alongside `trigger_type=user` to land in the `background` bucket. Ignored otherwise.                  |
+| `session.trigger_type` | Bucket selection (`scheduled` / `event` / `webhook`). Drives the trace category that filters fires. |
+| `session.execution`    | `background` alongside `trigger_type=user` yields the `background` trace category — but `background` is not a fire bucket, so those traces are categorized without appearing on the Tasks page. Ignored otherwise. |
 | `task.id`              | Primary identity key — fires of the same task collapse into one row. Without it, the row falls back to the derived key.   |
-| `task.kind`            | `cron` / `one_shot` / `event` / `webhook` / `background`. Drives the Kind badge + the cadence inference on the detail hero. |
+| `task.kind`            | `cron` / `one_shot` / `event` / `webhook` (with an `unknown` fallback). Drives the Kind badge + the cadence inference on the detail hero. |
 | `task.schedule`        | Cron expression, ISO due-at, or interval. Shown in the Trigger column and on the detail hero's flow chip.                 |
 | `task.name`            | Human label. When present, used in place of the raw `task.id` in the Name column and on the detail hero's task chip.      |
 | `task.source`          | Event topic / queue name / webhook route. Shown in the Trigger column when there's no `task.schedule`.                    |

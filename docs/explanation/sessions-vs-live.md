@@ -1,24 +1,24 @@
-# Sessions vs Runs
+# Sessions vs Traces
 
-Two top-level entries in the UI, two different jobs. (`/live` redirects to `/runs` for bookmarks.)
+Two top-level entries in the UI, two different jobs.
 
 ## The split
 
 **Sessions — pure observability.**
 The conversation history of an agent. Always read-only. Today it's reconstructed from telemetry; later it may come from a DB mirror, an external API, or a paste-in. The page doesn't care where spans come from, only that it gets them.
 
-**Runs — the active / single-execution surface.**
-One OTLP trace at a time (URL param `$runId` is typically the backend `trace_id`). The landing page (`/runs`) will host live-tail, streamed events, or “start an agent here” workflows. Until that lands, `/runs` stays empty-state; `/runs/$runId` is the standalone run viewer (`ConversationView`).
+**Traces — the single-execution surface.**
+One OTLP trace at a time (URL param `$traceId` is typically the backend `trace_id`). `/traces` is the paginated table of recent traces; `/traces/$traceId` is the standalone trace viewer. This is also where future live-tail, streamed events, or "start an agent here" flows would land.
 
-The internal unit stays a **`run`** (single trace slice). Completed work that shares a **`session`** id rolls up under **Sessions** instead of a universal “all runs” list today.
+The internal unit is a **run** (single trace slice). Completed work that shares a **`session`** id rolls up under **Sessions** instead of a universal "all runs" list today.
 
-|                      | Sessions                                                                                                                                                                                             | Runs                                                                                             |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Job                  | Read what happened (multi-run thread)                                                                                                                                                                | Browse / inspect individual traces                                                               |
-| Unit                 | A conversation (many runs)                                                                                                                                                                           | One run (one trace_id)                                                                           |
-| Read-only?           | Always                                                                                                                                                                                               | Currently — not by design                                                                        |
-| Data origin (today)  | Telemetry, joined by `session.id` / `gen_ai.conversation.id` / `ag_ui_thread_id` / configured `CUSTOM_SESSION_ID_FIELDS`. Traces without a session attribute don't appear here — they belong on Runs | Telemetry via `listTraces()` — paginated table of all recent traces with category classification |
-| Data origin (future) | + DB, external feeds                                                                                                                                                                                 | + live exporter stream, + direct invocation of an external agent                                 |
+|                      | Sessions                                                                                                                                                  | Traces                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Job                  | Read what happened (multi-run thread)                                                                                                                    | Browse / inspect individual traces                                                               |
+| Unit                 | A conversation (many runs)                                                                                                                               | One run (one trace_id)                                                                           |
+| Read-only?           | Always                                                                                                                                                   | Currently — not by design                                                                        |
+| Data origin (today)  | Telemetry, joined by `session.id` / `gen_ai.conversation.id` / `ag_ui.thread_id`. Traces without a session attribute don't appear here — they belong on Traces | Telemetry via `listTraces()` — paginated table of all recent traces with category classification |
+| Data origin (future) | + DB, external feeds                                                                                                                                     | + live exporter stream, + direct invocation of an external agent                                 |
 
 A session is a producer-declared conversation grouping. The session-detail page (`/sessions/$sessionId`) still accepts a bare `trace_id` in the URL (the provider's `getSession` falls back to `operation_Id` matching) so individual traces remain inspectable by direct link — they just don't clutter the list.
 
@@ -26,24 +26,19 @@ A session is a producer-declared conversation grouping. The session-detail page 
 
 Default tabs: **`Conversation`** vs **`Spans`**. Search params use `view=spans`; legacy `view=trace` is still parsed as spans.
 
-**Conversation tab (default).** Two-column.
+**Conversation tab (default).** Full-width `ConversationView` (`src/components/conversation-view.tsx`): chat bubbles, paired tool cards, agent cards. Renders `ConversationEvent[]` from `src/lib/spans/conversation.ts`.
 
-- **Left** — `TurnsView` (`src/components/turns-view.tsx`): token-usage table (`# · Time · In · Out · Errs · Turn · Σ · Dur` + Total), the breakdown panel below (`System prompts · Tool definitions · Messages · Prompt cache · Total`) computed by `useBreakdowns` (`src/hooks/use-breakdowns.ts`) on top of `breakdownChat` in `src/lib/spans/tokens.ts`, then one card per turn with status / cost / duration.
-- **Right** — `ConversationView` (`src/components/conversation-view.tsx`): chat bubbles, paired tool cards, agent cards. Renders `ConversationEvent[]` from `src/lib/spans/conversation.ts`.
+**Spans tab.** `InspectLayout` (`src/features/inspect/components/`): span tree + span detail (`DetailPanel`), with a Context tab whose token breakdown (`System prompts · Tool definitions · Messages · Prompt cache · Total`) is computed by `useBreakdowns` (`src/hooks/use-breakdowns.ts`) on top of `breakdownChat` in `src/lib/spans/tokens.ts`. Hides naked `http` transport spans while keeping subtree rollups contiguous. The same components render the slide-over `InspectDrawer` used by both the sessions and traces lists.
 
-**Spans tab.** Span tree (`InspectLayout`, `src/components/inspect/`) + turn strip + span detail (`DetailPanel`). Hides naked `http` transport spans while keeping subtree rollups contiguous. Same components render the slide-over `InspectDrawer` used by both the sessions and traces lists.
+## Trace detail (`/traces/$traceId`)
 
-## Run detail (`/runs/$runId`)
-
-Just the conversation, full width — `ConversationView` and nothing else. One run is one assistant turn; the aggregate-per-turn panel has nothing to chew on at this scale.
+Just the conversation, full width — `ConversationView` and nothing else. The Spans view (tree + detail) is available via the `?view=spans` tab, same as session detail.
 
 What's coming next here:
 
 - **Live tail.** Spans appear in the conversation as they flush from the exporter — granularity is one span, not tokens.
 - **Direct ingest.** An app POSTs events to us instead of going through OTel. Same render.
 - **Initiate a run.** Send a prompt from the UI to a configured agent endpoint; the conversation that comes back is just another run.
-
-The Spans/waterfall view can come back behind an opt-in if needed — not the default.
 
 ## List pages
 
@@ -79,7 +74,7 @@ Toolbar pieces (`SearchInput`, `DataTableFacetedFilter`, `TimeRangeSelect`) plus
 
 ## Data fetching
 
-Route loaders call `context.queryClient.ensureQueryData(...)` and routes read via `useQuery(...)`. Per-route `queryOptions` ship next to loaders (e.g. `sessions/-data.ts`, `runs/-data.ts`); stable keys live in `src/lib/query-keys.ts`.
+Route loaders call `context.queryClient.ensureQueryData(...)` and routes read via `useQuery(...)`. Per-route `queryOptions` ship next to loaders (e.g. `sessions/-data.ts`, `traces/-data.ts`); stable keys live in `src/lib/query-keys.ts`.
 
 ## Where to extend
 
@@ -90,4 +85,4 @@ Route loaders call `context.queryClient.ensureQueryData(...)` and routes read vi
 | Add a format helper                                            | `src/lib/format.ts` — don't reinvent                                                                                                                                                                                                   |
 | Support a new tokenizer family                                 | Extend `resolveFamily` in `src/lib/spans/tokens.ts`. Lazy-load the encoder data                                                                                                                                                              |
 | Add a new data source for Sessions (DB, external)              | The session detail loader in `src/routes/sessions/$sessionId.tsx`. Page only consumes `Span[]`, so anything that yields spans works                                                                                                    |
-| Add live tail / direct ingest                                  | `src/routes/runs/$runId.tsx`: replace the one-shot `runSpansQuery` fetch with a subscription that pushes spans into `ConversationView`. Lists can reuse `runSpansQuery` keys from `runs/-data.ts` or `listRecentTraces()` in telemetry |
+| Add live tail / direct ingest                                  | `src/routes/traces/$traceId.tsx`: replace the one-shot `traceSpansQuery` fetch with a subscription that pushes spans into `ConversationView`. Lists can reuse `traceSpansQuery` keys from `traces/-data.ts` or `listRecentTraces()` in telemetry |

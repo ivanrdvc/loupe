@@ -19,8 +19,8 @@ import {
   type ToolPayloadRow,
 } from '#/lib/telemetry'
 import { DEFAULT, parse, serialize, type TimeRange, windowMs, windowUs } from '#/lib/time-range'
-import { runDetection } from '#/server/detection'
-import { runToolErrorRateDetection, runToolPayloadDetection } from '#/server/detection/anomalies'
+import { runDetection } from '#/features/inventory/detection'
+import { runToolPayloadDetection } from '#/features/inventory/detection/anomalies'
 
 export type HomeInbox = {
   newTools: InventoryRow[]
@@ -55,7 +55,6 @@ const fetchInbox = createServerFn({ method: 'GET' })
     void Promise.allSettled([
       runDetection('new_tool'),
       runDetection('new_agent'),
-      runToolErrorRateDetection({ fromUs, toUs }),
       runToolPayloadDetection({ fromUs, toUs }),
       recoverStuckEvalRuns(),
       runOnlineEvals(),

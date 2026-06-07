@@ -67,7 +67,7 @@ compare — classifies a verdict the same way.
 
 ### Evaluators and experiments
 
-- **Evaluator** = `eval_definition` (`src/server/evals.ts`): a managed judge —
+- **Evaluator** = `eval_definition` (`src/features/evaluation/server/evals.ts`): a managed judge —
   name, `scope`, `dataType`, judge prompt, model, `mode` (`offline` | `online`),
   `status`, and a `version` that bumps when the prompt or model changes.
 - **Experiment** = `eval_run`: one offline execution over a fixed target set, with
@@ -75,7 +75,7 @@ compare — classifies a verdict the same way.
 
 ### The in-app LLM judge
 
-`src/server/judge.ts` is the scoring engine. `runJudge` builds a system prompt
+`src/features/evaluation/server/judge.ts` is the scoring engine. `runJudge` builds a system prompt
 from the rubric + a data-type instruction, sends the target's fields (and an
 optional `expected`) as the user message, and asks for a JSON verdict —
 constrained by a Responses `text.format` json_schema (`buildVerdictSchema`).
@@ -98,14 +98,18 @@ provider surfaces per-case as `config_error`; the run-detail page shows a
 
 1. **Human** (Path A) — the inspector Review sheet and the bulk review queue
    (`review-mode.tsx`) write a `source='human'` run-less score via `upsertHumanScore`
-   (`src/server/scores.ts`). Both also expose golden capture → dataset example.
-2. **Offline run** (Path B) — a caller builds cases with `casesFromTraces`
-   (`src/server/eval-jobs.ts`) — one case per chat span for `scope=span`, else the
-   trace's final chat span — and calls `runEval`, which creates an `eval_run`,
-   returns immediately as `running`, then in the background judges each case and
-   writes one append-only score per case (`executeEvalRun`).
+   (`src/features/evaluation/server/scores.ts`). Both also expose golden capture → dataset example.
+2. **Trace cases** (Path B) — `casesFromTraces`
+   (`src/features/evaluation/server/eval-jobs.ts`) turns a set of trace ids into
+   judge cases: one case per scorable chat span for `scope=span`, else one per
+   trace (its final chat span), each carrying a `spanEvalSnapshot` of the target's
+   fields. This is the shared case-builder the live executor feeds the judge; the
+   `eval_run` object (a fixed offline experiment with an incremental `summary`)
+   exists in the schema and is read back by `listEvalRuns` / `getEvalRun` /
+   `compareRuns` / `blessEvalRun`, but there is no in-app executor that creates one
+   and judges its cases — offline experiment runs are produced out-of-band.
 3. **Dataset grading** (datasets↔judge) — after a dataset run fills
-   `dataset_run_item.output`, `judgeDatasetRun` (`src/server/dataset-judge.ts`)
+   `dataset_run_item.output`, `judgeDatasetRun` (`src/features/evaluation/server/dataset-judge.ts`)
    grades each output against its example's `expected` and writes one run-less
    score per item, linked by `datasetRunItemId`. `getDatasetDetail` reads those
    back into per-item `pass` and per-run `passRate`. To grade *behavior* (not just
@@ -115,9 +119,9 @@ provider surfaces per-case as `config_error`; the run-detail page shows a
    provider trace expiry), and the judge recovers them from the trace
    (`toolCallsFromTrace`) only for rows captured before snapshots existed.
 4. **Online monitor** (the executor) — `runOnlineEvals`
-   (`src/server/online-evals.ts`) samples recent traces, matches each against an
+   (`src/features/evaluation/server/online-evals.ts`) samples recent traces, matches each against an
    active online evaluator's `liveFilter`
-   (`src/server/online-eval-filter.ts`), judges the new ones, and writes run-less
+   (`src/features/evaluation/server/online-eval-filter.ts`), judges the new ones, and writes run-less
    scores carrying `definitionId`. The live-unique index makes it idempotent:
    already-scored `(definition, trace)` pairs are skipped, so a tick never
    re-judges or re-pays. It is wired into the **home loader**
@@ -139,7 +143,7 @@ must export only server functions (`createServerFn`) + types. A plain function
 export stops the TanStack Start compiler from replacing the module with client
 stubs, so the full module loads in the browser and its top-level `import { db }`
 (→ `better-sqlite3`) crashes the page. That's why `casesFromTraces` and
-`recoverStuckEvalRuns` live in `src/server/eval-jobs.ts` (never client-imported)
+`recoverStuckEvalRuns` live in `src/features/evaluation/server/eval-jobs.ts` (never client-imported)
 and `evals.ts` stays fully strippable.
 
 ## Trade-offs and non-goals

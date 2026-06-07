@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
-import { ContextWindow } from '#/components/context-window'
 import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
@@ -12,6 +11,7 @@ import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import {
   buildInspectorView,
+  ContextWindow,
   InspectLayout,
   type InspectView,
   InspectViewBar,

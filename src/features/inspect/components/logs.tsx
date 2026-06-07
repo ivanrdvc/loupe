@@ -7,11 +7,11 @@ import { Button } from '#/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '#/components/ui/input-group'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { fetchSessionLogs } from '#/features/inspect/server/logs'
 import { formatJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import type { LogLevel, LogRecord } from '#/lib/telemetry/types'
-import { fetchSessionLogs } from '#/server/logs'
 
 const LEVEL_VARIANT: Record<LogLevel, 'outline' | 'secondary' | 'warning' | 'destructive'> = {
   trace: 'outline',

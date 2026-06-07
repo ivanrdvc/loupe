@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { JsonView } from '#/components/ai-elements/json-view'
+import { resolveTruncatedAttr } from '#/features/inspect/server/enrich-span'
 import type { Span, TruncatableField } from '#/lib/spans'
-import { resolveTruncatedAttr } from '#/server/enrich-span'
 import { fmtNum } from './shared'
 
 const LABELS: Record<TruncatableField, string> = {
@@ -56,7 +56,7 @@ export function TruncatedAttrFallback({ span, field, tokens }: Props) {
       {tokens != null && tokens > 0 ? ` (${fmtNum(tokens)} tokens)` : ''}.{' '}
       {isPending
         ? 'Checking enrichment sources…'
-        : 'No enrichment source returned the full payload. Configure one in src/server/enrich-span.ts.'}
+        : 'No enrichment source returned the full payload. Configure one in src/features/inspect/server/enrich-span.ts.'}
     </div>
   )
 }

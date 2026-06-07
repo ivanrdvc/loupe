@@ -30,7 +30,7 @@ A provider returns `Span[]` with:
   trace roots, and points to a span that exists in the same returned set
   otherwise.
 - `startMs` / `endMs` — milliseconds since epoch.
-- `operation` — one of `chat`, `tool`, `invoke_agent`, `http` (from
+- `operation` — one of `chat`, `tool`, `mcp`, `invoke_agent`, `http` (from
   `classifySpan`).
 - `sessionId` / `sessionSource` — populated for every span. Source is
   `attribute` when lifted from `ag_ui_thread_id` and friends, or `trace` when
@@ -77,7 +77,7 @@ Row mapping (`normalizeOpenObserveHit`):
 
 Optional columns are not guaranteed to exist in the stream
 (`ag_ui_thread_id`, `ag_ui_thread_title`, `llm_input`, user-identity columns).
-`searchDroppingMissing` handles this: when OO returns code `20004` naming a
+`runWithSchema` handles this: when OO returns code `20004` naming a
 missing field, the helper drops that field from `SELECT` / `WHERE` and retries.
 The set of optional fields is declared at each call site.
 
@@ -123,7 +123,7 @@ trace-scope passes apply unchanged.
 
 A session is a producer-declared conversation grouping. `findSessionKey` reads
 a real session-id attribute (`ag_ui_thread_id`, `session.id`,
-`gen_ai.conversation.id`, configured `CUSTOM_SESSION_ID_FIELDS`, …); if none
+`gen_ai.conversation.id`, …); if none
 is present it returns `{ source: 'trace', id: trace_id }`.
 
 `aggregateSessions` drops every `source: 'trace'` row — those are individual
@@ -158,7 +158,7 @@ through one process into a single row.
 
 ### Category classification
 
-`src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`. Reads producer-emitted `session.trigger_type` / `session.execution` / `gen_ai.operation.purpose` (or the deployment's `CUSTOM_LLM_PURPOSE_FIELD`); no producer-side classifier remapping.
+`src/lib/telemetry/trace-category.ts` — `classifyTraceCategory(input)`. Reads producer-emitted `session.trigger_type` / `session.execution` / `gen_ai.operation.purpose`; no producer-side classifier remapping.
 
 Priority order (first match wins — pinned by `trace-category.test.ts`):
 
@@ -166,23 +166,10 @@ Priority order (first match wins — pinned by `trace-category.test.ts`):
 2. **event** — `session.trigger_type = "event"`
 3. **webhook** — `session.trigger_type = "webhook"`
 4. **background** — `session.trigger_type = "user"` AND `session.execution = "background"`
-5. **sub-agent** — root span operation is `tool` or `mcp` AND trace has any `invoke_agent` descendant
+5. **sub-agent** — root span `operation_name` starts with `execute_tool ` AND trace has any `invoke_agent` descendant
 6. **chat** — trace has any `invoke_agent` span
 7. **utility** — root span carries `gen_ai.operation.purpose`
 8. **chat** — trace has a session attribute
-9. **utility** — trace has chat spans (fallback for raw LLM calls)
-10. **orphan** — anything else
+9. **orphan** — anything else (bare chat with no purpose lands here)
 
 Producer-stamped trigger types win over structural inference — a scheduled trigger on a sub-agent-shaped trace still reports `scheduled`. The interleaved chat / utility branches reflect that `hasInvokeAgent` and `hasSessionAttribute` are independent signals and producers emit them inconsistently.
-
-### Consumer-specific attribute keys
-
-These are configured via env vars in `src/lib/telemetry/field-config.ts`:
-
-| Env var                    | Purpose                                                |
-| -------------------------- | ------------------------------------------------------ |
-| `CUSTOM_LLM_PURPOSE_FIELD` | Attribute key whose presence flips category to utility |
-| `CUSTOM_SESSION_ID_FIELDS` | Additional session-id attribute keys (comma-separated) |
-| `CUSTOM_USER_ID_FIELDS`    | Additional user-id attribute keys (comma-separated)    |
-
-Both providers (OO and AI) read these at startup and incorporate them into their list queries.

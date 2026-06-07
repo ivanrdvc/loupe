@@ -22,7 +22,7 @@ For the canonical list of attributes producers emit and loupe reads, see [`02-sp
 
 ```
   Session  (grouped by gen_ai.conversation.id / ag_ui.thread_id / session.id /
-            langfuse.session.id / openinference.session.id / $CUSTOM_SESSION_ID_FIELDS)
+            langfuse.session.id / openinference.session.id)
    └── Trace  (one HTTP request → one trace; OTel trace_id)
         └── Spans  (nested tree)
              invoke_agent <AgentName>(<hex>)
@@ -80,16 +80,16 @@ works. Each provider is one file under `lib/telemetry/` implementing the
                                       trace_id fallback if no attribute)
    • propagateInheritedAttrs         (operationName, agUiRunId from ancestors)
    • parent ↔ child linkage
-   • countAgentAncestors             (topology primitive)
+   • normalizeRunGraph               (stamps taskId / taskParentId)
         │
         ▼
   route -data.ts (server fn + queryOptions)    ← src/routes/<feature>/-data.ts
         │
         ▼
   React Query → components
-   • lib/spans/conversation.ts:  Span[] → ConversationEvent[]  (chat bubbles, tool cards)
-   • lib/turns.ts:         per-turn token / cost / duration rollup
-   • lib/spans/index.ts helpers: orchestrator / sub-agent / wrapped-agent tests
+   • lib/spans/conversation.ts:           Span[] → ConversationEvent[]  (chat bubbles, tool cards)
+   • features/inspect/logic/turns.ts:     per-turn token / cost / duration rollup
+   • lib/spans/index.ts: taskParentId distinguishes sub-agent (set) vs orchestrator (unset)
 ```
 
 One classifier. Providers normalize *key shape* (dotted vs underscore, row
@@ -130,7 +130,6 @@ These are loupe-specific concepts. OTel GenAI semconv defines none of them. The 
                 ag_ui.thread_id
                 langfuse.session.id
                 openinference.session.id
-                $CUSTOM_SESSION_ID_FIELDS
   Fallback:     trace_id  (sessionSource = 'trace')
 ```
 
@@ -141,7 +140,7 @@ runs).
 **Purpose** — tag for utility LLM calls.
 
 ```
-  Read from:    gen_ai.operation.purpose  |  $CUSTOM_LLM_PURPOSE_FIELD
+  Read from:    gen_ai.operation.purpose
   Examples:     title_generation, summarize, embed_for_search
   Propagation:  the attribute sits on an ancestor Activity, NOT on the
                 nested chat span — propagateSessionInTrace lifts it down.
@@ -238,7 +237,7 @@ invoke_agent Orchestrator
 └─ chat                             ← orchestrator's final answer
 ```
 
-The canonical multi-agent pattern. OpenAI Agents SDK uses this shape when one agent hands off to another via a tool. `findWrappedAgent()` detects "is this tool actually a sub-agent?" by checking whether the `execute_tool` span has an `invoke_agent` child.
+The canonical multi-agent pattern. OpenAI Agents SDK uses this shape when one agent hands off to another via a tool. The nested `invoke_agent` is what makes this a real sub-agent: `normalizeRunGraph` stamps its `taskParentId` to the orchestrator's task, so sub-agent detection reduces to `taskParentId != null`.
 
 ### 3b. Agent-as-tool, wrapped invoke_agent omitted
 
@@ -273,42 +272,40 @@ Raw LLM calls — no agent framework involved. Some sessions are entirely this. 
 
 ## Fallback inference rules
 
-When producers don't stamp `gen_ai.task.parent.id` natively, loupe infers topology from span-tree shape. **Primary path is reading the stamped convention** ([`02-spec.md`](02-spec.md)); these rules run only as fallback.
+When producers don't stamp `gen_ai.task.parent.id` natively, loupe infers topology from span-tree shape. **Primary path is reading the stamped convention** ([`02-spec.md`](02-spec.md)); the fallback runs only when the attrs are absent.
 
-One count grounds every rule:
-
-> **`countAgentAncestors(span)`** — how many `invoke_agent` spans sit between this span and the root.
+`normalizeRunGraph` (in `src/lib/spans/index.ts`) collapses the inference to one stamp: every `invoke_agent` span gets `taskId` (its own span id) and `taskParentId` (the nearest ancestor `invoke_agent`'s `taskId`). Producer-emitted attrs pass through unchanged; the tree walk only fills the gaps.
 
 Rules in `src/lib/spans/index.ts`:
 
 | Question | Rule |
 | -------- | ---- |
-| Is this invoke_agent top-level (an orchestrator turn)? | chain has zero `invoke_agent` ancestors |
-| Is this invoke_agent a subagent? | chain has ≥1 `invoke_agent` ancestor |
-| Is this chat a subagent chat (for "Subagents" token rollup)? | chat has ≥1 `invoke_agent` ancestor AND is not a direct child of a top-level `invoke_agent` |
-| Is this execute_tool actually wrapping an agent? | it has an `invoke_agent` direct child (`findWrappedAgent`) |
+| Is this invoke_agent top-level (an orchestrator turn)? | `taskParentId == null` |
+| Is this invoke_agent a subagent? | `taskParentId != null` |
+| Is this chat a subagent chat (for "Subagents" token rollup)? | chat sits under an `invoke_agent` whose `taskParentId != null` |
+| Is this execute_tool actually wrapping an agent? | it has an `invoke_agent` direct child (which then carries a `taskParentId`) |
 
-Exported helpers built on the primitive: `countAgentAncestors`, `findOrchestratorIds`, `subagentChatSpans`, `findWrappedAgent`. If a new topology appears in the wild, add a tested example to `src/lib/turns.test.ts` first; if the rules above don't cover it, this doc and the rules update together.
+If a new topology appears in the wild, add a tested example to `src/lib/spans/spans.test.ts` first; if the rules above don't cover it, this doc and `normalizeRunGraph` update together.
 
 ### Known failure modes
 
 | Heuristic | What it does | Failure mode |
 | --------- | ------------ | ------------ |
 | Trace-id as session id (fallback) | When no `session.id` / `ag_ui.thread_id` / `gen_ai.conversation.id` is present, the `trace_id` becomes the session id so the detail page resolves. `aggregateSessions` drops these from the sessions list. | Producers without a session attribute don't appear in the sessions list — reachable only by direct URL until they start emitting one. |
-| Frontend tool detection (`collectFrontendTools`, `src/components/inspect/context-collectors.ts` — UI-layer, not in `lib/*`) | A tool is "frontend" if the LLM emitted a `tool_call` for it AND no `execute_tool` span ran it. Gated on at least one `execute_tool` span existing in the session — if backend instrumentation is dark, returns nothing rather than mislabel every backend tool. | Misses frontend tools defined but never called this session. Misses backend tools called for the first time mid-session before any `execute_tool` lands. |
-| Real tool vs. wrapped agent | `execute_tool` is treated as sub-agent invocation iff it has an `invoke_agent` direct child. | Misses topology 3b where the wrapped invoke_agent is absent. |
-| Subagent chat rollup | A chat is "subagent" iff it has ≥1 `invoke_agent` ancestor AND is not a direct child of any top-level `invoke_agent`. | Counts chats nested under any `execute_tool` (regardless of whether it wraps a real sub-agent) as subagent. Acceptable — surfaces the work happening below the orchestrator either way. |
+| Frontend tool detection (`collectFrontendTools`, `src/features/inspect/logic/tools.ts`) | A tool is "frontend" if the LLM emitted a `tool_call` for it AND no `execute_tool` span ran it. Gated on at least one `execute_tool` span existing in the session — if backend instrumentation is dark, returns nothing rather than mislabel every backend tool. | Misses frontend tools defined but never called this session. Misses backend tools called for the first time mid-session before any `execute_tool` lands. |
+| Real tool vs. wrapped agent | An `execute_tool` is a sub-agent invocation iff it has an `invoke_agent` direct child (that child then carries a `taskParentId`). | Misses topology 3b where the wrapped invoke_agent is absent. |
+| Subagent chat rollup | A chat is "subagent" iff it sits under an `invoke_agent` whose `taskParentId != null`. | Counts chats nested under any `execute_tool` (regardless of whether it wraps a real sub-agent) as subagent. Acceptable — surfaces the work happening below the orchestrator either way. |
 
 ## Code map
 
 ```
   src/lib/                          framework-free, pure, testable
-    classify-span.ts        attrs + name → Classification (single source of rules)
-    spans.ts                Span type, tree helpers, topology primitive
-    conversation.ts         Span[] → ConversationEvent[] (UI render input)
-    turns.ts                per-turn token / cost / duration rollup
-    tokens.ts               tokenizer family + breakdown math
-    llm-pricing.ts          model → $/token, fills costUsd when producer omits
+    spans/
+      index.ts              Span type, tree helpers, normalizeRunGraph (taskId/taskParentId)
+      classify-span.ts      attrs + name → Classification (single source of rules)
+      conversation.ts       Span[] → ConversationEvent[] (UI render input)
+      tokens.ts             tokenizer family + breakdown math
+      llm-pricing.ts        model → $/token, fills costUsd when producer omits
     telemetry/
       types.ts              TelemetryProvider interface (listTraces, listSpans,
                             listSessions, getTrace, getSession, query)
@@ -317,10 +314,12 @@ Exported helpers built on the primitive: `countAgentAncestors`, `findOrchestrato
       app-insights.ts       KQL → spans
       shared.ts             session aggregation, identity, common mappers
       conventions.ts        canonical attribute → dotted/underscore key catalog
-      field-config.ts       env-driven attr overrides ($CUSTOM_SESSION_ID_FIELDS,
-                            $CUSTOM_LLM_PURPOSE_FIELD)
       trace-category.ts     classifyTraceCategory
-    mcp/                    MCP registry + live tools/list fetch
+
+  src/features/inspect/logic/       inspector-view pure logic
+    turns.ts                per-turn token / cost / duration rollup
+    tools.ts                resolveToolCalls, collectToolGroups, collectFrontendTools
+  src/features/mcp/                 MCP registry + live tools/list fetch
 
   src/routes/<feature>/-data.ts     server fn + queryOptions per route
   src/server/                       server-only DB code (Drizzle)

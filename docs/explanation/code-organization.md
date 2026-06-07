@@ -13,9 +13,10 @@ tags: [tanstack-start, react-query, organization]
 
 Code is sorted by *who depends on it*, not by what shape it has:
 
-- **`src/lib/`** — pure, framework-free domain (`spans`, `classify-span`, `conversation`, `tokens`, `format`, `json`) plus shared infra (`query-keys`, `telemetry/`, `mcp/`).
-- **`src/hooks/`** — React hooks (`use-user`, `use-env`, `use-time-range`, `use-auto-refresh`, `use-breakdowns`, `use-mobile`, `use-session-note`). Theme is handled by `next-themes`, not a local hook.
-- **`src/server/`** — server-only modules that touch the local DB (`inbox`, `detection`, `ingest`).
+- **`src/lib/`** — pure, framework-free domain (`spans`, `classify-span`, `conversation`, `tokens`, `format`, `json`) plus shared infra (`query-keys`, `telemetry/`).
+- **`src/features/`** — feature folders that bundle a domain's logic, server fns, and components together (`evaluation`, `inspect`, `inventory`, `notes`, `inbox`, `tasks`, `mcp`).
+- **`src/hooks/`** — React hooks (`use-user`, `use-time-range`, `use-auto-refresh`, `use-breakdowns`, `use-mobile`). Theme is handled by `next-themes`, not a local hook.
+- **`src/server/`** — server-only modules that touch the local DB (`detection`, `agent-run`, `breakdowns`). Telemetry ingest is a route handler (`src/routes/api/evals/ingest.ts`), not a `src/server` module.
 - **`src/db/`** — drizzle schema and client.
 - **`src/routes/<feature>/-data.ts`** — server fns + `queryOptions` colocated with the route that owns them. The `-` prefix excludes the file from TanStack Router's route tree (`routeFileIgnorePrefix`, default `-`).
 

@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { datasetExamples, datasetRunItems, datasetRuns, datasets, scores } from '#/db/schema'
+import { callAgent } from '#/features/evaluation/server/agent-run'
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
@@ -21,7 +22,6 @@ import {
   type RunItemStatus,
   type UpsertExampleInput,
 } from '#/routes/datasets/-types'
-import { callAgent } from '#/server/agent-run'
 import { toolCallsFromTrace } from './eval-jobs'
 
 function toDataset(row: typeof datasets.$inferSelect): Dataset {

@@ -3,7 +3,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { inventory } from '#/db/schema'
 import { listAgentMetrics } from '#/lib/telemetry'
-import { runDetection } from '#/server/detection'
+import { runDetection } from '#/features/inventory/detection'
 
 export interface AgentRow {
   id: number

@@ -11,9 +11,9 @@ In-repo engineering docs for loupe.
 - **`_templates/`** — copy-paste starting points (`explanation.md`,
   `guide.md`, `reference.md`). The `/docs` skill copies from here.
 
-Each folder has its own `README.md` index listing every file with its
-`summary:` line — that's the catalog. Open the index, decide which file
-to read, then open the file.
+The main folders (`explanation/`, `reference/`) carry a `README.md` index
+listing every file with its `summary:` line — that's the catalog. Open the
+index, decide which file to read, then open the file.
 
 `docs/` is current-state only.
 

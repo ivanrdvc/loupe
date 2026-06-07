@@ -49,7 +49,7 @@ others and marks the failed row explicitly.
 
 ## Current implementation
 
-The code lives under `src/lib/mcp/`:
+The code lives under `src/features/mcp/`:
 
 - `types.ts` defines `RegistrySource`, `McpServerRef`, `McpServer`,
   `McpTool`, and `McpRegistryResult`.
@@ -69,7 +69,6 @@ SQLite stores local state only:
 - `inventory` for telemetry-observed things such as `mcp_tool`, `mcp_server`,
   `agent`, and `model`.
 - `inbox_item` for fired alerts and user state.
-- `alert_rule` for local alert thresholds.
 - `discovery_cursor` for detection progress.
 
 `inventory` is usage-derived. It can say "tool X was observed in telemetry",
