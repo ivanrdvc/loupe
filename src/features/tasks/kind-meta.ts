@@ -1,6 +1,6 @@
 import { Clock01Icon, Notification03Icon, RepeatIcon, Time04Icon, WebhookIcon } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
-import type { TaskKind } from '#/lib/tasks/rollup'
+import type { TaskKind } from '#/features/tasks/rollup'
 
 export interface KindMeta {
   label: string

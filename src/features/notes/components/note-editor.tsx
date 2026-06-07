@@ -21,8 +21,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import { useUser } from '#/hooks/use-user'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/server/notes'
-import type { NoteTargetKind } from '../-types'
+import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/features/notes/server'
+import type { NoteTargetKind } from '../types'
 
 type Props = {
   targetKind: NoteTargetKind

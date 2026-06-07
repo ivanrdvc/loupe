@@ -5,7 +5,7 @@ import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
 import { ALERT_KINDS } from '#/lib/alerts/kinds'
-import type { InboxRow } from '#/server/inbox'
+import type { InboxRow } from '#/features/inbox/server'
 import { inboxItemTraceLink } from '../-meta'
 
 export interface InboxRowActions {

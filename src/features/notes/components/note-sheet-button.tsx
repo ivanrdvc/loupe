@@ -7,8 +7,8 @@ import { Button } from '#/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '#/components/ui/sheet'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { getNoteForTarget } from '#/server/notes'
-import type { NoteTargetKind } from '../-types'
+import { getNoteForTarget } from '#/features/notes/server'
+import type { NoteTargetKind } from '../types'
 import { NoteEditor } from './note-editor'
 
 type Props = {

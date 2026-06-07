@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import { toolDisplayName, toolTone } from '#/lib/tools'
-import type { InventoryRow } from '#/server/inbox'
+import type { InventoryRow } from '#/features/inbox'
 
 const PREVIEW_ROWS = 5
 

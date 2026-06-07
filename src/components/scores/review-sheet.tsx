@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { latestScores, SCORE_TONE_DOT, type ScoreTargetKind, summarizeScores } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { NoteEditor } from '#/routes/notes/-components/note-editor'
+import { NoteEditor } from '#/features/notes'
 import { listScoresForTarget } from '#/server/scores'
 import { GoldenCapturePanel } from './golden-capture'
 import { ScoresSection } from './scores-section'

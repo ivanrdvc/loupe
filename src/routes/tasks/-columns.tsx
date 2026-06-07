@@ -6,8 +6,8 @@ import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { formatDuration, formatPercent, metricTone } from '#/lib/format'
-import { KIND_META } from '#/lib/tasks/kind-meta'
-import type { TaskRow } from '#/lib/tasks/rollup'
+import { KIND_META } from '#/features/tasks/kind-meta'
+import type { TaskRow } from '#/features/tasks/rollup'
 import { cn } from '#/lib/utils'
 
 export const taskColumns: ColumnDef<TaskRow>[] = [

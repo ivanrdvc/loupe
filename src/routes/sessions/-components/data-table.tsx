@@ -28,7 +28,7 @@ import { queryKeys } from '#/lib/query-keys'
 import type { SessionSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { getNoteFlagsForKind } from '#/server/notes'
+import { getNoteFlagsForKind } from '#/features/notes/server'
 import { buildSessionColumns } from './columns'
 
 const FILTERS: FacetedFilterSpec[] = [

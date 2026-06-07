@@ -1,5 +1,5 @@
 import { formatPercent } from '#/lib/format'
-import type { RollupSummary } from '#/lib/tasks/rollup'
+import type { RollupSummary } from '#/features/tasks/rollup'
 import { cn } from '#/lib/utils'
 
 type Tone = 'emerald' | 'amber' | 'rose' | 'muted'

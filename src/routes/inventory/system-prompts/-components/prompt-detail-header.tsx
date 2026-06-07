@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { NoteSheetButton } from '#/routes/notes/-components/note-sheet-button'
+import { NoteSheetButton } from '#/features/notes'
 import type { Prompt, PromptVersion } from '../-types'
 import { TagPicker } from './tag-picker'
 

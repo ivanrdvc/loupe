@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { notes } from '#/db/schema'
-import type { Note, NoteStatus, NoteTargetKind, UpsertNoteInput } from '#/routes/notes/-types'
+import type { Note, NoteStatus, NoteTargetKind, UpsertNoteInput } from '#/features/notes/types'
 
 const KINDS: NoteTargetKind[] = ['session', 'trace', 'span', 'prompt', 'experiment']
 const STATUSES: NoteStatus[] = ['open', 'resolved']

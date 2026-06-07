@@ -8,7 +8,7 @@ import { ScrollArea } from '#/components/ui/scroll-area'
 import { queryKeys } from '#/lib/query-keys'
 import { dismissAllInboxFn, inboxUnreadCountQuery, openInboxQuery } from '#/routes/inbox/-data'
 import { inboxItemTraceLink } from '#/routes/inbox/-meta'
-import type { InboxRow } from '#/server/inbox'
+import type { InboxRow } from '#/features/inbox'
 
 const MAX_VISIBLE = 8
 

@@ -18,7 +18,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { ALERT_KIND_OPTIONS } from '#/lib/alerts/kinds'
-import type { InboxRow } from '#/server/inbox'
+import type { InboxRow } from '#/features/inbox/server'
 import { buildInboxColumns, type InboxRowActions } from './columns'
 
 interface InboxDataTableProps extends InboxRowActions {

@@ -7,7 +7,7 @@ import {
   dismissInboxItem,
   listOpenInboxItems,
   snoozeInboxItem,
-} from '#/server/inbox'
+} from '#/features/inbox/server'
 
 const fetchInbox = createServerFn({ method: 'GET' }).handler(() => listOpenInboxItems())
 

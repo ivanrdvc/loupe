@@ -26,9 +26,9 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { initialsFor } from '#/lib/current-user'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { listAllNotes } from '#/server/notes'
-import { NoteEditor } from './-components/note-editor'
-import type { Note, NoteStatus, NoteTargetKind } from './-types'
+import { listAllNotes } from '#/features/notes/server'
+import { NoteEditor } from '#/features/notes'
+import type { Note, NoteStatus, NoteTargetKind } from '#/features/notes/types'
 
 const notesListQuery = () =>
   queryOptions({
