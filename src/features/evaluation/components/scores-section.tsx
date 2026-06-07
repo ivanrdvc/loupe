@@ -36,10 +36,9 @@ type Props = {
   targetId: string
   parentTraceId?: string | null
   parentSessionId?: string | null
-  promptVersionId?: number | null
 }
 
-export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessionId, promptVersionId }: Props) {
+export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessionId }: Props) {
   const user = useUser()
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState<string | null>(null) // dimension name being added
@@ -81,7 +80,6 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
           label: vars.label,
           explanation: vars.explanation,
           evaluator: user.name,
-          promptVersionId,
         },
       }),
     onSuccess: async () => {

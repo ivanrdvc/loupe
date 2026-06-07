@@ -1,6 +1,7 @@
 import type { Span } from '#/lib/spans'
 import type {
   FixturesProvider,
+  InventoryObservation,
   SessionFetch,
   SessionSummary,
   SpanSummary,
@@ -226,6 +227,30 @@ export const FIXTURE_TOOL_CATALOG: ToolCatalogRow[] = [
     p50Ms: 20,
     p95Ms: 400,
     lastSeenMs: 1_700_000_000_000,
+  },
+]
+
+export const FIXTURE_INVENTORY: InventoryObservation[] = [
+  {
+    kind: 'agent',
+    name: 'WeatherBot',
+    namespace: '',
+    firstSeenMs: 1_700_000_000_000,
+    lastSeenMs: 1_700_000_000_100,
+    traceId: 'tr-chat',
+    description: 'Answers weather questions.',
+    systemPrompt: 'You are a helpful weather assistant. Be concise.',
+    nested: false,
+  },
+  {
+    kind: 'agent',
+    name: 'SoloBot',
+    namespace: '',
+    firstSeenMs: 1_700_000_000_000,
+    lastSeenMs: 1_700_000_000_100,
+    traceId: 'e2e-trace-7f3a2b',
+    systemPrompt: 'You are SoloBot. Solve the task end to end.',
+    nested: true,
   },
 ]
 

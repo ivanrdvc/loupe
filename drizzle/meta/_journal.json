@@ -99,6 +99,20 @@
       "when": 1780748704970,
       "tag": "0013_naive_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1780860986634,
+      "tag": "0014_drop_prompt_library",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1780860996813,
+      "tag": "0015_add_inventory_version",
+      "breakpoints": true
     }
   ]
 }

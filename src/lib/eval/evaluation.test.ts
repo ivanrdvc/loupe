@@ -33,7 +33,6 @@ function score(partial: Partial<Score> & { dataType: ScoreDataType }): Score {
     errorType: null,
     runId: null,
     definitionId: null,
-    promptVersionId: null,
     datasetRunItemId: null,
     sessionSource: null,
     metadata: null,

@@ -22,7 +22,6 @@ export type JudgeCaseInput = {
   parentSessionId?: string | null
   sessionSource?: 'attribute' | 'trace' | null
   datasetRunItemId?: number | null
-  promptVersionId?: number | null
   fields: JudgeCaseFields
   expected?: JsonValue | null
 }

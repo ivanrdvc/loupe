@@ -1,5 +1,5 @@
 // Shared agent caller over the OpenAI-compatible Responses contract loupe speaks.
-// Used by the prompts UI and the dataset runner.
+// Used by the dataset runner.
 
 export const RUN_TIMEOUT_MS = 60_000
 

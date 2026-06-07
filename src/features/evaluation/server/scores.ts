@@ -113,7 +113,6 @@ function toScore(row: typeof scores.$inferSelect): Score {
     errorType: row.errorType,
     runId: row.runId,
     definitionId: row.definitionId,
-    promptVersionId: row.promptVersionId,
     datasetRunItemId: row.datasetRunItemId,
     sessionSource: row.sessionSource,
     metadata: (row.metadata ?? null) as JsonValue | null,
@@ -286,7 +285,6 @@ export const upsertHumanScore = createServerFn({ method: 'POST' })
     label: asOptString(input.label),
     explanation: asOptString(input.explanation),
     evaluator: String(input.evaluator).trim(),
-    promptVersionId: asOptInt(input.promptVersionId),
     datasetRunItemId: asOptInt(input.datasetRunItemId),
     sessionSource: input.sessionSource === 'attribute' || input.sessionSource === 'trace' ? input.sessionSource : null,
   }))
@@ -313,7 +311,6 @@ export const upsertHumanScore = createServerFn({ method: 'POST' })
         source: 'human',
         evaluator: data.evaluator,
         sessionSource: data.sessionSource,
-        promptVersionId: data.promptVersionId,
         datasetRunItemId: data.datasetRunItemId,
         createdAt: now,
       })
@@ -328,7 +325,6 @@ export const upsertHumanScore = createServerFn({ method: 'POST' })
           label: data.label,
           explanation: data.explanation,
           sessionSource: data.sessionSource,
-          promptVersionId: data.promptVersionId,
           datasetRunItemId: data.datasetRunItemId,
           createdAt: now,
         },
@@ -533,7 +529,6 @@ export type IngestScoreEvent = {
   errorType?: string | null
   runId?: number | null
   definitionId?: number | null
-  promptVersionId?: number | null
   datasetRunItemId?: number | null
   metadata?: JsonValue | null
 }
@@ -576,7 +571,6 @@ export function parseIngestScoreEvents(input: unknown): IngestScoreEvent[] {
       errorType: asOptString(event.errorType),
       runId: asOptionalInt(event.runId, `${label}.runId`),
       definitionId: asOptionalInt(event.definitionId, `${label}.definitionId`),
-      promptVersionId: asOptionalInt(event.promptVersionId, `${label}.promptVersionId`),
       datasetRunItemId: asOptionalInt(event.datasetRunItemId, `${label}.datasetRunItemId`),
       metadata: (event.metadata ?? null) as JsonValue | null,
     }
@@ -609,7 +603,6 @@ export async function ingestScoreEvents(events: IngestScoreEvent[]): Promise<{ i
       errorType: asOptString(e.errorType),
       runId: asOptInt(e.runId),
       definitionId: asOptInt(e.definitionId),
-      promptVersionId: asOptInt(e.promptVersionId),
       datasetRunItemId: asOptInt(e.datasetRunItemId),
       metadata: e.metadata ?? null,
       createdAt: now,

@@ -28,7 +28,6 @@ export type Score = {
   errorType: string | null
   runId: number | null
   definitionId: number | null
-  promptVersionId: number | null
   datasetRunItemId: number | null
   // For session-scoped scores: whether targetId bound to a real session attribute
   // or fell back to a trace id.
@@ -67,7 +66,6 @@ export type UpsertScoreInput = {
   label?: string | null
   explanation?: string | null
   evaluator: string
-  promptVersionId?: number | null
   datasetRunItemId?: number | null
   sessionSource?: 'attribute' | 'trace' | null
 }

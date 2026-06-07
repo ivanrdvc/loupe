@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '#/db'
-import { discoveryCursors, inboxItems, inventory } from '#/db/schema'
+import { discoveryCursors, inboxItems, inventory, inventoryVersions } from '#/db/schema'
 import type { InventoryDiscoveryKind } from '#/lib/telemetry'
 import { discoverFromSources } from './source'
 
@@ -56,20 +56,33 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
         if (observation.nested === false) set.nested = false
         else if (existing.nested == null && observation.nested != null) set.nested = observation.nested
         if (Object.keys(set).length > 0) await db.update(inventory).set(set).where(eq(inventory.id, existing.id))
+        if (observation.systemPrompt && observation.systemPrompt !== existing.systemPrompt)
+          await recordVersion(existing.id, 'system_prompt', observation.systemPrompt, observation)
+        if (observation.description && observation.description !== existing.description)
+          await recordVersion(existing.id, 'description', observation.description, observation)
         continue
       }
 
-      await db.insert(inventory).values({
-        kind: observation.kind,
-        name: observation.name,
-        namespace: observation.namespace,
-        firstSeenAt: new Date(observation.firstSeenMs),
-        firstSeenTraceId: observation.traceId,
-        lastSeenAt: new Date(observation.lastSeenMs),
-        description: observation.description,
-        systemPrompt: observation.systemPrompt,
-        nested: observation.nested,
-      })
+      const [created] = await db
+        .insert(inventory)
+        .values({
+          kind: observation.kind,
+          name: observation.name,
+          namespace: observation.namespace,
+          firstSeenAt: new Date(observation.firstSeenMs),
+          firstSeenTraceId: observation.traceId,
+          lastSeenAt: new Date(observation.lastSeenMs),
+          description: observation.description,
+          systemPrompt: observation.systemPrompt,
+          nested: observation.nested,
+        })
+        .returning({ id: inventory.id })
+      if (created) {
+        if (observation.systemPrompt)
+          await recordVersion(created.id, 'system_prompt', observation.systemPrompt, observation)
+        if (observation.description)
+          await recordVersion(created.id, 'description', observation.description, observation)
+      }
       await db
         .insert(inboxItems)
         .values({
@@ -93,6 +106,21 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
   } finally {
     running.delete(kind)
   }
+}
+
+async function recordVersion(
+  inventoryId: number,
+  field: 'system_prompt' | 'description',
+  value: string,
+  observation: { lastSeenMs: number; traceId?: string },
+): Promise<void> {
+  await db.insert(inventoryVersions).values({
+    inventoryId,
+    field,
+    value,
+    observedAt: new Date(observation.lastSeenMs),
+    traceId: observation.traceId,
+  })
 }
 
 function summaryFor(kind: InventoryDiscoveryKind, name: string, namespace: string): string {

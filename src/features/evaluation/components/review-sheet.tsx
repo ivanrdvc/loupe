@@ -19,7 +19,6 @@ type Props = {
   targetId: string
   parentTraceId?: string | null
   parentSessionId?: string | null
-  promptVersionId?: number | null
   label?: string
 }
 
@@ -30,14 +29,7 @@ const KIND_DESCRIPTION: Record<ScoreTargetKind, string> = {
 }
 
 // The inspector's main review surface: scores, notes, and golden capture — used together.
-export function ReviewSheetButton({
-  targetKind,
-  targetId,
-  parentTraceId,
-  parentSessionId,
-  promptVersionId,
-  label = 'Review',
-}: Props) {
+export function ReviewSheetButton({ targetKind, targetId, parentTraceId, parentSessionId, label = 'Review' }: Props) {
   const [open, setOpen] = useState(false)
   const { data: scores } = useQuery({
     queryKey: queryKeys.scores.byTarget(targetKind, targetId),
@@ -76,7 +68,6 @@ export function ReviewSheetButton({
               targetId={targetId}
               parentTraceId={parentTraceId}
               parentSessionId={parentSessionId}
-              promptVersionId={promptVersionId}
             />
           </section>
           <Separator />

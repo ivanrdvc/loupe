@@ -278,6 +278,9 @@ export async function fetchInventory(
   opts?: { fromUs?: number; toUs?: number },
 ): Promise<InventoryObservation[]> {
   const isTool = kind === 'new_tool'
+  // Scope to a single deployment env when LOUPE_ENV is set (placeholder until producers emit deployment.environment).
+  const env = process.env.LOUPE_ENV?.trim()
+  const envFilter = (col: string) => (env ? ` AND ${col} = '${env.replace(/'/g, "''")}'` : '')
   // Agents also capture prompt + description, and a nested flag: all_nested=1
   // means every invocation was a sub-agent (parent is an execute_tool span).
   // Self-join the parent span — DataFusion rejects IN(subquery) inside CASE.
@@ -289,7 +292,7 @@ export async function fetchInventory(
       MAX(start_time) AS last_seen,
       MIN(trace_id) AS sample_trace_id
     FROM "${p.stream}"
-    WHERE operation_name LIKE 'execute_tool %'
+    WHERE operation_name LIKE 'execute_tool %'${envFilter('deployment_environment')}
     GROUP BY operation_name
     ORDER BY first_seen DESC
     LIMIT 1000
@@ -305,7 +308,7 @@ export async function fetchInventory(
       MIN(CASE WHEN pp.operation_name LIKE 'execute_tool %' THEN 1 ELSE 0 END) AS all_nested
     FROM "${p.stream}" a
     LEFT JOIN "${p.stream}" pp ON a.reference_parent_span_id = pp.span_id
-    WHERE a.operation_name LIKE 'invoke_agent %'
+    WHERE a.operation_name LIKE 'invoke_agent %'${envFilter('a.deployment_environment')}
     GROUP BY a.operation_name
     ORDER BY first_seen DESC
     LIMIT 1000

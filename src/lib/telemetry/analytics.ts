@@ -6,6 +6,7 @@
 import * as ai from './analytics-app-insights'
 import * as oo from './analytics-openobserve'
 import {
+  FIXTURE_INVENTORY,
   FIXTURE_TOOL_CATALOG,
   FIXTURE_TOOL_ERRORS,
   FIXTURE_TOOL_PAYLOADS,
@@ -156,7 +157,7 @@ export async function fetchInventory(
     case 'app-insights':
       return ai.fetchInventory(p, kind, opts)
     case 'fixtures':
-      return []
+      return kind === 'new_agent' ? FIXTURE_INVENTORY.filter((o) => o.kind === 'agent') : []
     default:
       return assertNever(p)
   }
