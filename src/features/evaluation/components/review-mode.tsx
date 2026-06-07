@@ -64,7 +64,8 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
 
   const { data: scores } = useQuery({
     queryKey: queryKeys.scores.byTarget(item?.targetKind ?? 'trace', item?.targetId ?? ''),
-    queryFn: () => listScoresForTarget({ data: { targetKind: item!.targetKind, targetId: item!.targetId } }),
+    queryFn: () =>
+      item ? listScoresForTarget({ data: { targetKind: item.targetKind, targetId: item.targetId } }) : [],
     enabled: open && item != null,
   })
 
@@ -95,21 +96,23 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
   }, [queryClient, item])
 
   const upsertMutation = useMutation({
-    mutationFn: (draft: ScoreDraft) =>
-      upsertHumanScore({
+    mutationFn: (draft: ScoreDraft) => {
+      if (!item || !config) throw new Error('No item or dimension selected')
+      return upsertHumanScore({
         data: {
-          targetKind: item!.targetKind,
-          targetId: item!.targetId,
-          parentTraceId: item!.parentTraceId,
-          parentSessionId: item!.parentSessionId,
-          name: config!.name,
-          dataType: config!.dataType,
+          targetKind: item.targetKind,
+          targetId: item.targetId,
+          parentTraceId: item.parentTraceId,
+          parentSessionId: item.parentSessionId,
+          name: config.name,
+          dataType: config.dataType,
           value: draft.value,
           label: draft.label,
           explanation: draft.explanation,
           evaluator: user.name,
         },
-      }),
+      })
+    },
     onSuccess: async (_row, draft) => {
       await invalidate()
       if (config && draftIsBad(config, draft)) setGoldenHighlight(true)
@@ -215,7 +218,7 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
             {traceLoading ? (
               <Skeleton className="h-40 w-full" />
             ) : snapshot ? (
-              <ReviewTracePreview spans={traceData!.spans} evalSpan={snapshot.span} />
+              <ReviewTracePreview spans={traceData?.spans ?? []} evalSpan={snapshot.span} />
             ) : item?.previewText ? (
               <p className="whitespace-pre-wrap text-sm text-foreground/90">{item.previewText}</p>
             ) : traceId ? (

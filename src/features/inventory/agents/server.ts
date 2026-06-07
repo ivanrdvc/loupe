@@ -2,8 +2,8 @@ import { createServerFn } from '@tanstack/react-start'
 import { desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { inventory } from '#/db/schema'
-import { listAgentMetrics } from '#/lib/telemetry'
 import { runDetection } from '#/features/inventory/detection'
+import { listAgentMetrics } from '#/lib/telemetry'
 
 export interface AgentRow {
   id: number

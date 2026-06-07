@@ -4,6 +4,8 @@ import { LRUCache } from 'lru-cache'
 import { recoverStuckEvalRuns } from '#/features/evaluation/server/eval-jobs'
 import { runOnlineEvals } from '#/features/evaluation/server/online-evals'
 import { type InventoryRow, listHomeInventory } from '#/features/inbox'
+import { runDetection } from '#/features/inventory/detection'
+import { runToolPayloadDetection } from '#/features/inventory/detection/anomalies'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
   type CacheHitPoint,
@@ -19,8 +21,6 @@ import {
   type ToolPayloadRow,
 } from '#/lib/telemetry'
 import { DEFAULT, parse, serialize, type TimeRange, windowMs, windowUs } from '#/lib/time-range'
-import { runDetection } from '#/features/inventory/detection'
-import { runToolPayloadDetection } from '#/features/inventory/detection/anomalies'
 
 export type HomeInbox = {
   newTools: InventoryRow[]
