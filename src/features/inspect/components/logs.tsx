@@ -39,7 +39,6 @@ export function SessionLogsPanel({ spans, enabled }: { spans: Span[]; enabled: b
     queryKey: queryKeys.logs.byTraceIds(traceIds),
     queryFn: () => fetchSessionLogs({ data: { traceIds, ...window } }),
     enabled: enabled && traceIds.length > 0,
-    staleTime: 30_000,
   })
 
   const [query, setQuery] = useState('')

@@ -246,7 +246,6 @@ function SpanLogsBlock({ span, view }: { span: Span; view?: InspectorView }) {
     queryKey: queryKeys.logs.byTraceIds(traceIds),
     queryFn: () => fetchSessionLogs({ data: { traceIds, ...window } }),
     enabled: traceIds.length > 0,
-    staleTime: 30_000,
   })
 
   const spanLogs = useMemo(() => {
