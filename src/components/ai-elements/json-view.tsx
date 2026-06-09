@@ -16,12 +16,7 @@ export function JsonView({ value, className }: Props) {
       return <CodeBlock code={prettyJson(parsed)} language="json" className={className} />
     }
     if (looksLikeJson(value)) {
-      return (
-        <div className="flex flex-col gap-1">
-          <CodeBlock code={value} language="json" className={className} />
-          <div className="text-[11px] text-muted-foreground">Looks like JSON but didn't parse — likely truncated.</div>
-        </div>
-      )
+      return <CodeBlock code={value} language="json" className={className} />
     }
     return (
       <pre
