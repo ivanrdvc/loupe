@@ -132,8 +132,9 @@ export function SessionLogsPanel({ spans, enabled }: { spans: Span[]; enabled: b
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((log) => (
-                <LogRow key={log.id} log={log} />
+              {filtered.map((log, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: id collides when two lines share a ms; frozen ordered list
+                <LogRow key={`${log.id}-${i}`} log={log} />
               ))}
             </TableBody>
           </Table>

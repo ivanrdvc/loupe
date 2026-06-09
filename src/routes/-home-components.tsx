@@ -226,9 +226,11 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
             <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-foreground" title={row.name}>
               {toolDisplayName(row.name)}
             </span>
-            <span className="shrink-0 truncate text-[11px] text-muted-foreground" title={row.namespace || 'unknown'}>
-              {row.namespace || 'unknown'}
-            </span>
+            {row.namespace && (
+              <span className="shrink-0 truncate text-[11px] text-muted-foreground" title={row.namespace}>
+                {row.namespace}
+              </span>
+            )}
             <RelativeTime ts={row.firstSeenAtMs} className="shrink-0 text-[11px] tabular-nums text-muted-foreground" />
           </Link>
         </li>

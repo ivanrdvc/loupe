@@ -252,8 +252,9 @@ function SpanLogsBlock({ span, view }: { span: Span; view?: InspectorView }) {
     <section className="min-w-0">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Logs</div>
       <div className="mt-1.5 divide-y divide-border rounded-md border border-border">
-        {spanLogs.map((log) => (
-          <div key={log.id} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px]">
+        {spanLogs.map((log, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: id collides when two lines share a ms; frozen ordered list
+          <div key={`${log.id}-${i}`} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px]">
             <Badge variant={LEVEL_BADGE[log.level]} className="shrink-0 font-mono text-[9px] uppercase">
               {log.level}
             </Badge>

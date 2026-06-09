@@ -150,6 +150,7 @@ function SessionTools({ view, selectedSpan }: { view: InspectorView; selectedSpa
   // chat → just that chat span (per-turn registry; surfaces dynamic
   // mid-turn tool loading like load_tools(domain)). Otherwise → full session.
   const groups = useMemo(() => view.toolGroupsFor(selectedSpan), [view, selectedSpan])
+  const toolDefsTruncated = useMemo(() => view.toolDefsTruncatedFor(selectedSpan), [view, selectedSpan])
 
   let count = 0
   let tokens = 0
@@ -173,7 +174,7 @@ function SessionTools({ view, selectedSpan }: { view: InspectorView; selectedSpa
           {count} tool{count === 1 ? '' : 's'} · {tokens ? `${formatTokens(tokens)} tokens` : '—'}
         </span>
       </header>
-      <ContextTools groups={groups} />
+      <ContextTools groups={groups} truncated={toolDefsTruncated} />
     </div>
   )
 }

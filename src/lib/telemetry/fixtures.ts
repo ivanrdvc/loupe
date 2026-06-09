@@ -105,6 +105,44 @@ const SINGLE_TRACE_SPANS: Span[] = [
   }),
 ]
 
+// Long root name + a hidden http (infra) child: drives the raw-spans `{}` toggle
+// and the "toggle must not get cut off by a long name" layout in e2e.
+const RAW_ROOT_NAME =
+  'invoke_agent OrchestratorWithAnExtremelyLongAgentNameThatMustTruncateRatherThanPushTheRawToggleOffTheEdge'
+const RAW_SPANS: Span[] = [
+  span({
+    id: 'sp-raw-agent',
+    traceId: 'tr-raw',
+    operation: 'invoke_agent',
+    name: RAW_ROOT_NAME,
+    agentName: RAW_ROOT_NAME.replace('invoke_agent ', ''),
+    sessionId: 'e2e-session-raw',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'sp-raw-chat',
+    traceId: 'tr-raw',
+    parentId: 'sp-raw-agent',
+    operation: 'chat',
+    name: 'chat gpt-4o',
+    model: 'gpt-4o',
+    inputTokens: 100,
+    outputTokens: 20,
+    sessionId: 'e2e-session-raw',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'sp-raw-http',
+    traceId: 'tr-raw',
+    parentId: 'sp-raw-chat',
+    operation: 'http',
+    name: 'POST api.openai.com/v1/chat/completions',
+    sessionId: 'e2e-session-raw',
+    sessionSource: 'attribute',
+    rawAttributes: { 'url.full': 'https://api.openai.com/v1/chat/completions' },
+  }),
+]
+
 interface FixtureSession {
   summary: SessionSummary
   fetch: NonNullable<SessionFetch>
@@ -150,9 +188,30 @@ const SESSIONS: FixtureSession[] = [
       spans: SINGLE_TRACE_SPANS,
     },
   },
+  {
+    summary: {
+      sessionId: 'e2e-session-raw',
+      title: 'Raw spans toggle',
+      source: 'attribute',
+      startedAtMs: 1_700_000_000_000,
+      lastSeenMs: 1_700_000_000_100,
+      activeDurationMs: 100,
+      traceCount: 1,
+      agents: [RAW_ROOT_NAME.replace('invoke_agent ', '')],
+      totalTokens: 120,
+      totalCostUsd: 0.001,
+    },
+    fetch: {
+      sessionId: 'e2e-session-raw',
+      source: 'attribute',
+      traceIds: ['tr-raw'],
+      spans: RAW_SPANS,
+      title: 'Raw spans toggle',
+    },
+  },
 ]
 
-const ALL_SPANS = [...CHAT_SPANS, ...SINGLE_TRACE_SPANS]
+const ALL_SPANS = [...CHAT_SPANS, ...SINGLE_TRACE_SPANS, ...RAW_SPANS]
 
 const TRACES: TraceSummary[] = [
   {

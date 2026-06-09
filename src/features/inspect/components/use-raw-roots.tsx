@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { InspectorView } from '#/features/inspect/logic'
 
 export interface RawRootsControl {
@@ -18,54 +18,49 @@ export function toggleRootIn(prev: Set<string>, id: string): Set<string> {
   return next
 }
 
-export function ensureRootIn(prev: Set<string>, id: string): Set<string> {
-  if (prev.has(id)) return prev
-  const next = new Set(prev)
-  next.add(id)
-  return next
+// A root is raw when the global default (rawAllOn) is flipped by a per-root
+// override — XOR. Lets "all on minus exceptions" and "all off plus picks" coexist,
+// and new traces follow the default with no reconciliation effect.
+export function effectiveRawRoots(allIds: readonly string[], rawAllOn: boolean, overrides: Set<string>): Set<string> {
+  const out = new Set<string>()
+  for (const id of allIds) {
+    if (rawAllOn !== overrides.has(id)) out.add(id)
+  }
+  return out
 }
 
 export function useRawRoots(view: InspectorView): RawRootsControl {
-  const [rawRoots, setRawRoots] = useState<Set<string>>(() => new Set())
   const [rawAllOn, setRawAllOn] = useState(false)
+  const [overrides, setOverrides] = useState<Set<string>>(() => new Set())
 
   const topLevelIds = useMemo(() => view.spans.filter((s) => !s.parentId).map((s) => s.id), [view.spans])
+  const rawRoots = useMemo(
+    () => effectiveRawRoots(topLevelIds, rawAllOn, overrides),
+    [topLevelIds, rawAllOn, overrides],
+  )
 
   const toggleRoot = useCallback((id: string) => {
-    setRawRoots((prev) => toggleRootIn(prev, id))
+    setOverrides((prev) => toggleRootIn(prev, id))
   }, [])
 
-  const ensureRoot = useCallback((id: string) => {
-    setRawRoots((prev) => ensureRootIn(prev, id))
-  }, [])
+  const ensureRoot = useCallback(
+    (id: string) => {
+      setOverrides((prev) => {
+        // Force raw on: override when default-off, clear exception when default-on.
+        if (rawAllOn ? !prev.has(id) : prev.has(id)) return prev
+        const next = new Set(prev)
+        if (rawAllOn) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    },
+    [rawAllOn],
+  )
 
   const toggleAll = useCallback(() => {
-    setRawAllOn((prev) => {
-      const next = !prev
-      setRawRoots(next ? new Set(topLevelIds) : new Set())
-      return next
-    })
-  }, [topLevelIds])
+    setRawAllOn((prev) => !prev)
+    setOverrides(new Set())
+  }, [])
 
-  useEffect(() => {
-    if (!rawAllOn) return
-    setRawRoots((prev) => {
-      let next: Set<string> | null = null
-      for (const id of topLevelIds) {
-        if (!prev.has(id)) {
-          if (!next) next = new Set(prev)
-          next.add(id)
-        }
-      }
-      return next ?? prev
-    })
-  }, [rawAllOn, topLevelIds])
-
-  return {
-    rawRoots,
-    toggleRoot,
-    ensureRoot,
-    rawAllOn,
-    toggleAll,
-  }
+  return { rawRoots, toggleRoot, ensureRoot, rawAllOn, toggleAll }
 }

@@ -322,7 +322,8 @@ function hitToInventoryObservation(
   h: Record<string, unknown>,
 ): InventoryObservation | null {
   const operationName = String(h.operation_name ?? '')
-  const name = kind === 'new_tool' ? extractToolName(operationName) : extractAgentName(operationName)
+  const isTool = kind === 'new_tool'
+  const name = isTool ? extractToolName(operationName) : extractAgentName(operationName)
   if (!name) return null
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? firstSeenNs)
@@ -331,7 +332,7 @@ function hitToInventoryObservation(
   )
   const description = typeof h.description === 'string' && h.description ? h.description : undefined
   return {
-    kind: kind === 'new_tool' ? 'mcp_tool' : 'agent',
+    kind: isTool ? 'mcp_tool' : 'agent',
     name,
     namespace: '',
     firstSeenMs: Math.floor(firstSeenNs / 1_000_000),
@@ -339,7 +340,7 @@ function hitToInventoryObservation(
     traceId: typeof h.sample_trace_id === 'string' ? h.sample_trace_id : undefined,
     ...(description ? { description } : {}),
     ...(systemPrompt ? { systemPrompt } : {}),
-    ...(kind === 'new_tool' ? {} : { nested: Number(h.ever_nested ?? 0) === 1 }),
+    ...(isTool ? {} : { nested: Number(h.ever_nested ?? 0) === 1 }),
   }
 }
 

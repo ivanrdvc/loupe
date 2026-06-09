@@ -10,13 +10,17 @@ import { formatPercent, formatTokens } from '#/lib/format'
 import type { JsonValue } from '#/lib/json'
 import { toolsCatalogQuery } from './tool-data'
 
-export function ContextTools({ groups }: { groups: ToolGroup[] }) {
+export function ContextTools({ groups, truncated }: { groups: ToolGroup[]; truncated?: boolean }) {
   if (groups.length === 0) {
     return (
       <Empty className="border-0">
         <EmptyHeader>
-          <EmptyTitle>No tool definitions</EmptyTitle>
-          <EmptyDescription>The chat spans didn't advertise any tools.</EmptyDescription>
+          <EmptyTitle>{truncated ? 'Tool definitions truncated' : 'No tool definitions'}</EmptyTitle>
+          <EmptyDescription>
+            {truncated
+              ? 'The tool-definitions attribute was too large to capture and got cut off, so the list is unavailable.'
+              : "The chat spans didn't advertise any tools."}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     )

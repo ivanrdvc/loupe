@@ -55,6 +55,9 @@ export interface InspectorView {
 
   descendantsOf(id: string): Span[]
   toolGroupsFor(span: Span | undefined): ToolGroup[]
+  // True when an in-scope tool-definitions attr was truncated, so an empty tool
+  // list means "cut off", not "none advertised".
+  toolDefsTruncatedFor(span: Span | undefined): boolean
   descendantErrors(id: string, max?: number): Span[]
 }
 
@@ -118,12 +121,20 @@ export function buildInspectorView(spans: Span[]): InspectorView {
   const frontendTools = collectFrontendTools(spans)
   const { systemPromptByAgent, aguiItems } = collectSystemAndAgui(spans, childrenByParent)
 
-  const toolGroupsFor = (span: Span | undefined): ToolGroup[] => {
-    if (!span) return toolGroups
-    if (isAgentSpan(span)) return collectToolGroups([span, ...descendantsOf(span.id)])
-    if (isChatSpan(span)) return collectToolGroups([span])
-    return toolGroups
+  const scopeSpansFor = (span: Span | undefined): Span[] => {
+    if (!span) return spans
+    if (isAgentSpan(span)) return [span, ...descendantsOf(span.id)]
+    if (isChatSpan(span)) return [span]
+    return spans
   }
+
+  const toolGroupsFor = (span: Span | undefined): ToolGroup[] => {
+    if (!span || (!isAgentSpan(span) && !isChatSpan(span))) return toolGroups
+    return collectToolGroups(scopeSpansFor(span))
+  }
+
+  const toolDefsTruncatedFor = (span: Span | undefined): boolean =>
+    scopeSpansFor(span).some((s) => (isChatSpan(s) || isAgentSpan(s)) && Boolean(s.truncatedAttrs?.toolDefinitions))
 
   const descendantErrors = (id: string, max = 5): Span[] => {
     const out: Span[] = []
@@ -170,6 +181,7 @@ export function buildInspectorView(spans: Span[]): InspectorView {
     aguiItems,
     descendantsOf,
     toolGroupsFor,
+    toolDefsTruncatedFor,
     descendantErrors,
   }
 }
