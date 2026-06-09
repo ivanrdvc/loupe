@@ -236,16 +236,35 @@ export async function fetchInventory(
   kind: InventoryDiscoveryKind,
   opts?: WindowOpts,
 ): Promise<InventoryObservation[]> {
-  const prefix = kind === 'new_tool' ? 'execute_tool' : 'invoke_agent'
-  const q = `
+  // ever_nested: agent invoked under execute_tool at least once (a utility agent
+  // can run both nested and top-level, so join the parent span rather than guess
+  // from the name). Parent side projected to id to bound the join.
+  const q =
+    kind === 'new_tool'
+      ? `
     union dependencies, requests
-    | where name startswith "${prefix} "
+    | where name startswith "execute_tool "
+    | summarize
+        first_seen = min(timestamp),
+        last_seen  = max(timestamp),
+        sample_trace_id = any(operation_Id)
+      by operation_name = name
+    | top 1000 by first_seen desc
+  `
+      : `
+    let tool_parents = union dependencies, requests
+      | where name startswith "execute_tool "
+      | project parent_id = id, parent_is_tool = 1;
+    union dependencies, requests
+    | where name startswith "invoke_agent "
+    | join kind=leftouter (tool_parents) on $left.operation_ParentId == $right.parent_id
     | summarize
         first_seen = min(timestamp),
         last_seen  = max(timestamp),
         sample_trace_id = any(operation_Id),
-        system_instructions = any(tostring(customDimensions["gen_ai.system_instructions"])),
-        description = any(tostring(customDimensions["gen_ai.agent.description"]))
+        description = take_anyif(tostring(customDimensions["gen_ai.agent.description"]), isnotempty(tostring(customDimensions["gen_ai.agent.description"]))),
+        system_instructions = take_anyif(tostring(customDimensions["gen_ai.system_instructions"]), isnotempty(tostring(customDimensions["gen_ai.system_instructions"]))),
+        ever_nested = max(iif(parent_is_tool == 1, 1, 0))
       by operation_name = name
     | top 1000 by first_seen desc
   `
@@ -276,7 +295,7 @@ function rowToInventoryObservation(
     traceId: typeof row.sample_trace_id === 'string' ? row.sample_trace_id : undefined,
     ...(description ? { description } : {}),
     ...(systemPrompt ? { systemPrompt } : {}),
-    ...(isTool ? {} : { nested: operationName.includes('(') }),
+    ...(isTool ? {} : { nested: Number(row.ever_nested ?? 0) === 1 }),
   }
 }
 

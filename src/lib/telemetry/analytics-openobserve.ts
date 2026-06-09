@@ -281,9 +281,9 @@ export async function fetchInventory(
   // Scope to a single deployment env when LOUPE_ENV is set (placeholder until producers emit deployment.environment).
   const env = process.env.LOUPE_ENV?.trim()
   const envFilter = (col: string) => (env ? ` AND ${col} = '${env.replace(/'/g, "''")}'` : '')
-  // Agents also capture prompt + description, and a nested flag: all_nested=1
-  // means every invocation was a sub-agent (parent is an execute_tool span).
-  // Self-join the parent span — DataFusion rejects IN(subquery) inside CASE.
+  // ever_nested=1: invoked under execute_tool at least once (a utility agent can
+  // run both nested and top-level). Self-join the parent — DataFusion rejects
+  // IN(subquery) inside CASE.
   const sql = isTool
     ? `
     SELECT
@@ -305,7 +305,7 @@ export async function fetchInventory(
       MIN(a.trace_id) AS sample_trace_id,
       MAX(a.gen_ai_system_instructions) AS system_instructions,
       MAX(a.gen_ai_agent_description) AS description,
-      MIN(CASE WHEN pp.operation_name LIKE 'execute_tool %' THEN 1 ELSE 0 END) AS all_nested
+      MAX(CASE WHEN pp.operation_name LIKE 'execute_tool %' THEN 1 ELSE 0 END) AS ever_nested
     FROM "${p.stream}" a
     LEFT JOIN "${p.stream}" pp ON a.reference_parent_span_id = pp.span_id
     WHERE a.operation_name LIKE 'invoke_agent %'${envFilter('a.deployment_environment')}
@@ -339,7 +339,7 @@ function hitToInventoryObservation(
     traceId: typeof h.sample_trace_id === 'string' ? h.sample_trace_id : undefined,
     ...(description ? { description } : {}),
     ...(systemPrompt ? { systemPrompt } : {}),
-    ...(kind === 'new_tool' ? {} : { nested: Number(h.all_nested ?? 0) === 1 }),
+    ...(kind === 'new_tool' ? {} : { nested: Number(h.ever_nested ?? 0) === 1 }),
   }
 }
 

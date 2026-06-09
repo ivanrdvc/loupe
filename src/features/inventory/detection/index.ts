@@ -52,8 +52,8 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
           set.description = observation.description
         if (observation.systemPrompt && (isNewer || existing.systemPrompt == null))
           set.systemPrompt = observation.systemPrompt
-        // An agent is "main" once seen top-level; never downgrade main back to sub.
-        if (observation.nested === false) set.nested = false
+        // An agent is a sub-agent once seen invoked as one; never downgrade sub back to main.
+        if (observation.nested === true) set.nested = true
         else if (existing.nested == null && observation.nested != null) set.nested = observation.nested
         if (Object.keys(set).length > 0) await db.update(inventory).set(set).where(eq(inventory.id, existing.id))
         if (observation.systemPrompt && observation.systemPrompt !== existing.systemPrompt)

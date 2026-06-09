@@ -15,7 +15,7 @@ export const inventory = sqliteTable(
     notes: text(),
     description: text(),
     systemPrompt: text('system_prompt'),
-    // Agents: true once seen only as a nested invocation, false once seen top-level.
+    // Agents: true once ever seen invoked as a sub-agent (under execute_tool); stays true.
     nested: integer({ mode: 'boolean' }),
   },
   (table) => [uniqueIndex('inventory_kind_name_namespace_idx').on(table.kind, table.name, table.namespace)],
