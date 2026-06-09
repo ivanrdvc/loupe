@@ -166,6 +166,18 @@ describe('runJudge (SDK seam mocked)', () => {
     expect(await call()).toMatchObject({ errorType: 'config_error', value: null })
     expect(sdk.generateObject).not.toHaveBeenCalled()
   })
+
+  it('prices an azure/* judge by its base model id (prefix stripped)', async () => {
+    delete process.env.OPENAI_API_KEY
+    process.env.AZURE_OPENAI_API_KEY = 'test-key'
+    process.env.AZURE_OPENAI_RESOURCE_NAME = 'test-resource'
+    sdk.generateObject.mockResolvedValue(objResult({ value: 4, explanation: 'good' }))
+    const v = await call({ model: 'azure/gpt-4o-mini' })
+    expect(v).toMatchObject({ value: 4, errorType: null })
+    expect(v.costUsd).toBeGreaterThan(0)
+    delete process.env.AZURE_OPENAI_API_KEY
+    delete process.env.AZURE_OPENAI_RESOURCE_NAME
+  })
 })
 
 describe('runJudgeSamples aggregation', () => {
