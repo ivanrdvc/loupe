@@ -67,9 +67,6 @@ export interface Classification {
   // when the producer stamped it; consumer-side normaliser fills the rest.
   taskId?: string
   taskParentId?: string
-  // RAG recall fields (gen_ai.data_source.id / gen_ai.retrieval.* /
-  // gen_ai.embeddings.dimension.count). Embedding model/tokens reuse the
-  // generic model/inputTokens fields above.
   dataSourceId?: string
   retrievalQuery?: string
   retrievalDocuments?: RetrievalDocument[]
@@ -275,9 +272,8 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
 
   // Fallback when the provider didn't enrich (App Insights & friends).
   // OpenObserve does this at ingest; @pydantic/genai-prices does it here.
-  // Not for embedding/retrieval: their spend is a separate line and an
-  // estimated cost here would fold into subtree cost aggregates (tree.tsx),
-  // distorting the LLM totals — see docs/explanation/02-spec.md.
+  // Skip embedding/retrieval: an estimate would leak into subtree cost
+  // aggregates and distort LLM totals (docs/explanation/02-spec.md).
   if (operation !== 'embedding' && operation !== 'retrieval') {
     c.costUsd ??= estimateCostUsd({
       model: c.model,
@@ -325,9 +321,8 @@ export function parseSystemInstructions(raw: string | undefined): string | undef
   return joined || undefined
 }
 
-// `gen_ai.retrieval.documents` per OTel: a list of `{id, score, ...}`. Arrives
-// as a real array (push/in-memory) or a JSON string (OO/AI flatten arrays).
-// We keep only the spec-guaranteed id + score; extras stay in rawAttributes.
+// Real array (push/in-memory) or JSON string (OO/AI flatten arrays). Keeps
+// only the spec-guaranteed id + score.
 export function parseRetrievalDocuments(raw: unknown): RetrievalDocument[] | undefined {
   const arr = typeof raw === 'string' ? parseJson(raw) : raw
   if (!Array.isArray(arr)) return undefined

@@ -3,8 +3,7 @@ import type { JsonValue } from '#/lib/json'
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
 export type Operation = 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent' | 'retrieval' | 'embedding'
 
-// One retrieved document per OTel `gen_ai.retrieval.documents` — the spec only
-// guarantees `id` + `score`; producers may add more (surfaced via rawAttributes).
+// `gen_ai.retrieval.documents` entry — spec guarantees only id + score.
 export interface RetrievalDocument {
   id: string
   score?: number
@@ -85,9 +84,7 @@ export interface Span {
   // structured call so the UI doesn't render it as a chat reply.
   outputType?: string
 
-  // RAG recall spans. retrieval: the vector-search boundary; embedding: the
-  // query/fact embed (often nested under it). Embedding model/tokens reuse the
-  // generic model/inputTokens fields. See docs/explanation/02-spec.md.
+  // RAG recall. Embedding model/tokens reuse the generic model/inputTokens.
   dataSourceId?: string
   retrievalQuery?: string
   retrievalDocuments?: RetrievalDocument[]
