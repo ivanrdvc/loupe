@@ -1,5 +1,8 @@
 import type { Span } from '../spans'
-import type { TraceCategory } from './types'
+import type { TraceCategory, TriggerType } from './types'
+
+// Source of truth for "fires" — /tasks pushes these; rollup derives FIRE_CATEGORIES from them.
+export const FIRE_TRIGGER_TYPES = ['scheduled', 'event', 'webhook'] as const satisfies readonly TriggerType[]
 
 // Trigger and purpose come from the root span only. `rootOperation` is the
 // root span's OTel operation name (e.g. "execute_tool explore", "invoke_agent

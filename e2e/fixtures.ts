@@ -19,6 +19,11 @@ export const SINGLE_TRACE = {
   agent: 'SoloBot',
 } as const
 
+export const TASK = {
+  traceId: 'tr-task-nightly',
+  name: 'Nightly Report',
+} as const
+
 export const RAW = {
   sessionId: 'e2e-session-raw',
   rootSpanId: 'sp-raw-agent',

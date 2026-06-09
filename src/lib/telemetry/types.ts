@@ -14,10 +14,20 @@ interface ListOpts extends WindowOpts {
   limit?: number
 }
 
+export type TriggerType = 'scheduled' | 'event' | 'webhook' | 'user'
+
+// Predicates pushed into the query before LIMIT, so a rare subset isn't crowded
+// out of the recent N. `agentName` is a prefix match (over-match only).
+export interface TraceFilter {
+  triggerTypes?: readonly TriggerType[]
+  serviceName?: string
+  agentName?: string
+}
+
 export type TraceFetch = { spans: Span[]; truncated?: boolean; focusSpanId?: string } | null
 
 export type GetTraceOpts = WindowOpts & IdentityFilter
-export type ListTracesOpts = ListOpts & IdentityFilter
+export type ListTracesOpts = ListOpts & IdentityFilter & TraceFilter
 export type ListSpansOpts = ListOpts & IdentityFilter
 
 export type SpansViewKind = 'utility' | 'sub-agent'

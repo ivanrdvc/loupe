@@ -2,10 +2,11 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '#/db'
 import { evalDefinitions, scores } from '#/db/schema'
 import type { JsonValue } from '#/lib/json'
+import type { TraceSummary } from '#/lib/telemetry'
 import { listRecentTraces } from '#/lib/telemetry'
 import { casesFromTraces } from './eval-jobs'
 import { resolveJudgeDefaults, runJudgeSamples } from './judge'
-import { matchesLiveFilter, parseLiveFilter, sampleRateOf } from './online-eval-filter'
+import { type LiveFilter, matchesLiveFilter, parseLiveFilter, sampleRateOf } from './online-eval-filter'
 
 export type { LiveFilter } from './online-eval-filter'
 export { matchesLiveFilter, parseLiveFilter, sampleRateOf } from './online-eval-filter'
@@ -27,9 +28,22 @@ export async function runOnlineEvals(
     .where(and(eq(evalDefinitions.mode, 'online'), eq(evalDefinitions.source, 'llm')))
   if (defs.length === 0) return { evaluators: 0, scored: 0 }
 
-  const recent = await listRecentTraces({ limit: opts.limit ?? DEFAULT_TRACE_LIMIT })
-  const traces = recent?.traces ?? []
-  if (traces.length === 0) return { evaluators: defs.length, scored: 0 }
+  // A def pinned to a rare service/agent gets crowded out of a generic recent-N
+  // pool, so push those down; unpinned defs share one pool.
+  const limit = opts.limit ?? DEFAULT_TRACE_LIMIT
+  let sharedPool: TraceSummary[] | undefined
+  const poolFor = async (filter: LiveFilter): Promise<TraceSummary[]> => {
+    if (filter?.serviceName || filter?.agentName) {
+      const r = await listRecentTraces({
+        limit,
+        ...(filter.serviceName ? { serviceName: filter.serviceName } : {}),
+        ...(filter.agentName ? { agentName: filter.agentName } : {}),
+      })
+      return r?.traces ?? []
+    }
+    if (!sharedPool) sharedPool = (await listRecentTraces({ limit }))?.traces ?? []
+    return sharedPool
+  }
 
   const defIds = defs.map((d) => d.id)
   const existing = await db
@@ -47,6 +61,7 @@ export async function runOnlineEvals(
     if (scored >= maxCalls) break
     const filter = parseLiveFilter((def.liveFilter ?? null) as JsonValue | null)
     const rate = sampleRateOf(filter)
+    const traces = await poolFor(filter)
     for (const trace of traces) {
       if (scored >= maxCalls) break
       const key = `${def.id}:${trace.id}`

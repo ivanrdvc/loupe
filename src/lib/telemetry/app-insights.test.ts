@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toolError } from '#/lib/spans/conversation'
-import { applyExceptionRows, normalizeAiRow } from './app-insights'
+import { applyExceptionRows, createAppInsightsProvider, normalizeAiRow } from './app-insights'
 
 // Hand-built to the Azure Monitor row shape (no local Azure to capture from).
 const CHAT_ROW = {
@@ -107,5 +107,35 @@ describe('execute_tool error surfacing (App Insights)', () => {
       message: 'Error executing tool crash: intentional MCP tool failure',
       stack: 'Traceback (most recent call last):\n  ...\n',
     })
+  })
+})
+
+describe('listTraces pushes filters into the KQL before top', () => {
+  const provider = (queries: string[]) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: { body?: string }) => {
+        queries.push(JSON.parse(String(init?.body)).query)
+        return { ok: true, json: async () => ({ tables: [{ name: 'PrimaryResult', columns: [], rows: [] }] }) }
+      }),
+    )
+    return createAppInsightsProvider({ appId: 'app', apiKey: 'k' })
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('triggerTypes → | where root_trigger_type in before | top', async () => {
+    const queries: string[] = []
+    await provider(queries).listTraces?.({ triggerTypes: ['scheduled', 'event', 'webhook'], limit: 500 })
+    const q = queries.find((s) => s.includes('root_trigger_type in (')) ?? ''
+    expect(q).not.toBe('')
+    expect(q.indexOf('root_trigger_type in (')).toBeLessThan(q.indexOf('| top'))
+  })
+
+  it('serviceName → | where cloud_RoleName before summarize', async () => {
+    const queries: string[] = []
+    await provider(queries).listTraces?.({ serviceName: 'svc-x', limit: 50 })
+    const q = queries.find((s) => s.includes('cloud_RoleName == "svc-x"')) ?? ''
+    expect(q).not.toBe('')
+    expect(q.indexOf('cloud_RoleName == "svc-x"')).toBeLessThan(q.indexOf('summarize'))
   })
 })

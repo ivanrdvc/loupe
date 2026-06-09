@@ -1,6 +1,7 @@
 import type { TraceCategory, TraceSummary } from '#/lib/telemetry'
+import { FIRE_TRIGGER_TYPES } from '#/lib/telemetry/trace-category'
 
-const FIRE_CATEGORIES: ReadonlySet<TraceCategory> = new Set(['scheduled', 'event', 'webhook'])
+const FIRE_CATEGORIES: ReadonlySet<TraceCategory> = new Set(FIRE_TRIGGER_TYPES)
 
 type IdentitySource = 'task.id' | 'cloud-semconv' | 'derived'
 

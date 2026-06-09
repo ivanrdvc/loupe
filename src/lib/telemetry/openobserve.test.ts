@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { spanHasError } from '#/features/inspect/logic/predicates'
 import { toolError } from '#/lib/spans/conversation'
 import raw from './__fixtures__/oo-raw-hits.json'
-import { normalizeOpenObserveHit } from './openobserve'
+import { createOpenObserveProvider, normalizeOpenObserveHit } from './openobserve'
 
 // Real recorded OO hits → Span, pinning the OO-specific extraction seam.
 describe('normalizeOpenObserveHit', () => {
@@ -108,5 +108,39 @@ describe('raised execute_tool span surfaces as an error end-to-end', () => {
     const s = normalizeOpenObserveHit(noEvents)
     expect(s.hasError).toBe(true)
     expect(s.errorMessage).toBe("ToolExecutionException('Error executing tool crash: intentional MCP tool failure')")
+  })
+})
+
+describe('listTraces pushes filters into the query before LIMIT', () => {
+  const cfg = { baseUrl: 'http://oo', org: 'o', stream: 's', user: 'u', password: 'p' }
+  const provider = (cap: { sql?: string }) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: string }) => {
+        if (String(url).includes('/schema')) {
+          return { ok: true, json: async () => ({ schema: [{ name: 'session.trigger_type' }] }) }
+        }
+        cap.sql = JSON.parse(String(init?.body)).query.sql
+        return { ok: true, json: async () => ({ hits: [] }) }
+      }),
+    )
+    return createOpenObserveProvider(cfg)
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('triggerTypes → HAVING ... IN before LIMIT', async () => {
+    const cap: { sql?: string } = {}
+    await provider(cap).listTraces?.({ triggerTypes: ['scheduled', 'event', 'webhook'], limit: 500 })
+    const sql = cap.sql ?? ''
+    expect(sql).toMatch(/HAVING[\s\S]*IN \('scheduled', 'event', 'webhook'\)/)
+    expect(sql.indexOf('HAVING')).toBeLessThan(sql.lastIndexOf('LIMIT'))
+  })
+
+  it('serviceName → WHERE before GROUP BY', async () => {
+    const cap: { sql?: string } = {}
+    await provider(cap).listTraces?.({ serviceName: 'svc-x', limit: 50 })
+    const sql = cap.sql ?? ''
+    expect(sql).toContain("service_name = 'svc-x'")
+    expect(sql.indexOf("service_name = 'svc-x'")).toBeLessThan(sql.indexOf('GROUP BY'))
   })
 })

@@ -235,6 +235,20 @@ const TRACES: TraceSummary[] = [
     serviceName: 'weather-svc',
     category: 'chat',
   },
+  {
+    id: 'tr-task-nightly',
+    startedAtMs: 1_700_000_000_000,
+    durationMs: 250,
+    spanCount: 1,
+    agent: 'ReportBot',
+    serviceName: 'report-svc',
+    category: 'scheduled',
+    taskId: 'nightly-report',
+    taskName: 'Nightly Report',
+    taskKind: 'cron',
+    taskSchedule: '0 0 * * *',
+    hasError: false,
+  },
 ]
 
 const SPAN_SUMMARIES: SpanSummary[] = [
@@ -383,8 +397,14 @@ export function createFixturesProvider(): FixturesProvider {
     async getSession(sessionId: string): Promise<SessionFetch> {
       return SESSIONS.find((s) => s.summary.sessionId === sessionId)?.fetch ?? null
     },
-    async listTraces() {
-      return TRACES
+    async listTraces(opts) {
+      const triggers = opts?.triggerTypes as readonly string[] | undefined
+      return TRACES.filter((t) => {
+        if (triggers?.length && !triggers.includes(t.category ?? '')) return false
+        if (opts?.serviceName && t.serviceName !== opts.serviceName) return false
+        if (opts?.agentName && !(t.agent ?? '').startsWith(opts.agentName)) return false
+        return true
+      })
     },
     async listSpans() {
       return SPAN_SUMMARIES
