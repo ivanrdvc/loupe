@@ -56,6 +56,7 @@ from agent_framework import (  # noqa: E402
 from agent_framework.devui import serve  # noqa: E402
 from agent_framework.observability import configure_otel_providers, get_tracer  # noqa: E402
 from agent_framework.openai import OpenAIChatClient  # noqa: E402
+from opentelemetry import context as otel_context  # noqa: E402
 
 configure_otel_providers(enable_sensitive_data=True)
 
@@ -187,24 +188,104 @@ weather_subagent = Agent(
 _pending_tasks: dict[str, asyncio.Task] = {}
 
 
+# task.id is the scheduling identity (what fires) — stable per task so repeated
+# fires group into one /tasks row; each fire is still its own trace.
+def _slug(name: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")[:32] or "task"
+
+
+async def _fire_run(span_name: str, prompt: str, attrs: dict[str, str], delay_seconds: int) -> None:
+    await asyncio.sleep(delay_seconds)
+    # Detach the firing request's context so this is a new root trace, not a
+    # child of the chat that scheduled it — otherwise the trigger sits on a
+    # non-root span and loupe classifies the trace as chat, not a fire.
+    token = otel_context.attach(otel_context.Context())
+    try:
+        with get_tracer().start_as_current_span(span_name) as span:
+            for k, v in attrs.items():
+                span.set_attribute(k, v)
+            await main_agent.run(prompt)
+    finally:
+        otel_context.detach(token)
+
+
+def _enqueue(span_name: str, prompt: str, attrs: dict[str, str], delay_seconds: int) -> None:
+    run_id = uuid.uuid4().hex[:8]
+    _pending_tasks[run_id] = asyncio.create_task(_fire_run(span_name, prompt, attrs, delay_seconds))
+
+
 @tool(approval_mode="never_require")
 async def schedule_task(
     prompt: Annotated[str, "Prompt the agent will run later"],
-    delay_seconds: Annotated[int, "Seconds to wait before firing"],
+    delay_seconds: Annotated[int, "Seconds to wait before firing"] = 0,
+    name: Annotated[str, "Human label for the scheduled task"] = "Scheduled run",
+    kind: Annotated[str, "Schedule kind: 'cron' (recurring) or 'one_shot'"] = "cron",
+    schedule: Annotated[str, "Cron expression (cron) or ISO timestamp (one_shot); blank = default"] = "",
 ) -> str:
-    """Queue a prompt to run against this agent after a delay. Returns scheduled task id."""
-    task_id = uuid.uuid4().hex[:8]
+    """Fire a scheduled agent run, tagged session.trigger_type=scheduled. kind selects cron vs one_shot."""
+    from datetime import datetime, timezone
 
-    async def fire() -> None:
-        await asyncio.sleep(delay_seconds)
-        with get_tracer().start_as_current_span("scheduled_run") as span:
-            span.set_attribute("session.trigger_type", "scheduled")
-            span.set_attribute("task.id", task_id)
-            span.set_attribute("task.kind", "one_shot")
-            await main_agent.run(prompt)
+    k = "one_shot" if kind == "one_shot" else "cron"
+    sched = schedule or ("0 9 * * *" if k == "cron" else datetime.now(timezone.utc).isoformat())
+    _enqueue(
+        "scheduled_run",
+        prompt,
+        {
+            "session.trigger_type": "scheduled",
+            "task.id": _slug(name),
+            "task.kind": k,
+            "task.schedule": sched,
+            "task.name": name,
+        },
+        delay_seconds,
+    )
+    return f"scheduled '{name}' ({k})"
 
-    _pending_tasks[task_id] = asyncio.create_task(fire())
-    return f"scheduled {task_id} (fires in {delay_seconds}s)"
+
+@tool(approval_mode="never_require")
+async def emit_event_run(
+    prompt: Annotated[str, "Prompt the agent will run for this event"],
+    name: Annotated[str, "Event name, e.g. order.created"] = "order.created",
+    source: Annotated[str, "Event source, e.g. queue or topic"] = "sandbox.events",
+    delay_seconds: Annotated[int, "Seconds to wait before firing"] = 0,
+) -> str:
+    """Fire an event-triggered agent run, tagged session.trigger_type=event."""
+    _enqueue(
+        "event_run",
+        prompt,
+        {
+            "session.trigger_type": "event",
+            "task.id": _slug(name),
+            "task.kind": "event",
+            "task.name": name,
+            "task.source": source,
+        },
+        delay_seconds,
+    )
+    return f"event '{name}' fired"
+
+
+@tool(approval_mode="never_require")
+async def emit_webhook_run(
+    prompt: Annotated[str, "Prompt the agent will run for this webhook"],
+    route: Annotated[str, "Webhook route, e.g. /hooks/github"] = "/hooks/github",
+    source: Annotated[str, "Webhook URL or origin"] = "https://example.com/hooks/github",
+    delay_seconds: Annotated[int, "Seconds to wait before firing"] = 0,
+) -> str:
+    """Fire a webhook-triggered agent run, tagged session.trigger_type=webhook."""
+    _enqueue(
+        "webhook_run",
+        prompt,
+        {
+            "session.trigger_type": "webhook",
+            "task.id": _slug(route),
+            "task.kind": "webhook",
+            "task.name": route,
+            "task.source": source,
+        },
+        delay_seconds,
+    )
+    return f"webhook '{route}' fired"
 
 
 mcp_tool = MCPStdioTool(
@@ -421,6 +502,8 @@ main_agent = Agent(
     tools=[
         *FUNCTION_TOOLS,
         schedule_task,
+        emit_event_run,
+        emit_webhook_run,
         weather_subagent.as_tool(),
         mcp_tool,
         load_tools,
