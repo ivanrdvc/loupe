@@ -1,4 +1,4 @@
-import { AiBrain01Icon } from '@hugeicons/core-free-icons'
+import { AiBrain01Icon, FileSearchIcon, NeuralNetworkIcon } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
 import type { Span } from '#/lib/spans'
 import { toolTone } from '#/lib/tools'
@@ -18,6 +18,8 @@ const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: IconSvgElement; tag
   chat: { tagLabel: 'llm', tagIcon: AiBrain01Icon, tagColor: 'text-violet-500 dark:text-violet-400' },
   tool: { tagLabel: 'tool', tagIcon: toolTone('tool').icon, tagColor: toolTone('tool').text },
   mcp: { tagLabel: 'mcp', tagIcon: toolTone('mcp').icon, tagColor: toolTone('mcp').text },
+  retrieval: { tagLabel: 'retrieval', tagIcon: FileSearchIcon, tagColor: 'text-emerald-500 dark:text-emerald-400' },
+  embedding: { tagLabel: 'embedding', tagIcon: NeuralNetworkIcon, tagColor: 'text-cyan-500 dark:text-cyan-400' },
 }
 
 const OPERATION_LABELS: Record<string, string> = {

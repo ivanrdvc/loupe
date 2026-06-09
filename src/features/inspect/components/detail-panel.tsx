@@ -15,7 +15,7 @@ import { fetchSessionLogs } from '#/features/inspect/server/logs'
 import { formatCost } from '#/lib/format'
 import { type JsonValue, parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
-import type { Span } from '#/lib/spans'
+import type { RetrievalDocument, Span } from '#/lib/spans'
 import {
   asMessages,
   type ChatMessage,
@@ -120,6 +120,9 @@ export function DetailPanel({
         {span.costUsd ? <Stat label="Cost" value={formatCost(span.costUsd)} /> : null}
         {span.model && <Stat label="Model" value={span.model} />}
         {span.provider && <Stat label="Provider" value={span.provider} />}
+        {span.embeddingDimensions != null && <Stat label="Dimensions" value={fmtNum(span.embeddingDimensions)} />}
+        {span.dataSourceId && <Stat label="Data source" value={span.dataSourceId} />}
+        {span.retrievalDocuments && <Stat label="Documents" value={fmtNum(span.retrievalDocuments.length)} />}
         {span.agentId && <Stat label="Agent id" value={span.agentId} />}
         {span.finishReasons && span.finishReasons.length > 0 && (
           <Stat label="Finish" value={span.finishReasons.join(', ')} />
@@ -129,6 +132,10 @@ export function DetailPanel({
       </dl>
 
       {isChatSpan(span) && <SpanContextBreakdown span={span} />}
+
+      {(span.retrievalQuery || span.retrievalDocuments) && (
+        <RetrievalBlock query={span.retrievalQuery} docs={span.retrievalDocuments} />
+      )}
 
       {span.agentDescription && <RoleCard kind="agent" label="description" content={span.agentDescription} />}
       {systemPrompt ? (
@@ -420,6 +427,39 @@ function MessageCard({
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function RetrievalBlock({ query, docs }: { query?: string; docs?: RetrievalDocument[] }) {
+  const ranked = docs ? [...docs].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)) : []
+  return (
+    <section className="flex min-w-0 flex-col gap-2">
+      {query && (
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Query</div>
+          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{query}</pre>
+        </div>
+      )}
+      {ranked.length > 0 && (
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Retrieved · {ranked.length}
+          </div>
+          <ul className="divide-y divide-border rounded-md border border-border">
+            {ranked.map((doc) => (
+              <li key={doc.id} className="flex items-center gap-2 px-2.5 py-1.5 text-[11px]">
+                <span className="min-w-0 flex-1 truncate font-mono text-foreground" title={doc.id}>
+                  {doc.id}
+                </span>
+                {doc.score != null && (
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{doc.score.toFixed(3)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   )
 }
 

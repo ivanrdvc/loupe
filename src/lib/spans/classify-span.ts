@@ -1,6 +1,6 @@
 import { type JsonValue, parseJson } from '#/lib/json'
 import { pickCanonical, pickCanonicalNumber } from '#/lib/telemetry/conventions'
-import type { Operation, TruncatableField, TruncatedAttrSet } from '.'
+import type { Operation, RetrievalDocument, TruncatableField, TruncatedAttrSet } from '.'
 import { estimateCostUsd } from './llm-pricing'
 
 // Backends (e.g. App Insights customDimensions) clamp string values around 8 KB.
@@ -67,6 +67,13 @@ export interface Classification {
   // when the producer stamped it; consumer-side normaliser fills the rest.
   taskId?: string
   taskParentId?: string
+  // RAG recall fields (gen_ai.data_source.id / gen_ai.retrieval.* /
+  // gen_ai.embeddings.dimension.count). Embedding model/tokens reuse the
+  // generic model/inputTokens fields above.
+  dataSourceId?: string
+  retrievalQuery?: string
+  retrievalDocuments?: RetrievalDocument[]
+  embeddingDimensions?: number
   truncatedAttrs?: TruncatedAttrSet
 }
 
@@ -252,16 +259,35 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     if (fingerprint) c.systemFingerprint = fingerprint
   }
 
+  if (operation === 'retrieval') {
+    const dataSourceId = pickString(attrs, ['gen_ai.data_source.id', 'gen_ai_data_source_id'])
+    if (dataSourceId) c.dataSourceId = dataSourceId
+    const query = pickString(attrs, ['gen_ai.retrieval.query.text', 'gen_ai_retrieval_query_text'])
+    if (query) c.retrievalQuery = query
+    const docs = parseRetrievalDocuments(attrs['gen_ai.retrieval.documents'] ?? attrs.gen_ai_retrieval_documents)
+    if (docs) c.retrievalDocuments = docs
+  }
+
+  if (operation === 'embedding') {
+    const dims = pickNumber(attrs, ['gen_ai.embeddings.dimension.count', 'gen_ai_embeddings_dimension_count'])
+    if (dims !== undefined) c.embeddingDimensions = dims
+  }
+
   // Fallback when the provider didn't enrich (App Insights & friends).
   // OpenObserve does this at ingest; @pydantic/genai-prices does it here.
-  c.costUsd ??= estimateCostUsd({
-    model: c.model,
-    inputTokens: c.inputTokens,
-    outputTokens: c.outputTokens,
-    cachedInputTokens: c.cachedTokens,
-    provider: c.provider,
-    spanStartMs,
-  })
+  // Not for embedding/retrieval: their spend is a separate line and an
+  // estimated cost here would fold into subtree cost aggregates (tree.tsx),
+  // distorting the LLM totals — see docs/explanation/02-spec.md.
+  if (operation !== 'embedding' && operation !== 'retrieval') {
+    c.costUsd ??= estimateCostUsd({
+      model: c.model,
+      inputTokens: c.inputTokens,
+      outputTokens: c.outputTokens,
+      cachedInputTokens: c.cachedTokens,
+      provider: c.provider,
+      spanStartMs,
+    })
+  }
 
   return c
 }
@@ -299,6 +325,24 @@ export function parseSystemInstructions(raw: string | undefined): string | undef
   return joined || undefined
 }
 
+// `gen_ai.retrieval.documents` per OTel: a list of `{id, score, ...}`. Arrives
+// as a real array (push/in-memory) or a JSON string (OO/AI flatten arrays).
+// We keep only the spec-guaranteed id + score; extras stay in rawAttributes.
+export function parseRetrievalDocuments(raw: unknown): RetrievalDocument[] | undefined {
+  const arr = typeof raw === 'string' ? parseJson(raw) : raw
+  if (!Array.isArray(arr)) return undefined
+  const docs: RetrievalDocument[] = []
+  for (const item of arr) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const o = item as Record<string, unknown>
+    const id = typeof o.id === 'string' ? o.id : typeof o.id === 'number' ? String(o.id) : undefined
+    if (id === undefined) continue
+    const score = typeof o.score === 'number' && Number.isFinite(o.score) ? o.score : undefined
+    docs.push(score === undefined ? { id } : { id, score })
+  }
+  return docs.length ? docs : undefined
+}
+
 function pickOperation(name: string, attrs: Record<string, unknown>): Operation {
   // OpenInference span kind is an explicit producer signal; trust it over inference.
   const oiKind = pickString(attrs, ['openinference.span.kind', 'openinference_span_kind'])
@@ -313,9 +357,13 @@ function pickOperation(name: string, attrs: Record<string, unknown>): Operation 
   if (op === 'chat' || op === 'text_completion' || op === 'generate_content') return 'chat'
   if (op === 'invoke_agent' || op === 'create_agent') return 'invoke_agent'
   if (op === 'execute_tool') return 'tool'
+  if (op === 'retrieval') return 'retrieval'
+  if (op === 'embeddings') return 'embedding'
   if (name.startsWith('chat ')) return 'chat'
   if (name.startsWith('invoke_agent ')) return 'invoke_agent'
   if (name.startsWith('execute_tool ')) return 'tool'
+  if (name.startsWith('retrieval ')) return 'retrieval'
+  if (name.startsWith('embeddings ')) return 'embedding'
   return 'http'
 }
 

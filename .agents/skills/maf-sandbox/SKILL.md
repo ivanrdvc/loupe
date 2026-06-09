@@ -27,6 +27,7 @@ The agent (`sandbox-agent`) is wired to exercise these telemetry categories — 
 - **Single tool call** — `add`, `multiply`, `random_number`, `echo`, `lookup_user`
 - **Parallel tool calls** — ask for the weather in several cities at once, or multiple math ops
 - **Subagent handoff** — anything weather-flavored gets routed to `weather-specialist` (nested `invoke_agent` span)
+- **RAG / memory recall** — `memory_search(query)` emits a real `retrieval` span (`gen_ai.operation.name=retrieval`) wrapping a nested `embeddings` span (Phoenix RETRIEVER ⊃ EMBEDDING shape); store + vectors mocked, OTel spans real
 - **MCP tools** — call `mock_mcp.flip_coin`, `roll_dice`, `current_time`, `translate`, `search_docs`, `crash`, etc. (12 stubs, separate stdio subprocess)
 - **Scheduled run** — `schedule_task(prompt, delay_seconds)` enqueues a fresh agent run tagged `session.trigger_type=scheduled`; produces a separate trace
 - **Errors** — `fail_sometimes(probability)` raises mid-tool; produces error spans

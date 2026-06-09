@@ -35,7 +35,11 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 | AG-UI thread id | `ag_ui.thread_id` | string | AG-UI | read (alias for conversation.id) |
 | User id | `user.id` | string | OTel | read |
 | Utility purpose tag | `gen_ai.operation.purpose` | e.g. `title_generation` | proposed in OTel | read |
-| Operation kind | `gen_ai.operation.name` | `chat` \| `embeddings` \| (future: `retrieve`, `rerank`) | OTel GenAI semconv | read (`chat` today; `embeddings` when first RAG producer arrives) |
+| Operation kind | `gen_ai.operation.name` | `chat` \| `embeddings` \| `retrieval` \| `invoke_agent` \| `execute_tool` (future: `rerank`) | OTel GenAI semconv | read. For `retrieval`/`embeddings` loupe reads **only** `gen_ai.operation.name` — not `openinference.span.kind` |
+| Data source (RAG) | `gen_ai.data_source.id` | string | OTel GenAI semconv | read (retrieval spans) |
+| Retrieval query | `gen_ai.retrieval.query.text` | string (opt-in) | OTel GenAI semconv | read (retrieval spans) |
+| Retrieved docs | `gen_ai.retrieval.documents` | list of `{id, score}` | OTel GenAI semconv | read (retrieval spans); only spec-guaranteed `id`+`score` kept |
+| Embedding dims | `gen_ai.embeddings.dimension.count` | int | OTel GenAI semconv | read (embedding spans) |
 | Run-graph node id | `gen_ai.task.id` | string (often the span_id) | external convention | read; stamped consumer-side when absent |
 | Run-graph parent id | `gen_ai.task.parent.id` | string (null on top-level) | external convention | read; stamped consumer-side when absent |
 | User-supplied tags | `tag.tags` | list of strings | external convention | not yet read; for filter chips / faceted grouping |
@@ -44,6 +48,8 @@ The orchestrator/subagent/utility distinction is **derived**, not stored:
 - `subagent` ⇔ `gen_ai.task.parent.id` is set
 - `utility` ⇔ `gen_ai.operation.purpose` is set
 - `orchestrator` ⇔ neither
+
+**RAG recall (`retrieval` + `embedding`).** Memory/RAG recall decomposes into two standard ops, kept split (matching OpenInference/OTel): a `retrieval` span (the vector-search boundary) with the `embedding` span typically nested beneath it (Phoenix's RETRIEVER ⊃ EMBEDDING shape). Embedding `input_tokens` are **never** folded into the chat/LLM token or cost rollup — that rollup is keyed on `gen_ai.operation.name = chat`. There is no standard "retrieval result count" attribute; loupe derives it from `gen_ai.retrieval.documents` length rather than reading `gen_ai.request.top_k` (which is the LLM sampling parameter, not a doc count).
 
 Aliases the normaliser accepts on ingest: `graph.node.id` / `graph.node.parent_id` map to `gen_ai.task.id` / `gen_ai.task.parent.id`.
 

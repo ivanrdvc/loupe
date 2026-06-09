@@ -92,6 +92,66 @@ describe('classifySpan — operation classification', () => {
     const c = classifySpan('whatever', { 'gen_ai.operation.name': 'chat' })
     expect(c.operation).toBe('chat')
   })
+
+  it('classifies retrieval/embeddings from gen_ai.operation.name', () => {
+    expect(classifySpan('x', { 'gen_ai.operation.name': 'retrieval' }).operation).toBe('retrieval')
+    expect(classifySpan('x', { 'gen_ai.operation.name': 'embeddings' }).operation).toBe('embedding')
+  })
+
+  it('classifies retrieval/embeddings from the span-name prefix', () => {
+    expect(classifySpan('retrieval memory-collection', {}).operation).toBe('retrieval')
+    expect(classifySpan('embeddings text-embedding-3-small', {}).operation).toBe('embedding')
+  })
+})
+
+describe('classifySpan — RAG recall fields', () => {
+  it('parses retrieval query, data source, and documents (id + score)', () => {
+    const c = classifySpan('retrieval mem', {
+      'gen_ai.operation.name': 'retrieval',
+      'gen_ai.data_source.id': 'mem',
+      'gen_ai.retrieval.query.text': 'what is the capital of France?',
+      'gen_ai.retrieval.documents': JSON.stringify([
+        { id: 'doc_1', score: 0.95, extra: 'ignored' },
+        { id: 'doc_2', score: 0.4 },
+      ]),
+    })
+    expect(c.operation).toBe('retrieval')
+    expect(c.dataSourceId).toBe('mem')
+    expect(c.retrievalQuery).toBe('what is the capital of France?')
+    expect(c.retrievalDocuments).toEqual([
+      { id: 'doc_1', score: 0.95 },
+      { id: 'doc_2', score: 0.4 },
+    ])
+  })
+
+  it('accepts retrieval.documents as a real array (push/in-memory path)', () => {
+    const c = classifySpan('retrieval mem', {
+      'gen_ai.operation.name': 'retrieval',
+      'gen_ai.retrieval.documents': [{ id: 'a' }],
+    })
+    expect(c.retrievalDocuments).toEqual([{ id: 'a' }])
+  })
+
+  it('reads embedding dimension count', () => {
+    const c = classifySpan('embeddings text-embedding-3-small', {
+      'gen_ai.operation.name': 'embeddings',
+      'gen_ai.embeddings.dimension.count': 1536,
+      'gen_ai.usage.input_tokens': 8,
+    })
+    expect(c.operation).toBe('embedding')
+    expect(c.embeddingDimensions).toBe(1536)
+    expect(c.inputTokens).toBe(8)
+  })
+
+  it('does not estimate cost for embedding spans (would leak into subtree rollups)', () => {
+    const c = classifySpan('embeddings text-embedding-3-small', {
+      'gen_ai.operation.name': 'embeddings',
+      'gen_ai.request.model': 'text-embedding-3-small',
+      'gen_ai.provider.name': 'openai',
+      'gen_ai.usage.input_tokens': 8,
+    })
+    expect(c.costUsd).toBeUndefined()
+  })
 })
 
 // Oracle = docs/explanation/02-spec.md, not the implementation.

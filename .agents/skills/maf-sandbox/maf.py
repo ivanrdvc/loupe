@@ -15,6 +15,7 @@
 """MAF sandbox: main agent + weather subagent + MCP + scheduled tasks. Serves OpenAI-compat endpoints via DevUI; emits OTel to local OpenObserve and (if APPLICATIONINSIGHTS_CONNECTION_STRING is set) App Insights. Run: uv run maf.py."""
 
 import asyncio
+import json
 import os
 import random
 import uuid
@@ -141,7 +142,39 @@ def lookup_user(user_id: Annotated[str, "user id"]) -> dict:
     return {"id": user_id, "name": f"User {user_id}", "active": random.choice([True, False])}
 
 
-FUNCTION_TOOLS = [get_weather, get_forecast, add, multiply, random_number, echo, slow_task, fail_sometimes, list_items, lookup_user]
+@tool(approval_mode="never_require")
+def memory_search(query: Annotated[str, "what to recall from memory"]) -> dict:
+    """RAG/memory recall: embed the query, vector-search a memory store, return ranked hits.
+
+    Emits a conventional `retrieval` span (gen_ai.operation.name=retrieval) with a nested
+    `embeddings` span — the OTel/Phoenix RETRIEVER ⊃ EMBEDDING shape. The store and the
+    embedding vectors are mocked; the OTel spans are real.
+    """
+    from opentelemetry.trace import SpanKind  # noqa: PLC0415
+
+    data_source, model, dims = "memory-store", "text-embedding-3-small", 1536
+    tracer = get_tracer()
+    with tracer.start_as_current_span(f"retrieval {data_source}", kind=SpanKind.CLIENT) as r:
+        r.set_attribute("gen_ai.operation.name", "retrieval")
+        r.set_attribute("gen_ai.data_source.id", data_source)
+        r.set_attribute("gen_ai.retrieval.query.text", query)
+        with tracer.start_as_current_span(f"embeddings {model}", kind=SpanKind.CLIENT) as e:
+            e.set_attribute("gen_ai.operation.name", "embeddings")
+            e.set_attribute("gen_ai.provider.name", "openai")
+            e.set_attribute("gen_ai.request.model", model)
+            e.set_attribute("gen_ai.embeddings.dimension.count", dims)
+            e.set_attribute("gen_ai.usage.input_tokens", max(1, len(query) // 4))
+        docs = sorted(
+            ({"id": f"mem_{uuid.uuid4().hex[:6]}", "score": round(random.uniform(0.55, 0.98), 3)}
+             for _ in range(random.randint(2, 5))),
+            key=lambda d: d["score"],
+            reverse=True,
+        )
+        r.set_attribute("gen_ai.retrieval.documents", json.dumps(docs))
+    return {"query": query, "hits": docs}
+
+
+FUNCTION_TOOLS = [get_weather, get_forecast, add, multiply, random_number, echo, slow_task, fail_sometimes, list_items, lookup_user, memory_search]
 
 weather_subagent = Agent(
     client=OpenAIChatClient(model=MODEL),
