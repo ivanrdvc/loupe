@@ -17,6 +17,10 @@ export interface ToolError {
 // (= the agent_call event) when an event originates from inside a sub-
 // agent. The renderer uses it to nest sub-agent events under the parent
 // agent_call card.
+//
+// `orchestratorSpanId` = the event's outermost `invoke_agent` ancestor (the
+// top-level run); the renderer groups top-level events into per-orchestrator
+// turns by it. Tree-derived, no payload heuristics.
 export type ConversationEvent =
   | {
       kind: 'message'
@@ -29,6 +33,7 @@ export type ConversationEvent =
       // building React keys need this to disambiguate.
       seq: number
       parentAgentSpanId?: string
+      orchestratorSpanId?: string
       // Set on the assistant message produced by this turn's chat span — the
       // input/output token counts of the LLM call. Not set on historical
       // messages echoed back through later turns' `llm_input`.
@@ -43,6 +48,7 @@ export type ConversationEvent =
       callId: string
       spanId: string
       parentAgentSpanId?: string
+      orchestratorSpanId?: string
     }
   | {
       kind: 'tool_result'
@@ -53,6 +59,7 @@ export type ConversationEvent =
       error?: ToolError
       spanId: string
       parentAgentSpanId?: string
+      orchestratorSpanId?: string
     }
   | {
       kind: 'agent_call'
@@ -62,6 +69,7 @@ export type ConversationEvent =
       result: JsonValue
       spanId: string
       parentAgentSpanId?: string
+      orchestratorSpanId?: string
     }
 
 // Build an ordered list of conversation events from spans. Pure — no React,
@@ -94,21 +102,31 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
     }
   }
 
-  // For each span, find its enclosing agent_call (if any) by walking up parents
-  // to the first execute_tool ancestor that wraps an invoke_agent. The result
-  // is the spanId of that execute_tool (= agent_call.spanId).
+  // One ancestor walk per span yields two facts: parentAgentSpanId (the first
+  // execute_tool ancestor wrapping an invoke_agent — the sub-agent card to nest
+  // under) and orchestratorSpanId (the outermost invoke_agent ancestor — the
+  // top-level run to group under).
   const parentAgentBySpanId = new Map<string, string>()
+  const orchestratorBySpanId = new Map<string, string>()
   for (const span of spans) {
     let curr: Span | undefined = span
+    let nearestAgentTool: string | undefined
+    let outermostAgent: string | undefined
     while (curr?.parentId) {
       const parent = byId.get(curr.parentId)
       if (!parent) break
-      if (parent.operation === 'tool' && agentWrappedCallIds.has(parent.toolCallId ?? '')) {
-        parentAgentBySpanId.set(span.id, parent.id)
-        break
+      if (parent.operation === 'invoke_agent') outermostAgent = parent.id
+      if (
+        nearestAgentTool === undefined &&
+        parent.operation === 'tool' &&
+        agentWrappedCallIds.has(parent.toolCallId ?? '')
+      ) {
+        nearestAgentTool = parent.id
       }
       curr = parent
     }
+    if (nearestAgentTool) parentAgentBySpanId.set(span.id, nearestAgentTool)
+    if (outermostAgent) orchestratorBySpanId.set(span.id, outermostAgent)
   }
 
   const events: ConversationEvent[] = []
@@ -159,6 +177,12 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
     if (span.operation === 'tool') {
       emitTool(span, wrappedAgentByToolId.get(span.id), events, seen, parentAgentBySpanId.get(span.id))
     }
+  }
+
+  for (const e of events) {
+    if (!e.spanId) continue
+    const orch = orchestratorBySpanId.get(e.spanId)
+    if (orch) e.orchestratorSpanId = orch
   }
 
   events.sort((a, b) => a.timestamp - b.timestamp)

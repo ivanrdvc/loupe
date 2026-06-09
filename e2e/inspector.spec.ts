@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { CHAT, RAW, SINGLE_TRACE } from './fixtures'
+import { AGENT_AS_TOOL, CHAT, RAW, SINGLE_TRACE } from './fixtures'
 
 test('deep-links into the spans view and hydrates the span tree', async ({ page }) => {
   await page.goto(`/sessions/${CHAT.sessionId}?view=spans&span=${CHAT.chatSpanId}`)
@@ -28,6 +28,18 @@ test('conversation view reconstructs the messages from the spans', async ({ page
   await expect(page.getByRole('tab', { name: 'Conversation' })).toBeVisible()
   await expect(page.getByText(CHAT.userMessage)).toBeVisible()
   await expect(page.getByText(CHAT.assistantSnippet, { exact: false })).toBeVisible()
+})
+
+test('conversation view nests the agent-as-tool under the orchestrator turn', async ({ page }) => {
+  await page.goto(`/sessions/${AGENT_AS_TOOL.sessionId}`)
+
+  await expect(page.getByText(AGENT_AS_TOOL.userMessage)).toBeVisible()
+  // The data tool and the sub-agent card render indented under the turn (border-l),
+  // while the user message stays at the base — the fix for the flat hierarchy.
+  const turnBody = page.locator('div.border-l-2.pl-3')
+  await expect(turnBody.getByText(AGENT_AS_TOOL.dataTool, { exact: false })).toBeVisible()
+  await expect(turnBody.getByText(AGENT_AS_TOOL.subAgent, { exact: false })).toBeVisible()
+  await expect(turnBody).not.toContainText(AGENT_AS_TOOL.userMessage)
 })
 
 test('spans-view inspector panel exposes its tabs and raw attributes', async ({ page }) => {

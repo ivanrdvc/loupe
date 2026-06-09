@@ -19,6 +19,14 @@ export const SINGLE_TRACE = {
   agent: 'SoloBot',
 } as const
 
+export const AGENT_AS_TOOL = {
+  sessionId: 'e2e-session-agent-tool',
+  orchestrator: 'Orchestrator',
+  subAgent: 'render_agent',
+  dataTool: 'list_records',
+  userMessage: 'List all records and render a summary report.',
+} as const
+
 export const RAW = {
   sessionId: 'e2e-session-raw',
   rootSpanId: 'sp-raw-agent',

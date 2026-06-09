@@ -6,7 +6,7 @@ import { Markdown } from '#/components/markdown'
 import { ScaffoldGroup } from '#/components/scaffold-group'
 import { Badge } from '#/components/ui/badge'
 import type { ConversationEvent, InspectorView } from '#/features/inspect'
-import { groupScaffolding } from '#/lib/agui-scaffolding'
+import { groupScaffolding, type RenderItem } from '#/lib/agui-scaffolding'
 import { formatTime, formatTokens, metricTone, tokensFromChars } from '#/lib/format'
 import { prettyJson } from '#/lib/json'
 import { toolTone } from '#/lib/tools'
@@ -63,12 +63,40 @@ export function ConversationView({ view, onSelect }: ConversationViewProps) {
     if (spanId) onSelect(spanId)
   }
 
-  const items = useMemo(() => groupScaffolding(topLevel), [topLevel])
-  // Escape hatch for when the scaffolding detector misclassifies — render
-  // every message raw, no folding. The classifier is a content heuristic and
-  // will drift as CopilotKit changes its prompts.
+  const { turns, orchestratorCount, hasScaffolding } = useMemo(() => {
+    const order: (string | undefined)[] = []
+    const buckets = new Map<string | undefined, ConversationEvent[]>()
+    for (const e of topLevel) {
+      const key = e.orchestratorSpanId
+      let arr = buckets.get(key)
+      if (!arr) {
+        arr = []
+        buckets.set(key, arr)
+        order.push(key)
+      }
+      arr.push(e)
+    }
+    const nameFor = (id: string) => view.agentLabels.get(id) ?? view.byId.get(id)?.agentName ?? 'Agent'
+    let scaffolded = false
+    const built: ConvTurn[] = order.map((key, i) => {
+      const evs = buckets.get(key) ?? []
+      const body = evs.filter((e) => !isLeadMessage(e))
+      const scaffoldItems = groupScaffolding(body)
+      if (scaffoldItems.some((it) => it.kind === 'scaffold_group')) scaffolded = true
+      return {
+        key: key ?? `flat-${i}`,
+        orchestratorSpanId: key,
+        label: key ? nameFor(key) : undefined,
+        lead: evs.filter(isLeadMessage),
+        body,
+        scaffoldItems,
+      }
+    })
+    return { turns: built, orchestratorCount: order.filter((k) => k !== undefined).length, hasScaffolding: scaffolded }
+  }, [topLevel, view])
+
+  // Escape hatch when the scaffolding detector misclassifies: render every message raw.
   const [showAll, setShowAll] = useState(false)
-  const hasScaffolding = useMemo(() => items.some((i) => i.kind === 'scaffold_group'), [items])
 
   if (events.length === 0) {
     return (
@@ -92,22 +120,70 @@ export function ConversationView({ view, onSelect }: ConversationViewProps) {
         scrollClassName="overflow-y-auto"
         className={`flex min-h-full flex-col gap-3 px-3 ${hasScaffolding ? 'pt-12' : 'pt-3'} pb-16 sm:px-4`}
       >
-        {showAll
-          ? topLevel.map((event) => renderEvent(event, ctx))
-          : items.map((item) =>
-              item.kind === 'scaffold_group' ? (
-                <ScaffoldGroup
-                  key={`scaffold-${item.messages[0].spanId ?? item.messages[0].timestamp}-${item.messages[0].seq}`}
-                  messages={item.messages}
-                />
-              ) : (
-                renderEvent(item.event, ctx)
-              ),
-            )}
+        {turns.map((turn) => (
+          <TurnView key={turn.key} turn={turn} showHeader={orchestratorCount > 1} showAll={showAll} ctx={ctx} />
+        ))}
       </StickToBottom.Content>
       {hasScaffolding && <ShowAllToggle showAll={showAll} onToggle={() => setShowAll((v) => !v)} />}
       <ConversationScrollButton />
     </StickToBottom>
+  )
+}
+
+interface ConvTurn {
+  key: string
+  orchestratorSpanId: string | undefined
+  label: string | undefined
+  lead: ConversationEvent[]
+  body: ConversationEvent[]
+  scaffoldItems: RenderItem[]
+}
+
+const isLeadMessage = (e: ConversationEvent): boolean => e.kind === 'message' && e.role === 'user'
+
+// Header only when a session has >1 orchestrator; single/none renders without it.
+function TurnView({
+  turn,
+  showHeader,
+  showAll,
+  ctx,
+}: {
+  turn: ConvTurn
+  showHeader: boolean
+  showAll: boolean
+  ctx: EventContext
+}) {
+  const items = showAll ? turn.body.map((event): RenderItem => ({ kind: 'event', event })) : turn.scaffoldItems
+  return (
+    <div className="flex flex-col gap-3">
+      {turn.lead.map((event) => renderEvent(event, ctx))}
+      {turn.body.length > 0 &&
+        (turn.orchestratorSpanId ? (
+          <div className="flex flex-col gap-3 border-l-2 border-border/40 pl-3">
+            {showHeader && turn.label && (
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {turn.label}
+              </div>
+            )}
+            {renderItems(items, ctx)}
+          </div>
+        ) : (
+          renderItems(items, ctx)
+        ))}
+    </div>
+  )
+}
+
+function renderItems(items: RenderItem[], ctx: EventContext) {
+  return items.map((item) =>
+    item.kind === 'scaffold_group' ? (
+      <ScaffoldGroup
+        key={`scaffold-${item.messages[0].spanId ?? item.messages[0].timestamp}-${item.messages[0].seq}`}
+        messages={item.messages}
+      />
+    ) : (
+      renderEvent(item.event, ctx)
+    ),
   )
 }
 

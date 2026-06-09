@@ -143,6 +143,111 @@ const RAW_SPANS: Span[] = [
   }),
 ]
 
+// Agent-as-tool shape: an HTTP-invoked top-level orchestrator (Orchestrator) that
+// calls a data tool and a sub-agent (render_agent) wrapped in execute_tool. Drives
+// the conversation view's orchestrator-turn grouping + nested AgentCard.
+const AGENT_AS_TOOL_SPANS: Span[] = [
+  span({
+    id: 'aat-orch',
+    traceId: 'tr-aat',
+    operation: 'invoke_agent',
+    name: 'invoke_agent Orchestrator',
+    agentName: 'Orchestrator',
+    taskId: 'aat-orch',
+    startMs: 1_700_000_000_000,
+    endMs: 1_700_000_000_900,
+    sessionId: 'e2e-session-agent-tool',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'aat-chat1',
+    traceId: 'tr-aat',
+    parentId: 'aat-orch',
+    operation: 'chat',
+    name: 'chat gpt-5',
+    model: 'gpt-5',
+    startMs: 1_700_000_000_010,
+    endMs: 1_700_000_000_100,
+    inputTokens: 200,
+    outputTokens: 30,
+    llmInput: [
+      { role: 'system', content: 'You are an orchestrator.' },
+      { role: 'user', content: 'List all records and render a summary report.' },
+    ],
+    llmOutput: [
+      {
+        role: 'assistant',
+        parts: [
+          { type: 'tool_call', id: 'call_data', name: 'list_records', arguments: {} },
+          { type: 'tool_call', id: 'call_ui', name: 'render_agent', arguments: { view: 'report' } },
+        ],
+      },
+    ],
+    sessionId: 'e2e-session-agent-tool',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'aat-data',
+    traceId: 'tr-aat',
+    parentId: 'aat-orch',
+    operation: 'tool',
+    name: 'execute_tool list_records',
+    toolName: 'list_records',
+    toolCallId: 'call_data',
+    inputParams: '{}',
+    toolResult: '[{"id":1,"status":"active"}]',
+    startMs: 1_700_000_000_110,
+    endMs: 1_700_000_000_200,
+    sessionId: 'e2e-session-agent-tool',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'aat-uicall',
+    traceId: 'tr-aat',
+    parentId: 'aat-orch',
+    operation: 'tool',
+    name: 'execute_tool render_agent',
+    toolName: 'render_agent',
+    toolCallId: 'call_ui',
+    inputParams: '{"view":"report"}',
+    toolResult: '{"rendered":"Records Report"}',
+    startMs: 1_700_000_000_210,
+    endMs: 1_700_000_000_800,
+    sessionId: 'e2e-session-agent-tool',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'aat-ui',
+    traceId: 'tr-aat',
+    parentId: 'aat-uicall',
+    operation: 'invoke_agent',
+    name: 'invoke_agent render_agent',
+    agentName: 'render_agent',
+    taskId: 'aat-ui',
+    taskParentId: 'aat-orch',
+    startMs: 1_700_000_000_220,
+    endMs: 1_700_000_000_790,
+    sessionId: 'e2e-session-agent-tool',
+    sessionSource: 'attribute',
+  }),
+  span({
+    id: 'aat-chat2',
+    traceId: 'tr-aat',
+    parentId: 'aat-ui',
+    operation: 'chat',
+    name: 'chat gpt-5',
+    model: 'gpt-5',
+    finishReasons: ['stop'],
+    startMs: 1_700_000_000_230,
+    endMs: 1_700_000_000_780,
+    inputTokens: 120,
+    outputTokens: 20,
+    llmOutput: [{ role: 'assistant', content: 'Rendered the records report.' }],
+    sessionId: 'e2e-session-agent-tool',
+    sessionSource: 'attribute',
+  }),
+]
+
 interface FixtureSession {
   summary: SessionSummary
   fetch: NonNullable<SessionFetch>
@@ -190,6 +295,28 @@ const SESSIONS: FixtureSession[] = [
   },
   {
     summary: {
+      sessionId: 'e2e-session-agent-tool',
+      title: 'Records report',
+      source: 'attribute',
+      startedAtMs: 1_700_000_000_000,
+      lastSeenMs: 1_700_000_000_900,
+      activeDurationMs: 900,
+      traceCount: 1,
+      agents: ['Orchestrator', 'render_agent'],
+      firstInput: 'List all records and render a summary report.',
+      totalTokens: 370,
+      totalCostUsd: 0.004,
+    },
+    fetch: {
+      sessionId: 'e2e-session-agent-tool',
+      source: 'attribute',
+      traceIds: ['tr-aat'],
+      spans: AGENT_AS_TOOL_SPANS,
+      title: 'Records report',
+    },
+  },
+  {
+    summary: {
       sessionId: 'e2e-session-raw',
       title: 'Raw spans toggle',
       source: 'attribute',
@@ -211,7 +338,7 @@ const SESSIONS: FixtureSession[] = [
   },
 ]
 
-const ALL_SPANS = [...CHAT_SPANS, ...SINGLE_TRACE_SPANS, ...RAW_SPANS]
+const ALL_SPANS = [...CHAT_SPANS, ...SINGLE_TRACE_SPANS, ...RAW_SPANS, ...AGENT_AS_TOOL_SPANS]
 
 const TRACES: TraceSummary[] = [
   {
