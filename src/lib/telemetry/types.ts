@@ -16,8 +16,7 @@ interface ListOpts extends WindowOpts {
 
 export type TriggerType = 'scheduled' | 'event' | 'webhook' | 'user'
 
-// Predicates pushed into the query before LIMIT, so a rare subset isn't crowded
-// out of the recent N. `agentName` is a prefix match (over-match only).
+// Applied before the query's LIMIT so a rare subset isn't crowded out. agentName is a prefix match.
 export interface TraceFilter {
   triggerTypes?: readonly TriggerType[]
   serviceName?: string

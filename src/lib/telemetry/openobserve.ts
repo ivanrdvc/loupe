@@ -49,7 +49,7 @@ export interface OpenObserveConfig {
 const DEFAULT_LIST_LIMIT = 50
 // Last 30 days — OO scans local Parquet, cost ~free.
 const DEFAULT_WINDOW_US = 30 * 24 * 60 * 60 * 1_000_000
-// An unbounded scan that stalls = infinite spinner with no error. Bound it.
+// Bound stalled scans (else an infinite spinner with no error).
 const FETCH_TIMEOUT_MS = 120_000
 
 // OO-specific column quirks: alternate `_o2_*` forms exist when an attribute

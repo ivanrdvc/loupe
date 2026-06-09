@@ -28,8 +28,7 @@ export async function runOnlineEvals(
     .where(and(eq(evalDefinitions.mode, 'online'), eq(evalDefinitions.source, 'llm')))
   if (defs.length === 0) return { evaluators: 0, scored: 0 }
 
-  // A def pinned to a rare service/agent gets crowded out of a generic recent-N
-  // pool, so push those down; unpinned defs share one pool.
+  // Push a pinned service/agent into the query so it isn't crowded out; unpinned defs share one pool.
   const limit = opts.limit ?? DEFAULT_TRACE_LIMIT
   let sharedPool: TraceSummary[] | undefined
   const poolFor = async (filter: LiveFilter): Promise<TraceSummary[]> => {

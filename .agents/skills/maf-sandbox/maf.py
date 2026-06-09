@@ -188,17 +188,14 @@ weather_subagent = Agent(
 _pending_tasks: dict[str, asyncio.Task] = {}
 
 
-# task.id is the scheduling identity (what fires) — stable per task so repeated
-# fires group into one /tasks row; each fire is still its own trace.
+# Stable per task so repeated fires group into one /tasks row.
 def _slug(name: str) -> str:
     return "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")[:32] or "task"
 
 
 async def _fire_run(span_name: str, prompt: str, attrs: dict[str, str], delay_seconds: int) -> None:
     await asyncio.sleep(delay_seconds)
-    # Detach the firing request's context so this is a new root trace, not a
-    # child of the chat that scheduled it — otherwise the trigger sits on a
-    # non-root span and loupe classifies the trace as chat, not a fire.
+    # New root trace, not a child of the triggering chat (else classified as chat, not a fire).
     token = otel_context.attach(otel_context.Context())
     try:
         with get_tracer().start_as_current_span(span_name) as span:
