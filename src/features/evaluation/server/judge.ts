@@ -1,9 +1,11 @@
 // In-app LLM judge (Path B). Calls the model through the Vercel AI SDK with a
-// BYO key from env (OPENAI_API_KEY / ANTHROPIC_API_KEY), reading only normalized
-// Span fields so it scores any emitter identically. Provider is inferred from the
-// model id (claude* → Anthropic, else OpenAI).
+// BYO key from env (OPENAI_API_KEY / ANTHROPIC_API_KEY / AZURE_OPENAI_API_KEY),
+// reading only normalized Span fields so it scores any emitter identically.
+// Provider is inferred from the model id (claude* → Anthropic, azure/* → Azure
+// OpenAI, else OpenAI).
 
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { createAzure } from '@ai-sdk/azure'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError, generateObject, generateText, jsonSchema, type LanguageModel, NoObjectGeneratedError } from 'ai'
 import { DEFAULT_JUDGE_MODEL, type JudgeProvider, judgeModelProvider } from '#/lib/eval/models'
@@ -19,29 +21,47 @@ export type JudgeDefaults = {
   configured: boolean
   hasOpenAIKey: boolean
   hasAnthropicKey: boolean
+  hasAzureKey: boolean
 }
 
 export function resolveJudgeDefaults(): JudgeDefaults {
   const model = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_MODEL
   const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY)
+  const hasAzureKey = Boolean(process.env.AZURE_OPENAI_API_KEY)
   const provider: JudgeProvider = judgeModelProvider(model)
   return {
     model,
     provider,
-    configured: hasOpenAIKey || hasAnthropicKey || process.env.JUDGE_PROVIDER === 'fixtures',
+    configured: hasOpenAIKey || hasAnthropicKey || hasAzureKey || process.env.JUDGE_PROVIDER === 'fixtures',
     hasOpenAIKey,
     hasAnthropicKey,
+    hasAzureKey,
   }
 }
 
-// Build an AI SDK model for the judge. Anthropic for claude*, else OpenAI
-// (Responses API) against api.openai.com.
 function modelFor(model: string): LanguageModel {
-  if (judgeModelProvider(model) === 'anthropic') {
+  const provider = judgeModelProvider(model)
+  if (provider === 'anthropic') {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to use a Claude judge model.')
     return createAnthropic({ apiKey })(model.replace(/^anthropic\//i, ''))
+  }
+  if (provider === 'azure') {
+    const apiKey = process.env.AZURE_OPENAI_API_KEY
+    if (!apiKey) throw new Error('Set AZURE_OPENAI_API_KEY to use an Azure OpenAI judge model.')
+    const resourceName = process.env.AZURE_OPENAI_RESOURCE_NAME
+    const baseURL = process.env.AZURE_OPENAI_ENDPOINT
+    if (!resourceName && !baseURL) {
+      throw new Error('Set AZURE_OPENAI_RESOURCE_NAME (or AZURE_OPENAI_ENDPOINT) to use an Azure OpenAI judge model.')
+    }
+    const azure = createAzure({
+      apiKey,
+      resourceName,
+      baseURL,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION,
+    })
+    return azure.responses(model.replace(/^azure\//i, ''))
   }
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('Set OPENAI_API_KEY to use an OpenAI judge model.')
@@ -317,7 +337,7 @@ export async function runJudge(opts: {
   if (!parsed) return noVerdict('parse_error', null, raw)
   const costUsd =
     estimateCostUsd({
-      model: opts.model,
+      model: opts.model.replace(/^azure\//i, ''),
       inputTokens: inputTokens ?? undefined,
       outputTokens: outputTokens ?? undefined,
     }) ?? 0

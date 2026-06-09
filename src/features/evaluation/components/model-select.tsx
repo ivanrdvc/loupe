@@ -12,9 +12,10 @@ import { JUDGE_MODELS, type JudgeProvider } from '#/lib/eval/models'
 const PROVIDER_LABEL: Record<JudgeProvider, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
+  azure: 'Azure OpenAI',
 }
 
-const PROVIDERS: JudgeProvider[] = ['anthropic', 'openai']
+const PROVIDERS: JudgeProvider[] = ['anthropic', 'openai', 'azure']
 
 /** Judge-model picker backed by the canonical list in `lib/eval/models`. */
 export function ModelSelect({

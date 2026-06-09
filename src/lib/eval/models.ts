@@ -2,7 +2,7 @@
 // every model picker (evaluator create/edit) and the server judge agree on the
 // same ids, labels, and provider routing.
 
-export type JudgeProvider = 'anthropic' | 'openai'
+export type JudgeProvider = 'anthropic' | 'openai' | 'azure'
 
 export type JudgeModel = {
   id: string
@@ -18,14 +18,21 @@ export const JUDGE_MODELS: JudgeModel[] = [
   { id: 'gpt-5', label: 'GPT-5', provider: 'openai' },
   { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', provider: 'openai' },
   { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', provider: 'openai' },
+  { id: 'azure/gpt-4o-mini', label: 'GPT-4o mini', provider: 'azure' },
+  { id: 'azure/gpt-4.1', label: 'GPT-4.1', provider: 'azure' },
+  { id: 'azure/gpt-5', label: 'GPT-5', provider: 'azure' },
+  { id: 'azure/gpt-5.4-nano', label: 'GPT-5.4 nano', provider: 'azure' },
+  { id: 'azure/gpt-5.4-mini', label: 'GPT-5.4 mini', provider: 'azure' },
 ]
 
 export const DEFAULT_JUDGE_MODEL = 'gpt-4o-mini'
 
 const BY_ID = new Map(JUDGE_MODELS.map((m) => [m.id, m]))
 
-// Provider is declared on each model entry — look it up. Unknown ids (e.g. a
-// custom JUDGE_MODEL env override) fall back to OpenAI.
+// Provider is declared on each model entry — look it up. `azure/<deployment>`
+// ids route to Azure (deployments are free-form, not in the registry); unknown
+// ids fall back to OpenAI.
 export function judgeModelProvider(id: string): JudgeProvider {
+  if (/^azure\//i.test(id)) return 'azure'
   return BY_ID.get(id)?.provider ?? 'openai'
 }

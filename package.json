@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
+    "@ai-sdk/azure": "^3.0.70",
     "@ai-sdk/openai": "^3.0.67",
     "@azure/identity": "^4.13.1",
     "@azure/monitor-query-logs": "^1.0.0",
