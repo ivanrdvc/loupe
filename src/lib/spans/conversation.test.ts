@@ -398,3 +398,163 @@ describe('buildConversation — tool_call synthesis', () => {
     expect(calls).toHaveLength(1)
   })
 })
+
+describe('buildConversation — orchestrator grouping', () => {
+  function agentSpan(p: Partial<Span> & { id: string }): Span {
+    return {
+      traceId: 't',
+      parentId: null,
+      service: 's',
+      kind: 'internal',
+      operation: 'invoke_agent',
+      name: `invoke_agent ${p.id}`,
+      startMs: 0,
+      endMs: 0,
+      ...p,
+    } as Span
+  }
+  function execToolSpan(p: Partial<Span> & { id: string; startMs: number }): Span {
+    return {
+      traceId: 't',
+      parentId: null,
+      service: 's',
+      kind: 'internal',
+      operation: 'tool',
+      name: 'execute_tool sub',
+      endMs: p.startMs,
+      ...p,
+    } as Span
+  }
+
+  it('groups an HTTP-invoked orchestrator’s children under it and nests the agent-as-tool', () => {
+    const spans: Span[] = [
+      agentSpan({ id: 'orch', agentName: 'Orchestrator' }),
+      chatSpan({
+        id: 'c1',
+        parentId: 'orch',
+        startMs: 1,
+        endMs: 2,
+        llmInput: [userMsg('do it')],
+        llmOutput: [
+          { role: 'assistant', parts: [{ type: 'tool_call', id: 'call_sub', name: 'sub_agent', arguments: {} }] },
+        ],
+      }),
+      execToolSpan({
+        id: 'tcall',
+        parentId: 'orch',
+        startMs: 3,
+        endMs: 6,
+        toolName: 'sub_agent',
+        toolCallId: 'call_sub',
+        toolResult: { ok: true },
+      }),
+      agentSpan({ id: 'sub', parentId: 'tcall', agentName: 'SubAgent', startMs: 4, endMs: 5 }),
+      chatSpan({
+        id: 'c2',
+        parentId: 'sub',
+        startMs: 4,
+        endMs: 5,
+        llmInput: [userMsg('sub task')],
+        llmOutput: [asstMsg('done')],
+      }),
+    ]
+    const events = buildConversation(spans)
+
+    const user = events.find((e) => e.kind === 'message' && e.content === 'do it')
+    expect(user?.orchestratorSpanId).toBe('orch')
+    expect(user?.parentAgentSpanId).toBeUndefined()
+
+    const agentCall = events.find((e) => e.kind === 'agent_call')
+    expect(agentCall?.kind).toBe('agent_call')
+    if (agentCall?.kind === 'agent_call') {
+      expect(agentCall.agentName).toBe('SubAgent')
+      expect(agentCall.orchestratorSpanId).toBe('orch')
+      expect(agentCall.parentAgentSpanId).toBeUndefined()
+    }
+
+    const nested = events.find((e) => e.kind === 'message' && e.content === 'done')
+    expect(nested?.parentAgentSpanId).toBe('tcall')
+    expect(nested?.orchestratorSpanId).toBe('orch')
+  })
+
+  it('maps each event to its own orchestrator across two sequential runs', () => {
+    const spans: Span[] = [
+      agentSpan({ id: 'A', traceId: 'tA', agentName: 'AgentA', startMs: 0 }),
+      chatSpan({
+        id: 'cA',
+        traceId: 'tA',
+        parentId: 'A',
+        startMs: 1,
+        endMs: 2,
+        llmInput: [userMsg('q1')],
+        llmOutput: [asstMsg('a1')],
+      }),
+      agentSpan({ id: 'B', traceId: 'tB', agentName: 'AgentB', startMs: 10 }),
+      chatSpan({
+        id: 'cB',
+        traceId: 'tB',
+        parentId: 'B',
+        startMs: 11,
+        endMs: 12,
+        llmInput: [userMsg('q2')],
+        llmOutput: [asstMsg('a2')],
+      }),
+    ]
+    const events = buildConversation(spans)
+    const orchOf = (content: string) =>
+      events.find((e) => e.kind === 'message' && e.content === content)?.orchestratorSpanId
+    expect(orchOf('q1')).toBe('A')
+    expect(orchOf('a1')).toBe('A')
+    expect(orchOf('q2')).toBe('B')
+    expect(orchOf('a2')).toBe('B')
+  })
+
+  it('leaves events ungrouped (flat) when there is no invoke_agent', () => {
+    const spans: Span[] = [
+      chatSpan({ id: 'c', startMs: 0, endMs: 1, llmInput: [userMsg('hi')], llmOutput: [asstMsg('yo')] }),
+    ]
+    for (const e of buildConversation(spans)) expect(e.orchestratorSpanId).toBeUndefined()
+  })
+
+  it('degrades to flat when the orchestrator span is missing (ingestion lag)', () => {
+    const spans: Span[] = [
+      chatSpan({
+        id: 'c1',
+        parentId: 'orch',
+        startMs: 1,
+        endMs: 2,
+        llmInput: [userMsg('do it')],
+        llmOutput: [
+          { role: 'assistant', parts: [{ type: 'tool_call', id: 'call_sub', name: 'sub_agent', arguments: {} }] },
+        ],
+      }),
+      execToolSpan({
+        id: 'tcall',
+        parentId: 'orch',
+        startMs: 3,
+        endMs: 6,
+        toolName: 'sub_agent',
+        toolCallId: 'call_sub',
+        toolResult: { ok: true },
+      }),
+      agentSpan({ id: 'sub', parentId: 'tcall', agentName: 'SubAgent', startMs: 4, endMs: 5 }),
+      chatSpan({
+        id: 'c2',
+        parentId: 'sub',
+        startMs: 4,
+        endMs: 5,
+        llmInput: [userMsg('sub task')],
+        llmOutput: [asstMsg('done')],
+      }),
+    ]
+    const events = buildConversation(spans)
+    const user = events.find((e) => e.kind === 'message' && e.content === 'do it')
+    expect(user?.orchestratorSpanId).toBeUndefined()
+    const agentCall = events.find((e) => e.kind === 'agent_call')
+    expect(agentCall?.orchestratorSpanId).toBeUndefined()
+    expect(agentCall?.parentAgentSpanId).toBeUndefined()
+    // Nested sub-agent chat keeps parentAgentSpanId, so the view drops it inside the AgentCard.
+    const nested = events.find((e) => e.kind === 'message' && e.content === 'done')
+    expect(nested?.parentAgentSpanId).toBe('tcall')
+  })
+})
