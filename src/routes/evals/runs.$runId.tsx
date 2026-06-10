@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { type Crumb, PageBreadcrumb } from '#/components/page-breadcrumb'
 import { RelativeTime } from '#/components/relative-time'
+import { StatusDot } from '#/components/status-dot'
 import { Badge } from '#/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Label } from '#/components/ui/label'
@@ -192,6 +193,7 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-lg font-semibold">Run #{id}</h1>
           <Badge variant={EVAL_RUN_STATUS_BADGE[run.status]} className="capitalize">
+            {isEvalRunActive(run.status) && <StatusDot pulse />}
             {run.status}
           </Badge>
           {run.blessed && <Badge variant="outline">Blessed</Badge>}
@@ -232,7 +234,12 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
             className={summary?.errors ? 'text-destructive' : undefined}
           />
           <StatTile label="Cost" value={formatCost(summary?.costUsd ?? 0)} />
-          <StatTile label="Model" value={<span className="font-mono text-xs">{summary?.model ?? '—'}</span>} />
+          <StatTile
+            label="Model"
+            value={
+              <span className="font-mono text-xs text-violet-700 dark:text-violet-400">{summary?.model ?? '—'}</span>
+            }
+          />
         </div>
 
         <div className="flex items-center justify-between gap-2">

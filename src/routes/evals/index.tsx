@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
+import { StatusDot } from '#/components/status-dot'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -265,13 +266,16 @@ function EvaluatorsTable({
                 >
                   <TableCell className="py-2.5">
                     <div className="flex flex-col gap-0.5">
-                      <Link
-                        to="/evals/$evalId"
-                        params={{ evalId: String(def.id) }}
-                        className="font-medium text-foreground hover:underline"
-                      >
-                        {def.name}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          to="/evals/$evalId"
+                          params={{ evalId: String(def.id) }}
+                          className="font-medium text-foreground hover:underline"
+                        >
+                          {def.name}
+                        </Link>
+                        {isLive(def) && <StatusDot pulse className="text-success" />}
+                      </div>
                       <span className="text-xs capitalize text-muted-foreground">
                         {def.scope} · {DATA_TYPE_LABEL[def.dataType]}
                       </span>
@@ -287,7 +291,7 @@ function EvaluatorsTable({
                     {stat?.costUsd ? formatCost(stat.costUsd) : '—'}
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs text-foreground">{def.model || '—'}</span>
+                    <span className="font-mono text-xs text-violet-700 dark:text-violet-400">{def.model || '—'}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     <RelativeTime ts={def.updatedAt} />
@@ -339,7 +343,7 @@ function JudgeStatus({ judge }: { judge: JudgeDefaults }) {
   ].filter(Boolean) as string[]
   return (
     <p className="text-xs text-muted-foreground">
-      Judge: <span className="font-mono text-foreground">{judge.model}</span>
+      Judge: <span className="font-mono text-violet-700 dark:text-violet-400">{judge.model}</span>
       {keys.length > 0 && <> · {keys.join(', ')} ready</>}
     </p>
   )

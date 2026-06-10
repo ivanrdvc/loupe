@@ -33,7 +33,7 @@ const CATEGORY_LABELS: Record<TraceCategory, string> = {
 
 const CATEGORY_META: Record<TraceCategory, { icon: IconSvgElement; color: string }> = {
   chat: { icon: Message01Icon, color: 'text-blue-500 dark:text-blue-400' },
-  'sub-agent': { icon: Robot01Icon, color: 'text-fuchsia-500 dark:text-fuchsia-400' },
+  'sub-agent': { icon: Robot01Icon, color: 'text-pink-500 dark:text-pink-400' },
   scheduled: { icon: Clock01Icon, color: 'text-amber-500 dark:text-amber-400' },
   event: { icon: Notification03Icon, color: 'text-orange-500 dark:text-orange-400' },
   webhook: { icon: WebhookIcon, color: 'text-cyan-500 dark:text-cyan-400' },

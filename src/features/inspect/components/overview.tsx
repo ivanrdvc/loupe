@@ -557,7 +557,7 @@ function SessionTurnRow({
       <TableCell className="py-1.5 font-medium text-muted-foreground">T{index}</TableCell>
       <TableCell className="py-1.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate text-foreground">{modelLabel}</span>
+          <span className="min-w-0 truncate font-mono text-violet-700 dark:text-violet-400">{modelLabel}</span>
           {errors > 0 && (
             <Badge variant="destructive" className="shrink-0">
               {errors} err

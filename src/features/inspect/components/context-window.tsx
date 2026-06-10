@@ -85,7 +85,9 @@ export function ContextWindow({ view }: ContextWindowProps) {
             </div>
           </div>
           {limit && <Progress value={pct * 100} className="mt-2" />}
-          {model && <div className="mt-1.5 truncate text-[11px] text-muted-foreground">{model}</div>}
+          {model && (
+            <div className="mt-1.5 truncate font-mono text-[11px] text-violet-700 dark:text-violet-400">{model}</div>
+          )}
         </div>
 
         <dl className="space-y-1.5 px-3 py-2.5">

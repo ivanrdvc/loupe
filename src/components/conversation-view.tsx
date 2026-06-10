@@ -161,7 +161,10 @@ function TurnView({
         (turn.orchestratorSpanId ? (
           <div className="flex flex-col gap-3 border-l-2 border-border/40 pl-3">
             {showHeader && turn.label && (
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="gradient-text font-bold" aria-hidden>
+                  ✦
+                </span>
                 {turn.label}
               </div>
             )}

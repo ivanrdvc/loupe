@@ -413,7 +413,7 @@ function SpanTreeRowImpl({
               </span>
             )}
             {isParallel && (
-              <span className="shrink-0 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">⫽ parallel</span>
+              <span className="shrink-0 text-[10px] font-medium text-cyan-600 dark:text-cyan-400">⫽ parallel</span>
             )}
             {depth === 0 &&
               (span.rawAttributes?.session_trigger_type ?? span.rawAttributes?.['session.trigger_type']) ===

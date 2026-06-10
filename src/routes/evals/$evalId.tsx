@@ -16,6 +16,7 @@ import { Markdown } from '#/components/markdown'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { RelativeTime } from '#/components/relative-time'
+import { StatusDot } from '#/components/status-dot'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -195,6 +196,7 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
           <div className="flex flex-col gap-1">
             <h1 className="text-lg font-semibold">{definition.name}</h1>
             <Badge variant={live ? 'success' : 'outline'} className={cn(!live && 'text-muted-foreground')}>
+              {live && <StatusDot pulse />}
               {live ? 'Live' : 'Library'}
             </Badge>
           </div>
@@ -318,7 +320,7 @@ function MetaGrid({ definition }: { definition: EvalDefinition }) {
       </MetaItem>
       {definition.mode === 'online' && <MetaItem label="Watches">{describeLiveFilter(definition.liveFilter)}</MetaItem>}
       <MetaItem label="Model">
-        <span className="font-mono text-xs">{definition.model || '—'}</span>
+        <span className="font-mono text-xs text-violet-700 dark:text-violet-400">{definition.model || '—'}</span>
       </MetaItem>
     </div>
   )
@@ -387,6 +389,7 @@ function RunsTable({
                 </TableCell>
                 <TableCell>
                   <Badge variant={EVAL_RUN_STATUS_BADGE[run.status]} className="capitalize">
+                    {isEvalRunActive(run.status) && <StatusDot pulse />}
                     {run.status}
                   </Badge>
                 </TableCell>

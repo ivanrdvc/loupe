@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
+import { StatusDot } from '#/components/status-dot'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
@@ -61,6 +62,12 @@ export function DetailPanel({
           </Badge>
         )}
         <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{display.name}</span>
+        {span.model && (
+          <Badge variant="eyebrow" className="shrink-0" title={span.provider ?? undefined}>
+            <StatusDot className="text-violet-500" />
+            {span.model}
+          </Badge>
+        )}
         {display.purposeLabel && (
           <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${display.purposeCls}`}>
             {display.purposeLabel}
@@ -118,8 +125,6 @@ export function DetailPanel({
         )}
         {span.tokens != null && <Stat label="Tokens" value={fmtNum(span.tokens)} />}
         {span.costUsd ? <Stat label="Cost" value={formatCost(span.costUsd)} /> : null}
-        {span.model && <Stat label="Model" value={span.model} tone="id" />}
-        {span.provider && <Stat label="Provider" value={span.provider} tone="id" />}
         {span.embeddingDimensions != null && <Stat label="Dimensions" value={fmtNum(span.embeddingDimensions)} />}
         {span.dataSourceId && <Stat label="Data source" value={span.dataSourceId} />}
         {span.retrievalDocuments && <Stat label="Documents" value={fmtNum(span.retrievalDocuments.length)} />}
@@ -178,7 +183,7 @@ function SpanContextBreakdown({ span }: { span: Span }) {
     return (
       <div className="flex flex-col gap-1.5">
         <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Context breakdown</div>
-        <div className="h-1.5 w-full animate-pulse rounded-full bg-muted" />
+        <div className="h-1.5 w-full animate-shimmer rounded-full bg-muted" />
         <div className="h-4" />
       </div>
     )
@@ -638,17 +643,11 @@ function httpSummary(span: Span): { url?: string; status?: string } {
   }
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: 'id' }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
     <>
       <dt className="text-muted-foreground">{label}</dt>
-      <dd
-        className={`min-w-0 break-words tabular-nums ${
-          tone === 'id' ? 'font-mono text-violet-600 dark:text-violet-400' : 'text-foreground'
-        }`}
-      >
-        {value}
-      </dd>
+      <dd className="min-w-0 break-words tabular-nums text-foreground">{value}</dd>
     </>
   )
 }

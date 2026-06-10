@@ -110,7 +110,7 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
         <Beam stroke={stroke} delay={1.1} animate={animate} />
         <FlowNode
           icon={Robot01Icon}
-          iconColor="text-fuchsia-500 dark:text-fuchsia-400"
+          iconColor="text-pink-500 dark:text-pink-400"
           tagline="Agent"
           label={row.agent ?? row.serviceName ?? 'Agent'}
           caption={row.agent && row.serviceName && row.agent !== row.serviceName ? row.serviceName : undefined}
