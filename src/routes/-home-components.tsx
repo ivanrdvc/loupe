@@ -129,7 +129,10 @@ function ToolStatRow({
       >
         <div className="flex items-center gap-2">
           <HugeiconsIcon icon={tone.icon} strokeWidth={1.5} className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
-          <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-foreground" title={display}>
+          <span
+            className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-violet-700 dark:text-violet-400"
+            title={display}
+          >
             {display}
           </span>
           <span className={`shrink-0 text-sm font-semibold tabular-nums ${valueTone}`}>{value}</span>
@@ -223,7 +226,10 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
               className={`size-3.5 shrink-0 ${tone.text}`}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-foreground" title={row.name}>
+            <span
+              className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-violet-700 dark:text-violet-400"
+              title={row.name}
+            >
               {toolDisplayName(row.name)}
             </span>
             {row.namespace && (

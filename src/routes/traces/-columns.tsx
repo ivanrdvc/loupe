@@ -188,7 +188,11 @@ export function makeTraceColumns(scoreSummaries: Record<string, ScoreSummary> = 
     {
       accessorKey: 'totalTokens',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" className="justify-end" />,
-      cell: ({ row }) => <div className="text-right tabular-nums">{formatTokens(row.original.totalTokens)}</div>,
+      cell: ({ row }) => (
+        <div className={`text-right tabular-nums ${metricTone('tokens', row.original.totalTokens)}`}>
+          {formatTokens(row.original.totalTokens)}
+        </div>
+      ),
     },
     {
       accessorKey: 'totalCostUsd',

@@ -6,10 +6,10 @@ import { cn } from '#/lib/utils'
 const TOKEN_RE = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g
 
 const TOKEN_CLS = {
-  key: 'text-sky-700 dark:text-sky-300',
+  key: 'text-violet-700 dark:text-violet-400',
   string: 'text-emerald-700 dark:text-emerald-300',
-  literal: 'text-purple-700 dark:text-purple-300',
-  number: 'text-amber-700 dark:text-amber-400',
+  literal: 'text-pink-700 dark:text-pink-400',
+  number: 'text-cyan-700 dark:text-cyan-300',
 } as const
 
 type Token = { text: string; cls?: string }

@@ -331,6 +331,7 @@ function SpanTreeRowImpl({
         )}
       >
         {errored && <div className="absolute inset-y-0 left-0 w-0.5 bg-destructive" aria-hidden />}
+        {selected && !errored && <div className="absolute inset-y-0 left-0 w-0.5 bg-violet-500" aria-hidden />}
         <div className="relative shrink-0" style={{ width: indentWidth }} aria-hidden>
           {railHasNext.map((hasNext, i) =>
             hasNext ? (

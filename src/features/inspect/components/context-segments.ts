@@ -1,8 +1,8 @@
 export const SEGMENT_COLORS = {
   system: 'bg-muted-foreground/60',
-  tools: 'bg-indigo-300 dark:bg-indigo-400',
-  messages: 'bg-orange-300 dark:bg-orange-400',
-  subagents: 'bg-sky-300 dark:bg-sky-400',
+  tools: 'bg-violet-400 dark:bg-violet-500',
+  messages: 'bg-pink-400 dark:bg-pink-500',
+  subagents: 'bg-cyan-400 dark:bg-cyan-500',
 } as const
 
 type ContextSegmentKey = keyof typeof SEGMENT_COLORS

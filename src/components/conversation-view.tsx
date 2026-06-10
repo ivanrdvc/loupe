@@ -350,7 +350,7 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
         <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${tone.badge}`}>
           tool
         </span>
-        <span className="truncate font-medium text-foreground">{call.toolName}</span>
+        <span className="truncate font-mono font-medium text-violet-700 dark:text-violet-400">{call.toolName}</span>
         <StatusPill status={status} />
         <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <ToolTokenBadge input={argumentTokens} output={resultTokens} />

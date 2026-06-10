@@ -80,7 +80,7 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
     cell: ({ row }) => {
       const m = row.original.modelId
       return m ? (
-        <span className="font-mono text-[11px]">{m}</span>
+        <span className="font-mono text-[11px] text-violet-700 dark:text-violet-400">{m}</span>
       ) : (
         <span className="text-muted-foreground/60">—</span>
       )
@@ -90,7 +90,11 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
   {
     accessorKey: 'totalTokens',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" className="justify-end" />,
-    cell: ({ row }) => <div className="text-right tabular-nums">{formatTokens(row.original.totalTokens)}</div>,
+    cell: ({ row }) => (
+      <div className={`text-right tabular-nums ${metricTone('tokens', row.original.totalTokens)}`}>
+        {formatTokens(row.original.totalTokens)}
+      </div>
+    ),
   },
   {
     accessorKey: 'totalCostUsd',

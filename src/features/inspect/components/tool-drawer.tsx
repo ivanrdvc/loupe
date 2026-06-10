@@ -46,7 +46,9 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
               className={`size-4 shrink-0 ${toolTone('tool').text}`}
               aria-hidden
             />
-            <SheetTitle className="truncate font-mono text-sm font-medium">{toolDisplayName(name)}</SheetTitle>
+            <SheetTitle className="truncate font-mono text-sm font-medium text-violet-700 dark:text-violet-400">
+              {toolDisplayName(name)}
+            </SheetTitle>
             <SheetDescription className="sr-only">Tool detail</SheetDescription>
           </div>
           <SheetClose asChild>

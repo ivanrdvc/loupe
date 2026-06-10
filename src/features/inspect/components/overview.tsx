@@ -334,7 +334,10 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
 
   return (
     <TableRow className="group align-top">
-      <TableCell className="max-w-[14rem] truncate py-1.5 font-mono text-xs text-muted-foreground" title={attrKey}>
+      <TableCell
+        className="max-w-[14rem] truncate py-1.5 font-mono text-xs text-violet-700 dark:text-violet-400"
+        title={attrKey}
+      >
         {attrKey}
       </TableCell>
       <TableCell className="whitespace-normal py-1.5 font-mono text-xs text-foreground">

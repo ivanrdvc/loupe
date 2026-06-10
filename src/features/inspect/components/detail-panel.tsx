@@ -118,8 +118,8 @@ export function DetailPanel({
         )}
         {span.tokens != null && <Stat label="Tokens" value={fmtNum(span.tokens)} />}
         {span.costUsd ? <Stat label="Cost" value={formatCost(span.costUsd)} /> : null}
-        {span.model && <Stat label="Model" value={span.model} />}
-        {span.provider && <Stat label="Provider" value={span.provider} />}
+        {span.model && <Stat label="Model" value={span.model} tone="id" />}
+        {span.provider && <Stat label="Provider" value={span.provider} tone="id" />}
         {span.embeddingDimensions != null && <Stat label="Dimensions" value={fmtNum(span.embeddingDimensions)} />}
         {span.dataSourceId && <Stat label="Data source" value={span.dataSourceId} />}
         {span.retrievalDocuments && <Stat label="Documents" value={fmtNum(span.retrievalDocuments.length)} />}
@@ -509,7 +509,7 @@ function MessagePartView({
           <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${tone.badge}`}>{tone.label}</span>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
           <span
-            className="min-w-0 truncate font-mono text-foreground"
+            className="min-w-0 truncate font-mono text-violet-700 dark:text-violet-400"
             title={part.name}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -571,7 +571,9 @@ function StructuredText({ content }: { content: string }) {
       const [key, value] = entries[0]
       return (
         <div className="flex flex-wrap items-baseline gap-1.5">
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{key}</span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-violet-700 dark:text-violet-400">
+            {key}
+          </span>
           <span className="text-xs leading-relaxed text-foreground">{value}</span>
         </div>
       )
@@ -636,11 +638,17 @@ function httpSummary(span: Span): { url?: string; status?: string } {
   }
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, tone }: { label: string; value: string; tone?: 'id' }) {
   return (
     <>
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words tabular-nums text-foreground">{value}</dd>
+      <dd
+        className={`min-w-0 break-words tabular-nums ${
+          tone === 'id' ? 'font-mono text-violet-600 dark:text-violet-400' : 'text-foreground'
+        }`}
+      >
+        {value}
+      </dd>
     </>
   )
 }

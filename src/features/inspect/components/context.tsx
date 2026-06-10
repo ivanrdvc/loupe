@@ -121,7 +121,7 @@ export function ExpandableRow({
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/50"
       >
         <div className="min-w-0 flex-1">
-          <div className="break-words font-mono text-foreground text-sm">{title}</div>
+          <div className="break-words font-mono text-sm text-violet-700 dark:text-violet-400">{title}</div>
           {subtitle && <div className="mt-0.5 break-words text-xs text-muted-foreground">{subtitle}</div>}
         </div>
         {badge}
