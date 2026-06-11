@@ -21,6 +21,7 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -284,7 +285,7 @@ function NewDatasetDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New dataset</DialogTitle>
           <DialogDescription>Name it now; add example questions on the next screen.</DialogDescription>
@@ -297,6 +298,7 @@ function NewDatasetDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Regression set"
+              className="text-xs"
               autoFocus
             />
           </div>
@@ -308,6 +310,7 @@ function NewDatasetDialog({
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="What this set covers…"
+              className="text-xs"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -316,14 +319,15 @@ function NewDatasetDialog({
               id="ds-tags"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
-              placeholder="regression, billing (comma-separated)"
+              placeholder="regression, billing"
+              className="text-xs"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
           <Button onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}>
             Create
           </Button>

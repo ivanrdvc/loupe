@@ -67,6 +67,7 @@ export function ScoreInput({
         onChange={(e) => setExplanation(e.target.value)}
         placeholder="Reason (optional)"
         rows={2}
+        className="text-xs"
       />
       <div className="flex items-center justify-end gap-2">
         {onCancel && (
@@ -176,5 +177,5 @@ function Control({
     )
   }
 
-  return <Input value={text} onChange={(e) => onText(e.target.value)} placeholder="Short verdict" />
+  return <Input value={text} onChange={(e) => onText(e.target.value)} placeholder="Short verdict" className="text-xs" />
 }

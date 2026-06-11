@@ -163,7 +163,7 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
         <div className="flex items-center gap-2">
           {activeConfigs.length > 0 ? (
             <Select value="" onValueChange={(name) => setAdding(name)}>
-              <SelectTrigger size="sm" className="w-48">
+              <SelectTrigger size="sm" className="w-48 text-xs">
                 <SelectValue placeholder="Add a score…" />
               </SelectTrigger>
               <SelectContent>

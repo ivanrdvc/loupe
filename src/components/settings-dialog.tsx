@@ -185,7 +185,7 @@ function AccountPane() {
             value={value}
             onChange={(event) => setValue(event.target.value)}
             placeholder="you@example.com"
-            className="flex-1"
+            className="flex-1 text-xs"
           />
           <Button onClick={() => setStoredId(value)} disabled={!dirty}>
             Save
@@ -265,7 +265,7 @@ function ProviderRow() {
           if (next !== active && !mutation.isPending) mutation.mutate(next as ProviderId)
         }}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -18,10 +18,10 @@ import {
   CommandList,
   CommandSeparator,
 } from '#/components/ui/command'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '#/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
 import { NoteEditor } from '#/features/notes'
 import { listAllNotes } from '#/features/notes/server'
@@ -179,13 +179,13 @@ function NotesPage() {
         )}
       </div>
 
-      <Sheet open={activeNote != null} onOpenChange={(o) => !o && closeNote()}>
-        <SheetContent className="flex flex-col gap-0 sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <SheetHeader>
-            <SheetTitle>Note</SheetTitle>
-            <SheetDescription>{activeNote ? KIND_DESCRIPTION[activeNote.targetKind] : null}</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <Dialog open={activeNote != null} onOpenChange={(o) => !o && closeNote()}>
+        <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Note</DialogTitle>
+            <DialogDescription>{activeNote ? KIND_DESCRIPTION[activeNote.targetKind] : null}</DialogDescription>
+          </DialogHeader>
+          <div className="-mx-1 flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-1">
             {activeNote && (
               <NoteEditor
                 key={activeNote.id}
@@ -196,8 +196,8 @@ function NotesPage() {
               />
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </Page>
   )
 }

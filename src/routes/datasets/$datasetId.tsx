@@ -528,7 +528,7 @@ function RunsTab({
           )}
         </Button>
         <Select value={judgeDefId} onValueChange={onJudgeDefChange}>
-          <SelectTrigger size="sm" className="w-44" aria-label="Judge">
+          <SelectTrigger size="sm" className="w-44 text-xs" aria-label="Judge">
             <SelectValue placeholder="Default correctness" />
           </SelectTrigger>
           <SelectContent>
@@ -1169,7 +1169,7 @@ function InputEditor({
         onChange={(e) => commit(e.target.value)}
         onBlur={() => parsed && setText(JSON.stringify(parsed, null, 2))}
         rows={looksJson ? 8 : 3}
-        className="font-mono text-xs"
+        className={cn('text-xs', looksJson && 'font-mono')}
         placeholder={'Plain text, or JSON multi-turn:\n[{ "role": "user", "content": "…" }]'}
       />
       {looksJson &&
@@ -1297,7 +1297,7 @@ function AgentOverridesDialog({
               value={overrides.model ?? 'default'}
               onValueChange={(v) => set({ model: v === 'default' ? null : v })}
             >
-              <SelectTrigger className="h-8 w-full">
+              <SelectTrigger className="h-8 w-full text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1321,7 +1321,7 @@ function AgentOverridesDialog({
                     onChange={onNum(key)}
                     placeholder="default"
                     inputMode={key === 'max_tokens' ? 'numeric' : 'decimal'}
-                    className="h-8 font-mono text-xs"
+                    className="h-8 font-mono text-xs placeholder:font-sans"
                   />
                 </div>
               ))}

@@ -24,7 +24,7 @@ export function HomeChartCard({ title, wide, defaultRange = 7, children }: HomeC
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
         <CardTitle className="flex-1 text-base font-semibold">{title}</CardTitle>
         <Select value={String(range)} onValueChange={(v) => setRange(Number(v))}>
-          <SelectTrigger size="sm" aria-label="Range" className="w-[140px] border-border bg-transparent">
+          <SelectTrigger size="sm" aria-label="Range" className="w-[140px] border-border bg-transparent text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">

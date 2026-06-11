@@ -11,6 +11,7 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -481,8 +482,8 @@ function SetupEvaluatorDialog({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="evaluator-template">Start from a template</Label>
             <Select onValueChange={applyTemplate}>
-              <SelectTrigger id="evaluator-template">
-                <SelectValue placeholder="Optional — prefill from a known judge" />
+              <SelectTrigger id="evaluator-template" className="text-xs">
+                <SelectValue placeholder="Prefill from a template…" />
               </SelectTrigger>
               <SelectContent>
                 {JUDGE_TEMPLATES.map((t) => (
@@ -501,6 +502,7 @@ function SetupEvaluatorDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. helpfulness"
+              className="text-xs"
               autoFocus
             />
           </div>
@@ -526,7 +528,7 @@ function SetupEvaluatorDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="evaluator-data-type">Data type</Label>
               <Select value={dataType} onValueChange={(v) => setDataType(v as ScoreDataType)}>
-                <SelectTrigger id="evaluator-data-type">
+                <SelectTrigger id="evaluator-data-type" className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -551,15 +553,18 @@ function SetupEvaluatorDialog({
               id="evaluator-judge-prompt"
               value={judgePrompt}
               onChange={(e) => setJudgePrompt(e.target.value)}
-              placeholder="Instructions for the judge. Reference the target's fields and the expected output."
+              placeholder="Instructions for the judge…"
               rows={5}
+              className="text-xs"
             />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={!canSubmit}>
               {mutation.isPending ? 'Creating…' : 'Create evaluator'}
             </Button>

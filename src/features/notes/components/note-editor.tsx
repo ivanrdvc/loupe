@@ -9,6 +9,7 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -247,9 +248,11 @@ export function NoteEditor({ targetKind, targetId, parentTraceId, parentSessionI
             <DialogDescription>The note will be removed. This can't be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMutation.isPending}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={deleteMutation.isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button
               variant="destructive"
               onClick={() => deleteMutation.mutate(note.id)}

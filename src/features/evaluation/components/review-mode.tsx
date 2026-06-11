@@ -187,7 +187,7 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Select value={dimension ?? ''} onValueChange={setDimension}>
-              <SelectTrigger size="sm" className="w-40">
+              <SelectTrigger size="sm" className="w-40 text-xs">
                 <SelectValue placeholder="Dimension…" />
               </SelectTrigger>
               <SelectContent>

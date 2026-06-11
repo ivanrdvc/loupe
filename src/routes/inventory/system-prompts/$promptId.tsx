@@ -7,7 +7,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Skeleton } from '#/components/ui/skeleton'
 import { getSystemPrompt } from '#/features/inventory/system-prompts/server'
 import type { SystemPromptDetail } from '#/features/inventory/system-prompts/types'
-import { NoteSheetButton } from '#/features/notes'
+import { NoteDialogButton } from '#/features/notes'
 import { formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
@@ -80,7 +80,7 @@ function SystemPromptDetailLoaded({ data }: { data: SystemPromptDetail }) {
             <span className="text-xs text-muted-foreground">Last seen {formatAgo(entity.lastSeenAt)}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <NoteSheetButton targetKind="prompt" targetId={String(entity.id)} />
+            <NoteDialogButton targetKind="prompt" targetId={String(entity.id)} />
           </div>
         </div>
 

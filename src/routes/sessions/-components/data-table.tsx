@@ -222,7 +222,7 @@ export function DataTable({
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => table.setPageSize(Number(value))}
               >
-                <SelectTrigger size="sm" className="w-[68px]" id="rows-per-page">
+                <SelectTrigger size="sm" className="w-[68px] text-xs" id="rows-per-page">
                   <SelectValue placeholder={table.getState().pagination.pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">

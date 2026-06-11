@@ -22,6 +22,7 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -279,9 +280,9 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
             <Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
               {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
             </Button>
@@ -540,7 +541,7 @@ function CompareSection({ baselineRunId, runs }: { baselineRunId: number; runs: 
         <span className="font-mono text-xs text-muted-foreground">baseline #{base}</span>
         <span className="text-xs text-muted-foreground">→</span>
         <Select value={effectiveHead != null ? String(effectiveHead) : ''} onValueChange={(v) => setHead(Number(v))}>
-          <SelectTrigger size="sm" className="w-40">
+          <SelectTrigger size="sm" className="w-40 text-xs">
             <SelectValue placeholder="Pick head run" />
           </SelectTrigger>
           <SelectContent>
@@ -740,13 +741,19 @@ function EditDialog({
         >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="eval-name">Name</Label>
-            <Input id="eval-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <Input
+              id="eval-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="text-xs"
+              autoFocus
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eval-scope">Scope</Label>
               <Select value={scope} onValueChange={(v) => setScope(v as EvalScope)}>
-                <SelectTrigger id="eval-scope">
+                <SelectTrigger id="eval-scope" className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -761,7 +768,7 @@ function EditDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eval-datatype">Data type</Label>
               <Select value={dataType} onValueChange={(v) => setDataType(v as ScoreDataType)}>
-                <SelectTrigger id="eval-datatype">
+                <SelectTrigger id="eval-datatype" className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -778,7 +785,7 @@ function EditDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eval-source">Source</Label>
               <Select value={source} onValueChange={(v) => setSource(v as EvalSourceKind)}>
-                <SelectTrigger id="eval-source">
+                <SelectTrigger id="eval-source" className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -798,7 +805,7 @@ function EditDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eval-mode">State</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as EvalMode)}>
-                <SelectTrigger id="eval-mode">
+                <SelectTrigger id="eval-mode" className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -821,6 +828,7 @@ function EditDialog({
                     value={filter.serviceName}
                     onChange={(e) => setFilter((f) => ({ ...f, serviceName: e.target.value }))}
                     placeholder="any"
+                    className="text-xs"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -830,6 +838,7 @@ function EditDialog({
                     value={filter.agentName}
                     onChange={(e) => setFilter((f) => ({ ...f, agentName: e.target.value }))}
                     placeholder="any"
+                    className="text-xs"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -840,7 +849,7 @@ function EditDialog({
                     onChange={(e) => setFilter((f) => ({ ...f, sampleRate: e.target.value }))}
                     placeholder="1"
                     inputMode="decimal"
-                    className="tabular-nums"
+                    className="text-xs tabular-nums"
                   />
                 </div>
               </div>
@@ -855,14 +864,16 @@ function EditDialog({
                 onChange={(e) => setJudgePrompt(e.target.value)}
                 rows={6}
                 placeholder="Score the response for correctness…"
-                className="font-mono text-xs"
+                className="text-xs"
               />
             </div>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={!canSubmit}>
               {mutation.isPending ? 'Saving…' : 'Save'}
             </Button>
