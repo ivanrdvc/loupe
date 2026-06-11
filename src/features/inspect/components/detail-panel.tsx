@@ -509,9 +509,14 @@ function MessagePartView({
     const hasResult = resolved?.result !== undefined
     const errored = resolved && !resolved.success
     return (
-      <Collapsible className={`group min-w-0 overflow-hidden rounded-md px-2 py-1.5 ${tone.bg} ${tone.ring}`}>
+      <Collapsible className={`group min-w-0 overflow-hidden rounded-lg border p-2.5 ${tone.border}`}>
         <CollapsibleTrigger className="flex w-full min-w-0 items-center gap-2 text-[11px]">
-          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${tone.badge}`}>{tone.label}</span>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${tone.badge}`}
+          >
+            <HugeiconsIcon icon={tone.icon} className="size-3" />
+            {tone.label}
+          </span>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
           <span
             className="min-w-0 truncate font-mono text-violet-700 dark:text-violet-400"
@@ -532,7 +537,7 @@ function MessagePartView({
           )}
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
           <span
-            className="ml-auto min-w-0 max-w-[12rem] shrink truncate font-mono text-[10px] text-muted-foreground"
+            className="ml-auto min-w-0 max-w-[12rem] shrink truncate rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
             title={part.id}
             onMouseDown={(e) => e.stopPropagation()}
           >

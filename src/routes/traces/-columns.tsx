@@ -1,46 +1,15 @@
-import {
-  Clock01Icon,
-  Message01Icon,
-  Notification03Icon,
-  RepeatIcon,
-  Robot01Icon,
-  Unlink01Icon,
-  WebhookIcon,
-  Wrench01Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import { Clock01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { ScoreSummaryBadge } from '#/features/evaluation'
 import { type ScoreSummary, scoreFlagFor, scoreFlagsFor } from '#/lib/eval/evaluation'
 import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
-import type { TraceCategory, TraceSummary } from '#/lib/telemetry'
-import { cn } from '#/lib/utils'
-
-const CATEGORY_LABELS: Record<TraceCategory, string> = {
-  chat: 'Chat',
-  'sub-agent': 'Sub-agent',
-  scheduled: 'Scheduled',
-  event: 'Event',
-  webhook: 'Webhook',
-  background: 'Background',
-  utility: 'Utility',
-  orphan: 'Orphan',
-}
-
-const CATEGORY_META: Record<TraceCategory, { icon: IconSvgElement; color: string }> = {
-  chat: { icon: Message01Icon, color: 'text-blue-500 dark:text-blue-400' },
-  'sub-agent': { icon: Robot01Icon, color: 'text-pink-500 dark:text-pink-400' },
-  scheduled: { icon: Clock01Icon, color: 'text-amber-500 dark:text-amber-400' },
-  event: { icon: Notification03Icon, color: 'text-orange-500 dark:text-orange-400' },
-  webhook: { icon: WebhookIcon, color: 'text-cyan-500 dark:text-cyan-400' },
-  background: { icon: RepeatIcon, color: 'text-violet-500 dark:text-violet-400' },
-  utility: { icon: Wrench01Icon, color: 'text-teal-500 dark:text-teal-400' },
-  orphan: { icon: Unlink01Icon, color: 'text-zinc-400 dark:text-zinc-500' },
-}
+import type { TraceSummary } from '#/lib/telemetry'
 
 // Columns are built per-render so the score badge/filter can close over the
 // trace→ScoreSummary map fetched alongside the list.
@@ -131,19 +100,14 @@ export function makeTraceColumns(scoreSummaries: Record<string, ScoreSummary> = 
         const { llmPurpose, sessionId } = row.original
         return (
           <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className="px-1.5 text-muted-foreground">
-              <HugeiconsIcon
-                icon={CATEGORY_META[cat].icon}
-                strokeWidth={1.5}
-                className={cn('size-3', CATEGORY_META[cat].color)}
-                aria-hidden
-              />
-              {CATEGORY_LABELS[cat]}
-            </Badge>
+            <KindBadge kind={cat} />
             {llmPurpose && (
-              <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px]" title={llmPurpose}>
+              <span
+                className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground"
+                title={llmPurpose}
+              >
                 {llmPurpose}
-              </Badge>
+              </span>
             )}
             {cat === 'chat' && sessionId && (
               <Link

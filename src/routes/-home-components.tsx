@@ -130,7 +130,7 @@ function ToolStatRow({
         <div className="flex items-center gap-2">
           <HugeiconsIcon icon={tone.icon} strokeWidth={1.5} className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
           <span
-            className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-violet-700 dark:text-violet-400"
+            className="min-w-0 flex-1 truncate font-mono text-xs font-medium text-violet-700 dark:text-violet-400"
             title={display}
           >
             {display}
@@ -227,7 +227,7 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
               aria-hidden
             />
             <span
-              className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-violet-700 dark:text-violet-400"
+              className="min-w-0 flex-1 truncate font-mono text-xs font-medium text-violet-700 dark:text-violet-400"
               title={row.name}
             >
               {toolDisplayName(row.name)}
@@ -263,7 +263,10 @@ export function NewAgentsTable({ rows }: { rows: InventoryRow[] }) {
                   className={`size-3.5 shrink-0 ${tone.text}`}
                   aria-hidden
                 />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground" title={row.name}>
+                <span
+                  className="min-w-0 flex-1 truncate font-mono text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                  title={row.name}
+                >
                   {row.name}
                 </span>
                 <RelativeTime

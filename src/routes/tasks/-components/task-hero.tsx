@@ -2,8 +2,8 @@ import { FlashIcon, Message01Icon, Robot01Icon } from '@hugeicons/core-free-icon
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import { useMemo } from 'react'
+import { KIND_META } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
-import { KIND_META } from '#/features/tasks/kind-meta'
 import type { TaskRow } from '#/features/tasks/rollup'
 import { formatDuration, shortId } from '#/lib/format'
 import type { TraceSummary } from '#/lib/telemetry'
@@ -89,7 +89,7 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
         <Beam stroke={stroke} delay={0} animate={animate} />
         <FlowNode
           icon={kindMeta.icon}
-          iconColor={kindMeta.color}
+          iconColor={kindMeta.text}
           tagline="Trigger"
           label={taskLabel}
           labelTitle={taskTitle}

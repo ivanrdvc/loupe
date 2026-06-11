@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
@@ -50,11 +51,7 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
   {
     accessorKey: 'kind',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Kind" />,
-    cell: ({ row }) => (
-      <Badge variant="outline" className="px-1.5 capitalize text-muted-foreground">
-        {row.original.kind}
-      </Badge>
-    ),
+    cell: ({ row }) => <KindBadge kind={row.original.kind} />,
     filterFn: (row, _id, value: string[]) => {
       if (!Array.isArray(value) || value.length === 0) return true
       return value.includes(row.original.kind)
@@ -66,9 +63,12 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Label" />,
     cell: ({ row }) =>
       row.original.label ? (
-        <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px]" title={row.original.label}>
+        <span
+          className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground"
+          title={row.original.label}
+        >
           {row.original.label}
-        </Badge>
+        </span>
       ) : (
         <span className="text-muted-foreground/60">—</span>
       ),

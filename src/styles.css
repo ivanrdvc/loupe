@@ -314,6 +314,83 @@
   --sidebar-ring: oklch(0.65 0.27 280);
 }
 
+/* Performative palette — token-exact port of performative-ui
+   (github.com/vorpus/performativeUI src/styles.css), violet primary,
+   near-black surfaces in dark, their [data-theme="light"] set in light. */
+:root[data-theme='performative']:not(.dark) {
+  --background: #ffffff;
+  --foreground: #0b0b10;
+  --card: #ffffff;
+  --card-foreground: #0b0b10;
+  --popover: #ffffff;
+  --popover-foreground: #0b0b10;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf2;
+  --secondary-foreground: #0b0b10;
+  --muted: #ededf2;
+  --muted-foreground: #88889a;
+  --accent: #ededf2;
+  --accent-foreground: #0b0b10;
+  --destructive: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --border: #e6e6ec;
+  --input: #d2d2da;
+  --ring: #7c3aed;
+  --radius: 0.75rem;
+  --chart-1: #7c3aed;
+  --chart-2: #ec4899;
+  --chart-3: #06b6d4;
+  --chart-4: #22c55e;
+  --chart-5: #fbbf24;
+  --sidebar: #f7f7fa;
+  --sidebar-foreground: #0b0b10;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ededf2;
+  --sidebar-accent-foreground: #0b0b10;
+  --sidebar-border: #e6e6ec;
+  --sidebar-ring: #7c3aed;
+}
+
+.dark[data-theme='performative'] {
+  --background: #08080b;
+  --foreground: #f4f4f6;
+  --card: #0e0e13;
+  --card-foreground: #f4f4f6;
+  --popover: #0e0e13;
+  --popover-foreground: #f4f4f6;
+  --primary: #7c3aed;
+  --primary-foreground: #f4f4f6;
+  --secondary: #14141c;
+  --secondary-foreground: #f4f4f6;
+  --muted: #14141c;
+  --muted-foreground: #a3a3b2;
+  --accent: #14141c;
+  --accent-foreground: #f4f4f6;
+  --destructive: #f87171;
+  --success: #22c55e;
+  --warning: #fbbf24;
+  --border: #1f1f2b;
+  --input: #2a2a3a;
+  --ring: #7c3aed;
+  --radius: 0.75rem;
+  --chart-1: #7c3aed;
+  --chart-2: #ec4899;
+  --chart-3: #06b6d4;
+  --chart-4: #22c55e;
+  --chart-5: #fbbf24;
+  --sidebar: #0e0e13;
+  --sidebar-foreground: #f4f4f6;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #f4f4f6;
+  --sidebar-accent: #14141c;
+  --sidebar-accent-foreground: #f4f4f6;
+  --sidebar-border: #1f1f2b;
+  --sidebar-ring: #7c3aed;
+}
+
 /* Tremor planner palette — cool Tailwind grays + blue accent.
    Source: github.com/tremorlabs/template-planner */
 :root[data-theme='tremor']:not(.dark) {

@@ -1,4 +1,5 @@
 import { ArrowDownIcon, ChevronDownIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/16/solid'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useMemo, useState } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { CopyButton } from '#/components/copy-button'
@@ -341,19 +342,24 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
   const tone = toolTone('tool')
 
   return (
-    <div className={['rounded-md border text-sm', selected ? tone.selectedBorder : tone.border].join(' ')}>
+    <div className={['rounded-lg border text-sm', selected ? tone.selectedBorder : tone.border].join(' ')}>
       <button
         type="button"
         onClick={() => {
           onToggle()
           onSelect()
         }}
-        className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left ${tone.hoverBg}`}
+        className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left ${tone.hoverBg}`}
       >
-        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${tone.badge}`}>
-          tool
+        <span
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${tone.badge}`}
+        >
+          <HugeiconsIcon icon={tone.icon} className="size-3" />
+          {tone.label}
         </span>
-        <span className="truncate font-mono font-medium text-violet-700 dark:text-violet-400">{call.toolName}</span>
+        <span className="truncate font-mono text-xs font-medium text-violet-700 dark:text-violet-400">
+          {call.toolName}
+        </span>
         <StatusPill status={status} />
         <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <ToolTokenBadge input={argumentTokens} output={resultTokens} />
@@ -411,19 +417,22 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
   const tone = toolTone('agent')
 
   return (
-    <div className={['rounded-md border text-sm', selected ? tone.selectedBorder : tone.border].join(' ')}>
+    <div className={['rounded-lg border text-sm', selected ? tone.selectedBorder : tone.border].join(' ')}>
       <button
         type="button"
         onClick={() => {
           onToggle()
           onSelect()
         }}
-        className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left ${tone.hoverBg}`}
+        className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left ${tone.hoverBg}`}
       >
-        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${tone.badge}`}>
-          agent
+        <span
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${tone.badge}`}
+        >
+          <HugeiconsIcon icon={tone.icon} className="size-3" />
+          {tone.label}
         </span>
-        <span className="truncate font-medium text-foreground">
+        <span className="truncate font-mono text-xs font-medium text-emerald-700 dark:text-emerald-300">
           {ctx.agentLabels.get(event.spanId) ?? event.agentName}
         </span>
         {hasActions && (

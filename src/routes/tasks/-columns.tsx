@@ -1,11 +1,10 @@
-import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Area, AreaChart } from 'recharts'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
+import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import { KIND_META } from '#/features/tasks/kind-meta'
 import type { TaskRow } from '#/features/tasks/rollup'
 import { formatDuration, formatPercent, metricTone } from '#/lib/format'
 import { cn } from '#/lib/utils'
@@ -25,15 +24,7 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
     id: 'kind',
     accessorFn: (r) => r.kind,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Kind" />,
-    cell: ({ row }) => {
-      const meta = KIND_META[row.original.kind]
-      return (
-        <Badge variant="outline" className="px-1.5 text-muted-foreground">
-          <HugeiconsIcon icon={meta.icon} strokeWidth={1.5} className={cn('size-3', meta.color)} aria-hidden />
-          {meta.label}
-        </Badge>
-      )
-    },
+    cell: ({ row }) => <KindBadge kind={row.original.kind} />,
     filterFn: (row, _id, value: string[]) => {
       if (!Array.isArray(value) || value.length === 0) return true
       return value.includes(row.original.kind)

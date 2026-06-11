@@ -31,7 +31,7 @@ interface Row {
 const INDENT = 22
 const HANDLE = 16
 const LEAF_DOT = 7
-const TREE_LINE = 'bg-border/60'
+const TREE_LINE = 'bg-border'
 // Normal completions — don't surface these on the row, they're just noise.
 const NORMAL_FINISH = new Set(['stop', 'end_turn', 'complete', 'end', 'eos'])
 
@@ -326,7 +326,7 @@ function SpanTreeRowImpl({
     <li data-span-id={span.id}>
       <div
         className={cn(
-          'group/row relative flex min-h-10 w-full cursor-pointer items-stretch pl-2 text-left text-xs',
+          'group/row relative flex min-h-9 w-full cursor-pointer items-stretch pl-2 text-left text-xs',
           selected ? 'bg-accent' : errored ? 'bg-destructive/5 hover:bg-destructive/10' : 'hover:bg-muted',
         )}
       >
@@ -408,7 +408,7 @@ function SpanTreeRowImpl({
             )}
             <span className="truncate font-medium text-foreground">{display.name}</span>
             {display.purposeLabel && (
-              <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+              <span className={`shrink-0 rounded px-1 py-px text-[10px] font-medium ${display.purposeCls}`}>
                 {display.purposeLabel}
               </span>
             )}
@@ -418,7 +418,7 @@ function SpanTreeRowImpl({
             {depth === 0 &&
               (span.rawAttributes?.session_trigger_type ?? span.rawAttributes?.['session.trigger_type']) ===
                 'scheduled' && (
-                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
                   <HugeiconsIcon icon={Clock01Icon} strokeWidth={1.75} className="size-3" aria-hidden />
                   scheduled
                 </span>

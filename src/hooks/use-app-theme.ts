@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const COLOR_THEMES = ['loupe', 'tremor', 'neutral', 'spotify'] as const
+const COLOR_THEMES = ['loupe', 'tremor', 'neutral', 'spotify', 'performative'] as const
 const APP_FONTS = ['pretendard', 'inter'] as const
 
 export type ColorTheme = (typeof COLOR_THEMES)[number]
