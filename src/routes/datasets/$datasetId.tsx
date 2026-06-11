@@ -20,6 +20,15 @@ import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
@@ -290,7 +299,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
       </div>
 
       {(activeExample || creating) && (
-        <ExampleSheet
+        <ExampleDialog
           key={activeExample?.id ?? 'new'}
           datasetId={dataset.id}
           example={activeExample}
@@ -573,7 +582,7 @@ function RunsTab({
         </Button>
       </div>
 
-      <AgentOverridesDrawer
+      <AgentOverridesDialog
         open={overridesOpen}
         onClose={() => setOverridesOpen(false)}
         overrides={overrides}
@@ -864,7 +873,7 @@ const looksLikeJson = (s: string | null | undefined) => {
   return isJsonShape(t) && isValidJson(t)
 }
 
-function ExampleSheet({
+function ExampleDialog({
   datasetId,
   example,
   onClose,
@@ -922,15 +931,15 @@ function ExampleSheet({
   }
 
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 data-[side=right]:w-[46rem] data-[side=right]:sm:max-w-[46rem]">
-        <SheetHeader>
-          <SheetTitle>{example ? 'Example' : 'New example'}</SheetTitle>
-          <SheetDescription>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{example ? 'Example' : 'New example'}</DialogTitle>
+          <DialogDescription>
             Edit the question and its expected answer. Filling Expected makes it golden.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-2">
+          </DialogDescription>
+        </DialogHeader>
+        <div className="-mx-1 flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-1">
           <Field label="Input">
             <InputEditor input={input} onChange={setInput} onValidChange={setInputValid} />
           </Field>
@@ -989,33 +998,28 @@ function ExampleSheet({
             </Field>
           )}
         </div>
-        <SheetFooter>
-          <div className="flex items-center gap-2">
+        <DialogFooter>
+          {example && (
             <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || jsonInvalid || !inputValid}
+              variant="ghost"
+              size="icon"
+              aria-label="Delete example"
+              className="mr-auto text-muted-foreground hover:text-destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
             >
-              Save
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
             </Button>
-            <SheetClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </SheetClose>
-            {example && (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Delete example"
-                className="ml-auto text-muted-foreground hover:text-destructive"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-              >
-                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-              </Button>
-            )}
-          </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          )}
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || jsonInvalid || !inputValid}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -1256,7 +1260,7 @@ function countOverrides(o: AgentOverrides): number {
 
 // Per-run overrides sent to the agent. Sampling/model/system map to native Responses
 // params; tools are AG-UI client-tool declarations the agent may call (not executed here).
-function AgentOverridesDrawer({
+function AgentOverridesDialog({
   open,
   onClose,
   overrides,
@@ -1279,21 +1283,21 @@ function AgentOverridesDrawer({
   const numField = (v: number | null | undefined) => (v == null ? '' : String(v))
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Agent overrides</SheetTitle>
-          <SheetDescription>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Agent overrides</DialogTitle>
+          <DialogDescription>
             Applied to every example on the next run. Empty fields use the agent's defaults.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-1 flex-col gap-5 overflow-auto px-4 py-3">
+          </DialogDescription>
+        </DialogHeader>
+        <div className="-mx-1 grid max-h-[70vh] gap-x-6 gap-y-4 overflow-y-auto px-1 sm:grid-cols-2">
           <Field label="Model">
             <Select
               value={overrides.model ?? 'default'}
               onValueChange={(v) => set({ model: v === 'default' ? null : v })}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger className="h-8 w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1307,82 +1311,87 @@ function AgentOverridesDrawer({
             </Select>
           </Field>
 
-          <Field label="System prompt">
-            <Textarea
-              rows={3}
-              value={overrides.system_prompt ?? ''}
-              onChange={(e) => set({ system_prompt: e.target.value || null })}
-              placeholder="Override the agent's system prompt…"
-            />
-          </Field>
-
-          <Field label="Tools">
-            <p className="text-[11px] text-muted-foreground">
-              Client tool declarations sent to the agent (AG-UI shape). The agent may call them; results aren't executed
-              here.
-            </p>
-            {tools.map((t, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: positional tool rows
-              <div key={i} className="flex items-center gap-1.5">
-                <Input
-                  value={t.name}
-                  onChange={(e) => setTool(i, { name: e.target.value })}
-                  placeholder="tool_name"
-                  className="h-8 font-mono text-xs"
-                />
-                <Input
-                  value={t.description ?? ''}
-                  onChange={(e) => setTool(i, { description: e.target.value })}
-                  placeholder="what it does"
-                  className="h-8 text-xs"
-                />
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => set({ tools: tools.filter((_, idx) => idx !== i) })}
-                >
-                  <HugeiconsIcon icon={Delete02Icon} className="size-4" strokeWidth={2} />
-                </button>
-              </div>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              onClick={() => set({ tools: [...tools, { name: '' }] })}
-            >
-              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-              Tool
-            </Button>
-          </Field>
-
           <Field label="Sampling">
-            <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
               {(['temperature', 'top_p', 'max_tokens'] as const).map((key) => (
-                <div key={key} className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-xs text-muted-foreground">{key}</span>
+                <div key={key} className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="truncate font-mono text-[10px] text-muted-foreground">{key}</span>
                   <Input
                     value={numField(overrides[key])}
                     onChange={onNum(key)}
                     placeholder="default"
                     inputMode={key === 'max_tokens' ? 'numeric' : 'decimal'}
-                    className="h-8 w-28 font-mono text-xs"
+                    className="h-8 font-mono text-xs"
                   />
                 </div>
               ))}
             </div>
           </Field>
+
+          <div className="sm:col-span-2">
+            <Field label="System prompt">
+              <Textarea
+                rows={2}
+                value={overrides.system_prompt ?? ''}
+                onChange={(e) => set({ system_prompt: e.target.value || null })}
+                placeholder="Override the agent's system prompt…"
+                className="min-h-16 text-xs"
+              />
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Field label="Tools">
+              <p className="text-[11px] text-muted-foreground">
+                Client tool declarations sent to the agent (AG-UI shape). The agent may call them; results aren't
+                executed here.
+              </p>
+              {tools.map((t, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: positional tool rows
+                <div key={i} className="flex items-center gap-1.5">
+                  <Input
+                    value={t.name}
+                    onChange={(e) => setTool(i, { name: e.target.value })}
+                    placeholder="tool_name"
+                    className="h-8 font-mono text-xs"
+                  />
+                  <Input
+                    value={t.description ?? ''}
+                    onChange={(e) => setTool(i, { description: e.target.value })}
+                    placeholder="what it does"
+                    className="h-8 text-xs"
+                  />
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => set({ tools: tools.filter((_, idx) => idx !== i) })}
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} className="size-4" strokeWidth={2} />
+                  </button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() => set({ tools: [...tools, { name: '' }] })}
+              >
+                <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+                Tool
+              </Button>
+            </Field>
+          </div>
         </div>
-        <SheetFooter>
+        <DialogFooter>
           <Button variant="outline" onClick={() => onChange({})}>
             Reset
           </Button>
-          <SheetClose asChild>
+          <DialogClose asChild>
             <Button>Done</Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

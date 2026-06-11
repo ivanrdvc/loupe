@@ -5,7 +5,7 @@ import { cn } from '#/lib/utils'
 // literals (true/false/null) and numbers. Anything not matched stays plain.
 const TOKEN_RE = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g
 
-const TOKEN_CLS = {
+export const TOKEN_CLS = {
   key: 'text-violet-700 dark:text-violet-400',
   string: 'text-emerald-700 dark:text-emerald-300',
   literal: 'text-pink-700 dark:text-pink-400',

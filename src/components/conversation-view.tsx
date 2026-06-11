@@ -2,6 +2,7 @@ import { ArrowDownIcon, ChevronDownIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useMemo, useState } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
+import { JsonView } from '#/components/ai-elements/json-view'
 import { CopyButton } from '#/components/copy-button'
 import { Markdown } from '#/components/markdown'
 import { ScaffoldGroup } from '#/components/scaffold-group'
@@ -477,9 +478,7 @@ function KeyValueBlock({ label, value }: { label: string; value: unknown }) {
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
         <CopyButton value={formatted} className="opacity-0 transition-opacity group-hover/kv:opacity-100" />
       </div>
-      <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
-        {formatted}
-      </pre>
+      <JsonView value={value} className="max-h-72" />
     </div>
   )
 }
