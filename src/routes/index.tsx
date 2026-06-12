@@ -8,7 +8,7 @@ import { ThroughputAreaChart } from './-home-charts/throughput-area'
 import { NewAgentsTable, NewToolsTable, Section, ToolErrorTable, ToolPayloadTable } from './-home-components'
 import { cacheHitRateOverTimeQuery, chatLatencyOverTimeQuery, homeInboxQuery, runsPerHourQuery } from './-home-data'
 
-function ViewAllToolsLink({ sort }: { sort?: 'p95Chars' | 'errorRate' | 'lastSeenMs' | 'calls' }) {
+function ViewAllToolsLink({ sort }: { sort?: 'p95Chars' | 'errorRate' | 'lastSeenMs' }) {
   return (
     <Link
       to="/tools"

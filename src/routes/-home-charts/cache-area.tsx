@@ -5,7 +5,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import type { CacheHitPoint } from '#/lib/telemetry'
 import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { cacheHitRateOverTimeQuery } from '../-home-data'
-import { HomeChartCard } from './chart-card'
+import { HomeChartCard, tsTooltipLabel } from './chart-card'
 
 const CHART_CONFIG: ChartConfig = {
   ratio: { label: 'Cache hit', color: 'var(--primary)' },
@@ -54,12 +54,7 @@ function CacheChartInner({ data, range }: { data: CacheHitPoint[]; range: TimeRa
           cursor={false}
           content={
             <ChartTooltipContent
-              labelFormatter={(_, payload) => {
-                const ts = payload?.[0]?.payload?.ts
-                return typeof ts === 'number'
-                  ? new Date(ts).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
-                  : ''
-              }}
+              labelFormatter={(_, payload) => tsTooltipLabel(payload)}
               formatter={(value, name) => (
                 <span className="flex w-full items-center gap-2">
                   <span className="text-muted-foreground">{name}</span>

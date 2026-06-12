@@ -38,7 +38,6 @@ export const queryKeys = {
     all: () => ['providers'] as const,
   },
   prompts: {
-    all: () => ['prompts'] as const,
     list: () => ['prompts', 'list'] as const,
     detail: (id: number) => ['prompts', 'detail', id] as const,
   },
@@ -64,10 +63,8 @@ export const queryKeys = {
   },
   evals: {
     all: () => ['evals'] as const,
-    definitions: (mode?: string) =>
-      mode ? (['evals', 'definitions', { mode }] as const) : (['evals', 'definitions'] as const),
+    definitions: () => ['evals', 'definitions'] as const,
     definition: (id: number) => ['evals', 'definition', id] as const,
-    runs: (definitionId?: number | null) => ['evals', 'runs', definitionId ?? null] as const,
     run: (runId: number) => ['evals', 'run', runId] as const,
     runScores: (runId: number) => ['evals', 'run-scores', runId] as const,
     definitionScores: (id: number) => ['evals', 'definition-scores', id] as const,

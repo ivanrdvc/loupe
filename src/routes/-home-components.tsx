@@ -18,16 +18,14 @@ export function Section({
   description,
   action,
   children,
-  wide,
 }: {
   title: string
   description?: string
   action?: React.ReactNode
   children: React.ReactNode
-  wide?: boolean
 }) {
   return (
-    <Card className={wide ? 'xl:col-span-2' : ''}>
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
           {title}
@@ -53,7 +51,7 @@ export function Section({
   )
 }
 
-export function SectionEmpty({ title, description }: { title: string; description?: string }) {
+function SectionEmpty({ title, description }: { title: string; description?: string }) {
   return (
     <Empty className="py-4">
       <EmptyHeader>
@@ -64,7 +62,7 @@ export function SectionEmpty({ title, description }: { title: string; descriptio
   )
 }
 
-export function Expandable<T>({ rows, children }: { rows: T[]; children: (visible: T[]) => React.ReactNode }) {
+function Expandable<T>({ rows, children }: { rows: T[]; children: (visible: T[]) => React.ReactNode }) {
   const [expanded, setExpanded] = useState(false)
   const hasMore = rows.length > PREVIEW_ROWS
   const visible = expanded || !hasMore ? rows : rows.slice(0, PREVIEW_ROWS)
@@ -157,22 +155,18 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
     return <SectionEmpty title="No errored tool calls" description="Nothing failed in this window." />
   }
   return (
-    <Expandable rows={rows}>
-      {(visible) => (
-        <ul className="-mx-2 flex flex-col">
-          {visible.map((row) => (
-            <ToolStatRow
-              key={row.name}
-              name={row.name}
-              value={formatPercent(row.errorRate, 1)}
-              valueTone={rateTextTone(row.errorRate)}
-              meta={`${row.errors.toLocaleString()} / ${row.total.toLocaleString()} calls`}
-              bar={{ pct: row.errorRate, tone: rateBarTone(row.errorRate) }}
-            />
-          ))}
-        </ul>
-      )}
-    </Expandable>
+    <ul className="-mx-2 flex flex-col">
+      {rows.map((row) => (
+        <ToolStatRow
+          key={row.name}
+          name={row.name}
+          value={formatPercent(row.errorRate, 1)}
+          valueTone={rateTextTone(row.errorRate)}
+          meta={`${row.errors.toLocaleString()} / ${row.total.toLocaleString()} calls`}
+          bar={{ pct: row.errorRate, tone: rateBarTone(row.errorRate) }}
+        />
+      ))}
+    </ul>
   )
 }
 
@@ -182,25 +176,21 @@ export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
   }
   const maxP95 = Math.max(...rows.map((r) => r.p95Chars), 1)
   return (
-    <Expandable rows={rows}>
-      {(visible) => (
-        <ul className="-mx-2 flex flex-col">
-          {visible.map((row) => {
-            const p95Tok = tokensFromChars(row.p95Chars)
-            return (
-              <ToolStatRow
-                key={row.name}
-                name={row.name}
-                value={`${formatTokens(p95Tok)} tok`}
-                valueTone={sizeTextTone(p95Tok)}
-                meta={`avg ${formatTokens(tokensFromChars(row.avgChars))} · max ${formatTokens(tokensFromChars(row.maxChars))}`}
-                bar={{ pct: row.p95Chars / maxP95, tone: 'bg-primary/60' }}
-              />
-            )
-          })}
-        </ul>
-      )}
-    </Expandable>
+    <ul className="-mx-2 flex flex-col">
+      {rows.map((row) => {
+        const p95Tok = tokensFromChars(row.p95Chars)
+        return (
+          <ToolStatRow
+            key={row.name}
+            name={row.name}
+            value={`${formatTokens(p95Tok)} tok`}
+            valueTone={sizeTextTone(p95Tok)}
+            meta={`avg ${formatTokens(tokensFromChars(row.avgChars))} · max ${formatTokens(tokensFromChars(row.maxChars))}`}
+            bar={{ pct: row.p95Chars / maxP95, tone: 'bg-primary/60' }}
+          />
+        )
+      })}
+    </ul>
   )
 }
 

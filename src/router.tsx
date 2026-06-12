@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query'
 import {
   createRouter as createTanStackRouter,
   defaultParseSearch,
@@ -5,7 +6,6 @@ import {
 } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { RouterError } from './components/router-error'
-import { getContext } from './integrations/tanstack-query/root-provider'
 import { serialize as serializeRange, type TimeRange } from './lib/time-range'
 import { routeTree } from './routeTree.gen'
 
@@ -24,7 +24,7 @@ function stringifySearch(search: Record<string, unknown>): string {
 }
 
 export function getRouter() {
-  const context = getContext()
+  const context = { queryClient: new QueryClient() }
 
   const router = createTanStackRouter({
     routeTree,

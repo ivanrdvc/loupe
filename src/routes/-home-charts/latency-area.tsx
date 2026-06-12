@@ -6,7 +6,7 @@ import { formatDuration } from '#/lib/format'
 import type { LatencyPoint } from '#/lib/telemetry'
 import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { chatLatencyOverTimeQuery } from '../-home-data'
-import { HomeChartCard } from './chart-card'
+import { HomeChartCard, tsTooltipLabel } from './chart-card'
 
 const CHART_CONFIG: ChartConfig = {
   p95Ms: { label: 'p95 latency', color: 'var(--primary)' },
@@ -62,12 +62,7 @@ function LatencyChartInner({ data, range }: { data: LatencyPoint[]; range: TimeR
           cursor={false}
           content={
             <ChartTooltipContent
-              labelFormatter={(_, payload) => {
-                const ts = payload?.[0]?.payload?.ts
-                return typeof ts === 'number'
-                  ? new Date(ts).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
-                  : ''
-              }}
+              labelFormatter={(_, payload) => tsTooltipLabel(payload)}
               formatter={(value, name) => {
                 const n = Number(value)
                 const isLatency = typeof name === 'string' && name.startsWith('p')

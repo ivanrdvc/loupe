@@ -5,7 +5,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import type { RunsPoint } from '#/lib/telemetry'
 import { formatChartTick, type TimeRange } from '#/lib/time-range'
 import { runsPerHourQuery } from '../-home-data'
-import { HomeChartCard } from './chart-card'
+import { HomeChartCard, tsTooltipLabel } from './chart-card'
 
 const CHART_CONFIG: ChartConfig = {
   runs: { label: 'Runs', color: 'var(--primary)' },
@@ -46,16 +46,7 @@ function ThroughputChartInner({ data, range }: { data: RunsPoint[]; range: TimeR
         <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} />
         <ChartTooltip
           cursor={false}
-          content={
-            <ChartTooltipContent
-              labelFormatter={(_, payload) => {
-                const ts = payload?.[0]?.payload?.ts
-                return typeof ts === 'number'
-                  ? new Date(ts).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
-                  : ''
-              }}
-            />
-          }
+          content={<ChartTooltipContent labelFormatter={(_, payload) => tsTooltipLabel(payload)} />}
         />
         <Area
           dataKey="runs"

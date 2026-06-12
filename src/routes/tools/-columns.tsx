@@ -26,13 +26,6 @@ export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
         {row.original.name}
       </Link>
     ),
-    filterFn: (row, _id, value) => {
-      const q = String(value ?? '')
-        .trim()
-        .toLowerCase()
-      if (!q) return true
-      return row.original.name.toLowerCase().includes(q)
-    },
   },
   {
     accessorKey: 'calls',
