@@ -5,9 +5,9 @@ import {
   AutoRefreshSelect,
   INSPECT_AUTO_REFRESH_OPTIONS,
 } from '#/components/auto-refresh-select'
-import { IconTabs } from '#/components/icon-tabs'
 import { Toggle } from '#/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { IconTabs } from './icon-tabs'
 
 export type InspectView = 'spans' | 'conversation'
 

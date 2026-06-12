@@ -14,6 +14,7 @@ import {
   type ScoreDataType,
   type ScoreDirection,
 } from '#/lib/eval/evaluation'
+import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 
 // Inline score_config create — keeps a dimension's vocab consistent across human + judge.
@@ -63,7 +64,7 @@ export function DimensionForm({ onCreated, onCancel }: { onCreated: (c: ScoreCon
       toast.success(`Dimension "${config.name}" created`)
       onCreated(config)
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not create dimension'),
+    onError: (e) => toast.error(errMessage(e)),
   })
 
   return (

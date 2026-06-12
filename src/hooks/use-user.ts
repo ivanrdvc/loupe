@@ -1,31 +1,12 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { buildCurrentUser, type CurrentUser } from '#/lib/current-user'
+import { createLocalStorageStore } from '#/lib/local-storage-store'
 
 const USER_ID_KEY = 'loupe:user-id'
 const SCOPE_TO_ME_KEY = 'loupe:scope-to-me'
 
-function makeStore(key: string) {
-  const listeners = new Set<() => void>()
-  return {
-    subscribe(cb: () => void) {
-      listeners.add(cb)
-      const onStorage = (event: StorageEvent) => {
-        if (event.key === key) cb()
-      }
-      window.addEventListener('storage', onStorage)
-      return () => {
-        listeners.delete(cb)
-        window.removeEventListener('storage', onStorage)
-      }
-    },
-    notify() {
-      for (const listener of listeners) listener()
-    },
-  }
-}
-
-const userIdStore = makeStore(USER_ID_KEY)
-const scopeToMeStore = makeStore(SCOPE_TO_ME_KEY)
+const userIdStore = createLocalStorageStore(USER_ID_KEY)
+const scopeToMeStore = createLocalStorageStore(SCOPE_TO_ME_KEY)
 
 function readUserId(): string {
   if (typeof window === 'undefined') return ''

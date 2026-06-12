@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ChevronRight, Ellipsis, EllipsisVertical, Keyboard, LogOut, Moon, Sun } from 'lucide-react'
+import { ChevronRight, Ellipsis, EllipsisVertical, Keyboard, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Fragment, useRef, useState } from 'react'
 import type { AnimatedIconHandle } from '#/components/icons/animated-icon'
@@ -305,13 +305,6 @@ function NavUser() {
                 Keyboard shortcuts
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <a href="/login">
-                <LogOut />
-                Sign out
-              </a>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

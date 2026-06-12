@@ -4,7 +4,6 @@ import { type ReactNode, useMemo, useState } from 'react'
 import { CodeBlock } from '#/components/ai-elements/code-block'
 import { JsonTree } from '#/components/ai-elements/json-tree'
 import { JsonView } from '#/components/ai-elements/json-view'
-import { ToolInput, ToolOutput } from '#/components/ai-elements/tool'
 import { StatusDot } from '#/components/status-dot'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -517,7 +516,7 @@ function MessagePartView({
     const subAgent = resolved?.subAgent
     const subAgentName = subAgent?.agentName ?? subAgent?.name
     const tone = toolTone(subAgent ? 'agent' : 'tool')
-    const hasResult = resolved?.result !== undefined
+    const hasResult = resolved?.result != null
     const errored = resolved && !resolved.success
     return (
       <Collapsible className={`group min-w-0 overflow-hidden rounded-lg border p-2.5 ${tone.border}`}>
@@ -557,7 +556,7 @@ function MessagePartView({
           <ChevronDown className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2 min-w-0 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
-          {part.arguments != null && <ToolInput input={part.arguments} />}
+          {part.arguments != null && <ToolJson title="Parameters" value={part.arguments} />}
           {resolved?.error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2">
               <ErrorLine type={resolved.error.kind} message={resolved.error.message} size="sm" />
@@ -571,13 +570,24 @@ function MessagePartView({
           {resolved?.span.truncatedAttrs?.toolResult ? (
             <TruncatedAttrFallback span={resolved.span} field="toolResult" />
           ) : (
-            hasResult && <ToolOutput output={resolved.result} errorText={undefined} />
+            hasResult && <ToolJson title="Result" value={resolved.result} />
           )}
         </CollapsibleContent>
       </Collapsible>
     )
   }
   return <JsonView value={part.response} />
+}
+
+function ToolJson({ title, value }: { title: string; value: unknown }) {
+  return (
+    <div className="space-y-2 overflow-hidden">
+      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">{title}</h4>
+      <div className="rounded-md bg-muted/50">
+        <JsonView value={value} />
+      </div>
+    </div>
+  )
 }
 
 function StructuredText({ content }: { content: string }) {

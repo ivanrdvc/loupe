@@ -13,13 +13,13 @@ import { ProgressCircle } from '#/components/ui/progress-circle'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Switch } from '#/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { definitionsQuery, judgeDefaultsQuery, scoreConfigsQuery } from '#/features/evaluation'
 import { EvaluatorFormDialog } from '#/features/evaluation/components/evaluator-form-dialog'
-import { getJudgeDefaults, listEvalDefinitions, setEvalDefinitionLive } from '#/features/evaluation/server/evals'
+import { setEvalDefinitionLive } from '#/features/evaluation/server/evals'
 import type { JudgeDefaults } from '#/features/evaluation/server/judge'
 import {
   getOnlineEvalStats,
   getScoreRollup,
-  listScoreConfigs,
   type OnlineEvalStat,
   type ScoreRollupRow,
 } from '#/features/evaluation/server/scores'
@@ -37,12 +37,6 @@ import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
-const definitionsQuery = queryOptions({
-  queryKey: queryKeys.evals.definitions(),
-  queryFn: () => listEvalDefinitions({ data: {} }),
-  staleTime: STALE_TELEMETRY_MS,
-})
-
 const rollupQuery = queryOptions({
   queryKey: queryKeys.scores.rollup('7d'),
   queryFn: () => {
@@ -52,22 +46,10 @@ const rollupQuery = queryOptions({
   staleTime: STALE_TELEMETRY_MS,
 })
 
-const judgeDefaultsQuery = queryOptions({
-  queryKey: queryKeys.evals.judgeDefaults(),
-  queryFn: () => getJudgeDefaults(),
-  staleTime: STALE_TELEMETRY_MS,
-})
-
 const onlineStatsQuery = queryOptions({
   queryKey: queryKeys.evals.onlineStats(),
   queryFn: () => getOnlineEvalStats(),
   staleTime: STALE_LIVE_MS,
-})
-
-const configsQuery = queryOptions({
-  queryKey: queryKeys.scores.configs(),
-  queryFn: () => listScoreConfigs(),
-  staleTime: STALE_TELEMETRY_MS,
 })
 
 const SOURCE_ORDER: ScoreSource[] = ['human', 'llm', 'code']
@@ -96,7 +78,7 @@ function EvalsPage() {
   const { data: rollup = [] } = useQuery(rollupQuery)
   const { data: judgeDefaults } = useQuery(judgeDefaultsQuery)
   const { data: onlineStats = {} } = useQuery(onlineStatsQuery)
-  const { data: configs = [] } = useQuery(configsQuery)
+  const { data: configs = [] } = useQuery(scoreConfigsQuery)
 
   const [setupOpen, setSetupOpen] = useState(false)
 

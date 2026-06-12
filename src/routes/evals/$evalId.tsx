@@ -24,13 +24,13 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { definitionQuery } from '#/features/evaluation'
 import { EvaluatorFormDialog, readLiveFilter } from '#/features/evaluation/components/evaluator-form-dialog'
 import { ScoreValue } from '#/features/evaluation/components/score-value'
 import {
   blessEvalRun,
   compareRuns,
   deleteEvalDefinition,
-  getEvalDefinition,
   setEvalDefinitionLive,
 } from '#/features/evaluation/server/evals'
 import { listScoresByDefinition } from '#/features/evaluation/server/scores'
@@ -40,13 +40,6 @@ import { errMessage, formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
-
-const evalQuery = (id: number) =>
-  queryOptions({
-    queryKey: queryKeys.evals.definition(id),
-    queryFn: () => getEvalDefinition({ data: id }),
-    staleTime: STALE_LIVE_MS,
-  })
 
 const compareQuery = (base: number, head: number) =>
   queryOptions({
@@ -63,7 +56,7 @@ const scoresQuery = (id: number) =>
   })
 
 export const Route = createFileRoute('/evals/$evalId')({
-  loader: ({ context, params }) => context.queryClient.ensureQueryData(evalQuery(Number(params.evalId))),
+  loader: ({ context, params }) => context.queryClient.ensureQueryData(definitionQuery(Number(params.evalId))),
   component: EvalDetailPage,
 })
 
@@ -72,7 +65,7 @@ function EvalDetailPage() {
   const id = Number(evalId)
   // Runs execute as a background job, so poll while any run is active to fill in.
   const { data, isLoading } = useQuery({
-    ...evalQuery(id),
+    ...definitionQuery(id),
     refetchInterval: (q) => (q.state.data?.runs.some((r) => isEvalRunActive(r.status)) ? 1500 : false),
   })
 

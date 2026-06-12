@@ -1,7 +1,7 @@
+import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
-import { ToolLink } from '#/components/tool-link'
 import { Badge } from '#/components/ui/badge'
 import { formatDuration, formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolCatalogRow } from '#/lib/telemetry'
@@ -21,7 +21,11 @@ export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
   {
     accessorKey: 'name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tool" />,
-    cell: ({ row }) => <ToolLink name={row.original.name} className="font-medium" />,
+    cell: ({ row }) => (
+      <Link from="/tools/" to="." search={(prev) => ({ ...prev, tool: row.original.name })} className="font-medium">
+        {row.original.name}
+      </Link>
+    ),
     filterFn: (row, _id, value) => {
       const q = String(value ?? '')
         .trim()

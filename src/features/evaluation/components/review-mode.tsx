@@ -18,11 +18,13 @@ import { ScrollArea } from '#/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { GoldenCapturePanel } from '#/features/evaluation/components/golden-capture'
+import { scoreConfigsQuery } from '#/features/evaluation/components/queries'
 import { type ScoreDraft, ScoreInput } from '#/features/evaluation/components/score-input'
 import { useGoldenSnapshot } from '#/features/evaluation/components/use-golden-snapshot'
-import { listScoreConfigs, listScoresForTarget, upsertHumanScore } from '#/features/evaluation/server/scores'
+import { listScoresForTarget, upsertHumanScore } from '#/features/evaluation/server/scores'
 import { useUser } from '#/hooks/use-user'
 import { draftIsBad, type ScoreTargetKind } from '#/lib/eval/evaluation'
+import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import { asMessages } from '#/lib/spans/conversation'
@@ -53,11 +55,7 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
   const [dimension, setDimension] = useState<string | null>(null)
   const [goldenHighlight, setGoldenHighlight] = useState(false)
 
-  const { data: configs = [] } = useQuery({
-    queryKey: queryKeys.scores.configs(),
-    queryFn: () => listScoreConfigs(),
-    enabled: open,
-  })
+  const { data: configs = [] } = useQuery({ ...scoreConfigsQuery, enabled: open })
   const activeConfigs = useMemo(() => configs.filter((c) => !c.archived), [configs])
 
   useEffect(() => {
@@ -126,7 +124,7 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
       if (config && draftIsBad(config, draft)) setGoldenHighlight(true)
       toast.success('Score saved')
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save score'),
+    onError: (e) => toast.error(errMessage(e)),
   })
 
   const advance = useCallback(() => {

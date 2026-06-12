@@ -14,6 +14,7 @@ import {
 } from '#/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { createDataset, listDatasets, upsertExample } from '#/features/evaluation/server/datasets'
+import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import type { ExampleInput } from '#/routes/datasets/-types'
 
@@ -63,7 +64,7 @@ export function AddToDatasetButton({
       setOpen(false)
       setQuery('')
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not add to dataset'),
+    onError: (e) => toast.error(errMessage(e)),
   })
 
   const createMutation = useMutation({
@@ -78,7 +79,7 @@ export function AddToDatasetButton({
       setOpen(false)
       setQuery('')
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not create dataset'),
+    onError: (e) => toast.error(errMessage(e)),
   })
 
   const pending = addMutation.isPending || createMutation.isPending

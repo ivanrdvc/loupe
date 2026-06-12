@@ -13,9 +13,10 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Switch } from '#/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { definitionQuery, scoreConfigsQuery } from '#/features/evaluation'
 import { ScoreValue } from '#/features/evaluation/components/score-value'
-import { getEvalDefinition, getEvalRun } from '#/features/evaluation/server/evals'
-import { listScoreConfigs, listScoresByRun } from '#/features/evaluation/server/scores'
+import { getEvalRun } from '#/features/evaluation/server/evals'
+import { listScoresByRun } from '#/features/evaluation/server/scores'
 import {
   type ConfigHint,
   EVAL_RUN_STATUS_BADGE,
@@ -134,21 +135,13 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
     refetchInterval: isEvalRunActive(run.status) ? 1500 : false,
   })
   // Fetch the parent evaluator so the breadcrumb can name it (not just "Run #N").
-  const { data: definitionDetail } = useQuery({
-    queryKey: queryKeys.evals.definition(run.definitionId),
-    queryFn: () => getEvalDefinition({ data: run.definitionId }),
-    staleTime: STALE_LIVE_MS,
-  })
+  const { data: definitionDetail } = useQuery(definitionQuery(run.definitionId))
   const evaluatorName = definitionDetail?.definition.name
   const [failedOnly, setFailedOnly] = useState(false)
 
   // Per-dimension polarity/scale, so verdicts classify against their config (not
   // the lexicon/unscaled fallback) — required for correct tone + "Failed only".
-  const { data: configs = [] } = useQuery({
-    queryKey: queryKeys.scores.configs(),
-    queryFn: () => listScoreConfigs(),
-    staleTime: STALE_LIVE_MS,
-  })
+  const { data: configs = [] } = useQuery(scoreConfigsQuery)
   const scaleByName = useMemo(
     () =>
       new Map<string, ConfigHint>(

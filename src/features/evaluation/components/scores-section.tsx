@@ -6,12 +6,7 @@ import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import {
-  deleteScore,
-  listScoreConfigs,
-  listScoresForTarget,
-  upsertHumanScore,
-} from '#/features/evaluation/server/scores'
+import { deleteScore, listScoresForTarget, upsertHumanScore } from '#/features/evaluation/server/scores'
 import { useUser } from '#/hooks/use-user'
 import {
   type ConfigHint,
@@ -24,10 +19,12 @@ import {
   type ScoreTargetKind,
   scoreIsBad,
 } from '#/lib/eval/evaluation'
+import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { DimensionForm } from './dimension-create'
+import { scoreConfigsQuery } from './queries'
 import { ScoreInput } from './score-input'
 import { ScoreValue } from './score-value'
 
@@ -48,7 +45,7 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
     queryKey: queryKeys.scores.byTarget(targetKind, targetId),
     queryFn: () => listScoresForTarget({ data: { targetKind, targetId } }),
   })
-  const { data: configs } = useQuery({ queryKey: queryKeys.scores.configs(), queryFn: () => listScoreConfigs() })
+  const { data: configs } = useQuery(scoreConfigsQuery)
 
   const invalidate = async () => {
     await Promise.all([
@@ -87,7 +84,7 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
       setAdding(null)
       toast.success('Score saved')
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not save score'),
+    onError: (e) => toast.error(errMessage(e)),
   })
 
   const deleteMutation = useMutation({
