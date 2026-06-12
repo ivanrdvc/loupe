@@ -403,6 +403,13 @@ export const SCORE_SOURCE_LABEL: Record<ScoreSource, string> = {
   code: 'Code',
 }
 
+export const DATA_TYPE_LABEL: Record<ScoreDataType, string> = {
+  numeric: 'Numeric',
+  categorical: 'Categorical',
+  boolean: 'Boolean',
+  text: 'Text',
+}
+
 // Latest row per (name, evaluator) for run-less scores — what the list views show.
 export function latestScores(scores: Score[]): Score[] {
   const byKey = new Map<string, Score>()
