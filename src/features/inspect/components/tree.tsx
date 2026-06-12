@@ -226,7 +226,9 @@ export function SpanTreeList({
 
   if (rows.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
+      // Absolute against the ScrollArea root: Radix's viewport content wrapper
+      // has no height, so h-full centering collapses inside it.
+      <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-muted-foreground/70">
         No spans in this session.
       </div>
     )
