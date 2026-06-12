@@ -1,21 +1,12 @@
-import {
-  ArrowRight01Icon,
-  KeyboardIcon,
-  Logout01Icon,
-  Megaphone01Icon,
-  Moon01Icon,
-  MoreHorizontalCircle01Icon,
-  MoreVerticalIcon,
-  Settings01Icon,
-  Sun01Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
+import { ChevronRight, Ellipsis, EllipsisVertical, Keyboard, LogOut, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { Fragment, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
+import { MegaphoneIcon } from '#/components/icons/megaphone'
+import { SettingsIcon } from '#/components/icons/settings'
 import { Logo } from '#/components/logo'
-import { INVENTORY_GROUP, NAV_ITEMS, type NavItem, navMatches } from '#/components/nav-items'
+import { type AnimatedIconHandle, INVENTORY_GROUP, NAV_ITEMS, type NavItem, navMatches } from '#/components/nav-items'
 import { SettingsDialog } from '#/components/settings-dialog'
 import { useShortcutsDialog } from '#/components/shortcuts-dialog'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -59,6 +50,8 @@ const INVENTORY_NAV = NAV_ITEMS.filter((n) => n.group === 'inventory')
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsIconRef = useRef<AnimatedIconHandle>(null)
+  const changelogIconRef = useRef<AnimatedIconHandle>(null)
   const changelogUnseen = useChangelogUnseen(__APP_VERSION__)
   const [userId] = useUserId()
   const { data: recentData } = useQuery(currentUserSessionsQuery(DEFAULT, userId))
@@ -126,7 +119,7 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild className="text-sidebar-foreground/70">
                       <Link to="/sessions" search={{ userId: userId || undefined }}>
-                        <HugeiconsIcon icon={MoreHorizontalCircle01Icon} />
+                        <Ellipsis />
                         <span>More</span>
                       </Link>
                     </SidebarMenuButton>
@@ -140,15 +133,23 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setSettingsOpen(true)}>
-                    <HugeiconsIcon icon={Settings01Icon} />
+                  <SidebarMenuButton
+                    onClick={() => setSettingsOpen(true)}
+                    onMouseEnter={() => settingsIconRef.current?.startAnimation()}
+                    onMouseLeave={() => settingsIconRef.current?.stopAnimation()}
+                  >
+                    <SettingsIcon ref={settingsIconRef} size={16} className="flex shrink-0" />
                     <span>Settings</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith('/changelog')}>
-                    <Link to="/changelog">
-                      <HugeiconsIcon icon={Megaphone01Icon} className="size-4 shrink-0" />
+                    <Link
+                      to="/changelog"
+                      onMouseEnter={() => changelogIconRef.current?.startAnimation()}
+                      onMouseLeave={() => changelogIconRef.current?.stopAnimation()}
+                    >
+                      <MegaphoneIcon ref={changelogIconRef} size={16} className="flex shrink-0" />
                       <span>Changelog</span>
                     </Link>
                   </SidebarMenuButton>
@@ -173,6 +174,18 @@ export function AppSidebar() {
 }
 
 function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
+  const iconRef = useRef<AnimatedIconHandle>(null)
+  const icon = item.animatedIcon ? (
+    <item.animatedIcon ref={iconRef} size={16} className="flex shrink-0" />
+  ) : (
+    <item.icon />
+  )
+  const hoverProps = item.animatedIcon
+    ? {
+        onMouseEnter: () => iconRef.current?.startAnimation(),
+        onMouseLeave: () => iconRef.current?.stopAnimation(),
+      }
+    : undefined
   if (item.soon) {
     return (
       <SidebarMenuItem>
@@ -180,7 +193,7 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
           aria-disabled
           className="cursor-default opacity-60 hover:bg-transparent hover:text-sidebar-foreground"
         >
-          <HugeiconsIcon icon={item.icon} />
+          {icon}
           <span>{item.label}</span>
         </SidebarMenuButton>
         <SidebarMenuBadge>Soon</SidebarMenuBadge>
@@ -190,8 +203,8 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={navMatches(item, pathname)}>
-        <Link to={item.to}>
-          <HugeiconsIcon icon={item.icon} />
+        <Link to={item.to} {...hoverProps}>
+          {icon}
           <span>{item.label}</span>
         </Link>
       </SidebarMenuButton>
@@ -200,19 +213,20 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
 }
 
 function InventoryNav({ pathname }: { pathname: string }) {
+  const iconRef = useRef<AnimatedIconHandle>(null)
   const sectionActive =
     pathname.startsWith(INVENTORY_GROUP.basePath) || INVENTORY_NAV.some((item) => navMatches(item, pathname))
   return (
     <Collapsible asChild defaultOpen={sectionActive} className="group/collapsible">
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton>
-            <HugeiconsIcon icon={INVENTORY_GROUP.icon} />
+          <SidebarMenuButton
+            onMouseEnter={() => iconRef.current?.startAnimation()}
+            onMouseLeave={() => iconRef.current?.stopAnimation()}
+          >
+            <INVENTORY_GROUP.animatedIcon ref={iconRef} size={16} className="flex shrink-0" />
             <span>{INVENTORY_GROUP.label}</span>
-            <HugeiconsIcon
-              icon={ArrowRight01Icon}
-              className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
-            />
+            <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -237,7 +251,7 @@ function NavUser() {
   const user = useUser()
   const { resolvedTheme, setTheme } = useTheme()
   const { setOpen: setShortcutsOpen } = useShortcutsDialog()
-  const themeIcon = resolvedTheme === 'dark' ? Moon01Icon : Sun01Icon
+  const ThemeIcon = resolvedTheme === 'dark' ? Moon : Sun
 
   return (
     <SidebarMenu>
@@ -257,7 +271,7 @@ function NavUser() {
                 <span className="truncate text-sm font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">{user.email}</span>
               </div>
-              <HugeiconsIcon icon={MoreVerticalIcon} className="ml-auto size-4" />
+              <EllipsisVertical className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -282,18 +296,18 @@ function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
-                <HugeiconsIcon icon={themeIcon} />
+                <ThemeIcon />
                 Toggle theme
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
-                <HugeiconsIcon icon={KeyboardIcon} />
+                <Keyboard />
                 Keyboard shortcuts
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <a href="/login">
-                <HugeiconsIcon icon={Logout01Icon} />
+                <LogOut />
                 Sign out
               </a>
             </DropdownMenuItem>

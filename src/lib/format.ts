@@ -1,3 +1,5 @@
+import { ACCENT } from '#/lib/tone'
+
 export function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
@@ -44,18 +46,18 @@ export function metricTone(
   value: number | undefined,
   normal = 'text-zinc-950 dark:text-white',
 ): string {
-  if (!value) return 'text-zinc-500 dark:text-zinc-400'
+  if (!value) return ACCENT.zinc.text
   if (kind === 'cost') {
-    if (value >= 1) return 'text-rose-700 dark:text-rose-300'
-    if (value >= 0.1) return 'text-amber-700 dark:text-amber-300'
+    if (value >= 1) return ACCENT.rose.status
+    if (value >= 0.1) return ACCENT.amber.status
   }
   if (kind === 'tokens') {
-    if (value >= 1_000_000) return 'text-rose-700 dark:text-rose-300'
-    if (value >= 250_000) return 'text-amber-700 dark:text-amber-300'
+    if (value >= 1_000_000) return ACCENT.rose.status
+    if (value >= 250_000) return ACCENT.amber.status
   }
   if (kind === 'duration') {
-    if (value >= 3_600_000) return 'text-rose-700 dark:text-rose-300'
-    if (value >= 600_000) return 'text-amber-700 dark:text-amber-300'
+    if (value >= 3_600_000) return ACCENT.rose.status
+    if (value >= 600_000) return ACCENT.amber.status
   }
   return normal
 }

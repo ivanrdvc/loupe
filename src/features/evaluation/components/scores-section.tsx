@@ -1,6 +1,5 @@
-import { Delete02Icon, Edit02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { SquarePen, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
@@ -26,6 +25,7 @@ import {
   scoreIsBad,
 } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { DimensionForm } from './dimension-create'
 import { ScoreInput } from './score-input'
@@ -212,9 +212,7 @@ function DimensionGroup({
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-foreground">{name}</span>
         {disagreement && (
-          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-            disagreement
-          </span>
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ACCENT.amber.badge}`}>disagreement</span>
         )}
       </div>
       <div className="mt-1.5 flex flex-col gap-1">
@@ -266,7 +264,7 @@ function ScoreRow({
       {editable && (
         <div className="ml-auto flex items-center gap-0.5">
           <Button size="icon-sm" variant="ghost" aria-label="Edit score" onClick={() => onEdit(score)}>
-            <HugeiconsIcon icon={Edit02Icon} strokeWidth={2} />
+            <SquarePen />
           </Button>
           <Button
             size="icon-sm"
@@ -275,7 +273,7 @@ function ScoreRow({
             className="text-muted-foreground hover:text-destructive"
             onClick={() => onDelete(score.id)}
           >
-            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+            <Trash2 />
           </Button>
         </div>
       )}

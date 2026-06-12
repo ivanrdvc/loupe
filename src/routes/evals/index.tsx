@@ -1,7 +1,6 @@
-import { Add01Icon, TestTubeIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { Plus, TestTube } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
@@ -58,6 +57,7 @@ import {
 import { JUDGE_TEMPLATES } from '#/lib/eval/judge-templates'
 import { errMessage, formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 const definitionsQuery = queryOptions({
@@ -150,7 +150,7 @@ function EvalsPage() {
           defaultModel={judgeDefaults?.model ?? ''}
           trigger={
             <Button size="sm">
-              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+              <Plus data-icon="inline-start" />
               Set up evaluator
             </Button>
           }
@@ -292,7 +292,7 @@ function EvaluatorsTable({
                     {stat?.costUsd ? formatCost(stat.costUsd) : '—'}
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs text-violet-700 dark:text-violet-400">{def.model || '—'}</span>
+                    <span className={`font-mono text-xs ${ACCENT.violet.ident}`}>{def.model || '—'}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     <RelativeTime ts={def.updatedAt} />
@@ -344,7 +344,7 @@ function JudgeStatus({ judge }: { judge: JudgeDefaults }) {
   ].filter(Boolean) as string[]
   return (
     <p className="text-xs text-muted-foreground">
-      Judge: <span className="font-mono text-violet-700 dark:text-violet-400">{judge.model}</span>
+      Judge: <span className={`font-mono ${ACCENT.violet.ident}`}>{judge.model}</span>
       {keys.length > 0 && <> · {keys.join(', ')} ready</>}
     </p>
   )
@@ -378,13 +378,13 @@ function EvaluatorsEmpty({ onSetup }: { onSetup: () => void }) {
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <HugeiconsIcon icon={TestTubeIcon} />
+          <TestTube />
         </EmptyMedia>
         <EmptyTitle>No evaluators yet</EmptyTitle>
         <EmptyDescription>Set up an LLM-judge or code evaluator to start scoring your traces.</EmptyDescription>
       </EmptyHeader>
       <Button size="sm" onClick={onSetup}>
-        <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+        <Plus data-icon="inline-start" />
         Set up evaluator
       </Button>
     </Empty>

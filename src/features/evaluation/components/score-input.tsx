@@ -4,8 +4,8 @@ import { Input } from '#/components/ui/input'
 import { Slider } from '#/components/ui/slider'
 import { Textarea } from '#/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
+import { ThumbDownIcon, ThumbUpIcon } from '#/features/evaluation/components/score-value'
 import type { ScoreConfig } from '#/lib/eval/evaluation'
-import { cn } from '#/lib/utils'
 
 export type ScoreDraft = { value: number | null; label: string | null; explanation: string | null }
 
@@ -110,10 +110,10 @@ function Control({
         className="justify-start"
       >
         <ToggleGroupItem value="good" aria-label="Good">
-          👍 Good
+          <ThumbUpIcon /> Good
         </ToggleGroupItem>
         <ToggleGroupItem value="bad" aria-label="Bad">
-          👎 Bad
+          <ThumbDownIcon /> Bad
         </ToggleGroupItem>
       </ToggleGroup>
     )
@@ -145,21 +145,19 @@ function Control({
     if (integerScale) {
       const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i)
       return (
-        <div className="flex flex-wrap gap-1.5">
+        <ToggleGroup
+          type="single"
+          value={value != null ? String(value) : ''}
+          onValueChange={(v) => onValue(v ? Number(v) : null)}
+          variant="outline"
+          className="flex-wrap justify-start"
+        >
           {steps.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onValue(n)}
-              className={cn(
-                'flex size-8 items-center justify-center rounded-md border text-sm tabular-nums transition-colors',
-                value === n ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted',
-              )}
-            >
+            <ToggleGroupItem key={n} value={String(n)} className="tabular-nums">
               {n}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       )
     }
     return (

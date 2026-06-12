@@ -1,6 +1,5 @@
-import { ArrowDown01Icon, Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
+import { Braces, Check, ChevronDown, Copy } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { CodeBlock } from '#/components/ai-elements/code-block'
 import { JsonTree } from '#/components/ai-elements/json-tree'
@@ -29,7 +28,7 @@ import {
   turnTailStart,
 } from '#/lib/spans/conversation'
 import type { LogLevel } from '#/lib/telemetry/types'
-import { toolTone } from '#/lib/tools'
+import { ACCENT, toolTone } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
@@ -55,14 +54,7 @@ export function DetailPanel({
       <div className="flex min-w-0 items-center gap-2">
         {display.tagLabel && (
           <Badge variant="outline" className="px-1.5 text-muted-foreground">
-            {display.tagIcon && (
-              <HugeiconsIcon
-                icon={display.tagIcon}
-                strokeWidth={1.5}
-                className={`size-3 ${display.tagColor ?? ''}`}
-                aria-hidden
-              />
-            )}
+            {display.tagIcon && <display.tagIcon className={`size-3 ${display.tagColor ?? ''}`} aria-hidden />}
             {display.tagLabel}
           </Badge>
         )}
@@ -365,6 +357,22 @@ const ROLE_LABELS: Record<RoleKey, string> = {
   assistant: 'Assistant',
   agent: 'Agent',
 }
+const ROLE_TONE: Record<RoleKey, string> = {
+  system: 'bg-muted text-muted-foreground',
+  user: ACCENT.cyan.badge,
+  assistant: ACCENT.violet.badge,
+  agent: ACCENT.emerald.badge,
+}
+
+function RoleChip({ role }: { role: RoleKey }) {
+  return (
+    <span
+      className={`inline-flex h-4 shrink-0 items-center rounded-full px-1.5 text-[10px] font-medium ${ROLE_TONE[role]}`}
+    >
+      {ROLE_LABELS[role]}
+    </span>
+  )
+}
 
 function HistoryDisclosure({
   msgs,
@@ -381,11 +389,7 @@ function HistoryDisclosure({
           type="button"
           className="flex w-full items-center gap-1.5 rounded-md border border-dashed border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
         >
-          <HugeiconsIcon
-            icon={ArrowDown01Icon}
-            strokeWidth={2}
-            className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`}
-          />
+          <ChevronDown className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`} />
           {open ? 'Hide' : 'Show'} {msgs.length} earlier {msgs.length === 1 ? 'message' : 'messages'}
         </button>
       </CollapsibleTrigger>
@@ -414,9 +418,7 @@ function MessageCard({
   return (
     <div className="flex min-w-0 flex-col gap-2 py-2.5 first:pt-0 last:pb-0">
       <div className="flex items-center gap-2">
-        <Badge variant={msg.role === 'assistant' ? 'secondary' : 'outline'} className="h-4 px-1.5 text-[10px]">
-          {ROLE_LABELS[msg.role]}
-        </Badge>
+        <RoleChip role={msg.role} />
         {isStructured && (
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             structured · {structured}
@@ -448,7 +450,9 @@ function RetrievalBlock({ query, docs }: { query?: string; docs?: RetrievalDocum
       {query && (
         <div className="flex min-w-0 flex-col gap-1">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Query</div>
-          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{query}</pre>
+          <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-foreground">
+            {query}
+          </pre>
         </div>
       )}
       {ranked.length > 0 && (
@@ -479,9 +483,7 @@ function RoleCard({ kind, label, content }: { kind: RoleKey; label: string; cont
     <Card size="sm" className="min-w-0 gap-2">
       <CardContent className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center gap-2">
-          <Badge variant={kind === 'assistant' ? 'secondary' : 'outline'} className="h-4 px-1.5 text-[10px]">
-            {ROLE_LABELS[kind]}
-          </Badge>
+          <RoleChip role={kind} />
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
         </div>
         <CollapsibleText content={content} />
@@ -504,7 +506,11 @@ function MessagePartView({
   if (part.kind === 'text') {
     if (structured) return <StructuredText content={part.content} />
     if (role === 'system') return <CollapsibleText content={part.content} />
-    return <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{part.content}</pre>
+    return (
+      <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-foreground">
+        {part.content}
+      </pre>
+    )
   }
   if (part.kind === 'tool_call') {
     const resolved = callResolutions.get(part.id)
@@ -519,12 +525,12 @@ function MessagePartView({
           <span
             className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${tone.badge}`}
           >
-            <HugeiconsIcon icon={tone.icon} className="size-3" />
+            <tone.icon className="size-3" />
             {tone.label}
           </span>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: stop drag-select inside the trigger from toggling the collapsible */}
           <span
-            className="min-w-0 truncate font-mono text-violet-700 dark:text-violet-400"
+            className={`min-w-0 truncate font-mono ${ACCENT.violet.ident}`}
             title={part.name}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -548,11 +554,7 @@ function MessagePartView({
           >
             {part.id}
           </span>
-          <HugeiconsIcon
-            icon={ArrowDown01Icon}
-            strokeWidth={2}
-            className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
-          />
+          <ChevronDown className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2 min-w-0 space-y-3 data-[state=closed]:animate-out data-[state=open]:animate-in">
           {part.arguments != null && <ToolInput input={part.arguments} />}
@@ -586,9 +588,7 @@ function StructuredText({ content }: { content: string }) {
       const [key, value] = entries[0]
       return (
         <div className="flex flex-wrap items-baseline gap-1.5">
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-violet-700 dark:text-violet-400">
-            {key}
-          </span>
+          <span className={`rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] ${ACCENT.violet.ident}`}>{key}</span>
           <span className="text-xs leading-relaxed text-foreground">{value}</span>
         </div>
       )
@@ -603,12 +603,14 @@ function StructuredText({ content }: { content: string }) {
 function CollapsibleText({ content }: { content: string }) {
   const [open, setOpen] = useState(false)
   if (content.length <= 240) {
-    return <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{content}</pre>
+    return (
+      <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-foreground">{content}</pre>
+    )
   }
   const preview = `${content.slice(0, 240).trimEnd()}…`
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
-      <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
+      <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-foreground">
         {open ? content : preview}
       </pre>
       <CollapsibleTrigger asChild>
@@ -696,15 +698,15 @@ function PanelSection({
               size="sm"
               pressed={showRaw}
               onPressedChange={setShowRaw}
-              className="h-5 min-w-0 px-1.5 font-mono text-[10px] text-muted-foreground"
+              className="h-5 min-w-0 px-1.5 text-muted-foreground"
               aria-label="Show raw JSON"
             >
-              {'{ }'}
+              <Braces aria-hidden />
             </Toggle>
           )}
           {copyText != null && (
             <Button variant="ghost" size="icon-xs" className="size-5" onClick={copy} aria-label="Copy">
-              <HugeiconsIcon icon={copied ? Tick02Icon : Copy01Icon} strokeWidth={1.5} aria-hidden />
+              {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
             </Button>
           )}
         </div>

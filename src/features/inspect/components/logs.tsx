@@ -1,5 +1,5 @@
-import { ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/16/solid'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
@@ -104,7 +104,7 @@ export function SessionLogsPanel({ spans, enabled }: { spans: Span[]; enabled: b
       <div className="flex items-center gap-2">
         <InputGroup className="flex-1">
           <InputGroupAddon>
-            <MagnifyingGlassIcon />
+            <Search aria-hidden />
           </InputGroupAddon>
           <InputGroupInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter logs…" />
         </InputGroup>
@@ -174,7 +174,7 @@ function LogRow({ log }: { log: LogRecord }) {
                 onClick={() => setExpanded((x) => !x)}
                 className="shrink-0 text-muted-foreground hover:text-foreground"
               >
-                {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                {expanded ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
               </Button>
             )}
           </div>

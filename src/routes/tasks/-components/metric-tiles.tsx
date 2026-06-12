@@ -1,13 +1,14 @@
 import type { RollupSummary } from '#/features/tasks/rollup'
 import { formatPercent } from '#/lib/format'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 type Tone = 'emerald' | 'amber' | 'rose' | 'muted'
 
 const ACTIVE_CLASS: Record<Tone, string> = {
-  emerald: 'bg-emerald-500 dark:bg-emerald-500',
-  amber: 'bg-amber-500 dark:bg-amber-500',
-  rose: 'bg-rose-500 dark:bg-rose-500',
+  emerald: ACCENT.emerald.solid,
+  amber: ACCENT.amber.solid,
+  rose: ACCENT.rose.solid,
   muted: 'bg-muted-foreground/30 dark:bg-muted-foreground/30',
 }
 

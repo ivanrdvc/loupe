@@ -1,5 +1,4 @@
-import { Clock01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { Clock } from 'lucide-react'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
@@ -65,7 +64,7 @@ export function FiresTable({ data, onRowClick }: FiresTableProps) {
                         metricTone('duration', fire.durationMs),
                       )}
                     >
-                      <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 opacity-80" />
+                      <Clock className="size-3.5 opacity-80" />
                       {formatDuration(fire.durationMs)}
                     </div>
                   </TableCell>

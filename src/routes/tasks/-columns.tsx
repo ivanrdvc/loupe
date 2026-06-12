@@ -7,6 +7,7 @@ import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import type { TaskRow } from '#/features/tasks/rollup'
 import { formatDuration, formatPercent, metricTone } from '#/lib/format'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 export const taskColumns: ColumnDef<TaskRow>[] = [
@@ -140,12 +141,7 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
     cell: ({ row }) => {
       const r = row.original
       const errRate = 1 - r.successRate
-      const tone =
-        errRate >= 0.1
-          ? 'text-rose-700 dark:text-rose-300'
-          : errRate >= 0.02
-            ? 'text-amber-700 dark:text-amber-300'
-            : ''
+      const tone = errRate >= 0.1 ? ACCENT.rose.status : errRate >= 0.02 ? ACCENT.amber.status : ''
       return <div className={cn('text-right tabular-nums', tone)}>{formatPercent(r.fires - r.errored, r.fires)}</div>
     },
   },

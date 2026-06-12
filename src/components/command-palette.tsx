@@ -1,6 +1,5 @@
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconSearch } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
+import { Search } from 'lucide-react'
 import { createContext, Fragment, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { NAV_ITEMS } from '#/components/nav-items'
 import { Button } from '#/components/ui/button'
@@ -142,7 +141,7 @@ function CommandPaletteDialog({ providers }: { providers: Record<string, SearchP
                 value={`${item.to} ${item.label}`}
                 onSelect={() => run(() => navigate({ to: item.to }))}
               >
-                <HugeiconsIcon icon={item.icon} />
+                <item.icon />
                 <span>{item.label}</span>
               </CommandItem>
             ))}
@@ -162,7 +161,7 @@ export function CommandPaletteTrigger() {
       onClick={() => setOpen(true)}
       className="gap-1.5 px-0! font-normal text-muted-foreground hover:no-underline"
     >
-      <IconSearch data-icon="inline-start" />
+      <Search data-icon="inline-start" aria-hidden />
       Search
       <Kbd className="hidden sm:inline-flex">
         <span className="text-xs">{isMac ? '⌘' : 'Ctrl'}</span>K

@@ -1,10 +1,10 @@
-import type { ComponentType } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '#/components/ui/tabs'
 
 interface IconTab<T extends string> {
   id: T
   label: string
-  Icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+  icon: LucideIcon
 }
 
 interface IconTabsProps<T extends string> {
@@ -27,7 +27,7 @@ export function IconTabs<T extends string>({
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as T)} className={className}>
       <TabsList aria-label={ariaLabel} variant={variant}>
-        {tabs.map(({ id, label, Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <TabsTrigger key={id} value={id}>
             <Icon aria-hidden />
             {label}

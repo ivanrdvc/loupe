@@ -1,5 +1,4 @@
-import { ArrowDownIcon, ChevronDownIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/16/solid'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowDown, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { JsonView } from '#/components/ai-elements/json-view'
@@ -11,7 +10,7 @@ import type { ConversationEvent, InspectorView } from '#/features/inspect'
 import { groupScaffolding, type RenderItem } from '#/lib/agui-scaffolding'
 import { formatTime, formatTokens, metricTone, tokensFromChars } from '#/lib/format'
 import { prettyJson } from '#/lib/json'
-import { toolTone } from '#/lib/tools'
+import { ACCENT, toolTone } from '#/lib/tone'
 
 interface ConversationViewProps {
   view: InspectorView
@@ -193,6 +192,7 @@ function renderItems(items: RenderItem[], ctx: EventContext) {
 }
 
 function ShowAllToggle({ showAll, onToggle }: { showAll: boolean; onToggle: () => void }) {
+  const Icon = showAll ? EyeOff : Eye
   return (
     <button
       type="button"
@@ -200,7 +200,7 @@ function ShowAllToggle({ showAll, onToggle }: { showAll: boolean; onToggle: () =
       title={showAll ? 'Hide AG-UI scaffolding' : 'Show all messages including scaffolding'}
       className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border bg-background/90 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
     >
-      {showAll ? <EyeSlashIcon className="size-3" /> : <EyeIcon className="size-3" />}
+      <Icon className="size-3" aria-hidden />
       {showAll ? 'Hide scaffolding' : 'Show all'}
     </button>
   )
@@ -221,7 +221,7 @@ function ConversationScrollButton() {
       onClick={handleScrollToBottom}
       className="absolute bottom-4 left-[50%] z-10 inline-flex size-9 translate-x-[-50%] items-center justify-center rounded-full border bg-background text-foreground shadow-md hover:bg-accent"
     >
-      <ArrowDownIcon className="size-4 fill-current" />
+      <ArrowDown className="size-4 fill-current" aria-hidden />
     </button>
   )
 }
@@ -355,17 +355,15 @@ function ToolCard({ call, result, expanded, onToggle, selected, onSelect }: Tool
         <span
           className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${tone.badge}`}
         >
-          <HugeiconsIcon icon={tone.icon} className="size-3" />
+          <tone.icon className="size-3" />
           {tone.label}
         </span>
-        <span className="truncate font-mono text-xs font-medium text-violet-700 dark:text-violet-400">
-          {call.toolName}
-        </span>
+        <span className={`truncate font-mono text-xs font-medium ${ACCENT.violet.ident}`}>{call.toolName}</span>
         <StatusPill status={status} />
         <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <ToolTokenBadge input={argumentTokens} output={resultTokens} />
           <span>{formatTime(call.timestamp)}</span>
-          {expanded ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
+          {expanded ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}
         </span>
       </button>
 
@@ -430,10 +428,10 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
         <span
           className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${tone.badge}`}
         >
-          <HugeiconsIcon icon={tone.icon} className="size-3" />
+          <tone.icon className="size-3" />
           {tone.label}
         </span>
-        <span className="truncate font-mono text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <span className={`truncate font-mono text-xs font-medium ${ACCENT.emerald.ident}`}>
           {ctx.agentLabels.get(event.spanId) ?? event.agentName}
         </span>
         {hasActions && (
@@ -444,7 +442,7 @@ function AgentCard({ event, nested, expanded, onToggle, selected, onSelect, ctx 
         <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <ToolTokenBadge input={inputTokens} output={outputTokens} />
           <span>{formatTime(event.timestamp)}</span>
-          {expanded ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
+          {expanded ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}
         </span>
       </button>
 

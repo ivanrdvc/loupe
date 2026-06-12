@@ -1,5 +1,5 @@
-import { IconMaximize, IconShare2, IconX } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
+import { Maximize2, Share2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
@@ -196,7 +196,7 @@ export function InspectDrawer({
                 <TooltipTrigger asChild>
                   <Button asChild variant="ghost" size="icon-sm" aria-label="Open in full page">
                     <Link to="/traces/$traceId" params={{ traceId: expandTrace.traceId }} onClick={() => onClose()}>
-                      <IconMaximize />
+                      <Maximize2 aria-hidden />
                     </Link>
                   </Button>
                 </TooltipTrigger>
@@ -212,7 +212,7 @@ export function InspectDrawer({
                       search={expandSearch}
                       onClick={() => onClose()}
                     >
-                      <IconMaximize />
+                      <Maximize2 aria-hidden />
                     </Link>
                   </Button>
                 </TooltipTrigger>
@@ -221,7 +221,7 @@ export function InspectDrawer({
             ) : null}
             <SheetClose asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Close">
-                <IconX />
+                <X aria-hidden />
               </Button>
             </SheetClose>
           </div>
@@ -283,7 +283,7 @@ function ShareLinkButton({ url }: { url: string }) {
 
   return (
     <Button type="button" variant="outline" size="sm" onClick={onClick}>
-      <IconShare2 />
+      <Share2 aria-hidden />
       Share Link
     </Button>
   )

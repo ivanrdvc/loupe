@@ -1,5 +1,4 @@
-import { ArrowRight01Icon, MoreHorizontalCircle01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { ChevronRight, Ellipsis } from 'lucide-react'
 import { Slot } from 'radix-ui'
 import type * as React from 'react'
 import { cn } from '#/lib/utils'
@@ -58,7 +57,7 @@ function BreadcrumbSeparator({ children, className, ...props }: React.ComponentP
       className={cn('[&>svg]:size-3.5', className)}
       {...props}
     >
-      {children ?? <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />}
+      {children ?? <ChevronRight />}
     </li>
   )
 }
@@ -72,7 +71,7 @@ function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<'span'
       className={cn('flex size-5 items-center justify-center [&>svg]:size-4', className)}
       {...props}
     >
-      <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} />
+      <Ellipsis />
       <span className="sr-only">More</span>
     </span>
   )

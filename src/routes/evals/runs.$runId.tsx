@@ -1,7 +1,6 @@
-import { TestTubeIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { TestTube } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { type Crumb, PageBreadcrumb } from '#/components/page-breadcrumb'
@@ -29,6 +28,7 @@ import {
 } from '#/lib/eval/evaluation'
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 const runQuery = (id: number) =>
@@ -81,15 +81,11 @@ function RunDetailPage() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={TestTubeIcon} />
+                <TestTube />
               </EmptyMedia>
               <EmptyTitle>Run not found</EmptyTitle>
               <EmptyDescription>
-                This run may have been deleted.{' '}
-                <Link to="/evals" className="text-primary underline-offset-4 hover:underline">
-                  Back to evals
-                </Link>
-                .
+                This run may have been deleted. <Link to="/evals">Back to evals</Link>.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -226,7 +222,7 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile label="Total" value={summary?.total ?? scores.length} />
-          <StatTile label="Pass" value={summary?.pass ?? '—'} className="text-emerald-600 dark:text-emerald-400" />
+          <StatTile label="Pass" value={summary?.pass ?? '—'} className={ACCENT.emerald.status} />
           <StatTile label="Fail" value={summary?.fail ?? '—'} className="text-destructive" />
           <StatTile
             label="Errors"
@@ -236,9 +232,7 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
           <StatTile label="Cost" value={formatCost(summary?.costUsd ?? 0)} />
           <StatTile
             label="Model"
-            value={
-              <span className="font-mono text-xs text-violet-700 dark:text-violet-400">{summary?.model ?? '—'}</span>
-            }
+            value={<span className={`font-mono text-xs ${ACCENT.violet.ident}`}>{summary?.model ?? '—'}</span>}
           />
         </div>
 
@@ -263,7 +257,7 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={TestTubeIcon} />
+                <TestTube />
               </EmptyMedia>
               <EmptyTitle>No cases in this run</EmptyTitle>
               <EmptyDescription>This run produced no scored cases.</EmptyDescription>

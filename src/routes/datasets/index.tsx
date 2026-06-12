@@ -1,6 +1,3 @@
-import { Add01Icon, Database01Icon, PlayCircleIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconSearch } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -13,6 +10,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { formatDistanceToNow } from 'date-fns'
+import { CirclePlay, Database, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
@@ -125,7 +123,7 @@ function makeColumns(
                 onRun(row.original)
               }}
             >
-              <HugeiconsIcon icon={PlayCircleIcon} strokeWidth={2} />
+              <CirclePlay />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -187,7 +185,10 @@ function DatasetsListPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 lg:px-6">
           <div className="flex flex-1 flex-wrap items-center gap-2">
             <div className="relative w-full min-w-0 sm:w-64">
-              <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
               <Input
                 placeholder="Search datasets…"
                 value={(nameColumn?.getFilterValue() as string) ?? ''}
@@ -205,7 +206,7 @@ function DatasetsListPage() {
             )}
           </div>
           <Button size="sm" onClick={() => setNewOpen(true)}>
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+            <Plus data-icon="inline-start" />
             New dataset
           </Button>
         </div>
@@ -214,7 +215,7 @@ function DatasetsListPage() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={Database01Icon} strokeWidth={2} />
+                <Database />
               </EmptyMedia>
               <EmptyTitle>No datasets</EmptyTitle>
               <EmptyDescription>

@@ -1,25 +1,24 @@
-import { AiBrain01Icon, FileSearchIcon, NeuralNetworkIcon } from '@hugeicons/core-free-icons'
-import type { IconSvgElement } from '@hugeicons/react'
+import { Brain, FileSearch, type LucideIcon, Network } from 'lucide-react'
 import type { Span } from '#/lib/spans'
-import { toolTone } from '#/lib/tools'
+import { ACCENT, toolTone } from '#/lib/tone'
 
 export interface Display {
   name: string
   tagLabel: string
-  tagIcon?: IconSvgElement
+  tagIcon?: LucideIcon
   tagColor?: string
   /** Optional secondary badge for operation purpose (e.g. "title", "summary") */
   purposeLabel?: string
   purposeCls?: string
 }
 
-const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: IconSvgElement; tagColor: string }> = {
+const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: LucideIcon; tagColor: string }> = {
   invoke_agent: { tagLabel: 'agent', tagIcon: toolTone('agent').icon, tagColor: toolTone('agent').text },
-  chat: { tagLabel: 'llm', tagIcon: AiBrain01Icon, tagColor: 'text-violet-500 dark:text-violet-400' },
+  chat: { tagLabel: 'llm', tagIcon: Brain, tagColor: ACCENT.violet.text },
   tool: { tagLabel: 'tool', tagIcon: toolTone('tool').icon, tagColor: toolTone('tool').text },
   mcp: { tagLabel: 'mcp', tagIcon: toolTone('mcp').icon, tagColor: toolTone('mcp').text },
-  retrieval: { tagLabel: 'retrieval', tagIcon: FileSearchIcon, tagColor: 'text-emerald-500 dark:text-emerald-400' },
-  embedding: { tagLabel: 'embedding', tagIcon: NeuralNetworkIcon, tagColor: 'text-cyan-500 dark:text-cyan-400' },
+  retrieval: { tagLabel: 'retrieval', tagIcon: FileSearch, tagColor: ACCENT.emerald.text },
+  embedding: { tagLabel: 'embedding', tagIcon: Network, tagColor: ACCENT.cyan.text },
 }
 
 const OPERATION_LABELS: Record<string, string> = {
@@ -34,7 +33,7 @@ const OPERATION_LABELS: Record<string, string> = {
   memory_extraction: 'extract',
 }
 
-const PURPOSE_CLS = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+const PURPOSE_CLS = ACCENT.amber.badge
 
 export function displayFor(span: Span, labelOverrides?: Map<string, string>): Display {
   const tag = SPAN_TAGS[span.operation]

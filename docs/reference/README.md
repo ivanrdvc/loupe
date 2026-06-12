@@ -6,3 +6,4 @@ Flat lookup tables. Scan for the row you need; the rest is irrelevant.
 - [AI / LLM trace attributes](ai-attributes.md) — what each span attribute key means.
 - [Telemetry providers](telemetry-providers.md) — how loupe reads spans from each backend.
 - [Application Insights quirks](app-insights-quirks.md) — provider behaviors that bite the read path, and mitigations.
+- [Accent tones](tones.md) — semantic color families and class-string tiers; source of truth `src/lib/tone.ts`.

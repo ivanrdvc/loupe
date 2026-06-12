@@ -1,5 +1,5 @@
-import { IconAdjustmentsHorizontal, IconSearch } from '@tabler/icons-react'
 import type { Column, Table } from '@tanstack/react-table'
+import { Search, SlidersHorizontal } from 'lucide-react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { TimeRangeSelect } from '#/components/time-range-select'
@@ -60,7 +60,10 @@ export function DataTableToolbar<TData>({
         })}
         {searchColumn && (
           <div className="relative w-full min-w-0 sm:w-64">
-            <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
             <Input
               placeholder={searchPlaceholder}
               value={searchValue}
@@ -91,7 +94,7 @@ export function DataTableToolbar<TData>({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-x-1.5">
-              <IconAdjustmentsHorizontal className="size-4" />
+              <SlidersHorizontal className="size-4" aria-hidden />
               View
             </Button>
           </DropdownMenuTrigger>

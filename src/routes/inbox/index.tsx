@@ -1,6 +1,6 @@
-import { InboxIcon } from '@heroicons/react/20/solid'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Inbox } from 'lucide-react'
 import { Page } from '#/components/page'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { queryKeys } from '#/lib/query-keys'
@@ -39,7 +39,7 @@ function InboxPage() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <InboxIcon />
+                <Inbox aria-hidden />
               </EmptyMedia>
               <EmptyTitle>No notifications</EmptyTitle>
               <EmptyDescription>Nothing here yet.</EmptyDescription>

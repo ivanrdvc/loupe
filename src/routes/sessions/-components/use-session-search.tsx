@@ -1,5 +1,4 @@
-import { Clock01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { Clock } from 'lucide-react'
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { RelativeTime } from '#/components/relative-time'
@@ -48,7 +47,7 @@ export function useSessionSearch({
             <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
               {metaParts.length > 0 && <span className="max-w-[220px] truncate">{metaParts.join(' · ')}</span>}
               <span className="inline-flex items-center gap-1 tabular-nums">
-                <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3" />
+                <Clock className="size-3" />
                 <RelativeTime ts={session.lastSeenMs} />
               </span>
             </span>

@@ -1,11 +1,9 @@
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
-import { Clock01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconBraces } from '@tabler/icons-react'
+import { Braces, ChevronDown, ChevronRight, Clock } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { type InspectorView, isCollapsibleInfra, isToolLike, spanHasError } from '#/features/inspect/logic'
 import type { Span } from '#/lib/spans'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
@@ -318,7 +316,7 @@ function SpanTreeRowImpl({
   const showFinish = finishReason && !NORMAL_FINISH.has(finishReason)
   const finishCls = finishReasonClass(finishReason)
   const errored = spanHasError(span)
-  const HandleIcon = isCollapsed ? ChevronRightIcon : ChevronDownIcon
+  const HandleIcon = isCollapsed ? ChevronRight : ChevronDown
   const showCount = childCount > 1
   const display = displayFor(span, agentLabels)
 
@@ -382,6 +380,7 @@ function SpanTreeRowImpl({
               {showCount && <span className="group-hover:hidden group-focus-visible:hidden">{childCount}</span>}
               <HandleIcon
                 className={showCount ? 'hidden size-3 group-hover:block group-focus-visible:block' : 'size-3'}
+                aria-hidden
               />
             </button>
           ) : (
@@ -400,9 +399,7 @@ function SpanTreeRowImpl({
           <div className="flex min-w-0 items-center gap-2">
             {display.tagLabel && (
               <span className={cn('inline-flex shrink-0 items-center gap-1 text-[11px] font-medium', display.tagColor)}>
-                {display.tagIcon && (
-                  <HugeiconsIcon icon={display.tagIcon} strokeWidth={1.75} className="size-3.5" aria-hidden />
-                )}
+                {display.tagIcon && <display.tagIcon className="size-3.5" aria-hidden />}
                 {display.tagLabel}
               </span>
             )}
@@ -412,14 +409,14 @@ function SpanTreeRowImpl({
                 {display.purposeLabel}
               </span>
             )}
-            {isParallel && (
-              <span className="shrink-0 text-[10px] font-medium text-cyan-600 dark:text-cyan-400">⫽ parallel</span>
-            )}
+            {isParallel && <span className={`shrink-0 text-[10px] font-medium ${ACCENT.cyan.text}`}>⫽ parallel</span>}
             {depth === 0 &&
               (span.rawAttributes?.session_trigger_type ?? span.rawAttributes?.['session.trigger_type']) ===
                 'scheduled' && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
-                  <HugeiconsIcon icon={Clock01Icon} strokeWidth={1.75} className="size-3" aria-hidden />
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded px-1 py-px text-[10px] font-medium ${ACCENT.amber.badge}`}
+                >
+                  <Clock className="size-3" aria-hidden />
                   scheduled
                 </span>
               )}
@@ -475,7 +472,7 @@ function SpanTreeRowImpl({
                     : 'text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover/row:opacity-100',
                 )}
               >
-                <IconBraces className="size-3.5" stroke={1.5} />
+                <Braces className="size-3.5" aria-hidden />
               </button>
             </TooltipTrigger>
             <TooltipContent>{rawOn ? 'Hide raw spans' : 'Show raw spans'}</TooltipContent>
@@ -488,7 +485,7 @@ function SpanTreeRowImpl({
 
 function finishReasonClass(reason: string | undefined): string {
   if (!reason) return ''
-  if (reason === 'tool_calls' || reason === 'tool_use') return 'text-sky-700 dark:text-sky-300'
+  if (reason === 'tool_calls' || reason === 'tool_use') return ACCENT.sky.status
   if (reason === 'length' || reason === 'max_tokens') return 'text-warning'
   if (reason === 'content_filter' || reason === 'error') return 'text-destructive'
   return 'text-muted-foreground'

@@ -1,7 +1,6 @@
-import { Clock01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Clock } from 'lucide-react'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
@@ -174,7 +173,7 @@ export function makeTraceColumns(scoreSummaries: Record<string, ScoreSummary> = 
         const ms = row.original.durationMs
         return (
           <div className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms)}`}>
-            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 opacity-80" />
+            <Clock className="size-3.5 opacity-80" />
             {formatDuration(ms)}
           </div>
         )

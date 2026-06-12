@@ -1,15 +1,6 @@
-import {
-  ArrowLeft01Icon,
-  Delete02Icon,
-  PauseIcon,
-  PencilEdit02Icon,
-  PlayIcon,
-  StarIcon,
-  TestTubeIcon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { ChevronLeft, Pause, PencilLine, Play, Star, TestTube, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Markdown } from '#/components/markdown'
@@ -69,6 +60,7 @@ import {
 } from '#/lib/eval/evaluation'
 import { errMessage, formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 const evalQuery = (id: number) =>
@@ -125,14 +117,14 @@ function EvalDetailPage() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={TestTubeIcon} />
+                <TestTube />
               </EmptyMedia>
               <EmptyTitle>Evaluator not found</EmptyTitle>
               <EmptyDescription>This evaluator may have been deleted.</EmptyDescription>
             </EmptyHeader>
             <Button asChild variant="outline" size="sm">
               <Link to="/evals">
-                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
+                <ChevronLeft data-icon="inline-start" />
                 Back to evals
               </Link>
             </Button>
@@ -203,7 +195,7 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} data-icon="inline-start" />
+              <PencilLine data-icon="inline-start" />
               Edit
             </Button>
             <Button
@@ -212,11 +204,11 @@ function EvalDetailLoaded({ definition, runs }: { definition: EvalDefinition; ru
               disabled={liveMutation.isPending}
               onClick={() => liveMutation.mutate(!live)}
             >
-              <HugeiconsIcon icon={live ? PauseIcon : PlayIcon} strokeWidth={2} data-icon="inline-start" />
+              {live ? <Pause data-icon="inline-start" /> : <Play data-icon="inline-start" />}
               {live ? 'Move to library' : 'Go live'}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
-              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} data-icon="inline-start" />
+              <Trash2 data-icon="inline-start" />
               Delete
             </Button>
           </div>
@@ -321,7 +313,7 @@ function MetaGrid({ definition }: { definition: EvalDefinition }) {
       </MetaItem>
       {definition.mode === 'online' && <MetaItem label="Watches">{describeLiveFilter(definition.liveFilter)}</MetaItem>}
       <MetaItem label="Model">
-        <span className="font-mono text-xs text-violet-700 dark:text-violet-400">{definition.model || '—'}</span>
+        <span className={`font-mono text-xs ${ACCENT.violet.ident}`}>{definition.model || '—'}</span>
       </MetaItem>
     </div>
   )
@@ -394,7 +386,7 @@ function RunsTable({
                     {run.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                <TableCell className={`text-right tabular-nums ${ACCENT.emerald.status}`}>
                   {summary?.pass ?? '—'}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-destructive">{summary?.fail ?? '—'}</TableCell>
@@ -415,9 +407,7 @@ function RunsTable({
                     title={run.blessed ? 'Blessed — click to unbless' : 'Bless run'}
                     onClick={() => onToggleBless(run.id, !run.blessed)}
                   >
-                    <HugeiconsIcon
-                      icon={StarIcon}
-                      strokeWidth={2}
+                    <Star
                       className={cn('size-4', run.blessed ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground')}
                     />
                   </Button>
@@ -621,7 +611,7 @@ function CompareTable({ rows }: { rows: EvalCompareRow[] }) {
                   row.baseTotal > 0 && row.headTotal > 0 && row.headPassRate < row.basePassRate
                     ? 'text-destructive'
                     : row.baseTotal > 0 && row.headTotal > 0 && row.headPassRate > row.basePassRate
-                      ? 'text-emerald-600 dark:text-emerald-400'
+                      ? ACCENT.emerald.status
                       : '',
                 )}
               >
@@ -638,7 +628,7 @@ function CompareTable({ rows }: { rows: EvalCompareRow[] }) {
               <TableCell
                 className={cn(
                   'text-right tabular-nums',
-                  row.flippedToPass > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+                  row.flippedToPass > 0 ? ACCENT.emerald.status : 'text-muted-foreground',
                 )}
               >
                 {row.flippedToPass}

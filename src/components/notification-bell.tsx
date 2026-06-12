@@ -1,6 +1,6 @@
-import { BellIcon } from '@heroicons/react/24/outline'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { Bell } from 'lucide-react'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
@@ -32,7 +32,7 @@ export function NotificationBell() {
           className="relative size-8 rounded-full text-muted-foreground hover:text-foreground"
           aria-label={count > 0 ? `Notifications (${count} unread)` : 'Notifications'}
         >
-          <BellIcon className="size-4.5" />
+          <Bell className="size-4.5" aria-hidden />
           {count > 0 && (
             <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-background" />
           )}

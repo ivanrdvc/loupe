@@ -1,4 +1,4 @@
-import { IconCalendar, IconChevronDown, IconChevronLeft } from '@tabler/icons-react'
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { DateRange } from 'react-day-picker'
 import { Button } from '#/components/ui/button'
@@ -61,9 +61,9 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
             'data-[state=open]:border-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/30',
           )}
         >
-          <IconCalendar className="-ml-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <CalendarIcon className="-ml-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="max-w-[180px] truncate">{triggerLabel}</span>
-          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={4} className="w-auto rounded-lg p-0">
@@ -105,7 +105,7 @@ export function TimeRangeSelect({ value, onChange, options = PRESETS }: TimeRang
           <div className="flex flex-col">
             <div className="flex items-center gap-1 border-b p-1.5">
               <Button variant="ghost" size="icon-sm" aria-label="Back to presets" onClick={() => setView('presets')}>
-                <IconChevronLeft className="size-3.5" />
+                <ChevronLeft className="size-3.5" aria-hidden />
               </Button>
               <span className="text-xs font-medium">Custom range</span>
             </div>

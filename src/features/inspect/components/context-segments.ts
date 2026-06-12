@@ -1,8 +1,10 @@
+import { ACCENT } from '#/lib/tone'
+
 export const SEGMENT_COLORS = {
   system: 'bg-muted-foreground/60',
-  tools: 'bg-violet-400 dark:bg-violet-500',
-  messages: 'bg-pink-400 dark:bg-pink-500',
-  subagents: 'bg-cyan-400 dark:bg-cyan-500',
+  tools: ACCENT.violet.solid,
+  messages: ACCENT.pink.solid,
+  subagents: ACCENT.cyan.solid,
 } as const
 
 type ContextSegmentKey = keyof typeof SEGMENT_COLORS

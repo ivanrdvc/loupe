@@ -1,6 +1,6 @@
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/20/solid'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
+import { ArrowUpRight } from 'lucide-react'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
@@ -80,7 +80,7 @@ function OpenLink({ item }: { item: Pick<InboxRow, 'traceId'> }) {
       className="inline-flex items-center text-muted-foreground hover:text-foreground"
       aria-label="Open trace"
     >
-      <ArrowTopRightOnSquareIcon className="size-3.5" />
+      <ArrowUpRight className="size-3.5" aria-hidden />
     </Link>
   )
 }

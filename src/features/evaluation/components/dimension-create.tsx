@@ -5,6 +5,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
+import { ThumbDownIcon, ThumbUpIcon } from '#/features/evaluation/components/score-value'
 import { upsertScoreConfig } from '#/features/evaluation/server/scores'
 import {
   defaultCategoryPolarity,
@@ -114,13 +115,13 @@ export function DimensionForm({ onCreated, onCancel }: { onCreated: (c: ScoreCon
                     variant="outline"
                   >
                     <ToggleGroupItem value="good" aria-label="Pass">
-                      👍
+                      <ThumbUpIcon />
                     </ToggleGroupItem>
                     <ToggleGroupItem value="neutral" aria-label="Neutral">
                       –
                     </ToggleGroupItem>
                     <ToggleGroupItem value="bad" aria-label="Fail">
-                      👎
+                      <ThumbDownIcon />
                     </ToggleGroupItem>
                   </ToggleGroup>
                 </div>

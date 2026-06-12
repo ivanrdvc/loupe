@@ -1,5 +1,5 @@
-import { IconCheck, IconChevronDown, IconPlus } from '@tabler/icons-react'
 import type { Column } from '@tanstack/react-table'
+import { Check, ChevronDown, Plus } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import {
   Command,
@@ -37,7 +37,7 @@ export function DataTableFacetedFilter<TData, TValue>({
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" className={cn('gap-x-1.5 border-border', !hasSelection && 'border-dashed')}>
-          <IconPlus
+          <Plus
             className={cn('-ml-0.5 size-4 shrink-0 transition-transform', hasSelection && 'rotate-45')}
             aria-hidden="true"
           />
@@ -54,7 +54,7 @@ export function DataTableFacetedFilter<TData, TValue>({
               )}
             </>
           )}
-          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[220px] p-0" align="start">
@@ -86,7 +86,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                           : 'border-input [&_svg]:invisible',
                       )}
                     >
-                      <IconCheck className="size-3" />
+                      <Check className="size-3" aria-hidden />
                     </div>
                     {option.icon && <option.icon className="size-4 text-muted-foreground" />}
                     <span>{option.label}</span>

@@ -1,6 +1,4 @@
-import { Refresh01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconChevronDown } from '@tabler/icons-react'
+import { ChevronDown, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   DropdownMenu,
@@ -91,10 +89,7 @@ export function AutoRefreshSelect({
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >
-        <HugeiconsIcon
-          icon={Refresh01Icon}
-          className={cn('size-4 shrink-0', spin && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')}
-        />
+        <RefreshCw className={cn('size-4 shrink-0', spin && '[animation:spin_700ms_cubic-bezier(0.22,1,0.36,1)]')} />
       </button>
       <span className="w-px self-stretch bg-border" aria-hidden="true" />
       <span className="inline-flex items-center px-2 text-sm tabular-nums">{selected.selectedLabel}</span>
@@ -108,7 +103,7 @@ export function AutoRefreshSelect({
             'data-[state=open]:bg-accent/40',
           )}
         >
-          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuRadioGroup value={value} onValueChange={(v) => onChange(v as AutoRefreshInterval)}>

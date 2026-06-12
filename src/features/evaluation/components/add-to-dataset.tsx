@@ -1,6 +1,5 @@
-import { Database01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Database } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
@@ -90,7 +89,7 @@ export function AddToDatasetButton({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button size={size} variant={variant}>
-          <HugeiconsIcon icon={Database01Icon} data-icon="inline-start" strokeWidth={2} />
+          <Database data-icon="inline-start" />
           {label}
         </Button>
       </PopoverTrigger>

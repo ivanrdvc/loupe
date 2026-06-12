@@ -1,12 +1,12 @@
-import { FlashIcon, Message01Icon, Robot01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
+import { Bot, type LucideIcon, MessageSquare, Zap } from 'lucide-react'
 import { useMemo } from 'react'
 import { KIND_META } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
 import type { TaskRow } from '#/features/tasks/rollup'
 import { formatDuration, shortId } from '#/lib/format'
 import type { TraceSummary } from '#/lib/telemetry'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { FireTimeline } from './fire-timeline'
 
@@ -51,7 +51,7 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
   const taskHint = computeTaskHint(row)
   const runLabel = `${row.fires.toLocaleString()} ${row.fires === 1 ? 'fire' : 'fires'}`
   const runHint = computeRunHint(row)
-  const fireTone = row.errored > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-500 dark:text-emerald-400'
+  const fireTone = row.errored > 0 ? ACCENT.rose.text : ACCENT.emerald.text
   // Animate beams only when the task is still "live" — cron keeps firing,
   // event/webhook keep listening. A one-shot that already fired is finished.
   const animate = row.kind !== 'one_shot' || row.fires === 0
@@ -67,8 +67,8 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
             className="block"
           >
             <FlowNode
-              icon={Message01Icon}
-              iconColor="text-blue-500 dark:text-blue-400"
+              icon={MessageSquare}
+              iconColor={ACCENT.blue.text}
               tagline="Set up by"
               label={shortId(conversationId)}
               labelTitle={conversationId}
@@ -79,8 +79,8 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
           </Link>
         ) : (
           <FlowNode
-            icon={Message01Icon}
-            iconColor="text-zinc-400 dark:text-zinc-500"
+            icon={MessageSquare}
+            iconColor={ACCENT.zinc.text}
             tagline="Set up by"
             label="—"
             caption="not linked"
@@ -99,7 +99,7 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
         />
         <Beam stroke={stroke} delay={0.55} animate={animate} />
         <FlowNode
-          icon={FlashIcon}
+          icon={Zap}
           iconColor={fireTone}
           tagline="Fires"
           label={runLabel}
@@ -109,8 +109,8 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
         />
         <Beam stroke={stroke} delay={1.1} animate={animate} />
         <FlowNode
-          icon={Robot01Icon}
-          iconColor="text-pink-500 dark:text-pink-400"
+          icon={Bot}
+          iconColor={ACCENT.pink.text}
           tagline="Agent"
           label={row.agent ?? row.serviceName ?? 'Agent'}
           caption={row.agent && row.serviceName && row.agent !== row.serviceName ? row.serviceName : undefined}
@@ -121,7 +121,7 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
 }
 
 function FlowNode({
-  icon,
+  icon: Icon,
   iconColor,
   tagline,
   label,
@@ -133,7 +133,7 @@ function FlowNode({
   sparkTone,
   interactive,
 }: {
-  icon: IconSvgElement
+  icon: LucideIcon
   iconColor: string
   tagline: string
   label: string
@@ -154,7 +154,7 @@ function FlowNode({
     >
       <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{tagline}</span>
       <span className="flex size-7 items-center justify-center rounded-md bg-muted/60 ring-1 ring-inset ring-border/60">
-        <HugeiconsIcon icon={icon} strokeWidth={1.6} className={cn('size-4', iconColor)} aria-hidden />
+        <Icon className={cn('size-4', iconColor)} aria-hidden />
       </span>
       <span
         className={cn('block w-full truncate text-xs font-medium leading-tight', labelMono && 'font-mono text-[11px]')}
@@ -258,9 +258,9 @@ function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefin
   const { kind, fires, errored, lastFireMs, avgDurationMs } = row
   const errTone =
     errored / Math.max(fires, 1) >= 0.05
-      ? 'text-rose-700 dark:text-rose-300'
+      ? ACCENT.rose.status
       : errored > 0
-        ? 'text-amber-700 dark:text-amber-300'
+        ? ACCENT.amber.status
         : 'text-muted-foreground'
   const wrap =
     'flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1 px-4 pt-3 text-[11px] tabular-nums text-muted-foreground lg:px-6'

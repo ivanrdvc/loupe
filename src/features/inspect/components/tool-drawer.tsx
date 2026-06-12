@@ -1,7 +1,6 @@
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconInfoCircle, IconX } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { Info, X } from 'lucide-react'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -11,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { formatDuration, formatPercent, formatTokens, tokensFromChars, truncateId } from '#/lib/format'
 import type { ToolCallSample, ToolDetail } from '#/lib/telemetry'
-import { toolDisplayName, toolTone } from '#/lib/tools'
+import { ACCENT, toolTone } from '#/lib/tone'
+import { toolDisplayName } from '#/lib/tools'
 import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
 export function ToolInspectDrawer({ toolName, onClose }: Props) {
   const open = toolName !== null
   const name = toolName ?? ''
+  const tone = toolTone('tool')
   const { data: detail, isLoading: detailLoading } = useQuery({
     ...toolDetailQuery(name),
     enabled: open,
@@ -40,20 +41,15 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
       >
         <header className="flex items-center justify-between gap-3 border-b px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <HugeiconsIcon
-              icon={toolTone('tool').icon}
-              strokeWidth={1.5}
-              className={`size-4 shrink-0 ${toolTone('tool').text}`}
-              aria-hidden
-            />
-            <SheetTitle className="truncate font-mono text-sm font-medium text-violet-700 dark:text-violet-400">
+            <tone.icon className={`size-4 shrink-0 ${tone.text}`} aria-hidden />
+            <SheetTitle className={`truncate font-mono text-sm font-medium ${ACCENT.violet.ident}`}>
               {toolDisplayName(name)}
             </SheetTitle>
             <SheetDescription className="sr-only">Tool detail</SheetDescription>
           </div>
           <SheetClose asChild>
             <Button variant="ghost" size="icon-sm" aria-label="Close">
-              <IconX />
+              <X aria-hidden />
             </Button>
           </SheetClose>
         </header>
@@ -110,7 +106,7 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label={`About ${label}`} className="cursor-help">
-                <IconInfoCircle className="size-3" />
+                <Info className="size-3" aria-hidden />
               </button>
             </TooltipTrigger>
             <TooltipContent>{hint}</TooltipContent>

@@ -1,4 +1,3 @@
-import { IconChevronLeft, IconChevronRight, IconSearch } from '@tabler/icons-react'
 import {
   type ColumnFiltersState,
   flexRender,
@@ -11,6 +10,7 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table'
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import * as React from 'react'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { Spinner } from '#/components/spinner'
@@ -58,7 +58,10 @@ export function InboxDataTable({ data, isLoading, onSnooze, onDismiss }: InboxDa
           <DataTableFacetedFilter column={table.getColumn('kind')} title="Kind" options={ALERT_KIND_OPTIONS} />
         )}
         <div className="relative w-full min-w-0 sm:w-64">
-          <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
           <Input
             placeholder="Search alerts…"
             value={searchValue}
@@ -117,11 +120,11 @@ export function InboxDataTable({ data, isLoading, onSnooze, onDismiss }: InboxDa
             disabled={!table.getCanPreviousPage()}
           >
             <span className="sr-only">Previous page</span>
-            <IconChevronLeft />
+            <ChevronLeft aria-hidden />
           </Button>
           <Button variant="outline" size="icon-sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
             <span className="sr-only">Next page</span>
-            <IconChevronRight />
+            <ChevronRight aria-hidden />
           </Button>
         </div>
       )}

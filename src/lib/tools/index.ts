@@ -1,5 +1,3 @@
-export { toolTone } from './tone'
-
 const PREFIXES = ['execute_tool ', 'tools/call ']
 
 // Telemetry sometimes leaves the operation prefix on a tool's span name;

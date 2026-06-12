@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { Badge } from '#/components/ui/badge'
@@ -26,14 +25,7 @@ export function useSpanSearch({ view, onSelect }: { view: InspectorView; onSelec
           keywords: `${display.tagLabel} ${display.purposeLabel ?? ''} ${parentDisplay?.name ?? ''} ${span.model ?? ''}`,
           leading: display.tagLabel ? (
             <Badge variant="outline" className="px-1.5 text-muted-foreground">
-              {display.tagIcon && (
-                <HugeiconsIcon
-                  icon={display.tagIcon}
-                  strokeWidth={1.5}
-                  className={`size-3 ${display.tagColor ?? ''}`}
-                  aria-hidden
-                />
-              )}
+              {display.tagIcon && <display.tagIcon className={`size-3 ${display.tagColor ?? ''}`} aria-hidden />}
               {display.tagLabel}
             </Badge>
           ) : undefined,

@@ -1,8 +1,6 @@
-import { ArrowRight02Icon, CheckmarkCircle02Icon, StickyNote01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconCheck, IconChevronDown, IconPlus } from '@tabler/icons-react'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { ArrowRight, Check, ChevronDown, CircleCheck, Plus, StickyNote } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
@@ -22,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '#/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { Skeleton } from '#/components/ui/skeleton'
 import { NoteEditor } from '#/features/notes'
 import { listAllNotes } from '#/features/notes/server'
@@ -162,7 +161,7 @@ function NotesPage() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={StickyNote01Icon} />
+                <StickyNote />
               </EmptyMedia>
               <EmptyTitle>{notes.length === 0 ? 'No notes yet' : 'No matching notes'}</EmptyTitle>
               <EmptyDescription>
@@ -185,17 +184,19 @@ function NotesPage() {
             <DialogTitle>Note</DialogTitle>
             <DialogDescription>{activeNote ? KIND_DESCRIPTION[activeNote.targetKind] : null}</DialogDescription>
           </DialogHeader>
-          <div className="-mx-1 flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-1">
-            {activeNote && (
-              <NoteEditor
-                key={activeNote.id}
-                targetKind={activeNote.targetKind}
-                targetId={activeNote.targetId}
-                parentTraceId={activeNote.parentTraceId}
-                parentSessionId={activeNote.parentSessionId}
-              />
-            )}
-          </div>
+          <ScrollArea className="-mx-1 [&>[data-slot=scroll-area-viewport]]:max-h-[70vh]">
+            <div className="flex flex-col gap-4 px-1">
+              {activeNote && (
+                <NoteEditor
+                  key={activeNote.id}
+                  targetKind={activeNote.targetKind}
+                  targetId={activeNote.targetId}
+                  parentTraceId={activeNote.parentTraceId}
+                  parentSessionId={activeNote.parentSessionId}
+                />
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </Page>
@@ -252,9 +253,7 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
         }
       }}
     >
-      <ItemMedia variant="icon">
-        <HugeiconsIcon icon={isResolved ? CheckmarkCircle02Icon : StickyNote01Icon} strokeWidth={2} />
-      </ItemMedia>
+      <ItemMedia variant="icon">{isResolved ? <CircleCheck /> : <StickyNote />}</ItemMedia>
       <ItemContent>
         <ItemTitle className="gap-2">
           <Badge variant={KIND_BADGE[note.targetKind]} className="capitalize">
@@ -279,7 +278,7 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
         {navigable && (
           <Button size="sm" variant="ghost" onClick={openTarget}>
             Open
-            <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} data-icon="inline-end" />
+            <ArrowRight data-icon="inline-end" />
           </Button>
         )}
       </ItemActions>
@@ -314,7 +313,7 @@ function FilterFacet<TValue extends string>({
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" className={cn('gap-x-1.5 border-border', !hasSelection && 'border-dashed')}>
-          <IconPlus
+          <Plus
             className={cn('-ml-0.5 size-4 shrink-0 transition-transform', hasSelection && 'rotate-45')}
             aria-hidden="true"
           />
@@ -331,7 +330,7 @@ function FilterFacet<TValue extends string>({
               )}
             </>
           )}
-          <IconChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[220px] p-0" align="start">
@@ -352,7 +351,7 @@ function FilterFacet<TValue extends string>({
                           : 'border-input [&_svg]:invisible',
                       )}
                     >
-                      <IconCheck className="size-3" />
+                      <Check className="size-3" aria-hidden />
                     </div>
                     <span>{option.label}</span>
                     {facets?.get(option.value) ? (

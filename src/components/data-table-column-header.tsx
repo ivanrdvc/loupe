@@ -1,5 +1,5 @@
-import { IconArrowDown, IconArrowUp, IconEyeOff, IconSelector } from '@tabler/icons-react'
 import type { Column } from '@tanstack/react-table'
+import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -31,26 +31,26 @@ export function DataTableColumnHeader<TData, TValue>({
           <Button variant="ghost" size="xs" className="-ml-2 data-[state=open]:bg-accent">
             <span>{title}</span>
             {column.getIsSorted() === 'desc' ? (
-              <IconArrowDown />
+              <ArrowDown aria-hidden />
             ) : column.getIsSorted() === 'asc' ? (
-              <IconArrowUp />
+              <ArrowUp aria-hidden />
             ) : (
-              <IconSelector />
+              <ChevronsUpDown aria-hidden />
             )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-            <IconArrowUp />
+            <ArrowUp aria-hidden />
             Asc
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-            <IconArrowDown />
+            <ArrowDown aria-hidden />
             Desc
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-            <IconEyeOff />
+            <EyeOff aria-hidden />
             Hide
           </DropdownMenuItem>
         </DropdownMenuContent>

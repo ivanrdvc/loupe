@@ -1,6 +1,5 @@
-import { StickyNote01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
+import { StickyNote } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -12,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '#/components/ui/dialog'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { getNoteForTarget } from '#/features/notes/server'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
@@ -48,12 +48,7 @@ export function NoteDialogButton({ targetKind, targetId, parentTraceId, parentSe
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant={hasNote ? 'secondary' : 'ghost'} size="sm" aria-label={hasNote ? 'Edit note' : 'Add note'}>
-          <HugeiconsIcon
-            icon={StickyNote01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-            className={cn(hasNote && 'text-foreground')}
-          />
+          <StickyNote data-icon="inline-start" className={cn(hasNote && 'text-foreground')} />
           {label}
           {hasNote ? (
             <Badge
@@ -72,14 +67,16 @@ export function NoteDialogButton({ targetKind, targetId, parentTraceId, parentSe
           <DialogTitle>Note</DialogTitle>
           <DialogDescription>{KIND_DESCRIPTION[targetKind]}</DialogDescription>
         </DialogHeader>
-        <div className="-mx-1 flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-1">
-          <NoteEditor
-            targetKind={targetKind}
-            targetId={targetId}
-            parentTraceId={parentTraceId}
-            parentSessionId={parentSessionId}
-          />
-        </div>
+        <ScrollArea className="-mx-1 [&>[data-slot=scroll-area-viewport]]:max-h-[70vh]">
+          <div className="flex flex-col gap-4 px-1">
+            <NoteEditor
+              targetKind={targetKind}
+              targetId={targetId}
+              parentTraceId={parentTraceId}
+              parentSessionId={parentSessionId}
+            />
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )

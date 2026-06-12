@@ -1,15 +1,5 @@
-import {
-  Clock01Icon,
-  Message01Icon,
-  Notification03Icon,
-  RepeatIcon,
-  Robot01Icon,
-  Time04Icon,
-  Unlink01Icon,
-  WebhookIcon,
-  Wrench01Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import { Bell, Bot, Clock, Clock4, type LucideIcon, MessageSquare, Repeat, Unlink, Webhook, Wrench } from 'lucide-react'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 export type Kind =
@@ -25,73 +15,18 @@ export type Kind =
   | 'one_shot'
   | 'unknown'
 
-export const KIND_META: Record<Kind, { label: string; icon: IconSvgElement; badge: string; text: string }> = {
-  chat: {
-    label: 'Chat',
-    icon: Message01Icon,
-    badge: 'bg-blue-50 text-blue-600 dark:bg-blue-300/10 dark:text-blue-300',
-    text: 'text-blue-500 dark:text-blue-400',
-  },
-  'sub-agent': {
-    label: 'Sub-agent',
-    icon: Robot01Icon,
-    badge: 'bg-pink-50 text-pink-600 dark:bg-pink-300/10 dark:text-pink-300',
-    text: 'text-pink-500 dark:text-pink-400',
-  },
-  scheduled: {
-    label: 'Scheduled',
-    icon: Clock01Icon,
-    badge: 'bg-amber-50 text-amber-600 dark:bg-amber-300/10 dark:text-amber-300',
-    text: 'text-amber-500 dark:text-amber-400',
-  },
-  event: {
-    label: 'Event',
-    icon: Notification03Icon,
-    badge: 'bg-orange-50 text-orange-600 dark:bg-orange-300/10 dark:text-orange-300',
-    text: 'text-orange-500 dark:text-orange-400',
-  },
-  webhook: {
-    label: 'Webhook',
-    icon: WebhookIcon,
-    badge: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-300/10 dark:text-cyan-300',
-    text: 'text-cyan-500 dark:text-cyan-400',
-  },
-  background: {
-    label: 'Background',
-    icon: RepeatIcon,
-    badge: 'bg-violet-50 text-violet-600 dark:bg-violet-300/10 dark:text-violet-300',
-    text: 'text-violet-500 dark:text-violet-400',
-  },
-  utility: {
-    label: 'Utility',
-    icon: Wrench01Icon,
-    badge: 'bg-teal-50 text-teal-600 dark:bg-teal-300/10 dark:text-teal-300',
-    text: 'text-teal-500 dark:text-teal-400',
-  },
-  orphan: {
-    label: 'Orphan',
-    icon: Unlink01Icon,
-    badge: 'bg-zinc-50 text-zinc-600 dark:bg-zinc-300/10 dark:text-zinc-300',
-    text: 'text-zinc-400 dark:text-zinc-500',
-  },
-  cron: {
-    label: 'Cron',
-    icon: Clock01Icon,
-    badge: 'bg-amber-50 text-amber-600 dark:bg-amber-300/10 dark:text-amber-300',
-    text: 'text-amber-500 dark:text-amber-400',
-  },
-  one_shot: {
-    label: 'One-shot',
-    icon: Time04Icon,
-    badge: 'bg-amber-50 text-amber-600 dark:bg-amber-300/10 dark:text-amber-300',
-    text: 'text-amber-500 dark:text-amber-400',
-  },
-  unknown: {
-    label: 'Task',
-    icon: RepeatIcon,
-    badge: 'bg-zinc-50 text-zinc-600 dark:bg-zinc-300/10 dark:text-zinc-300',
-    text: 'text-zinc-400 dark:text-zinc-500',
-  },
+export const KIND_META: Record<Kind, { label: string; icon: LucideIcon; badge: string; text: string }> = {
+  chat: { label: 'Chat', icon: MessageSquare, badge: ACCENT.blue.badge, text: ACCENT.blue.text },
+  'sub-agent': { label: 'Sub-agent', icon: Bot, badge: ACCENT.pink.badge, text: ACCENT.pink.text },
+  scheduled: { label: 'Scheduled', icon: Clock, badge: ACCENT.amber.badge, text: ACCENT.amber.text },
+  event: { label: 'Event', icon: Bell, badge: ACCENT.orange.badge, text: ACCENT.orange.text },
+  webhook: { label: 'Webhook', icon: Webhook, badge: ACCENT.cyan.badge, text: ACCENT.cyan.text },
+  background: { label: 'Background', icon: Repeat, badge: ACCENT.violet.badge, text: ACCENT.violet.text },
+  utility: { label: 'Utility', icon: Wrench, badge: ACCENT.teal.badge, text: ACCENT.teal.text },
+  orphan: { label: 'Orphan', icon: Unlink, badge: ACCENT.zinc.badge, text: ACCENT.zinc.text },
+  cron: { label: 'Cron', icon: Clock, badge: ACCENT.amber.badge, text: ACCENT.amber.text },
+  one_shot: { label: 'One-shot', icon: Clock4, badge: ACCENT.amber.badge, text: ACCENT.amber.text },
+  unknown: { label: 'Task', icon: Repeat, badge: ACCENT.zinc.badge, text: ACCENT.zinc.text },
 }
 
 export function KindBadge({ kind, className }: { kind: Kind; className?: string }) {
@@ -104,7 +39,7 @@ export function KindBadge({ kind, className }: { kind: Kind; className?: string 
         className,
       )}
     >
-      <HugeiconsIcon icon={meta.icon} className="size-3.5" />
+      <meta.icon className="size-3.5" />
       <span className="truncate">{meta.label}</span>
     </span>
   )

@@ -1,6 +1,5 @@
-import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
+import { ArrowUpRight } from 'lucide-react'
 import { useEffect } from 'react'
 import { Markdown } from '#/components/markdown'
 import { Page } from '#/components/page'
@@ -49,7 +48,7 @@ function VersionCard({ version, latest }: { version: ChangelogVersion; latest: b
               className="ml-auto inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
             >
               Compare
-              <HugeiconsIcon icon={ArrowUpRight01Icon} className="size-3.5" />
+              <ArrowUpRight className="size-3.5" />
             </a>
           )}
         </CardTitle>

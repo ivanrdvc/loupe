@@ -1,16 +1,17 @@
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
 import {
-  ArrowPathRoundedSquareIcon,
-  CheckIcon,
-  ClipboardIcon,
-  CommandLineIcon,
-  CubeTransparentIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon,
-  MagnifyingGlassIcon,
-  TableCellsIcon,
-  WrenchScrewdriverIcon,
-} from '@heroicons/react/24/outline'
+  Box,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Info,
+  RefreshCw,
+  Search,
+  SquareTerminal,
+  Table as TableIcon,
+  TriangleAlert,
+  Wrench,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { IconTabs } from '#/components/icon-tabs'
@@ -30,6 +31,7 @@ import { useIsMobile } from '#/hooks/use-mobile'
 import { formatCost } from '#/lib/format'
 import { formatJson } from '#/lib/json'
 import type { Span } from '#/lib/spans'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { AgUiPanel } from './agui'
 import { ContextTools } from './context'
@@ -42,12 +44,12 @@ import { SpanTreeList } from './tree'
 type InspectorTab = 'details' | 'tools' | 'agui' | 'turns' | 'logs' | 'attributes'
 
 const INSPECTOR_TABS = [
-  { id: 'details', label: 'Details', Icon: InformationCircleIcon },
-  { id: 'tools', label: 'Tools', Icon: WrenchScrewdriverIcon },
-  { id: 'agui', label: 'AG-UI', Icon: CubeTransparentIcon },
-  { id: 'turns', label: 'Turns', Icon: ArrowPathRoundedSquareIcon },
-  { id: 'logs', label: 'Logs', Icon: CommandLineIcon },
-  { id: 'attributes', label: 'Attributes', Icon: TableCellsIcon },
+  { id: 'details', label: 'Details', icon: Info },
+  { id: 'tools', label: 'Tools', icon: Wrench },
+  { id: 'agui', label: 'AG-UI', icon: Box },
+  { id: 'turns', label: 'Turns', icon: RefreshCw },
+  { id: 'logs', label: 'Logs', icon: SquareTerminal },
+  { id: 'attributes', label: 'Attributes', icon: TableIcon },
 ] as const
 
 export function InspectLayout({
@@ -287,7 +289,7 @@ function SpanAttributesPanel({ selectedSpan }: { selectedSpan: Span | undefined 
       <div className="flex items-center gap-2">
         <InputGroup className="flex-1">
           <InputGroupAddon>
-            <MagnifyingGlassIcon />
+            <Search aria-hidden />
           </InputGroupAddon>
           <InputGroupInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter attributes…" />
         </InputGroup>
@@ -334,10 +336,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
 
   return (
     <TableRow className="group align-top">
-      <TableCell
-        className="max-w-[14rem] truncate py-1.5 font-mono text-xs text-violet-700 dark:text-violet-400"
-        title={attrKey}
-      >
+      <TableCell className={`max-w-[14rem] truncate py-1.5 font-mono text-xs ${ACCENT.violet.ident}`} title={attrKey}>
         {attrKey}
       </TableCell>
       <TableCell className="whitespace-normal py-1.5 font-mono text-xs text-foreground">
@@ -361,7 +360,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
                 className="mt-1 text-muted-foreground hover:text-foreground"
                 onClick={() => setExpanded((x) => !x)}
               >
-                {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                {expanded ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
                 {expanded ? 'Collapse' : `Show (${formatted.length.toLocaleString()} chars)`}
               </Button>
             )}
@@ -378,7 +377,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
             title={copied ? 'Copied' : failed ? 'Copy failed — clipboard unavailable' : 'Copy value'}
             onClick={onCopy}
           >
-            {copied ? <CheckIcon /> : failed ? <ExclamationTriangleIcon /> : <ClipboardIcon />}
+            {copied ? <Check aria-hidden /> : failed ? <TriangleAlert aria-hidden /> : <Copy aria-hidden />}
           </Button>
         </div>
       </TableCell>
@@ -557,7 +556,7 @@ function SessionTurnRow({
       <TableCell className="py-1.5 font-medium text-muted-foreground">T{index}</TableCell>
       <TableCell className="py-1.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate font-mono text-violet-700 dark:text-violet-400">{modelLabel}</span>
+          <span className={`min-w-0 truncate font-mono ${ACCENT.violet.ident}`}>{modelLabel}</span>
           {errors > 0 && (
             <Badge variant="destructive" className="shrink-0">
               {errors} err

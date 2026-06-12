@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
 import { formatAgo, formatDuration } from '#/lib/format'
 import type { TraceSummary } from '#/lib/telemetry'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 interface FireTimelineProps {
@@ -154,7 +155,7 @@ export function FireTimeline({ fires, fromMs, toMs, errorRate, expectedMarkers, 
             style={{ left: `${(hovered.x / W) * 100}%`, top: 0 }}
           >
             <div className="flex items-baseline gap-2 tabular-nums">
-              <span className={hovered.fire.hasError ? 'text-rose-700 dark:text-rose-300' : ''}>
+              <span className={hovered.fire.hasError ? ACCENT.rose.status : ''}>
                 {hovered.fire.hasError ? 'error' : 'ok'}
               </span>
               <span className="text-muted-foreground">·</span>

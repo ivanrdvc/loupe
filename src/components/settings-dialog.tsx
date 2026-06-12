@@ -1,6 +1,5 @@
-import { ComputerIcon, Moon01Icon, Sun01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useState } from 'react'
 import { providersQuery, setProviderFn } from '#/components/settings-data'
@@ -69,9 +68,9 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 const MODES = [
-  { value: 'light', label: 'Light', icon: Sun01Icon },
-  { value: 'dark', label: 'Dark', icon: Moon01Icon },
-  { value: 'system', label: 'System', icon: ComputerIcon },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
 ] as const
 
 const COLORS: { value: ColorTheme; label: string; dot: string }[] = [
@@ -100,7 +99,7 @@ function AppearancePane() {
     <div className="space-y-6">
       <Field label="Theme" hint="Light, dark, or follow your system preference.">
         <div className="grid grid-cols-3 gap-2">
-          {MODES.map(({ value, label, icon }) => {
+          {MODES.map(({ value, label, icon: Icon }) => {
             const isActive = activeMode === value
             return (
               <button
@@ -113,7 +112,7 @@ function AppearancePane() {
                   isActive && TILE_ACTIVE,
                 )}
               >
-                <HugeiconsIcon icon={icon} className="size-4" />
+                <Icon className="size-4" />
                 <span>{label}</span>
               </button>
             )

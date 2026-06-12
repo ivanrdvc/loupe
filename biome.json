@@ -73,6 +73,17 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/components/icons/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noSvgWithoutTitle": "off",
+            "noStaticElementInteractions": "off"
+          }
+        }
+      }
     }
   ]
 }

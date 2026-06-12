@@ -1,6 +1,6 @@
-import { IconSearch } from '@tabler/icons-react'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
@@ -37,7 +37,10 @@ function SystemPromptsListPage() {
       <div className="flex min-w-0 flex-col">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3 lg:px-6">
           <div className="relative w-full min-w-0 sm:w-64">
-            <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
             <Input
               placeholder="Search system prompts…"
               value={search}

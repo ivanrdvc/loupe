@@ -1,4 +1,4 @@
-import { CheckIcon, ClipboardIcon } from '@heroicons/react/16/solid'
+import { Check, Copy } from 'lucide-react'
 import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 
 interface CopyButtonProps {
@@ -26,7 +26,7 @@ export function CopyButton({ value, className, label = 'Copy' }: CopyButtonProps
         className ?? '',
       ].join(' ')}
     >
-      {copied ? <CheckIcon className="size-3" /> : <ClipboardIcon className="size-3" />}
+      {copied ? <Check className="size-3" aria-hidden /> : <Copy className="size-3" aria-hidden />}
     </button>
   )
 }

@@ -1,5 +1,4 @@
-import { Cancel01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { X } from 'lucide-react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import type * as React from 'react'
 import { Button } from '#/components/ui/button.tsx'
@@ -57,7 +56,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
-              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+              <X />
               <span className="sr-only">Close</span>
             </Button>
           </DialogPrimitive.Close>

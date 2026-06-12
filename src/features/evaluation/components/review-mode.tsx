@@ -1,13 +1,20 @@
-import { ArrowLeft01Icon, ArrowRight01Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { Button } from '#/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 import { Progress } from '#/components/ui/progress'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { GoldenCapturePanel } from '#/features/evaluation/components/golden-capture'
@@ -19,6 +26,7 @@ import { draftIsBad, type ScoreTargetKind } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import { asMessages } from '#/lib/spans/conversation'
+import { cn } from '#/lib/utils'
 
 export type ReviewQueueItem = {
   targetKind: ScoreTargetKind
@@ -174,36 +182,27 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="flex h-[82vh] max-h-[680px] w-[92vw] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
-      >
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+      <DialogContent className="flex h-[82vh] max-h-[680px] w-[92vw] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="flex-row items-center justify-between gap-3 border-b px-4 py-3 pr-12">
           <div className="min-w-0">
             <DialogTitle className="text-base">Review queue</DialogTitle>
             <DialogDescription className="truncate font-mono text-xs">
               {index + 1} / {items.length} · {item?.title}
             </DialogDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Select value={dimension ?? ''} onValueChange={setDimension}>
-              <SelectTrigger size="sm" className="w-40 text-xs">
-                <SelectValue placeholder="Dimension…" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeConfigs.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
-              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} data-icon="inline-start" />
-              Close
-            </Button>
-          </div>
-        </div>
+          <Select value={dimension ?? ''} onValueChange={setDimension}>
+            <SelectTrigger size="sm" className="w-40 shrink-0 text-xs">
+              <SelectValue placeholder="Dimension…" />
+            </SelectTrigger>
+            <SelectContent>
+              {activeConfigs.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </DialogHeader>
 
         <div className="px-4 pt-2">
           <Progress value={progress} className="h-1.5" />
@@ -213,65 +212,67 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 md:grid-cols-2">
-          <div className="min-h-0 overflow-y-auto border-b p-4 md:border-r md:border-b-0">
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Trace</h3>
-            {traceLoading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : snapshot ? (
-              <ReviewTracePreview spans={traceData?.spans ?? []} evalSpan={snapshot.span} />
-            ) : item?.previewText ? (
-              <p className="whitespace-pre-wrap text-sm text-foreground/90">{item.previewText}</p>
-            ) : traceId ? (
-              <p className="text-sm text-muted-foreground">No preview for this target.</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">{item?.title}</p>
-            )}
-            {traceId && (
-              <Link
-                to="/traces"
-                search={{ trace: traceId }}
-                className="mt-3 inline-block text-xs text-primary underline-offset-4 hover:underline"
-              >
-                Open in inspector
-              </Link>
-            )}
-          </div>
-
-          <div className="min-h-0 space-y-4 overflow-y-auto p-4">
-            <section>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Score · {dimension ?? '—'}
-              </h3>
-              {config ? (
-                <ScoreInput
-                  key={`${item?.targetId}-${dimension}`}
-                  config={config}
-                  initial={
-                    myScore
-                      ? { value: myScore.value, label: myScore.label, explanation: myScore.explanation }
-                      : undefined
-                  }
-                  pending={upsertMutation.isPending}
-                  onSubmit={saveAndAdvance}
-                  onCancel={undefined}
-                />
+          <ScrollArea className="min-h-0 border-b md:border-r md:border-b-0">
+            <div className="p-4">
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Trace</h3>
+              {traceLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : snapshot ? (
+                <ReviewTracePreview spans={traceData?.spans ?? []} evalSpan={snapshot.span} />
+              ) : item?.previewText ? (
+                <p className="whitespace-pre-wrap text-sm text-foreground/90">{item.previewText}</p>
+              ) : traceId ? (
+                <p className="text-sm text-muted-foreground">No preview for this target.</p>
               ) : (
-                <p className="text-xs text-muted-foreground">Define a score dimension first.</p>
+                <p className="text-sm text-muted-foreground">{item?.title}</p>
               )}
-            </section>
+              {traceId && (
+                <Button asChild variant="link" size="sm" className="mt-3 h-auto p-0 text-xs">
+                  <Link to="/traces" search={{ trace: traceId }}>
+                    Open in inspector
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </ScrollArea>
 
-            {snapshot && (
-              <GoldenCapturePanel
-                input={snapshot.input}
-                sourceTraceId={snapshot.span.traceId}
-                sourceSpanId={snapshot.span.id}
-                highlighted={goldenHighlight}
-              />
-            )}
-          </div>
+          <ScrollArea className="min-h-0">
+            <div className="space-y-4 p-4">
+              <section>
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Score · {dimension ?? '—'}
+                </h3>
+                {config ? (
+                  <ScoreInput
+                    key={`${item?.targetId}-${dimension}`}
+                    config={config}
+                    initial={
+                      myScore
+                        ? { value: myScore.value, label: myScore.label, explanation: myScore.explanation }
+                        : undefined
+                    }
+                    pending={upsertMutation.isPending}
+                    onSubmit={saveAndAdvance}
+                    onCancel={undefined}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Define a score dimension first.</p>
+                )}
+              </section>
+
+              {snapshot && (
+                <GoldenCapturePanel
+                  input={snapshot.input}
+                  sourceTraceId={snapshot.span.traceId}
+                  sourceSpanId={snapshot.span.id}
+                  highlighted={goldenHighlight}
+                />
+              )}
+            </div>
+          </ScrollArea>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t px-4 py-2">
+        <DialogFooter className="mx-0 mb-0 justify-between px-4 py-2">
           <Button
             size="sm"
             variant="outline"
@@ -281,7 +282,7 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
               setGoldenHighlight(false)
             }}
           >
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
+            <ChevronLeft data-icon="inline-start" />
             Previous
           </Button>
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -289,12 +290,18 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
           </span>
           <Button size="sm" variant="outline" disabled={index >= items.length - 1} onClick={advance}>
             Next
-            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} data-icon="inline-end" />
+            <ChevronRight data-icon="inline-end" />
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
+}
+
+const ROLE_STYLE: Record<string, string> = {
+  system: 'text-muted-foreground',
+  user: 'text-foreground',
+  assistant: 'text-primary',
 }
 
 function ReviewTracePreview({ spans, evalSpan }: { spans: Span[]; evalSpan: Span }) {
@@ -308,7 +315,14 @@ function ReviewTracePreview({ spans, evalSpan }: { spans: Span[]; evalSpan: Span
           {messages.slice(-4).map((m, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: messages have no stable id, order is fixed
             <div key={`${m.role}-${i}`} className="rounded-md border bg-muted/20 px-2 py-1.5">
-              <p className="text-[10px] font-medium uppercase text-muted-foreground">{m.role}</p>
+              <p
+                className={cn(
+                  'font-mono text-[10px] font-medium uppercase tracking-wider',
+                  ROLE_STYLE[m.role] ?? 'text-muted-foreground',
+                )}
+              >
+                {m.role}
+              </p>
               <p className="mt-0.5 whitespace-pre-wrap text-xs">
                 {m.parts
                   .filter((p): p is { kind: 'text'; content: string } => p.kind === 'text')
@@ -321,7 +335,9 @@ function ReviewTracePreview({ spans, evalSpan }: { spans: Span[]; evalSpan: Span
       )}
       {output != null && (
         <div>
-          <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Output</p>
+          <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Output
+          </p>
           <JsonView value={output} />
         </div>
       )}

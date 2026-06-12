@@ -1,16 +1,15 @@
-import { ThumbsDownIcon, ThumbsUpIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { type ConfigHint, formatScoreValue, type ScoreValueShape } from '#/lib/eval/evaluation'
 import { cn } from '#/lib/utils'
 
 const THUMB_CLASS = 'size-3.5 shrink-0'
 
-function ThumbUpIcon({ className }: { className?: string }) {
-  return <HugeiconsIcon icon={ThumbsUpIcon} strokeWidth={2} className={cn(THUMB_CLASS, className)} />
+export function ThumbUpIcon({ className }: { className?: string }) {
+  return <ThumbsUp className={cn(THUMB_CLASS, className)} />
 }
 
-function ThumbDownIcon({ className }: { className?: string }) {
-  return <HugeiconsIcon icon={ThumbsDownIcon} strokeWidth={2} className={cn(THUMB_CLASS, className)} />
+export function ThumbDownIcon({ className }: { className?: string }) {
+  return <ThumbsDown className={cn(THUMB_CLASS, className)} />
 }
 
 export function ScoreValue({

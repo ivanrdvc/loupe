@@ -1,6 +1,6 @@
-import { CubeTransparentIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Box } from 'lucide-react'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
@@ -37,7 +37,7 @@ function McpPage() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <CubeTransparentIcon />
+                <Box aria-hidden />
               </EmptyMedia>
               <EmptyTitle>No MCP servers</EmptyTitle>
               <EmptyDescription>No registry references were returned.</EmptyDescription>

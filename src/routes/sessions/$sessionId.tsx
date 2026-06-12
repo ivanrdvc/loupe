@@ -1,6 +1,6 @@
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { MessagesSquare } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { ConversationView } from '#/components/conversation-view'
@@ -183,7 +183,7 @@ function SessionDetail() {
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <ChatBubbleLeftRightIcon />
+                  <MessagesSquare aria-hidden />
                 </EmptyMedia>
                 <EmptyTitle>Session not found</EmptyTitle>
                 <EmptyDescription>

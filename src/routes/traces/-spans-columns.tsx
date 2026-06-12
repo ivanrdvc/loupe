@@ -1,13 +1,13 @@
-import { Clock01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Clock } from 'lucide-react'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
 import type { SpanSummary } from '#/lib/telemetry'
+import { ACCENT } from '#/lib/tone'
 
 export const spanColumns: ColumnDef<SpanSummary>[] = [
   {
@@ -80,7 +80,7 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
     cell: ({ row }) => {
       const m = row.original.modelId
       return m ? (
-        <span className="font-mono text-[11px] text-violet-700 dark:text-violet-400">{m}</span>
+        <span className={`font-mono text-[11px] ${ACCENT.violet.ident}`}>{m}</span>
       ) : (
         <span className="text-muted-foreground/60">—</span>
       )
@@ -112,7 +112,7 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
       const ms = row.original.durationMs
       return (
         <div className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms)}`}>
-          <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 opacity-80" />
+          <Clock className="size-3.5 opacity-80" />
           {formatDuration(ms)}
         </div>
       )

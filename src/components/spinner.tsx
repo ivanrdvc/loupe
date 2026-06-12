@@ -1,5 +1,4 @@
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { LoaderCircle } from 'lucide-react'
 import { cn } from '#/lib/utils'
 
 const SIZE_CLASS = {
@@ -13,7 +12,5 @@ interface Props {
 }
 
 export function Spinner({ size = 'sm', className }: Props) {
-  return (
-    <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className={cn(SIZE_CLASS[size], 'animate-spin', className)} />
-  )
+  return <LoaderCircle className={cn(SIZE_CLASS[size], 'animate-spin', className)} />
 }

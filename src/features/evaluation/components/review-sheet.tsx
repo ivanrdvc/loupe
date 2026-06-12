@@ -1,8 +1,8 @@
-import { StarIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
+import { Star } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '#/components/ui/button'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { Separator } from '#/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '#/components/ui/sheet'
 import { listScoresForTarget } from '#/features/evaluation/server/scores'
@@ -46,7 +46,7 @@ export function ReviewSheetButton({ targetKind, targetId, parentTraceId, parentS
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant={count > 0 ? 'secondary' : 'ghost'} size="sm" aria-label="Review">
-          <HugeiconsIcon icon={StarIcon} strokeWidth={2} data-icon="inline-start" />
+          <Star data-icon="inline-start" />
           {label}
           {summary && (
             <span className={cn('ml-1 size-1.5 shrink-0 rounded-full', SCORE_TONE_DOT[summary.tone])} aria-hidden />
@@ -58,39 +58,41 @@ export function ReviewSheetButton({ targetKind, targetId, parentTraceId, parentS
           <SheetTitle>Review</SheetTitle>
           <SheetDescription>{KIND_DESCRIPTION[targetKind]}</SheetDescription>
         </SheetHeader>
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-6">
-          <section>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Scores</h3>
-            </div>
-            <ScoresSection
-              targetKind={targetKind}
-              targetId={targetId}
-              parentTraceId={parentTraceId}
-              parentSessionId={parentSessionId}
-            />
-          </section>
-          <Separator />
-          <section>
-            <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</h3>
-            <NoteEditor
-              targetKind={noteTargetKind}
-              targetId={targetId}
-              parentTraceId={parentTraceId}
-              parentSessionId={parentSessionId}
-            />
-          </section>
-          {snapshot && (
-            <>
-              <Separator />
-              <GoldenCapturePanel
-                input={snapshot.input}
-                sourceTraceId={snapshot.span.traceId}
-                sourceSpanId={snapshot.span.id}
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-4 px-4 pb-6">
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Scores</h3>
+              </div>
+              <ScoresSection
+                targetKind={targetKind}
+                targetId={targetId}
+                parentTraceId={parentTraceId}
+                parentSessionId={parentSessionId}
               />
-            </>
-          )}
-        </div>
+            </section>
+            <Separator />
+            <section>
+              <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</h3>
+              <NoteEditor
+                targetKind={noteTargetKind}
+                targetId={targetId}
+                parentTraceId={parentTraceId}
+                parentSessionId={parentSessionId}
+              />
+            </section>
+            {snapshot && (
+              <>
+                <Separator />
+                <GoldenCapturePanel
+                  input={snapshot.input}
+                  sourceTraceId={snapshot.span.traceId}
+                  sourceSpanId={snapshot.span.id}
+                />
+              </>
+            )}
+          </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   )

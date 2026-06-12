@@ -1,4 +1,3 @@
-import { IconChevronRight, IconSearch } from '@tabler/icons-react'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
@@ -11,6 +10,7 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table'
+import { ChevronRight, Search } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import { CopyButton } from '#/components/copy-button'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
@@ -41,7 +41,8 @@ const columns: ColumnDef<AgentRow>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
     cell: ({ row }) => (
       <div className="flex min-w-0 items-start gap-1.5">
-        <IconChevronRight
+        <ChevronRight
+          aria-hidden
           className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform data-[open=true]:rotate-90"
           data-open={row.getIsExpanded()}
         />
@@ -156,7 +157,10 @@ function AgentsPage() {
       <div className="flex min-w-0 flex-col">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3 lg:px-6">
           <div className="relative w-full min-w-0 sm:w-64">
-            <IconSearch className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
             <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}

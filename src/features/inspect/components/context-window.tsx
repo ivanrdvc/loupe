@@ -5,6 +5,7 @@ import type { InspectorView } from '#/features/inspect'
 import { useBreakdowns } from '#/features/inspect/components/use-breakdowns'
 import { formatCost, formatPercent } from '#/lib/format'
 import type { Span } from '#/lib/spans'
+import { ACCENT } from '#/lib/tone'
 
 interface ContextWindowProps {
   view: InspectorView
@@ -85,9 +86,7 @@ export function ContextWindow({ view }: ContextWindowProps) {
             </div>
           </div>
           {limit && <Progress value={pct * 100} className="mt-2" />}
-          {model && (
-            <div className="mt-1.5 truncate font-mono text-[11px] text-violet-700 dark:text-violet-400">{model}</div>
-          )}
+          {model && <div className={`mt-1.5 truncate font-mono text-[11px] ${ACCENT.violet.ident}`}>{model}</div>}
         </div>
 
         <dl className="space-y-1.5 px-3 py-2.5">

@@ -1,7 +1,5 @@
-import { ChevronDownIcon } from '@heroicons/react/20/solid'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { IconInfoCircle } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
+import { ChevronDown, Info } from 'lucide-react'
 import { useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -10,7 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip
 import type { InventoryRow } from '#/features/inbox'
 import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
-import { toolDisplayName, toolTone } from '#/lib/tools'
+import { ACCENT, toolTone } from '#/lib/tone'
+import { toolDisplayName } from '#/lib/tools'
 
 const PREVIEW_ROWS = 5
 
@@ -40,7 +39,7 @@ export function Section({
                   aria-label={`About ${title}`}
                   className="cursor-help text-muted-foreground hover:text-foreground"
                 >
-                  <IconInfoCircle className="size-3.5" />
+                  <Info className="size-3.5" aria-hidden />
                 </button>
               </TooltipTrigger>
               <TooltipContent>{description}</TooltipContent>
@@ -78,7 +77,7 @@ export function Expandable<T>({ rows, children }: { rows: T[]; children: (visibl
           onClick={() => setExpanded((v) => !v)}
           className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
         >
-          <ChevronDownIcon className={`size-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`size-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
           {expanded ? 'Show less' : `Show more (${rows.length - PREVIEW_ROWS})`}
         </button>
       )}
@@ -128,9 +127,9 @@ function ToolStatRow({
         className="group flex flex-col gap-1 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
       >
         <div className="flex items-center gap-2">
-          <HugeiconsIcon icon={tone.icon} strokeWidth={1.5} className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
+          <tone.icon className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
           <span
-            className="min-w-0 flex-1 truncate font-mono text-xs font-medium text-violet-700 dark:text-violet-400"
+            className={`min-w-0 flex-1 truncate font-mono text-xs font-medium ${ACCENT.violet.ident}`}
             title={display}
           >
             {display}
@@ -220,14 +219,9 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
             search={(prev) => ({ ...(prev as object), tool: toolDisplayName(row.name) })}
             className="group flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
           >
-            <HugeiconsIcon
-              icon={tone.icon}
-              strokeWidth={1.5}
-              className={`size-3.5 shrink-0 ${tone.text}`}
-              aria-hidden
-            />
+            <tone.icon className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
             <span
-              className="min-w-0 flex-1 truncate font-mono text-xs font-medium text-violet-700 dark:text-violet-400"
+              className={`min-w-0 flex-1 truncate font-mono text-xs font-medium ${ACCENT.violet.ident}`}
               title={row.name}
             >
               {toolDisplayName(row.name)}
@@ -257,14 +251,9 @@ export function NewAgentsTable({ rows }: { rows: InventoryRow[] }) {
           {visible.map((row) => {
             const inner = (
               <>
-                <HugeiconsIcon
-                  icon={tone.icon}
-                  strokeWidth={1.5}
-                  className={`size-3.5 shrink-0 ${tone.text}`}
-                  aria-hidden
-                />
+                <tone.icon className={`size-3.5 shrink-0 ${tone.text}`} aria-hidden />
                 <span
-                  className="min-w-0 flex-1 truncate font-mono text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                  className={`min-w-0 flex-1 truncate font-mono text-xs font-medium ${ACCENT.emerald.ident}`}
                   title={row.name}
                 >
                   {row.name}

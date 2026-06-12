@@ -1,6 +1,5 @@
-import { StarIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import type { Table } from '@tanstack/react-table'
+import { Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { ReviewModeDialog, type ReviewQueueItem } from '#/features/evaluation/components/review-mode'
@@ -26,7 +25,7 @@ export function ListScoreActions<T>({ table, buildReviewItem }: Props<T>) {
   return (
     <>
       <Button variant="outline" className="gap-x-1.5" onClick={() => setReviewOpen(true)}>
-        <HugeiconsIcon icon={StarIcon} strokeWidth={2} className="size-4" />
+        <Star className="size-4" />
         Review {count}
       </Button>
       <ReviewModeDialog open={reviewOpen} onOpenChange={setReviewOpen} items={queueItems} />

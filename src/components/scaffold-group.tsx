@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/16/solid'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { Markdown } from '#/components/markdown'
 import { looksLikeAgui, type ScaffoldMessage } from '#/lib/agui-scaffolding'
@@ -22,7 +22,7 @@ export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground hover:bg-accent/50"
       >
-        {open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
+        {open ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}
         {isAgui && (
           <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ring-1 ring-border">
             ag-ui

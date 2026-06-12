@@ -1,5 +1,4 @@
-import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '#/lib/utils'
 import { TOKEN_CLS } from './code-block'
@@ -43,9 +42,7 @@ function Node({ name, value, depth }: { name?: string; value: unknown; depth: nu
         onClick={() => setOpen((o) => !o)}
         className="flex w-full min-w-0 cursor-pointer items-center gap-1 rounded py-px text-left hover:bg-muted/60"
       >
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          strokeWidth={2}
+        <ChevronRight
           className={cn('size-3 shrink-0 text-muted-foreground/60 transition-transform', open && 'rotate-90')}
           aria-hidden
         />
