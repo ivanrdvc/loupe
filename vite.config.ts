@@ -13,13 +13,7 @@ const config = defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  plugins: [
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
-    tailwindcss(),
-    tanstackStart(),
-    viteReact(),
-    checker({ typescript: true, enableBuild: false }),
-  ],
+  plugins: [nitro(), tailwindcss(), tanstackStart(), viteReact(), checker({ typescript: true, enableBuild: false })],
 })
 
 export default config
