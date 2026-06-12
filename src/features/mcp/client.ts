@@ -36,7 +36,8 @@ export async function listServerTools(ref: McpServerRef): Promise<McpTool[]> {
       serverName: ref.name,
       name: tool.name,
       description: typeof tool.description === 'string' ? tool.description : undefined,
-      inputSchema: toJsonValue(tool.inputSchema ?? tool.input_schema),
+      // Value came from resp.json(), which can only produce JSON-shaped output.
+      inputSchema: (tool.inputSchema ?? tool.input_schema) as JsonValue | undefined,
     })
   }
   return out
@@ -54,23 +55,4 @@ async function postToolsList(endpoint: string): Promise<JsonRpcToolsList> {
   })
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
   return (await resp.json()) as JsonRpcToolsList
-}
-
-function toJsonValue(value: unknown): JsonValue | undefined {
-  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value
-  }
-  if (Array.isArray(value)) {
-    const out = value.map(toJsonValue)
-    return out.every((item) => item !== undefined) ? out : undefined
-  }
-  if (typeof value === 'object' && value) {
-    const out: Record<string, JsonValue> = {}
-    for (const [key, item] of Object.entries(value)) {
-      const json = toJsonValue(item)
-      if (json !== undefined) out[key] = json
-    }
-    return out
-  }
-  return undefined
 }

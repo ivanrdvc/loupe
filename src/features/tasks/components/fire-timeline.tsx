@@ -47,7 +47,6 @@ export function FireTimeline({ fires, fromMs, toMs, errorRate, expectedMarkers, 
           preserveAspectRatio="none"
           className="absolute inset-0 h-full w-full"
           onMouseMove={(e) => {
-            if (sorted.length === 0) return
             const rect = e.currentTarget.getBoundingClientRect()
             const xPx = ((e.clientX - rect.left) / rect.width) * W
             const tMs = fromMs + ((xPx - PAD_X) / (W - PAD_X * 2)) * span
@@ -166,11 +165,6 @@ export function FireTimeline({ fires, fromMs, toMs, errorRate, expectedMarkers, 
           </div>
         )}
       </div>
-      {sorted.length === 0 && (
-        <div className="mx-auto max-w-[1000px] pt-2 text-center text-xs text-muted-foreground">
-          No fires in this window.
-        </div>
-      )}
     </div>
   )
 }

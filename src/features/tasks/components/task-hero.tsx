@@ -15,11 +15,10 @@ interface TaskHeroProps {
   fires: TraceSummary[]
   fromMs: number
   toMs: number
-  conversationId?: string
   onFireClick?: (fire: TraceSummary) => void
 }
 
-export function TaskHero({ row, fires, fromMs, toMs, conversationId, onFireClick }: TaskHeroProps) {
+export function TaskHero({ row, fires, fromMs, toMs, onFireClick }: TaskHeroProps) {
   const errorRate = 1 - row.successRate
   const cadence = useMemo(() => deriveCadence(fires), [fires])
   const expectedMarkers = useMemo(
@@ -29,7 +28,7 @@ export function TaskHero({ row, fires, fromMs, toMs, conversationId, onFireClick
 
   return (
     <div className="border-b">
-      <FlowChain row={row} conversationId={conversationId} errorRate={errorRate} />
+      <FlowChain row={row} errorRate={errorRate} />
       <StatusLine row={row} cadence={cadence} />
       <FireTimeline
         fires={fires}
@@ -43,7 +42,8 @@ export function TaskHero({ row, fires, fromMs, toMs, conversationId, onFireClick
   )
 }
 
-function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversationId?: string; errorRate: number }) {
+function FlowChain({ row, errorRate }: { row: TaskRow; errorRate: number }) {
+  const conversationId = row.conversationId
   const stroke = errorRate >= 0.05 ? 'var(--destructive)' : 'var(--primary)'
   const kindMeta = KIND_META[row.kind]
   const taskLabel = row.name ?? (row.taskId && shortId(row.taskId)) ?? row.rootOperation ?? kindMeta.label
@@ -54,7 +54,7 @@ function FlowChain({ row, conversationId, errorRate }: { row: TaskRow; conversat
   const fireTone = row.errored > 0 ? ACCENT.rose.text : ACCENT.emerald.text
   // Animate beams only when the task is still "live" — cron keeps firing,
   // event/webhook keep listening. A one-shot that already fired is finished.
-  const animate = row.kind !== 'one_shot' || row.fires === 0
+  const animate = row.kind !== 'one_shot'
 
   return (
     <div className="px-4 pt-5 pb-4 lg:px-6">
@@ -345,7 +345,7 @@ function buildExpectedMarkers(fires: TraceSummary[], medianMs: number | undefine
 
 function computeTaskHint(row: TaskRow): { text: React.ReactNode; mono: boolean } {
   // One-shot already fired — kind icon + status line carry the story; no chip hint.
-  if (row.kind === 'one_shot' && row.fires > 0) return { text: undefined, mono: false }
+  if (row.kind === 'one_shot') return { text: undefined, mono: false }
   // Event / webhook — source if known, else kind icon suffices.
   if (row.kind === 'event' || row.kind === 'webhook') {
     return row.source ? { text: row.source, mono: true } : { text: undefined, mono: false }
@@ -377,7 +377,6 @@ function looksLikeIsoDate(s: string): boolean {
 }
 
 function computeRunHint(row: TaskRow): string | undefined {
-  if (row.fires === 0) return undefined
   const dur = formatDuration(row.avgDurationMs)
   if (row.errored > 0) {
     return row.fires === 1 ? `errored · ${dur}` : `${row.errored} errored · avg ${dur}`

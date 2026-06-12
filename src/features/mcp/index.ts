@@ -10,7 +10,6 @@ async function listMcpRegistry(): Promise<McpRegistryResult> {
   const fetchedAt = Date.now()
   const source = getRegistrySource()
   const refs = await source.listServerRefs()
-  const errors: McpRegistryResult['errors'] = []
 
   const servers = await mapLimited(refs, CONCURRENCY, async (ref): Promise<McpServer> => {
     if (!ref.endpoint) {
@@ -21,13 +20,11 @@ async function listMcpRegistry(): Promise<McpRegistryResult> {
       const tools = await listServerTools(ref)
       return { ...ref, tools, fetchStatus: 'ok', fetchedAt }
     } catch (e) {
-      const message = errMessage(e)
-      errors.push({ serverId: ref.id, serverName: ref.name, message })
-      return { ...ref, tools: [], fetchStatus: 'error', fetchError: message, fetchedAt }
+      return { ...ref, tools: [], fetchStatus: 'error', fetchError: errMessage(e), fetchedAt }
     }
   })
 
-  return { servers, fetchedAt, partial: errors.length > 0, errors }
+  return { servers, fetchedAt, partial: servers.some((s) => s.fetchStatus === 'error') }
 }
 
 export async function listMcpRegistryWithLint() {

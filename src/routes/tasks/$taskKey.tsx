@@ -4,15 +4,12 @@ import { useMemo } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
-import { rollupTasks, taskIdentity } from '#/features/tasks/rollup'
+import { FiresTable, rollupTasks, TaskHero, taskIdentity, tasksTracesQuery } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
 import type { TraceSummary } from '#/lib/telemetry'
 import { windowMs } from '#/lib/time-range'
-import { FiresTable } from './-components/fires-table'
-import { TaskHero } from './-components/task-hero'
-import { tasksTracesQuery } from './-data'
 
 export const Route = createFileRoute('/tasks/$taskKey')({
   validateSearch: (search: Record<string, unknown>): { trace?: string; session?: string } => {
@@ -75,7 +72,6 @@ function TaskDetail() {
               fires={fires}
               fromMs={fromMs}
               toMs={toMs}
-              conversationId={row.conversationId}
               onFireClick={(t) => {
                 void navigate({ search: (prev) => ({ ...prev, trace: t.id }) })
               }}

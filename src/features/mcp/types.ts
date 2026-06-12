@@ -32,7 +32,6 @@ export interface McpRegistryResult {
   servers: McpServer[]
   fetchedAt: number
   partial: boolean
-  errors: Array<{ serverId?: string; serverName?: string; message: string }>
 }
 
 export interface RegistrySource {

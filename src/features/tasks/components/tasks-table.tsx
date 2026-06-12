@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#
 import type { TaskRow } from '#/features/tasks/rollup'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
-import { taskColumns } from '../-columns'
+import { taskColumns } from '../columns'
 
 const FILTERS: FacetedFilterSpec[] = [
   {

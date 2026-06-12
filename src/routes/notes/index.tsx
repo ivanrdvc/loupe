@@ -16,13 +16,12 @@ import {
   CommandList,
   CommandSeparator,
 } from '#/components/ui/command'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog'
+import { Dialog } from '#/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '#/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
-import { ScrollArea } from '#/components/ui/scroll-area'
 import { Skeleton } from '#/components/ui/skeleton'
-import { NoteEditor } from '#/features/notes'
+import { NoteDialogContent } from '#/features/notes'
 import { listAllNotes } from '#/features/notes/server'
 import type { Note, NoteStatus, NoteTargetKind } from '#/features/notes/types'
 import { initialsFor } from '#/lib/current-user'
@@ -58,14 +57,6 @@ const KIND_LABEL: Record<NoteTargetKind, string> = {
   span: 'Spans',
   prompt: 'Prompts',
   experiment: 'Experiments',
-}
-
-const KIND_DESCRIPTION: Record<NoteTargetKind, string> = {
-  session: 'Notes attached to this session — visible to your team.',
-  trace: 'Notes attached to this trace.',
-  span: 'Notes attached to this span.',
-  prompt: 'Notes attached to this prompt.',
-  experiment: 'Notes attached to this experiment.',
 }
 
 function previewBody(body: string): string {
@@ -179,25 +170,7 @@ function NotesPage() {
       </div>
 
       <Dialog open={activeNote != null} onOpenChange={(o) => !o && closeNote()}>
-        <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Note</DialogTitle>
-            <DialogDescription>{activeNote ? KIND_DESCRIPTION[activeNote.targetKind] : null}</DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="-mx-1 [&>[data-slot=scroll-area-viewport]]:max-h-[70vh]">
-            <div className="flex flex-col gap-4 px-1">
-              {activeNote && (
-                <NoteEditor
-                  key={activeNote.id}
-                  targetKind={activeNote.targetKind}
-                  targetId={activeNote.targetId}
-                  parentTraceId={activeNote.parentTraceId}
-                  parentSessionId={activeNote.parentSessionId}
-                />
-              )}
-            </div>
-          </ScrollArea>
-        </DialogContent>
+        <NoteDialogContent target={activeNote} />
       </Dialog>
     </Page>
   )

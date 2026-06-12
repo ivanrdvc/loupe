@@ -3,14 +3,11 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
-import { rollupTasks, summarizeRollup } from '#/features/tasks/rollup'
+import { MetricTiles, rollupTasks, summarizeRollup, TasksDataTable, tasksTracesQuery } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
 import { windowMs } from '#/lib/time-range'
-import { MetricTiles } from './-components/metric-tiles'
-import { TasksDataTable } from './-components/tasks-table'
-import { tasksTracesQuery } from './-data'
 
 export const Route = createFileRoute('/tasks/')({
   validateSearch: (search: Record<string, unknown>): { trace?: string; session?: string } => {
