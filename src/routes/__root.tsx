@@ -7,9 +7,8 @@ import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
-import { InspectDrawerHost, ToolInspectDrawer } from '#/features/inspect'
-import { sessionQuery } from '#/routes/sessions/-data'
-import { traceSpansQuery } from '#/routes/traces/-data'
+import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
+import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
 
 /** Wide default window for the cross-page session drawer; full page uses the toolbar range. */

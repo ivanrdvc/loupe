@@ -16,7 +16,18 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { definitionsQuery, judgeDefaultsQuery } from '#/features/evaluation'
+import {
+  type AgentOverrides,
+  type DatasetDetail,
+  type DatasetExample,
+  type DatasetRun,
+  type DatasetRunItem,
+  definitionsQuery,
+  GLOBAL_DEFAULT_ENDPOINT,
+  inputPreview,
+  inputTurns,
+  judgeDefaultsQuery,
+} from '#/features/evaluation'
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
 import { runDataset, updateDataset } from '#/features/evaluation/server/datasets'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
@@ -28,18 +39,7 @@ import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
 import { ResultSheet } from './-components/result-sheet'
 import { ScoreChip, ScoreChips, StatusIcon } from './-components/run-bits'
-import {
-  type AgentOverrides,
-  type DatasetDetail,
-  type DatasetExample,
-  type DatasetRun,
-  type DatasetRunItem,
-  datasetDetailQuery,
-  datasetRunDefaultsQuery,
-  GLOBAL_DEFAULT_ENDPOINT,
-  inputPreview,
-  inputTurns,
-} from './-data'
+import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
 
 export const Route = createFileRoute('/datasets/$datasetId')({
   loader: ({ context, params }) =>
@@ -262,9 +262,11 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           datasetId={dataset.id}
           example={activeExample}
           onClose={closeSheet}
-          onSaved={async () => {
-            await invalidate()
+          onSaved={() => {
+            // Close first: holding the modal open through the invalidate
+            // roundtrip swallows clicks landing on the page behind it.
             closeSheet()
+            invalidate()
           }}
         />
       )}

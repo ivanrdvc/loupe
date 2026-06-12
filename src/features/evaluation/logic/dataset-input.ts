@@ -1,6 +1,6 @@
+import type { ExampleInput } from '#/features/evaluation/dataset-types'
 import type { JsonValue } from '#/lib/json'
 import { asMessages, messageText } from '#/lib/spans/conversation'
-import type { ExampleInput } from '#/routes/datasets/-types'
 
 const asInput = (v: JsonValue): ExampleInput => (typeof v === 'string' ? v : JSON.stringify(v))
 

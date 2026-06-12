@@ -39,8 +39,8 @@ import {
 } from '#/components/ui/sidebar'
 import { useChangelogUnseen } from '#/hooks/use-changelog-unseen'
 import { useUser, useUserId } from '#/hooks/use-user'
+import { currentUserSessionsQuery } from '#/lib/session-queries'
 import { DEFAULT } from '#/lib/time-range'
-import { currentUserSessionsQuery } from '#/routes/sessions/-data'
 
 const APP_VERSION = `v${__APP_VERSION__}`
 

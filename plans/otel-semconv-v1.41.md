@@ -21,7 +21,7 @@ committed work.
 
 - `src/lib/spans/classify-span.ts` — invoke_agent CLIENT/INTERNAL, the new `invoke_workflow`
   op, the execute_tool naming rule.
-- `src/lib/spans/tokens.ts` — fold reasoning + cache-read + cache-creation buckets into the math.
+- `src/features/inspect/logic/tokens.ts` — fold reasoning + cache-read + cache-creation buckets into the math.
 - `docs/explanation/02-spec.md`, `docs/reference/ai-attributes.md` — the curated attr set.
 - `src/lib/eval/` — optionally *read* any `gen_ai.evaluation.*` a provider emits, and align our
   own score model's field names to the spec.

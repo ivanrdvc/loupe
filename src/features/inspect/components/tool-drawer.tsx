@@ -118,7 +118,7 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   )
 }
 
-function TokensFromChars({ chars }: { chars: number }) {
+export function TokensFromChars({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
   const tokens = tokensFromChars(chars)
   return (

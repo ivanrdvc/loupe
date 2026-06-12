@@ -17,11 +17,11 @@ import { Input } from '#/components/ui/input'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Textarea } from '#/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
+import type { ChatMessage, ChatRole, DatasetExample, ExampleInput } from '#/features/evaluation'
 import { deleteExamples, upsertExample } from '#/features/evaluation/server/datasets'
 import { errMessage } from '#/lib/format'
 import { looksLikeJson as isJsonShape, parseJson } from '#/lib/json'
 import { cn } from '#/lib/utils'
-import type { ChatMessage, ChatRole, DatasetExample, ExampleInput } from '../-types'
 import { Field } from './run-bits'
 
 const isValidJson = (s: string) => parseJson(s) !== undefined

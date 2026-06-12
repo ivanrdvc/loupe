@@ -1,6 +1,6 @@
 import type { JsonValue } from '#/lib/json'
-import type { Span } from '.'
-import { asMessages, type ChatMessage } from './conversation'
+import type { Span } from '#/lib/spans'
+import { asMessages, type ChatMessage } from '#/lib/spans/conversation'
 
 export type SpanInput = Pick<
   Span,

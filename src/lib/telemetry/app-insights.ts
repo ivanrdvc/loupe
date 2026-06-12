@@ -12,7 +12,7 @@ import {
 } from '#/lib/spans'
 import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
-import { aiCoalesce, attrKeysFor } from './conventions'
+import { aiCoalesce, pickCanonical } from './conventions'
 import {
   aggregateSessions,
   buildLogRecord,
@@ -154,7 +154,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
 
     query: (q, opts) => kql(q, timespanFromOpts(opts)),
 
-    async getTrace(traceId, opts): Promise<TraceFetch> {
+    async getTrace(traceId): Promise<TraceFetch> {
       if (!isSafeId(traceId)) return null
       const q = `
         union dependencies, requests
@@ -163,13 +163,12 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
                   cloud_RoleName, success, type, customDimensions
         | top ${TRACE_FETCH_LIMIT} by timestamp asc
       `
-      let rows = await kql(q, timespanFromOpts(opts))
+      let rows = await kql(q)
       // If no results, the id might be a span_id (from sub-agent or purpose-span rows).
       // Resolve the actual operation_Id and re-fetch the full trace.
       if (rows.length === 0) {
         const lookup = await kql(
           `union dependencies, requests | where id == "${traceId}" | project operation_Id | take 1`,
-          timespanFromOpts(opts),
         )
         const resolvedTraceId = lookup[0]?.operation_Id as string | undefined
         if (resolvedTraceId && isSafeId(resolvedTraceId)) {
@@ -180,7 +179,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
                       cloud_RoleName, success, type, customDimensions
             | top ${TRACE_FETCH_LIMIT} by timestamp asc
           `
-          rows = await kql(q2, timespanFromOpts(opts))
+          rows = await kql(q2)
         }
       }
       if (rows.length === 0) return null
@@ -190,7 +189,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       propagateSessionInTrace(spans)
       propagateInheritedAttrs(spans)
       normalizeRunGraph(spans)
-      await attachExceptionsToSpans(spans, [realTraceId], timespanFromOpts(opts))
+      await attachExceptionsToSpans(spans, [realTraceId], undefined)
       return {
         spans,
         truncated: rows.length >= TRACE_FETCH_LIMIT,
@@ -320,7 +319,6 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             cache_tok = toint(customDimensions["gen_ai.usage.cache_read.input_tokens"]),
             model_id = ${aiCoalesce('model')},
             provider = tostring(customDimensions["gen_ai.provider.name"]),
-            end_ts = datetime_add('millisecond', toint(duration), timestamp),
             u_id = ${USER_ID_COALESCE},
             u_name = ${USER_NAME_COALESCE}
         | project
@@ -329,7 +327,6 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             span_name = name,
             purpose,
             first_seen = timestamp,
-            last_seen = end_ts,
             duration_ms = duration,
             in_tok, out_tok, cache_tok,
             model_id, provider,
@@ -349,14 +346,12 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
         | extend sess = ${SESSION_ID_COALESCE}
-        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["gen_ai.operation.purpose"])) or isnotempty(tostring(customDimensions["session.trigger_type"])) or isnotempty(sess)
+        | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["session.trigger_type"])) or isnotempty(sess)
         ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
         ${DEDUPE_SPANS_BY_ID_KQL}
         | extend start_ms = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
         | project
             trace_id = operation_Id,
-            span_id = id,
-            reference_parent_span_id = operation_ParentId,
             operation_name = name,
             start_ms,
             end_ms = start_ms + tolong(duration),
@@ -423,14 +418,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
       const source: 'attribute' | 'trace' = spans.some((s) => s.sessionSource === 'attribute') ? 'attribute' : 'trace'
       let title: string | undefined
       for (const r of spanRows) {
-        const cd = parseCustomDimensions(r.customDimensions)
-        for (const k of attrKeysFor('sessionTitle')) {
-          const v = cd[k]
-          if (typeof v === 'string' && v.trim()) {
-            title = v.trim()
-            break
-          }
-        }
+        title = pickCanonical(parseCustomDimensions(r.customDimensions), 'sessionTitle')
         if (title) break
       }
       return { sessionId, source, traceIds, spans, title }

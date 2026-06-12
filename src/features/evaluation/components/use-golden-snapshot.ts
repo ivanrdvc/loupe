@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
+import { traceSpansQuery } from '#/features/inspect'
 import type { ScoreTargetKind } from '#/lib/eval/evaluation'
-import { traceSpansQuery } from '#/routes/traces/-data'
 import { traceEvalSnapshot } from './span-snapshot'
 
 // Shared golden-capture wiring for both review surfaces (ReviewSheetButton + ReviewModeDialog):

@@ -334,7 +334,6 @@ function hitToInventoryObservation(
   return {
     kind: isTool ? 'mcp_tool' : 'agent',
     name,
-    namespace: '',
     firstSeenMs: Math.floor(firstSeenNs / 1_000_000),
     lastSeenMs: Math.floor(lastSeenNs / 1_000_000),
     traceId: typeof h.sample_trace_id === 'string' ? h.sample_trace_id : undefined,

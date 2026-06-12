@@ -13,10 +13,10 @@ import {
   CommandSeparator,
 } from '#/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
+import type { ExampleInput } from '#/features/evaluation/dataset-types'
 import { createDataset, listDatasets, upsertExample } from '#/features/evaluation/server/datasets'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
-import type { ExampleInput } from '#/routes/datasets/-types'
 
 export type DatasetItemDraft = {
   input: ExampleInput

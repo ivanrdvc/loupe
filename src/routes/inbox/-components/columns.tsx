@@ -4,9 +4,9 @@ import { ArrowUpRight } from 'lucide-react'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
+import { inboxItemTraceLink } from '#/features/inbox/meta'
 import type { InboxRow } from '#/features/inbox/server'
 import { ALERT_KINDS } from '#/lib/alerts/kinds'
-import { inboxItemTraceLink } from '../-meta'
 
 export interface InboxRowActions {
   onSnooze: (id: number) => void

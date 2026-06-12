@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { desc, eq, inArray } from 'drizzle-orm'
 import { db } from '#/db'
 import { evalDefinitions, evalRuns, scoreConfigs, scores } from '#/db/schema'
+import { DEFAULT_JUDGE_MODEL } from '#/features/evaluation/logic/models'
 import {
   type EvalCompareRow,
   type EvalDefinition,
@@ -17,7 +18,6 @@ import {
   scoreIsBad,
   type UpsertEvalDefinitionInput,
 } from '#/lib/eval/evaluation'
-import { DEFAULT_JUDGE_MODEL } from '#/lib/eval/models'
 import type { JsonValue } from '#/lib/json'
 import { resolveJudgeDefaults } from './judge'
 import { parseLiveFilter } from './online-eval-filter'

@@ -1,4 +1,4 @@
-import { spanEvalSnapshot } from '#/lib/eval/span-eval-snapshot'
+import { spanEvalSnapshot } from '#/features/evaluation/logic/span-eval-snapshot'
 import type { JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
 import { asMessages, messageText } from '#/lib/spans/conversation'

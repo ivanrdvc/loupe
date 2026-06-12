@@ -39,6 +39,16 @@ export function parse(v: unknown): TimeRange {
   return DEFAULT
 }
 
+export function parseRangeUserInput(input: { range?: unknown; userId?: unknown }): {
+  range: TimeRange
+  userId: string
+} {
+  return {
+    range: parse(input.range),
+    userId: typeof input.userId === 'string' ? input.userId.trim() : '',
+  }
+}
+
 export function label(r: TimeRange) {
   if (typeof r === 'number') return r === 1 ? 'Past 1 day' : `Past ${r} days`
   const a = formatDayMonth(r.from)

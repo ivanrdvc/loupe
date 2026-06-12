@@ -434,7 +434,6 @@ export const FIXTURE_INVENTORY: InventoryObservation[] = [
   {
     kind: 'agent',
     name: 'WeatherBot',
-    namespace: '',
     firstSeenMs: 1_700_000_000_000,
     lastSeenMs: 1_700_000_000_100,
     traceId: 'tr-chat',
@@ -445,7 +444,6 @@ export const FIXTURE_INVENTORY: InventoryObservation[] = [
   {
     kind: 'agent',
     name: 'SoloBot',
-    namespace: '',
     firstSeenMs: 1_700_000_000_000,
     lastSeenMs: 1_700_000_000_100,
     traceId: 'e2e-trace-7f3a2b',

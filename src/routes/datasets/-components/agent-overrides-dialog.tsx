@@ -13,7 +13,7 @@ import { Input } from '#/components/ui/input'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
-import type { AgentOverrides, ToolDecl } from '../-types'
+import type { AgentOverrides, ToolDecl } from '#/features/evaluation'
 import { Field } from './run-bits'
 
 const OVERRIDE_MODELS = ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4-6']

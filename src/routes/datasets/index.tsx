@@ -31,11 +31,12 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import type { DatasetListItem } from '#/features/evaluation'
 import { createDataset, runDataset } from '#/features/evaluation/server/datasets'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { DataGridBody } from './-components/data-grid'
-import { type DatasetListItem, datasetsListQuery } from './-data'
+import { datasetsListQuery } from './-data'
 
 export const Route = createFileRoute('/datasets/')({
   loader: ({ context }) => context.queryClient.ensureQueryData(datasetsListQuery()),

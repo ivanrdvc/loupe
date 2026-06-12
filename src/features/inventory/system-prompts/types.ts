@@ -1,7 +1,6 @@
 export type SystemPromptEntity = {
   id: number
   name: string
-  namespace: string
   systemPrompt: string | null
   description: string | null
   firstSeenAt: number

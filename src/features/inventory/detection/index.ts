@@ -34,13 +34,7 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
           nested: inventory.nested,
         })
         .from(inventory)
-        .where(
-          and(
-            eq(inventory.kind, observation.kind),
-            eq(inventory.name, observation.name),
-            eq(inventory.namespace, observation.namespace),
-          ),
-        )
+        .where(and(eq(inventory.kind, observation.kind), eq(inventory.name, observation.name)))
         .limit(1)
 
       if (existing) {
@@ -68,7 +62,6 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
         .values({
           kind: observation.kind,
           name: observation.name,
-          namespace: observation.namespace,
           firstSeenAt: new Date(observation.firstSeenMs),
           firstSeenTraceId: observation.traceId,
           lastSeenAt: new Date(observation.lastSeenMs),
@@ -88,10 +81,10 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
         .values({
           kind,
           firedAt: new Date(observation.firstSeenMs),
-          summary: summaryFor(kind, observation.name, observation.namespace),
+          summary: summaryFor(kind, observation.name),
           payloadJson: observation,
           traceId: observation.traceId,
-          dedupeKey: `${kind}:${observation.name}:${observation.namespace}`,
+          dedupeKey: `${kind}:${observation.name}`,
         })
         .onConflictDoNothing()
       inserted += 1
@@ -123,9 +116,7 @@ async function recordVersion(
   })
 }
 
-function summaryFor(kind: InventoryDiscoveryKind, name: string, namespace: string): string {
-  if (kind === 'new_tool') {
-    return namespace ? `New MCP tool ${namespace}.${name} observed` : `New MCP tool ${name} observed`
-  }
+function summaryFor(kind: InventoryDiscoveryKind, name: string): string {
+  if (kind === 'new_tool') return `New MCP tool ${name} observed`
   return `New agent ${name} observed`
 }

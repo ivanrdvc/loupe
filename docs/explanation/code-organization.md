@@ -48,4 +48,4 @@ export const agentsQuery = () =>
   queryOptions({ queryKey: queryKeys.agents.all(), queryFn: fetchAgents, staleTime: STALE_TELEMETRY_MS })
 ```
 
-Cross-feature consumers (e.g. the header notification bell reading `inboxUnreadCountQuery` from `routes/inbox/-data`) import the route's `-data.ts` directly. Truly app-wide queries that don't belong to a route (e.g. `providers-data.ts` for the settings dialog) live in `src/lib/`.
+App-shell consumers must not import route-scoped `-data.ts` files. Queries a shell component needs live in the owning feature slice (e.g. the header notification bell reads `inboxUnreadCountQuery` from the `#/features/inbox` barrel; the inbox route deep-imports `#/features/inbox/queries`) or, when no slice exists, in `src/lib/` (e.g. `session-queries.ts` for the sidebar/root drawer, `providers-data.ts` for the settings dialog).

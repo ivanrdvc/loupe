@@ -11,8 +11,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '#/components/ui/sheet'
+import {
+  type ChatMessage,
+  type DatasetExample,
+  type DatasetRunItem,
+  inputPreview,
+  inputTurns,
+} from '#/features/evaluation'
 import { cn } from '#/lib/utils'
-import { type ChatMessage, type DatasetExample, type DatasetRunItem, inputPreview, inputTurns } from '../-types'
 import { Field, ScoreChips, StatusIcon } from './run-bits'
 
 export function ResultSheet({

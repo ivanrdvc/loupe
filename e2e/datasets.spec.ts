@@ -21,6 +21,15 @@ async function addExample(page: Page, text: string): Promise<void> {
   await expect(page.getByText(text)).toBeVisible()
 }
 
+// A row click right after a dialog closes can be swallowed by the exit
+// animation / loader-invalidation rerender — retry until the edit dialog shows.
+async function openExample(page: Page, text: string): Promise<void> {
+  await expect(async () => {
+    await page.getByText(text).click()
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Save' })).toBeVisible({ timeout: 2000 })
+  }).toPass()
+}
+
 test('creates a dataset and lands on its empty detail page', async ({ page }) => {
   await createDataset(page)
   await expect(page.getByText('No examples yet')).toBeVisible()
@@ -30,7 +39,7 @@ test('edits an example and replaces its text', async ({ page }) => {
   await createDataset(page)
   await addExample(page, 'Original question')
 
-  await page.getByText('Original question').click()
+  await openExample(page, 'Original question')
   const sheet = page.getByRole('dialog')
   await sheet.getByRole('textbox').first().fill('Edited question')
   await sheet.getByRole('button', { name: 'Save' }).click()
@@ -43,7 +52,7 @@ test('deletes an example back to the empty state', async ({ page }) => {
   await createDataset(page)
   await addExample(page, 'Disposable question')
 
-  await page.getByText('Disposable question').click()
+  await openExample(page, 'Disposable question')
   await page.getByRole('dialog').getByRole('button', { name: 'Delete example' }).click()
 
   await expect(page.getByText('No examples yet')).toBeVisible()
@@ -91,12 +100,12 @@ test('saves a JSON expected criterion via the Expected JSON toggle', async ({ pa
   await page.getByRole('button', { name: 'Add example' }).click()
   const sheet = page.getByRole('dialog')
   await sheet.getByRole('textbox').first().fill('Refund window question')
-  await sheet.getByRole('button', { name: 'JSON' }).click()
+  await sheet.getByRole('radio', { name: 'JSON' }).click()
   await sheet.getByPlaceholder(/criterion/).fill('{ "criterion": "mentions the 30-day window" }')
   await sheet.getByRole('button', { name: 'Save' }).click()
 
   // Reopen: a JSON-looking expected restores JSON mode with the saved value.
-  await page.getByText('Refund window question').click()
+  await openExample(page, 'Refund window question')
   await expect(page.getByRole('dialog').getByPlaceholder(/criterion/)).toHaveValue(/30-day window/)
 })
 
@@ -115,8 +124,10 @@ test('captures an example into a new dataset from a span review sheet', async ({
 
   // The captured example carries the span's own question into the dataset.
   await page.goto('/datasets')
-  await page.getByText(dsName).click()
-  await expect(page).toHaveURL(/\/datasets\/\d+/)
+  await expect(async () => {
+    await page.getByText(dsName).click()
+    await expect(page).toHaveURL(/\/datasets\/\d+/, { timeout: 2000 })
+  }).toPass()
   await expect(page.getByText('What is the weather in Tokyo?')).toBeVisible()
 })
 
@@ -133,8 +144,10 @@ test('captures a golden (question + expected) from a span into a dataset', async
   await expect(page.getByText(/Created .* and added items|Added \d+ item/)).toBeVisible()
 
   await page.goto('/datasets')
-  await page.getByText(dsName).click()
-  await expect(page).toHaveURL(/\/datasets\/\d+/)
+  await expect(async () => {
+    await page.getByText(dsName).click()
+    await expect(page).toHaveURL(/\/datasets\/\d+/, { timeout: 2000 })
+  }).toPass()
   // Both the span's question and the golden expected (its output) landed.
   await expect(page.getByText('What is the weather in Tokyo?')).toBeVisible()
   await expect(page.getByText('18°C', { exact: false })).toBeVisible()

@@ -2,8 +2,6 @@ import { queryOptions } from '@tanstack/react-query'
 import { getDatasetDetail, getDatasetRunDefaults, listDatasets } from '#/features/evaluation/server/datasets'
 import { queryKeys } from '#/lib/query-keys'
 
-export * from './-types'
-
 export const datasetsListQuery = () =>
   queryOptions({
     queryKey: queryKeys.datasets.list(),

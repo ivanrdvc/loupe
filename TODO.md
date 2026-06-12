@@ -10,5 +10,5 @@
 - Experiment tags (UI only) — "env" → "Tag" filter (`tag.tags`), chips on `/traces` + `/sessions`
 - HTTP API for LLM debugging — `plans/http-api.md`
 - MCP — `plans/mcp.md`
-- Anthropic token counts estimated (o200k BPE); exact needs count_tokens API (`src/lib/spans/tokens.ts`)
+- Anthropic token counts estimated (o200k BPE); exact needs count_tokens API (`src/features/inspect/logic/tokens.ts`)
 - RAG sidecars (embedding/retrieval as documents-with-scores) + multimodal render (image/audio message parts) — deferred until a producer emits those span shapes; classify/UI only, token-leak + base64-inflation already prevented

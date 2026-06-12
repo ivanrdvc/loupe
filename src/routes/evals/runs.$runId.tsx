@@ -12,21 +12,10 @@ import { Label } from '#/components/ui/label'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Switch } from '#/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import { definitionQuery, scoreConfigsQuery } from '#/features/evaluation'
-import { ScoreValue } from '#/features/evaluation/components/score-value'
+import { definitionQuery, ScoreCaseRow, useScaleMap } from '#/features/evaluation'
 import { getEvalRun } from '#/features/evaluation/server/evals'
 import { listScoresByRun } from '#/features/evaluation/server/scores'
-import {
-  type ConfigHint,
-  EVAL_RUN_STATUS_BADGE,
-  type EvalRun,
-  isEvalRunActive,
-  judgeErrorHint,
-  SCORE_TONE_CLASS,
-  type Score,
-  scoreIsBad,
-} from '#/lib/eval/evaluation'
+import { EVAL_RUN_STATUS_BADGE, type EvalRun, isEvalRunActive, judgeErrorHint, scoreIsBad } from '#/lib/eval/evaluation'
 import { formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { ACCENT } from '#/lib/tone'
@@ -139,25 +128,7 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
   const evaluatorName = definitionDetail?.definition.name
   const [failedOnly, setFailedOnly] = useState(false)
 
-  // Per-dimension polarity/scale, so verdicts classify against their config (not
-  // the lexicon/unscaled fallback) — required for correct tone + "Failed only".
-  const { data: configs = [] } = useQuery(scoreConfigsQuery)
-  const scaleByName = useMemo(
-    () =>
-      new Map<string, ConfigHint>(
-        configs.map((c) => [
-          c.name,
-          {
-            minValue: c.minValue,
-            maxValue: c.maxValue,
-            passLabels: c.passLabels,
-            failLabels: c.failLabels,
-            direction: c.direction,
-          },
-        ]),
-      ),
-    [configs],
-  )
+  const scaleByName = useScaleMap()
 
   const summary = run.summary
   // "Failed only" also surfaces errored cases (scoreIsBad is false for null-verdict errors).
@@ -276,7 +247,9 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  visible.map((score) => <CaseRow key={score.id} score={score} scale={scaleByName.get(score.name)} />)
+                  visible.map((score) => (
+                    <ScoreCaseRow key={score.id} score={score} scale={scaleByName.get(score.name)} showError />
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -284,72 +257,5 @@ function RunDetailLoaded({ run }: { run: EvalRun }) {
         )}
       </div>
     </Page>
-  )
-}
-
-function CaseRow({ score, scale }: { score: Score; scale?: ConfigHint }) {
-  const bad = scoreIsBad(score, scale)
-  const traceTarget = score.parentTraceId ?? score.targetId
-  // Only a synthetic dataset item with no backing trace is non-linkable; items
-  // sourced from real traces/spans keep their real id and stay linkable.
-  const isItem = score.datasetRunItemId != null && score.parentTraceId == null && score.targetId.startsWith('item:')
-
-  return (
-    <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
-      <TableCell>
-        <span className="flex items-center gap-2">
-          <Badge variant="outline" className="capitalize">
-            {score.targetKind}
-          </Badge>
-          {isItem ? (
-            <span className="max-w-[16rem] truncate font-mono text-xs text-muted-foreground" title={score.targetId}>
-              {score.targetId}
-            </span>
-          ) : (
-            <Link
-              to="/traces"
-              search={{ trace: traceTarget }}
-              className="max-w-[16rem] truncate font-mono text-xs text-primary underline-offset-4 hover:underline"
-              title={score.targetId}
-            >
-              {score.targetId}
-            </Link>
-          )}
-        </span>
-      </TableCell>
-      <TableCell>
-        <ScoreValue
-          score={score}
-          scale={scale}
-          className={cn('font-medium', bad ? SCORE_TONE_CLASS.bad : SCORE_TONE_CLASS.good)}
-        />
-      </TableCell>
-      <TableCell className="max-w-[28rem]">
-        {score.explanation ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="block truncate text-xs text-muted-foreground">{score.explanation}</span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-md whitespace-pre-wrap">
-              {score.explanation}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell>
-        {score.errorType ? (
-          <Badge variant="destructive" className="font-mono text-[11px]">
-            {score.errorType}
-          </Badge>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        <RelativeTime ts={score.createdAt} className="text-xs text-muted-foreground tabular-nums" />
-      </TableCell>
-    </TableRow>
   )
 }

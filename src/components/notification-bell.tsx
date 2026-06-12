@@ -5,10 +5,14 @@ import { RelativeTime } from '#/components/relative-time'
 import { Button } from '#/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { ScrollArea } from '#/components/ui/scroll-area'
-import type { InboxRow } from '#/features/inbox'
+import {
+  dismissAllInboxFn,
+  type InboxRow,
+  inboxItemTraceLink,
+  inboxUnreadCountQuery,
+  openInboxQuery,
+} from '#/features/inbox'
 import { queryKeys } from '#/lib/query-keys'
-import { dismissAllInboxFn, inboxUnreadCountQuery, openInboxQuery } from '#/routes/inbox/-data'
-import { inboxItemTraceLink } from '#/routes/inbox/-meta'
 
 const MAX_VISIBLE = 8
 

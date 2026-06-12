@@ -8,7 +8,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createAzure } from '@ai-sdk/azure'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError, generateObject, generateText, jsonSchema, type LanguageModel, NoObjectGeneratedError } from 'ai'
-import { DEFAULT_JUDGE_MODEL, type JudgeProvider, judgeModelProvider } from '#/lib/eval/models'
+import { DEFAULT_JUDGE_MODEL, type JudgeProvider, judgeModelProvider } from '#/features/evaluation/logic/models'
 import type { JsonValue } from '#/lib/json'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 

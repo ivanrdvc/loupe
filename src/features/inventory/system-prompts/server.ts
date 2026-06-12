@@ -9,7 +9,6 @@ function toEntity(row: typeof inventory.$inferSelect): SystemPromptEntity {
   return {
     id: row.id,
     name: row.name,
-    namespace: row.namespace,
     systemPrompt: row.systemPrompt,
     description: row.description,
     firstSeenAt: row.firstSeenAt.getTime(),

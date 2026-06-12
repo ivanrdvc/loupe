@@ -3,19 +3,9 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import { formatDuration, formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
+import { TokensFromChars } from '#/features/inspect'
+import { formatDuration, formatPercent } from '#/lib/format'
 import type { ToolCatalogRow } from '#/lib/telemetry'
-
-function Tokens({ chars }: { chars: number }) {
-  if (!chars) return <span className="text-muted-foreground">—</span>
-  const tokens = tokensFromChars(chars)
-  return (
-    <span title={`${chars.toLocaleString()} chars · ≈${tokens.toLocaleString()} tokens`}>
-      {formatTokens(tokens)}
-      <span className="text-muted-foreground"> tok</span>
-    </span>
-  )
-}
 
 export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
   {
@@ -65,7 +55,7 @@ export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Avg tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <Tokens chars={row.original.avgChars} />
+        <TokensFromChars chars={row.original.avgChars} />
       </div>
     ),
   },
@@ -74,7 +64,7 @@ export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="p95 tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <Tokens chars={row.original.p95Chars} />
+        <TokensFromChars chars={row.original.p95Chars} />
       </div>
     ),
   },

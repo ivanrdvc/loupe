@@ -147,6 +147,24 @@ describe('aggregateSessions', () => {
     expect(session.totalCostUsd).toBeCloseTo(0.00050575, 8)
   })
 
+  it('flags hasError when the only ERROR row is an execute_tool span', () => {
+    const hits: Row[] = [
+      { ...invokeAgent({ trace: 't1', span: 'a', agent: 'Bot', hex: 'aaaa', startMs: 1000 }), ag_ui_thread_id: 'th-1' },
+      {
+        trace_id: 't1',
+        span_id: 'tool1',
+        reference_parent_span_id: 'a',
+        operation_name: 'execute_tool run_sql',
+        start_ms: 1010,
+        end_ms: 1020,
+        span_status: 'ERROR',
+        ag_ui_thread_id: 'th-1',
+      },
+    ]
+    const [session] = aggregateSessions(hits, 10)
+    expect(session.hasError).toBe(true)
+  })
+
   it('drops traces without a session attribute — those belong on the Runs page', () => {
     const hits: Row[] = [
       invokeAgent({ trace: 't1', span: 'p', agent: 'Proverbs', hex: 'aaaa', startMs: 1000 }),

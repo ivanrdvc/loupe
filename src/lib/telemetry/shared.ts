@@ -36,7 +36,7 @@ export function mapToolErrorRow(row: Record<string, unknown>): ToolErrorRow {
   const total = Number(row.total ?? 0)
   const last = row.last_error_trace_id
   return {
-    name: String(row.name ?? row.operation_name ?? '?'),
+    name: String(row.name ?? '?'),
     errors,
     total,
     errorRate: total > 0 ? errors / total : 0,
@@ -54,7 +54,7 @@ export function mapToolPayloadRow(row: Record<string, unknown>): ToolPayloadRow 
   const sample = row.sample_trace_id
   const session = row.sample_session_id
   return {
-    name: String(row.name ?? row.operation_name ?? '?'),
+    name: String(row.name ?? '?'),
     avgChars: toChars(row.avg_chars),
     p95Chars: toChars(row.p95_chars),
     maxChars: toChars(row.max_chars),
@@ -155,6 +155,11 @@ function resolveTraceSession(traceId: string, rows: Array<Record<string, unknown
   return { traceId, sessionId: key.id, source: key.source, ...rollupTrace(rows) }
 }
 
+// Row-set contract both provider listSessions queries must satisfy: session-attr
+// rows + invoke_agent roots + chat rows (tokens/cost/firstInput) + error-bearing
+// AI-op rows (chat / invoke_agent / execute_tool) + trigger_type via root
+// co-location. Dropping a clause from one provider's scan silently changes the
+// rollup below for that provider only.
 function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, 'traceId' | 'sessionId' | 'source'> {
   let startMs = Number.POSITIVE_INFINITY
   let endMs = 0

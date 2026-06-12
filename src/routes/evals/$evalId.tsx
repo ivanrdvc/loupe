@@ -24,9 +24,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { definitionQuery } from '#/features/evaluation'
+import { definitionQuery, ScoreCaseRow, useScaleMap } from '#/features/evaluation'
 import { EvaluatorFormDialog, readLiveFilter } from '#/features/evaluation/components/evaluator-form-dialog'
-import { ScoreValue } from '#/features/evaluation/components/score-value'
 import {
   blessEvalRun,
   compareRuns,
@@ -34,8 +33,8 @@ import {
   setEvalDefinitionLive,
 } from '#/features/evaluation/server/evals'
 import { listScoresByDefinition } from '#/features/evaluation/server/scores'
-import type { EvalCompareRow, EvalDefinition, EvalRun, Score } from '#/lib/eval/evaluation'
-import { EVAL_RUN_STATUS_BADGE, isEvalRunActive, SCORE_TONE_CLASS, scoreIsBad } from '#/lib/eval/evaluation'
+import type { EvalCompareRow, EvalDefinition, EvalRun } from '#/lib/eval/evaluation'
+import { EVAL_RUN_STATUS_BADGE, isEvalRunActive } from '#/lib/eval/evaluation'
 import { errMessage, formatCost } from '#/lib/format'
 import { queryKeys, STALE_LIVE_MS, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import { ACCENT } from '#/lib/tone'
@@ -396,6 +395,7 @@ const SCORES_PAGE_SIZE = 25
 
 function EvaluatorScores({ id }: { id: number }) {
   const { data: scores = [] } = useQuery(scoresQuery(id))
+  const scaleByName = useScaleMap()
   const [page, setPage] = useState(0)
   if (scores.length === 0) return null
 
@@ -419,7 +419,7 @@ function EvaluatorScores({ id }: { id: number }) {
           </TableHeader>
           <TableBody>
             {pageScores.map((score) => (
-              <ScoreRow key={score.id} score={score} />
+              <ScoreCaseRow key={score.id} score={score} scale={scaleByName.get(score.name)} />
             ))}
           </TableBody>
         </Table>
@@ -448,38 +448,6 @@ function EvaluatorScores({ id }: { id: number }) {
         </div>
       )}
     </section>
-  )
-}
-
-function ScoreRow({ score }: { score: Score }) {
-  const traceTarget = score.parentTraceId ?? score.targetId
-  const isItem = score.datasetRunItemId != null && score.parentTraceId == null && score.targetId.startsWith('item:')
-  return (
-    <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
-      <TableCell>
-        {isItem ? (
-          <span className="font-mono text-xs text-muted-foreground">{score.targetId}</span>
-        ) : (
-          <Link
-            to="/traces"
-            search={{ trace: traceTarget }}
-            className="font-mono text-xs text-primary underline-offset-4 hover:underline"
-          >
-            {score.targetId}
-          </Link>
-        )}
-      </TableCell>
-      <TableCell>
-        <ScoreValue
-          score={score}
-          className={cn('font-medium', scoreIsBad(score) ? SCORE_TONE_CLASS.bad : SCORE_TONE_CLASS.good)}
-        />
-      </TableCell>
-      <TableCell className="max-w-[28rem] truncate text-xs text-muted-foreground">{score.explanation ?? '—'}</TableCell>
-      <TableCell className="text-right">
-        <RelativeTime ts={score.createdAt} className="text-xs text-muted-foreground tabular-nums" />
-      </TableCell>
-    </TableRow>
   )
 }
 

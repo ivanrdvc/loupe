@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#
 import { Textarea } from '#/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import { ModelSelect } from '#/features/evaluation/components/model-select'
+import { JUDGE_TEMPLATES } from '#/features/evaluation/logic/judge-templates'
 import { upsertEvalDefinition } from '#/features/evaluation/server/evals'
 import {
   DATA_TYPE_LABEL,
@@ -30,7 +31,6 @@ import {
   SCORE_TARGET_KINDS,
   type ScoreDataType,
 } from '#/lib/eval/evaluation'
-import { JUDGE_TEMPLATES } from '#/lib/eval/judge-templates'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 

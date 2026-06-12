@@ -14,7 +14,7 @@ tags: [evals, datasets, domain, vocabulary]
 # Glossary
 
 The eval/datasets nouns, defined once. Types live in
-`src/routes/datasets/-types.ts` and `src/lib/eval/`.
+`src/features/evaluation/dataset-types.ts` and `src/lib/eval/`.
 
 | Term | What it is |
 | --- | --- |

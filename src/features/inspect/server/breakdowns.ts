@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { breakdownChat, type SpanInput } from '#/lib/spans/tokens'
+import { breakdownChat, type SpanInput } from '#/features/inspect/logic/tokens'
 
 export const fetchBreakdowns = createServerFn({ method: 'POST' })
   .inputValidator((spans: SpanInput[]) => spans)

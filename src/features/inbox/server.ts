@@ -1,6 +1,6 @@
-import { and, count, desc, eq, gt, isNull, lt, lte, or } from 'drizzle-orm'
+import { and, count, desc, eq, isNull, lte, or } from 'drizzle-orm'
 import { db } from '#/db'
-import { inboxItems, inventory } from '#/db/schema'
+import { inboxItems } from '#/db/schema'
 import type { AlertKind } from '#/lib/alerts/kinds'
 
 export interface InboxRow {
@@ -11,16 +11,6 @@ export interface InboxRow {
   traceId: string | null
   dismissedAtMs: number | null
   snoozeUntilMs: number | null
-}
-
-export interface InventoryRow {
-  id: number
-  kind: string
-  name: string
-  namespace: string
-  firstSeenAtMs: number
-  firstSeenTraceId: string | null
-  lastSeenAtMs: number
 }
 
 const openItems = () =>
@@ -48,31 +38,6 @@ export async function snoozeInboxItem(id: number, until: Date): Promise<void> {
   await db.update(inboxItems).set({ snoozeUntil: until }).where(eq(inboxItems.id, id))
 }
 
-export async function listHomeInventory(
-  fromMs: number = Date.now() - 7 * 24 * 60 * 60 * 1000,
-  toMs: number = Date.now(),
-): Promise<{ newTools: InventoryRow[]; newAgents: InventoryRow[] }> {
-  const from = new Date(fromMs)
-  const to = new Date(toMs)
-  const rows = await db
-    .select()
-    .from(inventory)
-    .where(
-      and(
-        gt(inventory.firstSeenAt, from),
-        lt(inventory.firstSeenAt, to),
-        or(eq(inventory.kind, 'mcp_tool'), eq(inventory.kind, 'agent')),
-      ),
-    )
-    .orderBy(desc(inventory.firstSeenAt))
-    .limit(20)
-
-  return {
-    newTools: rows.filter((row) => row.kind === 'mcp_tool').map(toInventoryRow),
-    newAgents: rows.filter((row) => row.kind === 'agent').map(toInventoryRow),
-  }
-}
-
 function toInboxRow(row: typeof inboxItems.$inferSelect): InboxRow {
   return {
     id: row.id,
@@ -82,17 +47,5 @@ function toInboxRow(row: typeof inboxItems.$inferSelect): InboxRow {
     traceId: row.traceId,
     dismissedAtMs: row.dismissedAt?.getTime() ?? null,
     snoozeUntilMs: row.snoozeUntil?.getTime() ?? null,
-  }
-}
-
-function toInventoryRow(row: typeof inventory.$inferSelect): InventoryRow {
-  return {
-    id: row.id,
-    kind: row.kind,
-    name: row.name,
-    namespace: row.namespace,
-    firstSeenAtMs: row.firstSeenAt.getTime(),
-    firstSeenTraceId: row.firstSeenTraceId,
-    lastSeenAtMs: row.lastSeenAt.getTime(),
   }
 }

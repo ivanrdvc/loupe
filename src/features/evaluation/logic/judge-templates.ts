@@ -1,4 +1,4 @@
-import type { EvalScope, ScoreDataType } from './evaluation'
+import type { EvalScope, ScoreDataType } from '#/lib/eval/evaluation'
 
 // Starter judges shown in the "Start from template" picker on /evals. To add one,
 // append an entry here — that's the whole extension point.

@@ -85,7 +85,7 @@ export async function fetchAllTools(p: AppInsightsProvider, opts?: TopOpts): Pro
     const errors = Number(r.errors ?? 0)
     const raw = String(r.name ?? '')
     return {
-      name: raw.startsWith('execute_tool ') ? raw.slice('execute_tool '.length) : raw,
+      name: extractToolName(raw) ?? raw,
       calls,
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
@@ -289,7 +289,6 @@ function rowToInventoryObservation(
   return {
     kind: isTool ? 'mcp_tool' : 'agent',
     name,
-    namespace: '',
     firstSeenMs: firstSeen,
     lastSeenMs: lastSeen,
     traceId: typeof row.sample_trace_id === 'string' ? row.sample_trace_id : undefined,

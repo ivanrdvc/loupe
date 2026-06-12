@@ -12,12 +12,12 @@ import {
   InspectLayout,
   type InspectView,
   InspectViewBar,
+  traceSpansQuery,
   useRawRoots,
   useSpanSearch,
 } from '#/features/inspect'
 import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
 import type { Span } from '#/lib/spans'
-import { traceSpansQuery } from './-data'
 
 export const Route = createFileRoute('/traces/$traceId')({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(traceSpansQuery(params.traceId)),

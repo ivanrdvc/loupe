@@ -21,8 +21,8 @@ import {
   utilityInspect,
 } from '#/features/inspect'
 import { useInspectAutoRefresh } from '#/hooks/use-auto-refresh'
+import { sessionQuery } from '#/lib/session-queries'
 import { parse, type TimeRange } from '#/lib/time-range'
-import { sessionQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   validateSearch: (search: Record<string, unknown>): SessionSearch => ({

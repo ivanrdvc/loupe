@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AddToDatasetButton } from '#/features/evaluation/components/add-to-dataset'
-import { datasetInputFromSnapshot } from '#/lib/eval/dataset-input'
+import { datasetInputFromSnapshot } from '#/features/evaluation/logic/dataset-input'
 import { type JsonValue, prettyJson } from '#/lib/json'
 import { cn } from '#/lib/utils'
 import { ExpectedOutputEditor } from './expected-output-editor'

@@ -63,7 +63,9 @@ export function attrKeysFor(field: CanonicalField): readonly string[] {
 export function pickCanonical(attrs: Record<string, unknown>, field: CanonicalField): string | undefined {
   for (const k of attrKeysFor(field)) {
     const v = attrs[k]
-    if (typeof v === 'string' && v.length > 0) return v
+    if (typeof v !== 'string') continue
+    const t = v.trim()
+    if (t) return t
   }
   return undefined
 }

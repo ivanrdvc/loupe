@@ -5,7 +5,7 @@ import { RelativeTime } from '#/components/relative-time'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
-import type { InventoryRow } from '#/features/inbox'
+import type { InventoryRow } from '#/features/inventory/server'
 import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
 import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
@@ -216,11 +216,6 @@ export function NewToolsTable({ rows }: { rows: InventoryRow[] }) {
             >
               {toolDisplayName(row.name)}
             </span>
-            {row.namespace && (
-              <span className="shrink-0 truncate text-[11px] text-muted-foreground" title={row.namespace}>
-                {row.namespace}
-              </span>
-            )}
             <RelativeTime ts={row.firstSeenAtMs} className="shrink-0 text-[11px] tabular-nums text-muted-foreground" />
           </Link>
         </li>

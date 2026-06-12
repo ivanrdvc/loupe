@@ -10,7 +10,7 @@ import {
   type SpanKind,
 } from '#/lib/spans'
 import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
-import { ooCoalesceAs, ooCol, ooColumns } from './conventions'
+import { ooCoalesceAs, ooCol, ooColumns, pickCanonical } from './conventions'
 import {
   aggregateSessions,
   buildLogRecord,
@@ -168,9 +168,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
 
     getKnownColumns,
 
-    async getTrace(traceId, opts) {
+    async getTrace(traceId) {
       if (!/^[A-Za-z0-9_-]+$/.test(traceId)) return null
-      const { fromUs, toUs } = window(opts)
+      const { fromUs, toUs } = window(undefined)
       let sql = `SELECT * FROM "${cfg.stream}" WHERE trace_id='${traceId}'`
       let hits = await search(sql, fromUs, toUs)
       // If no results, the id might be a span_id (from sub-agent or purpose-span rows).
@@ -207,8 +207,6 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         return `
         SELECT
           trace_id,
-          span_id,
-          reference_parent_span_id,
           operation_name,
           ${ooCoalesceAs('sessionId', 'ag_ui_thread_id', { known })},
           ${ooCoalesceAs('sessionTitle', 'ag_ui_thread_title', { known })},
@@ -230,6 +228,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         WHERE (
           operation_name LIKE 'invoke_agent %'
           OR gen_ai_operation_name = 'chat'
+          OR (span_status = 'ERROR' AND (gen_ai_operation_name IS NOT NULL OR operation_name LIKE 'execute_tool %'))
           ${sessionCols.map((c) => `OR ${c} != ''`).join('\n          ')}
         )
         ${whereIdentity(opts, known)}
@@ -265,16 +264,9 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         propagateInheritedAttrs(trSpans)
       }
       const source: 'attribute' | 'trace' = spans.some((s) => s.sessionSource === 'attribute') ? 'attribute' : 'trace'
-      const titleCols = ooColumns('sessionTitle')
       let title: string | undefined
       for (const h of spanHits) {
-        for (const col of titleCols) {
-          const v = h[col]
-          if (typeof v === 'string' && v.trim()) {
-            title = v.trim()
-            break
-          }
-        }
+        title = pickCanonical(h, 'sessionTitle')
         if (title) break
       }
       return { sessionId, source, traceIds, spans, title }

@@ -1,8 +1,8 @@
 import { CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react'
 import { Badge } from '#/components/ui/badge'
+import type { DatasetRunItem, ItemScore, RunItemStatus } from '#/features/evaluation'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
-import type { DatasetRunItem, ItemScore, RunItemStatus } from '../-types'
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

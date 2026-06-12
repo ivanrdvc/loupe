@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { type ChatBreakdown, emptyBreakdown, sumBreakdowns } from '#/features/inspect/logic/tokens'
 import { fetchBreakdowns } from '#/features/inspect/server/breakdowns'
 import type { Span } from '#/lib/spans'
-import { type ChatBreakdown, emptyBreakdown, sumBreakdowns } from '#/lib/spans/tokens'
 
 export function useBreakdowns(
   chatSpans: Span[],
