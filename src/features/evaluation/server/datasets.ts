@@ -69,7 +69,6 @@ function toRunItem(row: typeof datasetRunItems.$inferSelect, status: RunItemStat
     tokens: row.tokens,
     traceId: row.traceId,
     scores: [],
-    pass: null,
   }
 }
 
@@ -217,7 +216,6 @@ export const getDatasetDetail = createServerFn({ method: 'GET' })
     const items = itemRows.map((it) => ({
       ...toRunItem(it, derivedStatus.get(`${it.runId}:${it.exampleId}`) ?? it.status),
       scores: scoresByItem.get(it.id) ?? [],
-      pass: itemPass(it.id),
     }))
     const runsWithRate = runs.map((r) => {
       const agg = passAgg.get(Number(r.id))

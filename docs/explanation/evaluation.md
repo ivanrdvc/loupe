@@ -105,7 +105,7 @@ provider surfaces per-case as `config_error`; the run-detail page shows a
    trace (its final chat span), each carrying a `spanEvalSnapshot` of the target's
    fields. This is the shared case-builder the live executor feeds the judge; the
    `eval_run` object (a fixed offline experiment with an incremental `summary`)
-   exists in the schema and is read back by `listEvalRuns` / `getEvalRun` /
+   exists in the schema and is read back by `getEvalRun` /
    `compareRuns` / `blessEvalRun`, but there is no in-app executor that creates one
    and judges its cases — offline experiment runs are produced out-of-band.
 3. **Dataset grading** (datasets↔judge) — after a dataset run fills

@@ -346,7 +346,9 @@ function trimNum(n: number): string {
 }
 
 // The polarity/scale hints a dimension's score_config carries, for classifying scores.
-function configToHint(c: ScoreConfig): ConfigHint {
+export function configToHint(
+  c: Pick<ScoreConfig, 'minValue' | 'maxValue' | 'passLabels' | 'failLabels' | 'direction'>,
+): ConfigHint {
   return {
     minValue: c.minValue,
     maxValue: c.maxValue,

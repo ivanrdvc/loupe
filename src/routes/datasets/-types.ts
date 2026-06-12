@@ -49,7 +49,6 @@ export interface DatasetRunItem {
   tokens: number
   traceId: string | null
   scores: ItemScore[]
-  pass: boolean | null
 }
 
 export interface DatasetRun {

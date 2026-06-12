@@ -1,8 +1,6 @@
 // Shared agent caller over the OpenAI-compatible Responses contract loupe speaks.
 // Used by the dataset runner.
 
-export const RUN_TIMEOUT_MS = 60_000
-
 type AgentInputMessage = { role: string; content: string }
 type AgentInput = string | AgentInputMessage[]
 
@@ -15,9 +13,6 @@ export type AgentCallInput = {
   instructions?: string | null
   tools?: { name: string; description?: string }[]
   sampling?: { temperature?: number | null; maxTokens?: number | null; topP?: number | null }
-  // Responses `text.format` (e.g. a json_schema) for structured output. The judge uses this.
-  responseFormat?: unknown
-  timeoutMs?: number
 }
 
 export type AgentCallResult = {
@@ -27,18 +22,6 @@ export type AgentCallResult = {
   tokens: number
   inputTokens: number | null
   outputTokens: number | null
-}
-
-// Thrown by callAgent so callers can branch on the failure without parsing messages.
-export class AgentCallError extends Error {
-  errorType: 'timeout' | 'network_error' | 'http'
-  status?: number
-  constructor(message: string, errorType: 'timeout' | 'network_error' | 'http', status?: number) {
-    super(message)
-    this.name = 'AgentCallError'
-    this.errorType = errorType
-    this.status = status
-  }
 }
 
 function parseEndpoint(rawUrl: string): URL {
@@ -104,7 +87,6 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
     ...(sampling.temperature != null && { temperature: sampling.temperature }),
     ...(sampling.maxTokens != null && { max_output_tokens: sampling.maxTokens }),
     ...(sampling.topP != null && { top_p: sampling.topP }),
-    ...(input.responseFormat != null && { text: { format: input.responseFormat } }),
     ...(input.tools?.length
       ? {
           tools: input.tools.map((t) => ({
@@ -116,7 +98,6 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
         }
       : {}),
   }
-  const timeoutMs = input.timeoutMs ?? RUN_TIMEOUT_MS
   const start = performance.now()
   let response: Response
   try {
@@ -124,22 +105,18 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(60_000),
     })
   } catch (err) {
     if (err instanceof Error && err.name === 'TimeoutError') {
-      throw new AgentCallError(`Run timed out after ${timeoutMs / 1000}s`, 'timeout')
+      throw new Error('Run timed out after 60s')
     }
-    throw new AgentCallError(err instanceof Error ? err.message : 'Network error', 'network_error')
+    throw new Error(err instanceof Error ? err.message : 'Network error')
   }
   const durationMs = Math.round(performance.now() - start)
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
-    throw new AgentCallError(
-      `Run failed (${response.status}): ${errorText || response.statusText}`,
-      'http',
-      response.status,
-    )
+    throw new Error(`Run failed (${response.status}): ${errorText || response.statusText}`)
   }
   const raw = (await response.json()) as unknown
   const usage = extractUsage(raw)

@@ -1,15 +1,11 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '#/db'
 import { evalDefinitions, scores } from '#/db/schema'
-import type { JsonValue } from '#/lib/json'
 import type { TraceSummary } from '#/lib/telemetry'
 import { listRecentTraces } from '#/lib/telemetry'
 import { casesFromTraces } from './eval-jobs'
 import { resolveJudgeDefaults, runJudgeSamples } from './judge'
 import { type LiveFilter, matchesLiveFilter, parseLiveFilter, sampleRateOf } from './online-eval-filter'
-
-export type { LiveFilter } from './online-eval-filter'
-export { matchesLiveFilter, parseLiveFilter, sampleRateOf } from './online-eval-filter'
 
 export type OnlineEvalResult = { evaluators: number; scored: number }
 
@@ -58,7 +54,7 @@ export async function runOnlineEvals(
 
   for (const def of defs) {
     if (scored >= maxCalls) break
-    const filter = parseLiveFilter((def.liveFilter ?? null) as JsonValue | null)
+    const filter = parseLiveFilter(def.liveFilter)
     const rate = sampleRateOf(filter)
     const traces = await poolFor(filter)
     for (const trace of traces) {

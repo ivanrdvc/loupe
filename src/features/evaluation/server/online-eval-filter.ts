@@ -1,12 +1,11 @@
 import type { LiveFilter } from '#/lib/eval/evaluation'
-import type { JsonValue } from '#/lib/json'
 import type { TraceSummary } from '#/lib/telemetry/types'
 
 export type { LiveFilter }
 
-export function parseLiveFilter(raw: JsonValue | null | undefined): LiveFilter {
+export function parseLiveFilter(raw: unknown): LiveFilter {
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const o = raw as Record<string, JsonValue>
+  const o = raw as Record<string, unknown>
   const f: LiveFilter = {}
   if (typeof o.sampleRate === 'number' && Number.isFinite(o.sampleRate)) {
     f.sampleRate = Math.min(1, Math.max(0, o.sampleRate))

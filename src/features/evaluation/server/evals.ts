@@ -43,20 +43,6 @@ function asOptString(v: unknown): string | null {
   return s.length > 0 ? s : null
 }
 
-function asJsonValue(v: unknown, label: string): JsonValue {
-  if (v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-    if (typeof v === 'number' && !Number.isFinite(v)) throw new Error(`${label} must be JSON-serializable`)
-    return v
-  }
-  if (Array.isArray(v)) return v.map((item, i) => asJsonValue(item, `${label}[${i}]`))
-  if (typeof v === 'object') {
-    const out: Record<string, JsonValue> = {}
-    for (const [key, value] of Object.entries(v)) out[key] = asJsonValue(value, `${label}.${key}`)
-    return out
-  }
-  throw new Error(`${label} must be JSON-serializable`)
-}
-
 function toDefinition(row: typeof evalDefinitions.$inferSelect): EvalDefinition {
   return {
     id: row.id,
@@ -137,8 +123,8 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
     model: asOptString(input.model) ?? DEFAULT_JUDGE_MODEL,
     mode: asMode(input.mode),
     status: asStatus(input.status),
-    // undefined = leave unchanged; null/object = normalized via parseLiveFilter server-side.
-    liveFilter: input.liveFilter === undefined ? undefined : asJsonValue(input.liveFilter ?? null, 'liveFilter'),
+    // undefined = leave unchanged; null/object = normalized via parseLiveFilter.
+    liveFilter: input.liveFilter === undefined ? undefined : parseLiveFilter(input.liveFilter),
   }))
   .handler(async ({ data }): Promise<EvalDefinition> => {
     if (!data.name) throw new Error('Evaluator name is required')
@@ -159,7 +145,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
           model: data.model,
           mode: data.mode,
           status: data.status,
-          ...(data.liveFilter !== undefined ? { liveFilter: parseLiveFilter(data.liveFilter) } : {}),
+          ...(data.liveFilter !== undefined ? { liveFilter: data.liveFilter } : {}),
           version: bump ? existing.version + 1 : existing.version,
           updatedAt: now,
         })
@@ -179,7 +165,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
         model: data.model,
         mode: data.mode,
         status: data.status,
-        liveFilter: data.liveFilter !== undefined ? parseLiveFilter(data.liveFilter) : null,
+        liveFilter: data.liveFilter ?? null,
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -206,16 +192,6 @@ export const deleteEvalDefinition = createServerFn({ method: 'POST' })
   })
 
 // runs
-export const listEvalRuns = createServerFn({ method: 'GET' })
-  .inputValidator((definitionId?: number | null) => (definitionId == null ? null : Number(definitionId)))
-  .handler(async ({ data }): Promise<EvalRun[]> => {
-    const rows =
-      data == null
-        ? await db.select().from(evalRuns).orderBy(desc(evalRuns.createdAt))
-        : await db.select().from(evalRuns).where(eq(evalRuns.definitionId, data)).orderBy(desc(evalRuns.createdAt))
-    return rows.map(toRun)
-  })
-
 export const getEvalRun = createServerFn({ method: 'GET' })
   .inputValidator((runId: number) => Number(runId))
   .handler(async ({ data }): Promise<EvalRun | null> => {
