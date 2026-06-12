@@ -7,7 +7,7 @@ import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { displayFor, fmtNum, formatDuration } from './shared'
 
-interface Row {
+export interface Row {
   span: Span
   depth: number
   // One entry per ancestor-rail column to the left of the row's own elbow.
@@ -17,7 +17,6 @@ interface Row {
   childCount: number
   isCollapsed: boolean
   subtreeTokens: number
-  subtreeCost: number
   isParallel: boolean
   // Input token delta vs the previous chat sibling in the same parent scope.
   // Non-zero only on chat spans where context grew significantly between calls.
@@ -36,7 +35,7 @@ const NORMAL_FINISH = new Set(['stop', 'end_turn', 'complete', 'end', 'eos'])
 // All rails, elbow, and indicator share this single x-axis so nothing can drift.
 const railX = (depth: number) => depth * INDENT + INDENT / 2
 
-function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoots: Set<string>): Row[] {
+export function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoots: Set<string>): Row[] {
   // Reuse the shared parent index; freshly sort each sibling list once.
   const byParent = new Map<string | null, Span[]>()
   for (const [pid, kids] of view.childrenByParent) {
@@ -67,21 +66,17 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoots: Set
 
   // Aggregation walks the full byParent tree (not visibleChildren) so totals
   // are invariant to which traces have raw on — otherwise the same span would
-  // get different tokens/cost depending on which root it was viewed from.
-  const aggCache = new Map<string, { tokens: number; cost: number }>()
-  const agg = (span: Span): { tokens: number; cost: number } => {
+  // get different tokens depending on which root it was viewed from.
+  const aggCache = new Map<string, number>()
+  const agg = (span: Span): number => {
     const cached = aggCache.get(span.id)
-    if (cached) return cached
+    if (cached != null) return cached
     let tokens = span.tokens ?? 0
-    let cost = span.costUsd ?? 0
     for (const child of byParent.get(span.id) ?? []) {
-      const sub = agg(child)
-      tokens += sub.tokens
-      cost += sub.cost
+      tokens += agg(child)
     }
-    const result = { tokens, cost }
-    aggCache.set(span.id, result)
-    return result
+    aggCache.set(span.id, tokens)
+    return tokens
   }
 
   const rows: Row[] = []
@@ -115,7 +110,7 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoots: Set
     let prevChatInputTokens: number | null = null
     siblings.forEach((span, i) => {
       const isLast = i === siblings.length - 1
-      const totals = agg(span)
+      const subtreeTokens = agg(span)
       const effectiveRootId = rootId ?? span.id
       const children = collect(span.id, effectiveRootId)
       const isChat = span.operation === 'chat'
@@ -133,8 +128,7 @@ function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoots: Set
         isLastChild: isLast,
         childCount: children.length,
         isCollapsed: collapsedIds.has(span.id),
-        subtreeTokens: totals.tokens,
-        subtreeCost: totals.cost,
+        subtreeTokens,
         isParallel: parallelIds.has(span.id),
         ctxDelta,
         rootId: effectiveRootId,
@@ -278,7 +272,6 @@ function rowPropsEqual(a: SpanTreeRowProps, b: SpanTreeRowProps): boolean {
     ra.childCount !== rb.childCount ||
     ra.isCollapsed !== rb.isCollapsed ||
     ra.subtreeTokens !== rb.subtreeTokens ||
-    ra.subtreeCost !== rb.subtreeCost ||
     ra.isParallel !== rb.isParallel ||
     ra.ctxDelta !== rb.ctxDelta ||
     ra.rootId !== rb.rootId
@@ -424,7 +417,8 @@ function SpanTreeRowImpl({
               )}
           </div>
           {(() => {
-            if (isAgent) return null
+            // Agent rows stay clean except collapsed — then the hidden subtree's rollup must surface.
+            if (isAgent && !(isCollapsed && subtreeTokens > 0)) return null
             // Tool/MCP spans usually wrap a frontend handoff with no real backend work
             // — duration is sub-millisecond and meaningless. Hide it unless the span
             // actually did something (e.g. wraps a sub-agent or real backend execution).

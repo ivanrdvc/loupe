@@ -1,4 +1,4 @@
-import { Braces, List, MessagesSquare } from 'lucide-react'
+import { Braces, ChartNoAxesGantt, List, MessagesSquare } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   type AutoRefreshInterval,
@@ -9,11 +9,12 @@ import { Toggle } from '#/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { IconTabs } from './icon-tabs'
 
-export type InspectView = 'spans' | 'conversation'
+export type InspectView = 'spans' | 'conversation' | 'timeline'
 
 const INSPECT_VIEW_TABS = [
   { id: 'spans', label: 'Spans', icon: List },
   { id: 'conversation', label: 'Conversation', icon: MessagesSquare },
+  { id: 'timeline', label: 'Timeline', icon: ChartNoAxesGantt },
 ] as const
 
 interface InspectViewBarProps {

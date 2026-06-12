@@ -1,6 +1,16 @@
 import { Brain, FileSearch, type LucideIcon, Network } from 'lucide-react'
 import type { Span } from '#/lib/spans'
-import { ACCENT, toolTone } from '#/lib/tone'
+import { ACCENT, type AccentFamily, toolTone } from '#/lib/tone'
+
+// Operation → accent family; tree tags and timeline bars both derive from this.
+export const SPAN_FAMILY: Record<string, AccentFamily> = {
+  invoke_agent: 'emerald',
+  chat: 'violet',
+  tool: 'sky',
+  mcp: 'sky',
+  retrieval: 'emerald',
+  embedding: 'cyan',
+}
 
 export interface Display {
   name: string
@@ -13,12 +23,12 @@ export interface Display {
 }
 
 const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: LucideIcon; tagColor: string }> = {
-  invoke_agent: { tagLabel: 'agent', tagIcon: toolTone('agent').icon, tagColor: toolTone('agent').text },
-  chat: { tagLabel: 'llm', tagIcon: Brain, tagColor: ACCENT.violet.text },
-  tool: { tagLabel: 'tool', tagIcon: toolTone('tool').icon, tagColor: toolTone('tool').text },
-  mcp: { tagLabel: 'mcp', tagIcon: toolTone('mcp').icon, tagColor: toolTone('mcp').text },
-  retrieval: { tagLabel: 'retrieval', tagIcon: FileSearch, tagColor: ACCENT.emerald.text },
-  embedding: { tagLabel: 'embedding', tagIcon: Network, tagColor: ACCENT.cyan.text },
+  invoke_agent: { tagLabel: 'agent', tagIcon: toolTone('agent').icon, tagColor: ACCENT[SPAN_FAMILY.invoke_agent].text },
+  chat: { tagLabel: 'llm', tagIcon: Brain, tagColor: ACCENT[SPAN_FAMILY.chat].text },
+  tool: { tagLabel: 'tool', tagIcon: toolTone('tool').icon, tagColor: ACCENT[SPAN_FAMILY.tool].text },
+  mcp: { tagLabel: 'mcp', tagIcon: toolTone('mcp').icon, tagColor: ACCENT[SPAN_FAMILY.mcp].text },
+  retrieval: { tagLabel: 'retrieval', tagIcon: FileSearch, tagColor: ACCENT[SPAN_FAMILY.retrieval].text },
+  embedding: { tagLabel: 'embedding', tagIcon: Network, tagColor: ACCENT[SPAN_FAMILY.embedding].text },
 }
 
 const OPERATION_LABELS: Record<string, string> = {

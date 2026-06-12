@@ -12,6 +12,7 @@ import {
   InspectLayout,
   type InspectView,
   InspectViewBar,
+  TimelineView,
   traceSpansQuery,
   useRawRoots,
   useSpanSearch,
@@ -107,6 +108,15 @@ function TraceDetail() {
         <div className="min-h-0 flex-1 overflow-hidden bg-background">
           {view === 'conversation' ? (
             <ConversationView view={inspectorView} onSelect={setSelectedId} />
+          ) : view === 'timeline' && spans.length > 0 ? (
+            <TimelineView
+              view={inspectorView}
+              selectedId={selectedId}
+              onSelect={(id) => {
+                setSelectedId(id)
+                setView('spans')
+              }}
+            />
           ) : spans.length > 0 ? (
             <InspectLayout
               view={inspectorView}

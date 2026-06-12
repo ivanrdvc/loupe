@@ -15,6 +15,49 @@ export function parseJson(v: unknown): JsonValue | undefined {
   }
 }
 
+// Some producers (e.g. OpenLLMetry tool results) emit several JSON values
+// concatenated/newline-delimited instead of one document. Returns the values
+// as an array, or undefined unless the whole string is ≥2 valid JSON values.
+export function parseJsonConcat(v: unknown): JsonValue[] | undefined {
+  if (typeof v !== 'string') return undefined
+  const values: JsonValue[] = []
+  let depth = 0
+  let start = -1
+  let inStr = false
+  let esc = false
+  for (let i = 0; i < v.length; i++) {
+    const c = v[i]
+    if (esc) {
+      esc = false
+      continue
+    }
+    if (inStr) {
+      if (c === '\\') esc = true
+      else if (c === '"') inStr = false
+      continue
+    }
+    if (depth === 0) {
+      if (c === '{' || c === '[') {
+        start = i
+        depth = 1
+      } else if (!/\s/.test(c)) return undefined
+      continue
+    }
+    if (c === '"') inStr = true
+    else if (c === '{' || c === '[') depth++
+    else if (c === '}' || c === ']') {
+      depth--
+      if (depth === 0) {
+        const parsed = parseJson(v.slice(start, i + 1))
+        if (parsed === undefined) return undefined
+        values.push(parsed)
+      }
+    }
+  }
+  if (depth !== 0 || values.length < 2) return undefined
+  return values
+}
+
 // Circular refs become `[Circular]` instead of throwing.
 export function formatJson(value: unknown): string {
   if (typeof value === 'string') return value

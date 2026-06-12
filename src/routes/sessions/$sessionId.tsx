@@ -15,6 +15,7 @@ import {
   InspectLayout,
   type InspectView,
   InspectViewBar,
+  TimelineView,
   useInspectShortcuts,
   useRawRoots,
   useSpanSearch,
@@ -49,8 +50,7 @@ interface SessionSearch {
 }
 
 function parseSessionView(value: unknown): InspectView | undefined {
-  if (value === 'conversation') return 'conversation'
-  if (value === 'spans') return 'spans'
+  if (value === 'conversation' || value === 'spans' || value === 'timeline') return value
   return undefined
 }
 
@@ -70,11 +70,11 @@ function SessionDetail() {
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const [selectedId, setSelectedId] = useState<string | null>(() =>
-    search.view === 'spans' && search.span ? search.span : null,
+    search.view !== 'conversation' && search.span ? search.span : null,
   )
 
   useEffect(() => {
-    setSelectedId(search.view === 'spans' && search.span ? search.span : null)
+    setSelectedId(search.view !== 'conversation' && search.span ? search.span : null)
   }, [search.view, search.span])
 
   const inspectView = search.view
@@ -206,6 +206,15 @@ function SessionDetail() {
             />
           ) : inspectView === 'conversation' ? (
             <ConversationView view={inspectorView} onSelect={setSelectedId} />
+          ) : inspectView === 'timeline' ? (
+            <TimelineView
+              view={inspectorView}
+              selectedId={selectedId}
+              onSelect={(id) => {
+                setSelectedId(id)
+                navigate({ search: (prev) => ({ range: prev.range, view: 'spans' as const, span: id }) })
+              }}
+            />
           ) : null}
         </div>
       </div>

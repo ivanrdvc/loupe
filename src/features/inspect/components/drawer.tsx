@@ -15,6 +15,7 @@ import type { Span } from '#/lib/spans'
 import { serialize, type TimeRange } from '#/lib/time-range'
 import { ConversationView } from './conversation-view'
 import { InspectLayout } from './overview'
+import { TimelineView } from './timeline'
 import { useRawRoots } from './use-raw-roots'
 import { useInspectShortcuts } from './use-shortcuts'
 import { useSpanSearch } from './use-span-search'
@@ -240,14 +241,23 @@ export function InspectDrawer({
         />
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {drawerView === 'conversation' ? (
+          {drawerView !== 'spans' ? (
             <section className="min-h-0 flex-1 overflow-hidden">
               {!contentReady || (loading && spans.length === 0) ? (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                   <Spinner />
                 </div>
-              ) : (
+              ) : drawerView === 'conversation' ? (
                 <ConversationView view={view} onSelect={setSelectedId} />
+              ) : (
+                <TimelineView
+                  view={view}
+                  selectedId={selectedId}
+                  onSelect={(id) => {
+                    setSelectedId(id)
+                    setDrawerView('spans')
+                  }}
+                />
               )}
             </section>
           ) : (

@@ -13,7 +13,7 @@ import { ReviewSheetButton } from '#/features/evaluation'
 import { useBreakdowns } from '#/features/inspect/components/use-breakdowns'
 import { type InspectorView, isChatSpan, type ToolCallResolution } from '#/features/inspect/logic'
 import { formatCost } from '#/lib/format'
-import { type JsonValue, parseJson, prettyJson } from '#/lib/json'
+import { type JsonValue, parseJson, parseJsonConcat, prettyJson } from '#/lib/json'
 import type { RetrievalDocument, Span } from '#/lib/spans'
 import {
   asMessages,
@@ -108,15 +108,17 @@ export function DetailPanel({
         {http?.url && <Stat label="URL" value={http.url} />}
         {http?.status && <Stat label="Status" value={http.status} />}
         {span.ttftMs != null && <Stat label="TTFT" value={formatDuration(span.ttftMs)} />}
-        {span.inputTokens != null && <Stat label="Input" value={fmtNum(span.inputTokens)} />}
-        {span.outputTokens != null && <Stat label="Output" value={fmtNum(span.outputTokens)} />}
+        {span.inputTokens != null && span.inputTokens > 0 && <Stat label="Input" value={fmtNum(span.inputTokens)} />}
+        {span.outputTokens != null && span.outputTokens > 0 && (
+          <Stat label="Output" value={fmtNum(span.outputTokens)} />
+        )}
         {span.cachedTokens != null && span.cachedTokens > 0 && (
           <Stat label="Cached" value={fmtNum(span.cachedTokens)} />
         )}
         {span.reasoningTokens != null && span.reasoningTokens > 0 && (
           <Stat label="Reasoning" value={fmtNum(span.reasoningTokens)} />
         )}
-        {span.tokens != null && <Stat label="Tokens" value={fmtNum(span.tokens)} />}
+        {span.tokens != null && span.tokens > 0 && <Stat label="Tokens" value={fmtNum(span.tokens)} />}
         {span.costUsd ? <Stat label="Cost" value={formatCost(span.costUsd)} /> : null}
         {span.embeddingDimensions != null && <Stat label="Dimensions" value={fmtNum(span.embeddingDimensions)} />}
         {span.dataSourceId && <Stat label="Data source" value={span.dataSourceId} />}
@@ -672,8 +674,8 @@ function PanelSection({
 
 function JsonBlock({ label, value, raw }: { label: string; value?: unknown; raw?: string }) {
   const resolved = useMemo(() => {
-    const v = raw != null ? (parseJson(raw) ?? raw) : value
-    return typeof v === 'string' ? (parseJson(v) ?? v) : v
+    const v = raw != null ? (parseJson(raw) ?? parseJsonConcat(raw) ?? raw) : value
+    return typeof v === 'string' ? (parseJson(v) ?? parseJsonConcat(v) ?? v) : v
   }, [raw, value])
   const structured = resolved !== null && typeof resolved === 'object'
 
