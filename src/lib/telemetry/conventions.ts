@@ -31,6 +31,7 @@ const ATTRS = {
     'llm.usage.cache_read_tokens',
   ],
   llmInput: ['gen_ai.input.messages', 'llm.input'],
+  llmOutput: ['gen_ai.output.messages', 'llm.output'],
   // OTel-stable as of Q1 2026. CUSTOM_LLM_PURPOSE_FIELD plumbing is gone —
   // producers must conform to this name.
   llmPurpose: ['gen_ai.operation.purpose'],

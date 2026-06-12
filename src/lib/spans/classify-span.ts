@@ -109,7 +109,6 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     'gen_ai.usage.reasoning.output_tokens',
     'gen_ai_usage_reasoning_output_tokens',
     'gen_ai.usage.reasoning_output_tokens',
-    'gen_ai_usage_reasoning_output.tokens',
   ])
   if (reasoning !== undefined) c.reasoningTokens = reasoning
 
@@ -188,15 +187,7 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     // so literal JSON `null` still passes through.
     const rawResult =
       pickString(attrs, ['gen_ai.tool.call.result', 'gen_ai_tool_call_result']) ??
-      toolMessageContent(
-        pickString(attrs, [
-          'gen_ai.output.messages',
-          'gen_ai_output_messages',
-          'llm_output',
-          'llm.output',
-          '_o2_llm_output',
-        ]),
-      )
+      toolMessageContent(pickCanonical(attrs, 'llmOutput') ?? pickString(attrs, ['_o2_llm_output']))
     if (rawResult !== undefined) {
       const parsed = parseOrFlag(rawResult, c, 'toolResult')
       c.toolResult = parsed !== undefined ? parsed : rawResult
@@ -207,16 +198,10 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     // `_o2_llm_input` / `_o2_llm_output` are OO's alternate column form for
     // payloads that conflicted with reserved names.
     const inputRaw = pickCanonical(attrs, 'llmInput') ?? pickString(attrs, ['_o2_llm_input'])
-    const input = parseOrFlag(inputRaw, c, 'llmInput')
+    const input = parseJson(inputRaw)
     if (input !== undefined) c.llmInput = input
-    const outputRaw = pickString(attrs, [
-      'gen_ai.output.messages',
-      'gen_ai_output_messages',
-      'llm_output',
-      'llm.output',
-      '_o2_llm_output',
-    ])
-    const output = parseOrFlag(outputRaw, c, 'llmOutput')
+    const outputRaw = pickCanonical(attrs, 'llmOutput') ?? pickString(attrs, ['_o2_llm_output'])
+    const output = parseJson(outputRaw)
     if (output !== undefined) c.llmOutput = output
     else {
       // Scalar completion (text-only step): no message array, just the reply

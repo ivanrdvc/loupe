@@ -19,36 +19,20 @@ export interface ChatBreakdown {
 
 type Encoder = (text: string) => number
 
-type Family = 'openai-o200k' | 'openai-cl100k' | 'anthropic'
-
 interface ResolvedEncoder {
-  family: Family
+  isAnthropic: boolean
   count: Encoder
 }
 
 let encoderPromise: Promise<Encoder> | undefined
 
-function resolveFamily(model: string | undefined): Family {
+function isAnthropic(model: string | undefined): boolean {
   const m = (model ?? '').toLowerCase()
-  if (m.startsWith('claude') || m.includes('anthropic')) return 'anthropic'
-  if (
-    m.startsWith('gpt-4o') ||
-    m.startsWith('chatgpt-4o') ||
-    m.startsWith('gpt-4.1') ||
-    m.startsWith('gpt-4.5') ||
-    m.startsWith('gpt-5') ||
-    m.startsWith('o1') ||
-    m.startsWith('o3') ||
-    m.startsWith('o4') ||
-    m.startsWith('codex')
-  ) {
-    return 'openai-o200k'
-  }
-  return 'openai-cl100k'
+  return m.startsWith('claude') || m.includes('anthropic')
 }
 
-// Only o200k BPE is loaded locally; cl100k/Anthropic have no accurate local
-// tokenizer so they estimate with the same encoder.
+// Only o200k BPE is loaded locally; non-Anthropic models have no accurate
+// local tokenizer so they estimate with the same encoder.
 function loadEncoder(): Promise<Encoder> {
   encoderPromise ??= import('gpt-tokenizer/encoding/o200k_base').then(
     (mod): Encoder =>
@@ -59,7 +43,7 @@ function loadEncoder(): Promise<Encoder> {
 }
 
 async function resolveEncoder(model: string | undefined): Promise<ResolvedEncoder> {
-  return { family: resolveFamily(model), count: await loadEncoder() }
+  return { isAnthropic: isAnthropic(model), count: await loadEncoder() }
 }
 
 function partText(parts: ChatMessage['parts']): string {
@@ -78,9 +62,9 @@ function countMessages(messages: ChatMessage[], enc: ResolvedEncoder): number {
   for (const msg of messages) {
     total += enc.count(msg.role)
     total += enc.count(partText(msg.parts))
-    if (enc.family !== 'anthropic') total += 4
+    if (!enc.isAnthropic) total += 4
   }
-  if (enc.family !== 'anthropic') total += 3
+  if (!enc.isAnthropic) total += 3
   return total
 }
 
