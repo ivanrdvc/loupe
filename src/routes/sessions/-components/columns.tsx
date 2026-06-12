@@ -1,12 +1,19 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { Clock, StickyNote } from 'lucide-react'
+import { StickyNote } from 'lucide-react'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
+import {
+  costColumn,
+  durationColumn,
+  scoreFlagColumn,
+  statusFilterColumn,
+  tokensColumn,
+} from '#/components/table-columns'
 import { Badge } from '#/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { ScoreSummaryBadge } from '#/features/evaluation'
-import { type ScoreSummary, scoreFlagFor, scoreFlagsFor } from '#/lib/eval/evaluation'
-import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
+import type { ScoreSummary } from '#/lib/eval/evaluation'
+import { truncateId } from '#/lib/format'
 import type { SessionSummary } from '#/lib/telemetry'
 
 function userPrimary(s: SessionSummary): string {
@@ -57,29 +64,8 @@ export function buildSessionColumns(
   scoreSummaries: Record<string, ScoreSummary> = {},
 ): ColumnDef<SessionSummary>[] {
   return [
-    {
-      accessorKey: 'status',
-      accessorFn: (s) => (s.hasError ? 'error' : 'ok'),
-      header: () => null,
-      cell: () => null,
-      filterFn: (row, _id, value: string[]) =>
-        Array.isArray(value) && value.includes(row.original.hasError ? 'error' : 'ok'),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      id: 'scoreFlag',
-      accessorFn: (s) => scoreFlagFor(scoreSummaries[s.sessionId]),
-      header: () => null,
-      cell: () => null,
-      filterFn: (row, _id, value: string[]) => {
-        if (!Array.isArray(value) || value.length === 0) return true
-        const flags = scoreFlagsFor(scoreSummaries[row.original.sessionId])
-        return value.some((v) => (flags as string[]).includes(v))
-      },
-      enableSorting: false,
-      enableHiding: false,
-    },
+    statusFilterColumn<SessionSummary>(),
+    scoreFlagColumn<SessionSummary>((s) => s.sessionId, scoreSummaries),
     {
       accessorKey: 'lastSeenMs',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
@@ -143,37 +129,9 @@ export function buildSessionColumns(
         )
       },
     },
-    {
-      id: 'duration',
-      accessorFn: (s) => s.activeDurationMs,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Duration" className="justify-end" />,
-      cell: ({ row }) => {
-        const ms = row.original.activeDurationMs
-        return (
-          <div className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms)}`}>
-            <Clock className="size-3.5 opacity-80" />
-            {formatDuration(ms)}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'totalTokens',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" className="justify-end" />,
-      cell: ({ row }) => (
-        <div className={`text-right tabular-nums ${metricTone('tokens', row.original.totalTokens)}`}>
-          {formatTokens(row.original.totalTokens)}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'totalCostUsd',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" className="justify-end" />,
-      cell: ({ row }) => {
-        const value = row.original.totalCostUsd ?? 0
-        return <div className={`text-right tabular-nums ${metricTone('cost', value)}`}>{formatCost(value)}</div>
-      },
-    },
+    durationColumn<SessionSummary>((s) => s.activeDurationMs),
+    tokensColumn<SessionSummary>(),
+    costColumn<SessionSummary>(),
     {
       accessorKey: 'traceCount',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Traces" className="justify-end" />,

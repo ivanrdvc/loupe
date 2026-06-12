@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Clock } from 'lucide-react'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
+import { costColumn, durationColumn, tokensColumn, userColumn } from '#/components/table-columns'
 import { Badge } from '#/components/ui/badge'
-import { formatCost, formatDuration, formatTokens, metricTone, truncateId } from '#/lib/format'
+import { truncateId } from '#/lib/format'
 import type { SpanSummary } from '#/lib/telemetry'
 import { ACCENT } from '#/lib/tone'
 
@@ -87,37 +87,9 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
     },
     enableSorting: false,
   },
-  {
-    accessorKey: 'totalTokens',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" className="justify-end" />,
-    cell: ({ row }) => (
-      <div className={`text-right tabular-nums ${metricTone('tokens', row.original.totalTokens)}`}>
-        {formatTokens(row.original.totalTokens)}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'totalCostUsd',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" className="justify-end" />,
-    cell: ({ row }) => {
-      const value = row.original.totalCostUsd ?? 0
-      return <div className={`text-right tabular-nums ${metricTone('cost', value)}`}>{formatCost(value)}</div>
-    },
-  },
-  {
-    id: 'duration',
-    accessorFn: (s) => s.durationMs,
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Duration" className="justify-end" />,
-    cell: ({ row }) => {
-      const ms = row.original.durationMs
-      return (
-        <div className={`flex items-center justify-end gap-1 tabular-nums ${metricTone('duration', ms)}`}>
-          <Clock className="size-3.5 opacity-80" />
-          {formatDuration(ms)}
-        </div>
-      )
-    },
-  },
+  tokensColumn<SpanSummary>(),
+  costColumn<SpanSummary>(),
+  durationColumn<SpanSummary>((s) => s.durationMs),
   {
     id: 'trace',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Trace" />,
@@ -133,22 +105,5 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
     ),
     enableSorting: false,
   },
-  {
-    id: 'user',
-    accessorFn: (s) => s.userId ?? s.userName ?? '',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="User" />,
-    cell: ({ row }) => {
-      const s = row.original
-      const primary = s.userId ?? '—'
-      const secondary = s.userName && s.userId ? s.userName : undefined
-      return (
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 max-w-[140px] truncate">{primary}</span>
-          {secondary && (
-            <span className="max-w-[120px] shrink-0 truncate text-xs text-muted-foreground">{secondary}</span>
-          )}
-        </div>
-      )
-    },
-  },
+  userColumn<SpanSummary>(),
 ]
