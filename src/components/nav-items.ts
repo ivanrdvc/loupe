@@ -14,6 +14,7 @@ import {
   TestTube,
 } from 'lucide-react'
 import type { ForwardRefExoticComponent, HTMLAttributes, RefAttributes } from 'react'
+import type { AnimatedIconHandle } from '#/components/icons/animated-icon'
 import { ArchiveIcon } from '#/components/icons/archive'
 import { BoxIcon } from '#/components/icons/box'
 import { ClipboardCheckIcon } from '#/components/icons/clipboard-check'
@@ -39,11 +40,6 @@ type NavTo =
   | '/inbox'
 
 type NavGroup = 'observe' | 'workbench' | 'inventory' | 'inbox'
-
-export interface AnimatedIconHandle {
-  startAnimation: () => void
-  stopAnimation: () => void
-}
 
 type AnimatedIcon = ForwardRefExoticComponent<
   HTMLAttributes<HTMLDivElement> & { size?: number } & RefAttributes<AnimatedIconHandle>
