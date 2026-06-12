@@ -26,7 +26,7 @@ A session is a producer-declared conversation grouping. The session-detail page 
 
 Default tabs: **`Conversation`** vs **`Spans`**. Search params use `view=spans`; legacy `view=trace` is still parsed as spans.
 
-**Conversation tab (default).** Full-width `ConversationView` (`src/components/conversation-view.tsx`): chat bubbles, paired tool cards, agent cards. Renders `ConversationEvent[]` from `src/lib/spans/conversation.ts`.
+**Conversation tab (default).** Full-width `ConversationView` (`src/features/inspect/components/conversation-view.tsx`): chat bubbles, paired tool cards, agent cards. Renders `ConversationEvent[]` from `src/lib/spans/conversation.ts`.
 
 **Spans tab.** `InspectLayout` (`src/features/inspect/components/`): span tree + span detail (`DetailPanel`), with a Context tab whose token breakdown (`System prompts · Tool definitions · Messages · Prompt cache · Total`) is computed by `useBreakdowns` (`src/hooks/use-breakdowns.ts`) on top of `breakdownChat` in `src/lib/spans/tokens.ts`. Hides naked `http` transport spans while keeping subtree rollups contiguous. The same components render the slide-over `InspectDrawer` used by both the sessions and traces lists.
 

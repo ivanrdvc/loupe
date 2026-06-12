@@ -3,7 +3,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { MessagesSquare } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
-import { ConversationView } from '#/components/conversation-view'
 import { CopyButton } from '#/components/copy-button'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { SiteHeader } from '#/components/site-header'
@@ -12,6 +11,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import {
   buildInspectorView,
   ContextWindow,
+  ConversationView,
   InspectLayout,
   type InspectView,
   InspectViewBar,

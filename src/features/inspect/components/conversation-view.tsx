@@ -4,13 +4,12 @@ import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { CopyButton } from '#/components/copy-button'
 import { Markdown } from '#/components/markdown'
-import { ScaffoldGroup } from '#/components/scaffold-group'
 import { Badge } from '#/components/ui/badge'
-import type { ConversationEvent, InspectorView } from '#/features/inspect'
-import { groupScaffolding, type RenderItem } from '#/lib/agui-scaffolding'
+import { type ConversationEvent, groupScaffolding, type InspectorView, type RenderItem } from '#/features/inspect/logic'
 import { formatTime, formatTokens, metricTone, tokensFromChars } from '#/lib/format'
 import { prettyJson } from '#/lib/json'
 import { ACCENT, toolTone } from '#/lib/tone'
+import { ScaffoldGroup } from './scaffold-group'
 
 interface ConversationViewProps {
   view: InspectorView
@@ -230,7 +229,6 @@ function renderEvent(event: ConversationEvent, ctx: EventContext) {
   if (event.kind === 'tool_result') return null
 
   if (event.kind === 'message') {
-    if (event.role === 'system') return null
     const key = `msg-${event.spanId ?? ''}-${event.seq}`
     return <MessageBubble key={key} event={event} />
   }

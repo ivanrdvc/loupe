@@ -16,7 +16,7 @@
 //     bubble. Two or more become an accordion.
 //
 // This file is pure — no React. Renderer lives in
-// `src/components/scaffold-group.tsx`.
+// `src/features/inspect/components/scaffold-group.tsx`.
 
 import type { ConversationEvent } from '#/lib/spans/conversation'
 

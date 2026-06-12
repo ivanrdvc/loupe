@@ -13,6 +13,7 @@ import {
 import { buildTurns, type Turn, turnTotals } from './turns'
 
 export type { ConversationEvent } from '#/lib/spans/conversation'
+export { groupScaffolding, looksLikeAgui, type RenderItem, type ScaffoldMessage } from './agui-scaffolding'
 export { isChatSpan, isCollapsibleInfra, isToolLike, spanHasError } from './predicates'
 export { isShortValue } from './system'
 export type { FrontendTool, ToolCallResolution, ToolDef, ToolGroup } from './tools'

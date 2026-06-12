@@ -1,4 +1,5 @@
 export { ContextWindow } from './components/context-window'
+export { ConversationView } from './components/conversation-view'
 export { InspectDrawerHost } from './components/drawer-host'
 export { InspectLayout } from './components/overview'
 export { toolsCatalogQuery } from './components/tool-data'

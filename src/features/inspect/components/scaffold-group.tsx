@@ -1,12 +1,12 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { Markdown } from '#/components/markdown'
-import { looksLikeAgui, type ScaffoldMessage } from '#/lib/agui-scaffolding'
+import { looksLikeAgui, type ScaffoldMessage } from '#/features/inspect/logic'
 import { formatTime } from '#/lib/format'
 
 // Collapsed row for AG-UI scaffolding (state-sync system messages + JSON state
 // dumps echoed by the model). Classification rules live in
-// `src/lib/agui-scaffolding.ts`.
+// `src/features/inspect/logic/agui-scaffolding.ts`.
 export function ScaffoldGroup({ messages }: { messages: ScaffoldMessage[] }) {
   const [open, setOpen] = useState(false)
   const first = messages[0]
