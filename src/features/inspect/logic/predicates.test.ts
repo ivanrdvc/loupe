@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Span } from '#/lib/spans'
-import { isAgentSpan, isChatSpan, isCollapsibleInfra, isLlmLike, isToolLike, spanHasError } from './predicates'
+import { isAgentSpan, isChatSpan, isCollapsibleInfra, isToolLike, spanHasError } from './predicates'
 
 function span(over: Partial<Span> & Pick<Span, 'operation'>): Span {
   return {
@@ -36,21 +36,6 @@ describe('predicates', () => {
     expect(isCollapsibleInfra(span({ operation: 'tool' }))).toBe(false)
     expect(isCollapsibleInfra(span({ operation: 'chat' }))).toBe(false)
     expect(isCollapsibleInfra(span({ operation: 'invoke_agent' }))).toBe(false)
-  })
-
-  it('isLlmLike treats chat spans as LLM', () => {
-    expect(isLlmLike(span({ operation: 'chat' }))).toBe(true)
-  })
-
-  it('isLlmLike treats non-chat spans with model or llmInput/llmOutput as LLM', () => {
-    expect(isLlmLike(span({ operation: 'invoke_agent', model: 'gpt-4o' }))).toBe(true)
-    expect(isLlmLike(span({ operation: 'invoke_agent', llmInput: 'hi' }))).toBe(true)
-    expect(isLlmLike(span({ operation: 'invoke_agent', llmOutput: 'hi' }))).toBe(true)
-  })
-
-  it('isLlmLike rejects plain non-chat spans', () => {
-    expect(isLlmLike(span({ operation: 'tool' }))).toBe(false)
-    expect(isLlmLike(span({ operation: 'http' }))).toBe(false)
   })
 })
 

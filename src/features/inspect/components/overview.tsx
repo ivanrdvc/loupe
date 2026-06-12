@@ -34,7 +34,8 @@ import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { AgUiPanel } from './agui'
 import { ContextTools } from './context'
-import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
+import { ContextSegmentBar } from './context-segment-bar'
+import { computeContextSegments } from './context-segments'
 import { DetailPanel } from './detail-panel'
 import { IconTabs } from './icon-tabs'
 import { SessionLogsPanel } from './logs'
@@ -479,48 +480,16 @@ function ContextBreakdown({
   messagesTokens: number
   subagentTokens: number
 }) {
-  const [hovered, setHovered] = useState<string | null>(null)
   const segments = computeContextSegments({
     systemTokens,
     toolDefsTokens,
     messagesTokens,
     subagentTokens,
   })
-  const denom = segments.reduce((acc, s) => acc + s.tokens, 0) || 1
 
   return (
     <div className="mt-2">
-      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        {segments.map((s) =>
-          s.tokens > 0 ? (
-            <div
-              key={s.key}
-              className={`${SEGMENT_COLORS[s.key]} transition-opacity duration-75`}
-              style={{
-                width: `${(s.tokens / denom) * 100}%`,
-                opacity: hovered === null || hovered === s.key ? 1 : 0.3,
-              }}
-            />
-          ) : null,
-        )}
-      </div>
-      <ul className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        {segments.map((s) => (
-          <li
-            key={s.key}
-            onMouseEnter={() => setHovered(s.key)}
-            onMouseLeave={() => setHovered(null)}
-            className={`inline-flex cursor-default items-center gap-1.5 tabular-nums transition-opacity duration-75 ${
-              hovered !== null && hovered !== s.key ? 'opacity-40' : 'opacity-100'
-            }`}
-          >
-            <span className={`size-1.5 rounded-full ${SEGMENT_COLORS[s.key]}`} />
-            <span className="text-muted-foreground">{s.label}</span>
-            <span className="text-foreground">{s.tokens ? formatTokens(s.tokens) : '—'}</span>
-            {s.tokens > 0 && <span className="text-muted-foreground">· {s.pct}%</span>}
-          </li>
-        ))}
-      </ul>
+      <ContextSegmentBar segments={segments} hoverable showEmptyInLegend />
     </div>
   )
 }

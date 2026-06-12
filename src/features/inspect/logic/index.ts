@@ -19,6 +19,7 @@ export { isShortValue } from './system'
 export type { FrontendTool, ToolCallResolution, ToolDef, ToolGroup } from './tools'
 export type { Turn } from './turns'
 export { turnTotals } from './turns'
+export { type UtilityInspect, utilityInspect } from './utility'
 
 interface InspectorTotals {
   input: number
@@ -54,7 +55,6 @@ export interface InspectorView {
   systemPromptByAgent: Map<string, string>
   aguiItems: AguiItem[]
 
-  descendantsOf(id: string): Span[]
   toolGroupsFor(span: Span | undefined): ToolGroup[]
   // True when an in-scope tool-definitions attr was truncated, so an empty tool
   // list means "cut off", not "none advertised".
@@ -180,7 +180,6 @@ export function buildInspectorView(spans: Span[]): InspectorView {
     frontendTools,
     systemPromptByAgent,
     aguiItems,
-    descendantsOf,
     toolGroupsFor,
     toolDefsTruncatedFor,
     descendantErrors,

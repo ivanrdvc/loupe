@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { Braces, Check, ChevronDown, Copy } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { CodeBlock } from '#/components/ai-elements/code-block'
@@ -11,13 +10,10 @@ import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { Toggle } from '#/components/ui/toggle'
 import { ReviewSheetButton } from '#/features/evaluation'
-import { formatTokens } from '#/features/inspect/components/context-window'
 import { useBreakdowns } from '#/features/inspect/components/use-breakdowns'
 import { type InspectorView, isChatSpan, type ToolCallResolution } from '#/features/inspect/logic'
-import { fetchSessionLogs } from '#/features/inspect/server/logs'
 import { formatCost } from '#/lib/format'
 import { type JsonValue, parseJson, prettyJson } from '#/lib/json'
-import { queryKeys } from '#/lib/query-keys'
 import type { RetrievalDocument, Span } from '#/lib/spans'
 import {
   asMessages,
@@ -26,12 +22,13 @@ import {
   type MessageRole,
   turnTailStart,
 } from '#/lib/spans/conversation'
-import type { LogLevel } from '#/lib/telemetry/types'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { cn } from '#/lib/utils'
-import { computeContextSegments, SEGMENT_COLORS } from './context-segments'
+import { ContextSegmentBar } from './context-segment-bar'
+import { computeContextSegments } from './context-segments'
 import { displayFor, fmtNum, formatDuration } from './shared'
 import { TruncatedAttrFallback } from './truncated-attr-fallback'
+import { LEVEL_VARIANT, useSessionLogs } from './use-session-logs'
 
 export function DetailPanel({
   span,
@@ -194,61 +191,17 @@ function SpanContextBreakdown({ span }: { span: Span }) {
   const hasAny = segments.some((s) => s.tokens > 0)
   if (!hasAny) return null
 
-  const denom = segments.reduce((acc, s) => acc + s.tokens, 0) || 1
-
   return (
     <div className="flex flex-col gap-1.5">
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Context breakdown</div>
-      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        {segments.map((s) => (
-          <div
-            key={s.key}
-            className={`${SEGMENT_COLORS[s.key]} transition-opacity duration-75`}
-            style={{ width: `${(s.tokens / denom) * 100}%` }}
-          />
-        ))}
-      </div>
-      <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums">
-        {segments.map((s) =>
-          s.tokens > 0 ? (
-            <li key={s.key} className="inline-flex items-center gap-1">
-              <span className={`size-1.5 rounded-full ${SEGMENT_COLORS[s.key]}`} />
-              <span className="text-muted-foreground">{s.label}</span>
-              <span className="text-foreground">{formatTokens(s.tokens)}</span>
-              <span className="text-muted-foreground">· {s.pct}%</span>
-            </li>
-          ) : null,
-        )}
-      </ul>
+      <ContextSegmentBar segments={segments} />
     </div>
   )
 }
 
 function SpanLogsBlock({ span, view }: { span: Span; view?: InspectorView }) {
-  // Shares the React Query cache key with SessionLogsPanel so both panels
-  // dedupe the same fetch.
-  const spans = view?.spans
-  const traceIds = useMemo(() => {
-    const all = spans ?? [span]
-    return [...new Set(all.map((s) => s.traceId).filter(Boolean))].sort()
-  }, [spans, span])
-  const window = useMemo(() => {
-    const all = spans && spans.length > 0 ? spans : [span]
-    let from = all[0].startMs
-    let to = all[0].endMs
-    for (const s of all) {
-      if (s.startMs < from) from = s.startMs
-      if (s.endMs > to) to = s.endMs
-    }
-    return { fromUs: from * 1000, toUs: to * 1000 }
-  }, [spans, span])
-
-  const { data } = useQuery({
-    queryKey: queryKeys.logs.byTraceIds(traceIds),
-    queryFn: () => fetchSessionLogs({ data: { traceIds, ...window } }),
-    enabled: traceIds.length > 0,
-    staleTime: 30_000,
-  })
+  const spans = useMemo(() => (view?.spans?.length ? view.spans : [span]), [view?.spans, span])
+  const { data } = useSessionLogs(spans)
 
   const spanLogs = useMemo(() => {
     const logs = data?.logs ?? []
@@ -263,7 +216,7 @@ function SpanLogsBlock({ span, view }: { span: Span; view?: InspectorView }) {
         {spanLogs.map((log, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: id collides when two lines share a ms; frozen ordered list
           <div key={`${log.id}-${i}`} className="flex items-start gap-2 px-2.5 py-1.5 text-[11px]">
-            <Badge variant={LEVEL_BADGE[log.level]} className="shrink-0 font-mono text-[9px] uppercase">
+            <Badge variant={LEVEL_VARIANT[log.level]} className="shrink-0 font-mono text-[9px] uppercase">
               {log.level}
             </Badge>
             <span className="min-w-0 flex-1 break-words font-mono text-foreground">
@@ -274,15 +227,6 @@ function SpanLogsBlock({ span, view }: { span: Span; view?: InspectorView }) {
       </div>
     </section>
   )
-}
-
-const LEVEL_BADGE: Record<LogLevel, 'outline' | 'secondary' | 'warning' | 'destructive'> = {
-  trace: 'outline',
-  debug: 'outline',
-  info: 'secondary',
-  warn: 'warning',
-  error: 'destructive',
-  fatal: 'destructive',
 }
 
 function MessagesBlock({

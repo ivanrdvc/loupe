@@ -25,10 +25,6 @@ export function registerEnrichmentSource(source: EnrichmentSource): void {
   sources.push(source)
 }
 
-export function listEnrichmentSources(): readonly EnrichmentSource[] {
-  return sources
-}
-
 export const resolveTruncatedAttr = createServerFn({ method: 'POST' })
   .inputValidator((req: EnrichSpanRequest) => req)
   .handler(async ({ data }): Promise<JsonValue | string | null> => {

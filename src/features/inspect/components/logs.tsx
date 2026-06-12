@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import { Spinner } from '#/components/spinner'
@@ -7,40 +6,13 @@ import { Button } from '#/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '#/components/ui/input-group'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { fetchSessionLogs } from '#/features/inspect/server/logs'
 import { formatJson } from '#/lib/json'
-import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
-import type { LogLevel, LogRecord } from '#/lib/telemetry/types'
-
-const LEVEL_VARIANT: Record<LogLevel, 'outline' | 'secondary' | 'warning' | 'destructive'> = {
-  trace: 'outline',
-  debug: 'outline',
-  info: 'secondary',
-  warn: 'warning',
-  error: 'destructive',
-  fatal: 'destructive',
-}
+import type { LogRecord } from '#/lib/telemetry/types'
+import { LEVEL_VARIANT, useSessionLogs } from './use-session-logs'
 
 export function SessionLogsPanel({ spans, enabled }: { spans: Span[]; enabled: boolean }) {
-  const traceIds = useMemo(() => [...new Set(spans.map((s) => s.traceId).filter(Boolean))].sort(), [spans])
-  const window = useMemo(() => {
-    if (spans.length === 0) return undefined
-    let from = spans[0].startMs
-    let to = spans[0].endMs
-    for (const s of spans) {
-      if (s.startMs < from) from = s.startMs
-      if (s.endMs > to) to = s.endMs
-    }
-    return { fromUs: from * 1000, toUs: to * 1000 }
-  }, [spans])
-
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: queryKeys.logs.byTraceIds(traceIds),
-    queryFn: () => fetchSessionLogs({ data: { traceIds, ...window } }),
-    enabled: enabled && traceIds.length > 0,
-    staleTime: 30_000,
-  })
+  const { data, isLoading, isError, error, traceIds } = useSessionLogs(spans, { enabled })
 
   const [query, setQuery] = useState('')
 

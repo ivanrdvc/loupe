@@ -9,10 +9,9 @@ import { Button } from '#/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { ContextWindow } from '#/features/inspect/components/context-window'
-import { buildInspectorView } from '#/features/inspect/logic'
+import { buildInspectorView, utilityInspect } from '#/features/inspect/logic'
 import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 import type { Span } from '#/lib/spans'
-import { categorizeFromSpans } from '#/lib/telemetry/trace-category'
 import { serialize, type TimeRange } from '#/lib/time-range'
 import { ConversationView } from './conversation-view'
 import { InspectLayout } from './overview'
@@ -78,9 +77,8 @@ export function InspectDrawer({
     },
   })
 
-  const category = useMemo(() => (spans.length > 0 ? categorizeFromSpans(spans) : undefined), [spans])
-  const isUtility = category === 'utility'
-  const hiddenTabs = useMemo<InspectView[] | undefined>(() => (isUtility ? ['conversation'] : undefined), [isUtility])
+  const utility = useMemo(() => (spans.length > 0 ? utilityInspect(spans) : null), [spans])
+  const hiddenTabs = utility?.hiddenTabs
 
   const expandSearch = useMemo(() => {
     if (!expandSession) return undefined
@@ -113,10 +111,9 @@ export function InspectDrawer({
 
   // Auto-select the single chat span for utility traces so the detail panel opens immediately.
   useEffect(() => {
-    if (!isUtility || selectedId) return
-    const chatSpan = spans.find((s) => s.operation === 'chat')
-    if (chatSpan) setSelectedId(chatSpan.id)
-  }, [isUtility, spans, selectedId])
+    if (!utility?.chatSpanId || selectedId) return
+    setSelectedId(utility.chatSpanId)
+  }, [utility, selectedId])
 
   useEffect(() => {
     let frame = 0

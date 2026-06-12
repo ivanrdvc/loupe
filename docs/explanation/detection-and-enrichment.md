@@ -76,10 +76,10 @@ the provider for it.
 When a span attribute is truncated, `classify-span.ts` flags it
 (`truncatedAttrs`). The UI (`truncated-attr-fallback.tsx`) then calls
 `resolveTruncatedAttr`, which walks the enrichment registry
-(`src/server/enrich-span.ts`):
+(`src/features/inspect/server/enrich-span.ts`):
 
 ```ts
-import { registerEnrichmentSource } from '#/server/enrich-span'
+import { registerEnrichmentSource } from '#/features/inspect/server/enrich-span'
 registerEnrichmentSource({
   name: 'cosmos',
   resolve: async (req) => /* full JsonValue | string | null */,
