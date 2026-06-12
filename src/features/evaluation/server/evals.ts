@@ -80,7 +80,6 @@ function toRun(row: typeof evalRuns.$inferSelect): EvalRun {
   }
 }
 
-// definitions
 export const listEvalDefinitions = createServerFn({ method: 'GET' })
   .inputValidator((input?: { mode?: EvalMode }) => ({
     mode: input?.mode === 'online' || input?.mode === 'offline' ? input.mode : null,
@@ -191,7 +190,6 @@ export const deleteEvalDefinition = createServerFn({ method: 'POST' })
     await db.delete(evalDefinitions).where(eq(evalDefinitions.id, data))
   })
 
-// runs
 export const getEvalRun = createServerFn({ method: 'GET' })
   .inputValidator((runId: number) => Number(runId))
   .handler(async ({ data }): Promise<EvalRun | null> => {
@@ -218,7 +216,6 @@ export const blessEvalRun = createServerFn({ method: 'POST' })
     return toRun(row)
   })
 
-// compare / baselines
 export const compareRuns = createServerFn({ method: 'GET' })
   .inputValidator((input: { base: number; head: number }) => ({ base: Number(input.base), head: Number(input.head) }))
   .handler(async ({ data }): Promise<EvalCompareRow[]> => {

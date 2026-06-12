@@ -12,7 +12,7 @@ import { cn } from '#/lib/utils'
 
 // Only a synthetic dataset item with no backing trace is non-linkable; items
 // sourced from real traces/spans keep their real id and stay linkable.
-export function isDatasetItemScore(score: Score): boolean {
+function isDatasetItemScore(score: Score): boolean {
   return score.datasetRunItemId != null && score.parentTraceId == null && score.targetId.startsWith('item:')
 }
 

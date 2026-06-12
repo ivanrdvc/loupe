@@ -2,7 +2,7 @@
 
 <!-- Keep it simple: no sections, one line per item. -->
 
-- Monitoring loop — background scheduler for online evals + outbound alerting on score/cost/latency/error thresholds (`src/lib/alerts/kinds.ts`, `src/server/inbox.ts`); also unblocks async `runDataset`
+- Monitoring loop — background scheduler for online evals + outbound alerting on score/cost/latency/error thresholds (`src/lib/alerts/kinds.ts`, `src/features/inbox/server.ts`); also unblocks async `runDataset`
 - Judge calibration — LLM-vs-human alignment score + tuning loop (`src/lib/eval/evaluation.ts`)
 - Version snapshots — store judge prompt/model + example set per version so old versions can be viewed and re-run
 - Compare two runs side-by-side — `plans/compare-traces.md`

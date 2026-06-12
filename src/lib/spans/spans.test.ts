@@ -82,7 +82,7 @@ describe('propagateInheritedAttrs', () => {
 })
 
 // Orchestrator detection collapses to `!s.taskParentId` after normalizeRunGraph,
-// so these tests pin the topology invariants the old turns.test.ts covered.
+// so these tests pin the topology invariants directly.
 function orchestratorIds(spans: Span[]): string[] {
   normalizeRunGraph(spans)
   return spans

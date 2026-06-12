@@ -21,7 +21,6 @@ import {
 } from '#/lib/eval/evaluation'
 import type { JsonValue } from '#/lib/json'
 
-// coercion
 function asDataType(value: unknown): ScoreDataType {
   if (typeof value !== 'string' || !SCORE_DATA_TYPES.includes(value as ScoreDataType)) {
     throw new Error(`Invalid score dataType: ${String(value)}`)
@@ -94,7 +93,6 @@ function asOptionalInt(value: unknown, label: string): number | null | undefined
   return n == null ? n : Math.trunc(n)
 }
 
-// row → DTO
 function toScore(row: typeof scores.$inferSelect): Score {
   return {
     id: row.id,
@@ -152,7 +150,6 @@ export function scaleMap(configs: (typeof scoreConfigs.$inferSelect)[]): Map<str
   return new Map(configs.map((c) => [c.name, configToHint(toScoreConfig(c))]))
 }
 
-// score_config (dimension registry)
 export const listScoreConfigs = createServerFn({ method: 'GET' }).handler(async (): Promise<ScoreConfig[]> => {
   const rows = await db.select().from(scoreConfigs).orderBy(scoreConfigs.archived, scoreConfigs.name)
   return rows.map(toScoreConfig)
@@ -246,7 +243,6 @@ export const setScoreConfigArchived = createServerFn({ method: 'POST' })
       .where(eq(scoreConfigs.id, data.id))
   })
 
-// scores
 export const listScoresForTarget = createServerFn({ method: 'GET' })
   .inputValidator((input: { targetKind: ScoreTargetKind; targetId: string }) => ({
     targetKind: asTargetKind(input.targetKind),

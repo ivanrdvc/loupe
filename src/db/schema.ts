@@ -196,7 +196,7 @@ export const metricRollup = sqliteTable(
   ],
 )
 
-// Evaluation — scores, evaluators, experiments (see docs/plans/evaluation.md).
+// Evaluation — scores, evaluators, experiments (see docs/explanation/evaluation.md).
 // One primitive (`score`) shared by human / llm / code writers. `eval_definition`
 // (the Evaluator) + `eval_run` (the Experiment) drive the offline + online judge.
 // Datasets live in their own tables above; a score's dataset link points at the

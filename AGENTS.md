@@ -6,10 +6,10 @@
 
 ## Layout
 
-- `src/routes/` — file-based routes; `-name.tsx` files are route-scoped. Co-locate; lift to `src/lib/` or `src/components/` only when a 2nd route consumes it.
+- `src/routes/` — file-based routes; `-name.tsx` files are route-scoped. Co-locate; lift to the owning feature slice when a 2nd route consumes it (to `src/lib/` only if pure domain shared across slices).
 - `src/components/ui/` shadcn primitives (radix-nova preset). `src/components/` app-specific composed.
-- `src/lib/` cross-cutting client utils + shared domain types. `src/server/` server-only. `src/db/` Drizzle.
-- `src/features/<name>/` — self-contained feature modules (domain + `components/` + `server.ts`), exposing a public surface via `index.ts` barrel that other features import. Route files stay in `src/routes/<name>/` (Start scans only `src/routes`); the slice holds everything else. Migration out of the flat `src/server/`/`src/components/scores`/`src/lib` split — slices: tasks, notes, inbox, inventory, evaluation (scores + evals + datasets are one bounded context; `lib/eval` stays as shared scoring kernel), mcp, inspect (UI `components/` + pure `logic/`, barrel-gated). `src/server/` now holds only `detection` (genuinely shared by home + inventory); single-consumer server fns moved into their slice's `server/` (e.g. `agent-run`→evaluation; `logs`/`breakdowns`/`enrich-span`→inspect). `src/lib/` holds the shared kernel/core (`spans`, `eval`, `telemetry`, `tools`, `alerts` + util files).
+- `src/lib/` shared kernel: pure framework-free domain + provider clients (`spans`, `eval` scoring kernel, `telemetry`, `tools`, `alerts` + util files). No React, no `src/db`, no slice imports. `src/db/` Drizzle.
+- `src/features/<name>/` — self-contained feature slices (`components/` + pure `logic/` + `server/`), exposing a public surface via `index.ts` barrel. Owning routes deep-import their slice; other slices and the app shell import only the barrel. Route files stay in `src/routes/<name>/` (Start scans only `src/routes`); the slice holds everything else. Slices: tasks, notes, inbox, inventory (incl. `detection`), evaluation (scores + evals + datasets are one bounded context; `lib/eval` stays as shared scoring kernel), mcp, inspect. There is no `src/server/`. See `docs/explanation/code-organization.md`.
 
 ## Map
 

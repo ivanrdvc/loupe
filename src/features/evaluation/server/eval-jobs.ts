@@ -1,5 +1,5 @@
 // Server-only eval helpers (plain functions, not createServerFn). Kept out of
-// src/server/evals.ts so that file stays fully strippable: a module a client route
+// evals.ts so that file stays fully strippable: a module a client route
 // imports must export only server fns + types, else its `import { db }` runs in the
 // browser and crashes. Nothing here is imported into client code.
 
@@ -13,7 +13,7 @@ import type { Span } from '#/lib/spans'
 import { getTrace } from '#/lib/telemetry'
 import type { JudgeCaseFields } from './judge'
 
-export const STUCK_EVAL_RUN_MS = 2 * 60 * 60 * 1000
+const STUCK_EVAL_RUN_MS = 2 * 60 * 60 * 1000
 
 export type JudgeCaseInput = {
   targetKind: ScoreTargetKind

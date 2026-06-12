@@ -308,7 +308,7 @@ export function parseSystemInstructions(raw: string | undefined): string | undef
 
 // Real array (push/in-memory) or JSON string (OO/AI flatten arrays). Keeps
 // only the spec-guaranteed id + score.
-export function parseRetrievalDocuments(raw: unknown): RetrievalDocument[] | undefined {
+function parseRetrievalDocuments(raw: unknown): RetrievalDocument[] | undefined {
   const arr = typeof raw === 'string' ? parseJson(raw) : raw
   if (!Array.isArray(arr)) return undefined
   const docs: RetrievalDocument[] = []

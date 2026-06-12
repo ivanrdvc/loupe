@@ -35,7 +35,7 @@ export type * from './types'
 // UI choice (cookie) wins, then TELEMETRY_PROVIDER, then auto.
 export const PROVIDER_COOKIE = 'tp'
 
-export const PROVIDER_IDS = ['openobserve', 'app-insights', 'fixtures'] as const
+const PROVIDER_IDS = ['openobserve', 'app-insights', 'fixtures'] as const
 export type ProviderId = (typeof PROVIDER_IDS)[number]
 
 const isProviderId = (v: unknown): v is ProviderId => PROVIDER_IDS.includes(v as ProviderId)

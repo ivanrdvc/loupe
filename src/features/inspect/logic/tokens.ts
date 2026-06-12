@@ -77,7 +77,6 @@ export async function breakdownChat(span: SpanInput): Promise<ChatBreakdown> {
   const enc = await resolveEncoder(span.model)
   const inputTokens = span.inputTokens ?? 0
 
-  // --- Compute systemTokens ---
   // Prefer direct tokenization of systemInstructions when present (survives
   // even when llmInput is absent or truncated). Fall back to counting the
   // system role messages inside llmInput.
@@ -88,12 +87,11 @@ export async function breakdownChat(span: SpanInput): Promise<ChatBreakdown> {
   const systemTokensFromAttr = span.systemInstructions ? enc.count(span.systemInstructions) : 0
   const systemTokens = Math.max(systemTokensFromInput, systemTokensFromAttr)
 
-  // --- Compute toolDefsTokens ---
   // When the raw definitions are available, tokenize them directly — far more
   // accurate than the residual approach and works even without llmInput.
   const toolDefsTokens = span.toolDefinitions != null ? enc.count(JSON.stringify(span.toolDefinitions)) : null // signals "use residual below"
 
-  // --- messagesTokens and toolDefsTokens (residual logic) ---
+  // Residual logic:
   // • If llmInput is present: messagesTokens = direct count; toolDefsTokens = residual if not computed above.
   // • If llmInput is absent but toolDefs are present: toolDefsTokens = direct count; messagesTokens = residual.
   // • If neither: everything collapses into the residual bucket (toolDefsTokens) — caller should hide the bar.

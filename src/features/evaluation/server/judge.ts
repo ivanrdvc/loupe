@@ -14,7 +14,6 @@ import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 
 const JUDGE_TIMEOUT_MS = 60_000
 
-export type { JudgeProvider }
 export type JudgeDefaults = {
   model: string
   provider: JudgeProvider
@@ -99,7 +98,7 @@ const DATA_TYPE_INSTRUCTION: Record<string, string> = {
   text: 'Respond with a JSON object {"label": "<short verdict>", "explanation": "..."}.',
 }
 
-export function buildJudgeMessages(opts: {
+function buildJudgeMessages(opts: {
   judgePrompt: string | null
   dataType: string
   categories?: string[] | null
