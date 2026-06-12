@@ -13,13 +13,12 @@ import {
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
+import { DataTablePagination } from '#/components/data-table-pagination'
 import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
+import { ScopedEmptyState } from '#/components/scoped-empty-state'
 import { Spinner } from '#/components/spinner'
-import { Button } from '#/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { ListScoreActions, scoreSummariesQuery } from '#/features/evaluation'
 import { getNoteFlagsForKind } from '#/features/notes/server'
@@ -185,12 +184,7 @@ export function DataTable({
                       {isLoading ? (
                         <Spinner size="md" className="text-muted-foreground" />
                       ) : scopeToMe && userId ? (
-                        <div className="max-w-md space-y-1 text-center text-muted-foreground">
-                          <div>
-                            No sessions for <span className="font-mono text-foreground">{userId}</span>.
-                          </div>
-                          <div className="text-xs">Turn off scope-to-me in Settings → Account to see all sessions.</div>
-                        </div>
+                        <ScopedEmptyState entity="sessions" />
                       ) : (
                         <div className="max-w-md space-y-1 text-center text-pretty text-muted-foreground">
                           <div>No sessions in this window.</div>
@@ -213,73 +207,7 @@ export function DataTable({
           </Table>
         </div>
       </div>
-      <div className="-mx-0 -mb-4 shrink-0 border-t bg-background md:-mb-6">
-        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-4 lg:gap-6">
-            <div className="hidden items-center gap-2 lg:flex">
-              <p className="text-xs font-medium">Rows per page</p>
-              <Select
-                value={`${table.getState().pagination.pageSize}`}
-                onValueChange={(value) => table.setPageSize(Number(value))}
-              >
-                <SelectTrigger size="sm" className="w-[68px] text-xs" id="rows-per-page">
-                  <SelectValue placeholder={table.getState().pagination.pageSize} />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[25, 50, 100, 200].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex w-[96px] items-center justify-center text-xs font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="hidden lg:flex"
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">First page</span>
-                <ChevronsLeft aria-hidden />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Previous page</span>
-                <ChevronLeft aria-hidden />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Next page</span>
-                <ChevronRight aria-hidden />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="hidden lg:flex"
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Last page</span>
-                <ChevronsRight aria-hidden />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <DataTablePagination table={table} />
     </div>
   )
 }
