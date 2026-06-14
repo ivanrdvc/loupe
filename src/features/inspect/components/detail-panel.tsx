@@ -242,7 +242,7 @@ function MessagesBlock({
   outputType?: string
   view?: InspectorView
 }) {
-  const inputMsgs = useMemo(() => asMessages(input), [input])
+  const inputMsgs = useMemo(() => asMessages(input).filter((m) => m.role !== 'system'), [input])
   const outputMsgs = useMemo(() => asMessages(output), [output])
   // Tool results live on the sibling execute_tool span — asMessages drops
   // tool-role messages — so we splice them back in keyed by tool_call id.

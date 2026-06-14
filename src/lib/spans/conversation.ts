@@ -228,6 +228,7 @@ function emitChatInput(
   const inputMsgs = asMessages(span.llmInput)
   const tailStart = turnTailStart(inputMsgs)
   for (let i = tailStart; i < inputMsgs.length; i++) {
+    if (inputMsgs[i].role === 'system') continue // shown on the agent span's card instead
     emitFromMessage(
       inputMsgs[i],
       span.startMs,

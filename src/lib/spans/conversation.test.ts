@@ -117,9 +117,9 @@ describe('buildConversation — multi-iteration turn collapse', () => {
       }),
     ]
     const out = texts(buildConversation(spans))
-    // system + user appear exactly once each, despite 3 spans carrying them
+    // user appears exactly once despite 3 spans carrying it; system suppressed
     expect(out.filter((t) => t === 'user:hi')).toHaveLength(1)
-    expect(out.filter((t) => t === 'system:S')).toHaveLength(1)
+    expect(out.filter((t) => t.startsWith('system:'))).toHaveLength(0)
     expect(out).toContain('assistant:done')
   })
 
@@ -144,9 +144,9 @@ describe('buildConversation — multi-iteration turn collapse', () => {
       }),
     ]
     const out = texts(buildConversation(spans))
-    expect(out.filter((t) => t === 'system:S')).toHaveLength(1)
+    expect(out.filter((t) => t.startsWith('system:'))).toHaveLength(0)
     expect(out.filter((t) => t === 'user:Q')).toHaveLength(1)
-    expect(out).toEqual(['system:S', 'user:Q', 'assistant:let me check', 'assistant:FINAL'])
+    expect(out).toEqual(['user:Q', 'assistant:let me check', 'assistant:FINAL'])
   })
 
   it('leaves a single-span turn (MEAI/App Insights) byte-identical', () => {
@@ -162,7 +162,7 @@ describe('buildConversation — multi-iteration turn collapse', () => {
       }),
     ]
     const out = buildConversation(spans).filter((e) => e.kind === 'message')
-    expect(out.map((e) => `${e.role}:${e.content}`)).toEqual(['system:S', 'user:q', 'assistant:a'])
+    expect(out.map((e) => `${e.role}:${e.content}`)).toEqual(['user:q', 'assistant:a'])
     const assistant = out.find((e) => e.role === 'assistant')
     expect(assistant?.outputTokens).toBe(2) // token attribution preserved
   })

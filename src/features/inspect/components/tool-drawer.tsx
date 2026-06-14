@@ -144,6 +144,7 @@ function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading
               <TableHead>Trace</TableHead>
               <TableHead>When</TableHead>
               <TableHead className="text-right tabular-nums">Duration</TableHead>
+              <TableHead className="text-right tabular-nums">Size</TableHead>
               <TableHead className="w-12 text-right">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -163,6 +164,13 @@ function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading
                   <RelativeTime ts={r.startedAtMs} className="tabular-nums text-muted-foreground" />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{formatDuration(r.durationMs)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {r.resultChars ? (
+                    <TokensFromChars chars={r.resultChars} />
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   {r.hasError ? (
                     <Badge variant="destructive" className="px-1 text-[10px]">

@@ -171,7 +171,8 @@ export async function fetchToolRecentCalls(
       ${sessionExpr} AS session_id,
       start_time,
       duration,
-      span_status
+      span_status,
+      ${known.has('gen_ai_tool_call_result') ? 'LENGTH(gen_ai_tool_call_result)' : 'NULL'} AS result_chars
     FROM "${p.stream}"
     WHERE operation_name = 'execute_tool ${name}'
     ORDER BY start_time DESC
@@ -190,6 +191,8 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round((num(h.duration) ?? 0) / 1000),
         hasError: h.span_status === 'ERROR',
       }
+      const chars = num(h.result_chars)
+      if (chars != null && chars > 0) sample.resultChars = Math.round(chars)
       if (sessionId) sample.sessionId = sessionId
       return sample
     })

@@ -96,8 +96,8 @@ function rateBarTone(rate: number): string {
 }
 
 function sizeTextTone(tokens: number): string {
-  if (tokens >= 2000) return 'text-destructive'
-  if (tokens >= 500) return 'text-warning'
+  if (tokens >= 10_000) return 'text-destructive'
+  if (tokens >= 2000) return 'text-warning'
   return 'text-foreground'
 }
 

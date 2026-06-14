@@ -153,7 +153,7 @@ export async function fetchToolRecentCalls(
     | extend sess = ${aiCoalesce('sessionId')}
     | order by timestamp desc
     | take ${limit}
-    | project trace_id = operation_Id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false)
+    | project trace_id = operation_Id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false), result_chars = strlen(tostring(customDimensions["gen_ai.tool.call.result"]))
   `
   const rows = await p.query(q, opts ?? {})
   return rows
@@ -168,6 +168,8 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round(num(r.duration_ms) ?? 0),
         hasError: r.has_error === true || r.has_error === 'true',
       }
+      const chars = num(r.result_chars)
+      if (chars != null && chars > 0) sample.resultChars = Math.round(chars)
       if (sessionId) sample.sessionId = sessionId
       return sample
     })

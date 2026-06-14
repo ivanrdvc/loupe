@@ -184,6 +184,7 @@ export interface ToolCallSample {
   startedAtMs: number
   durationMs: number
   hasError: boolean
+  resultChars?: number
 }
 
 export type TopOpts = ListOpts

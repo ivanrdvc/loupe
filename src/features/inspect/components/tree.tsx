@@ -197,12 +197,10 @@ export function SpanTreeList({
 
     const ancestorIds: string[] = []
     let rootId: string = target.id
-    let hasInfraOnPath = isCollapsibleInfra(target)
     for (let pid = target.parentId; pid; ) {
       const parent = view.byId.get(pid)
       if (!parent) break
       ancestorIds.push(pid)
-      if (isCollapsibleInfra(parent)) hasInfraOnPath = true
       rootId = pid
       pid = parent.parentId ?? null
     }
@@ -212,7 +210,9 @@ export function SpanTreeList({
       for (const id of ancestorIds) next.delete(id)
       return next
     })
-    if (hasInfraOnPath) onEnsureRawRoot(rootId)
+    // Infra ancestors don't hide the target — buildRows promotes their
+    // children — so only a target that is itself infra needs raw on.
+    if (isCollapsibleInfra(target)) onEnsureRawRoot(rootId)
     requestAnimationFrame(() => {
       document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'nearest' })
     })
