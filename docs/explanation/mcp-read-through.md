@@ -1,11 +1,11 @@
 ---
 title: MCP read-through registry
 type: explanation
-summary: How loupe reads MCP registry references, fetches live server capabilities, and keeps SQLite limited to local app state.
+summary: How loupe reads MCP registry references, fetches live server capabilities over the MCP SDK, lints them, and keeps SQLite limited to local app state.
 status: current
 owner: Ivan
 audience: engineers
-last-reviewed: 2026-05-13
+last-reviewed: 2026-06-16
 tags: [mcp, registry, telemetry, sqlite]
 ---
 
@@ -13,87 +13,82 @@ tags: [mcp, registry, telemetry, sqlite]
 
 `/mcp` is a live registry view, not a SQLite mirror.
 
-The remote registry only gives loupe references to MCP servers. A reference
-is enough to know that a server exists and how to reach it, but it is not the
-tool catalog. To render tool quality, counts, descriptions, and schemas,
-loupe must call each referenced MCP server and ask for its live capabilities.
+The registry only gives loupe *references* to MCP servers — enough to know a
+server exists and how to reach it, but not its tool catalog. To render tools,
+counts, descriptions, and schemas, loupe calls each referenced server and asks
+for its live capabilities at query time.
 
 ## Ownership boundaries
 
 Three systems own different data:
 
-- **Remote registry / Azure Table** owns server references: server name,
-  endpoint, transport, source metadata, and maybe owner metadata.
-- **MCP servers** own live capabilities: tools, descriptions, input schemas,
-  and whatever else `tools/list` returns.
-- **SQLite** owns loupe-local state: observed telemetry inventory, inbox
-  alerts, user dismissals/snoozes, and discovery cursors.
-
-Do not store `mcp_servers` or `mcp_tools` as canonical SQLite tables in v1.
-That would duplicate remote state without solving the actual problem: the tool
-catalog still has to come from each MCP server.
+- **Registry** (env `MCP_REGISTRY_REFS_JSON`) owns server references: id, name,
+  endpoint, transport, and optional owner metadata.
+- **MCP servers** own live capabilities: tools, titles, descriptions, input
+  schemas, and annotations — whatever `tools/list` returns.
+- **SQLite** owns loupe-local state only (telemetry-observed inventory, inbox
+  alerts, dismissals, discovery cursors). There are no `mcp_servers` /
+  `mcp_tools` tables — that would duplicate remote state without solving the
+  problem (the catalog still has to come from each server).
 
 ## Request flow
 
-The `/mcp` query does this:
+The `/mcp` server function does this:
 
-1. Read server references from the configured registry source.
-2. For each reference with an endpoint, call the MCP server for `tools/list`.
-3. Normalize every result into app-level `McpServer` and `McpTool` types.
-4. Mark per-server failures as `fetchStatus: 'error'`.
-5. Run lint rules over the normalized result.
-6. Return the result to the route through a TanStack Query server function.
+1. Read server references from the registry source.
+2. For each reference with an endpoint, connect and call `tools/list`
+   (bounded concurrency, per-request timeout).
+3. Normalize every result into app-level `McpServer` / `McpTool`.
+4. Mark per-server failures as `fetchStatus: 'error'` — failure is partial by
+   design; one server being down doesn't blank the page.
+5. Lint the normalized result.
+6. Return it to the route via a TanStack Query server function.
 
-Failure is partial by design. If one MCP server is down, `/mcp` still shows the
-others and marks the failed row explicitly.
+## Talking to servers
 
-## Current implementation
+`client.ts` uses the official **`@modelcontextprotocol/sdk`** client
+(`Client` + `StreamableHTTPClientTransport`), not a hand-rolled fetch. The SDK
+performs the `initialize` handshake, content negotiation, and SSE framing — a
+spec-compliant streamable-HTTP server commonly answers `tools/list` as an SSE
+stream, which a bare `resp.json()` can't parse. We bound `connect` and
+`listTools` with a request timeout and surface any failure as a fetch error.
 
-The code lives under `src/features/mcp/`:
+## Code
 
-- `types.ts` defines `RegistrySource`, `McpServerRef`, `McpServer`,
-  `McpTool`, and `McpRegistryResult`.
-- `registry.ts` currently reads `MCP_REGISTRY_REFS_JSON`. Replace this adapter
-  with the Azure Table implementation once the table shape is known.
-- `client.ts` calls MCP servers with JSON-RPC `tools/list`.
-- `index.ts` orchestrates registry refs, bounded capability fetches, and
-  partial failure collection.
-- `lint.ts` runs in-memory quality checks.
+Under `src/features/mcp/` (the generic, all-forks core):
 
-The first UI route is `src/routes/mcp/index.tsx`.
+- `types.ts` — `RegistrySource`, `McpServerRef`, `McpServer`, `McpTool`
+  (incl. `title` / `annotations`), `McpLintFinding`, `LintCategory`.
+- `registry.ts` — `EnvRegistrySource` reads `MCP_REGISTRY_REFS_JSON`. A fork
+  that needs a private source (Cosmos, Azure Table) patches `getRegistrySource`
+  in its own tree; loupe core stays env-only.
+- `client.ts` — MCP SDK `listServerTools`.
+- `index.ts` — `listMcpRegistryWithLint` (fetch + lint) and the slice barrel.
+- `lint.ts` — quality rules; thresholds are constants at the top.
+- `logic/aggregate-tools.ts` — collapses tools to a unique set across servers
+  and flags duplicates / conflicts (same name, divergent description or schema).
+- `logic/lint-helpers.ts` — group findings by category, severity ordering.
 
-## SQLite role
+Routes live in `src/routes/mcp/` (one query, derived three ways):
 
-SQLite stores local state only:
+- `index.tsx` — `/mcp` with `Tabs`: **Servers** (data-table), **Tools**
+  (browser grouped by server, with a detail pane), **Lint** (findings grouped
+  by category).
+- `$serverId.tsx` — server detail: metadata + server-level lint.
 
-- `inventory` for telemetry-observed things such as `mcp_tool`, `mcp_server`,
-  `agent`, and `model`.
-- `inbox_item` for fired alerts and user state.
-- `discovery_cursor` for detection progress.
+## Reused components
 
-`inventory` is usage-derived. It can say "tool X was observed in telemetry",
-but it is not a registry table and should not be treated as the declared MCP
-catalog.
+The Tools detail pane renders a tool's input schema with
+`JsonBlock` / `PanelSection` from `src/components/ai-elements/json-block.tsx` —
+a labeled section with a raw↔formatted JSON toggle and copy, **shared with the
+span inspector's detail panel** rather than duplicated.
 
-## When to add a cache
+## Lint
 
-Add a SQLite cache only after live reads are measured to be too slow or flaky.
-If added, model it explicitly as cache state:
-
-```txt
-mcp_registry_cache
-  source
-  server_name
-  fetched_at
-  payload_json
-  error_json
-```
-
-The cache should have refresh/TTL semantics. It should not become the source of
-truth for MCP servers or tools.
-
-## Next work
-
-Implement the Azure Table registry adapter once the reference row shape is
-known. After that, add detail routes for server and tool pages, then join live
-registry data with telemetry-derived `inventory` to show observed usage.
+`lintMcpRegistry(servers)` returns `{ severity, category, ruleId, message,
+evidence }` findings over what `tools/list` gives us (no telemetry, no DB).
+Categories: `server-health` (fetch failure, tool count), `tool-catalog`
+(missing/over-long descriptions, empty schema, undocumented params), and
+`naming` (name shape, mixed case, missing service prefix, ambiguous param
+names, cross-server duplicate names). Messages are actionable — they tell the
+owner what to change. Tune thresholds via the constants in `lint.ts`.

@@ -18,16 +18,13 @@ test('clicking a server opens its detail page with its tools', async ({ page }) 
   await expect(page.getByText(MCP.weatherTool, { exact: true })).toBeVisible()
 })
 
-test('the tools tab dedupes names and shows detail for the selected tool', async ({ page }) => {
+test('the tools tab groups by server, flags conflicts, and shows schema detail', async ({ page }) => {
   await page.goto('/mcp?tab=tools')
-  // `search` is exposed by two servers but listed once.
-  const item = page.getByText(MCP.duplicateTool, { exact: true })
-  await expect(item).toHaveCount(1)
-  await item.click()
-  // Detail pane names both providers.
-  await expect(page.getByText('Provided by')).toBeVisible()
-  await expect(page.getByRole('link', { name: MCP.weatherServer })).toBeVisible()
-  await expect(page.getByRole('link', { name: MCP.searchServer })).toBeVisible()
+  // `search` is on two servers — flagged as a conflict in the list.
+  await expect(page.getByText('conflict').first()).toBeVisible()
+  // Selecting a tool shows its input schema in the detail pane.
+  await page.getByRole('button', { name: new RegExp(MCP.weatherTool) }).click()
+  await expect(page.getByText('Input schema')).toBeVisible()
 })
 
 test('the lint tab groups findings with actionable messages', async ({ page }) => {

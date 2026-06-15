@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Puzzle } from 'lucide-react'
 import { useMemo } from 'react'
 import { CopyButton } from '#/components/copy-button'

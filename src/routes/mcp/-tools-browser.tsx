@@ -1,31 +1,44 @@
 import { Link } from '@tanstack/react-router'
 import { Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { JsonView } from '#/components/ai-elements/json-view'
+import { JsonBlock } from '#/components/ai-elements/json-block'
 import { Badge } from '#/components/ui/badge'
 import { Input } from '#/components/ui/input'
-import { aggregateTools, type McpServer, type McpToolAnnotations, type UniqueTool } from '#/features/mcp'
+import { aggregateTools, type McpServer, type McpTool, type McpToolAnnotations } from '#/features/mcp'
 import { cn } from '#/lib/utils'
 
 const HINTS = [
-  { key: 'readOnlyHint', label: 'Read-only' },
-  { key: 'destructiveHint', label: 'Destructive' },
-  { key: 'idempotentHint', label: 'Idempotent' },
-  { key: 'openWorldHint', label: 'Open-world' },
+  { key: 'readOnlyHint', label: 'read-only' },
+  { key: 'destructiveHint', label: 'destructive' },
+  { key: 'idempotentHint', label: 'idempotent' },
+  { key: 'openWorldHint', label: 'open-world' },
 ] as const
 
 export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
-  const tools = useMemo(() => aggregateTools(servers), [servers])
   const [query, setQuery] = useState('')
-  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const filtered = useMemo(() => {
+  // Conflict/duplicate flags keyed by tool name, computed across all servers.
+  const flags = useMemo(() => {
+    const m = new Map<string, { duplicate: boolean; conflict: boolean }>()
+    for (const u of aggregateTools(servers)) m.set(u.name, { duplicate: u.duplicate, conflict: u.conflict })
+    return m
+  }, [servers])
+
+  const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return tools
-    return tools.filter((t) => t.name.toLowerCase().includes(q) || t.title?.toLowerCase().includes(q))
-  }, [tools, query])
+    return servers
+      .map((server) => ({
+        server,
+        tools: q
+          ? server.tools.filter((t) => t.name.toLowerCase().includes(q) || t.title?.toLowerCase().includes(q))
+          : server.tools,
+      }))
+      .filter((g) => g.tools.length > 0)
+  }, [servers, query])
 
-  const selected = tools.find((t) => t.name === selectedName) ?? filtered[0] ?? null
+  const visible = useMemo(() => groups.flatMap((g) => g.tools), [groups])
+  const selected = visible.find((t) => t.id === selectedId) ?? visible[0] ?? null
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -43,38 +56,49 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {groups.length === 0 ? (
             <p className="px-4 py-3 text-sm text-muted-foreground">No tools.</p>
           ) : (
-            filtered.map((t) => (
-              <button
-                key={t.name}
-                type="button"
-                onClick={() => setSelectedName(t.name)}
-                className={cn(
-                  'flex w-full flex-col gap-0.5 border-b px-4 py-3 text-left hover:bg-muted/40',
-                  selected?.name === t.name && 'bg-muted/60',
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="truncate font-medium">{t.title ?? t.name}</span>
-                  {t.conflict ? (
-                    <Badge variant="destructive">conflict</Badge>
-                  ) : t.duplicate ? (
-                    <Badge variant="warning">{t.providers.length}</Badge>
-                  ) : null}
-                </span>
-                <span className="line-clamp-2 text-xs text-muted-foreground">
-                  {t.providers[0]?.tool.description ?? '—'}
-                </span>
-              </button>
+            groups.map((g) => (
+              <div key={g.server.id}>
+                <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b bg-muted/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
+                  <span className="truncate">{g.server.name}</span>
+                  <span className="tabular-nums">· {g.tools.length}</span>
+                </div>
+                {g.tools.map((t) => {
+                  const f = flags.get(t.name)
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSelectedId(t.id)}
+                      className={cn(
+                        'flex w-full flex-col gap-0.5 border-b px-4 py-2.5 text-left hover:bg-muted/40',
+                        selected?.id === t.id && 'bg-muted/60',
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-mono text-sm">{t.name}</span>
+                        {f?.conflict ? (
+                          <Badge variant="destructive">conflict</Badge>
+                        ) : f?.duplicate ? (
+                          <Badge variant="warning">dup</Badge>
+                        ) : null}
+                      </span>
+                      {t.description && (
+                        <span className="line-clamp-1 text-xs text-muted-foreground">{t.description}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             ))
           )}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {selected ? (
-          <ToolDetail tool={selected} />
+          <ToolDetail tool={selected} servers={servers} />
         ) : (
           <p className="p-6 text-sm text-muted-foreground">Select a tool.</p>
         )}
@@ -83,51 +107,46 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
   )
 }
 
-function ToolDetail({ tool }: { tool: UniqueTool }) {
-  const hasTitle = tool.title && tool.title !== tool.name
+function ToolDetail({ tool, servers }: { tool: McpTool; servers: McpServer[] }) {
+  const alsoOn = servers.filter((s) => s.id !== tool.serverId && s.tools.some((t) => t.name === tool.name))
   return (
     <div className="flex flex-col gap-4 p-4 lg:p-6">
       <div>
-        <h2 className="text-lg font-semibold">{tool.title ?? tool.name}</h2>
-        {hasTitle && <p className="font-mono text-xs text-muted-foreground">{tool.name}</p>}
+        <h2 className="font-mono text-lg font-semibold">{tool.name}</h2>
+        {tool.title && tool.title !== tool.name && <p className="text-sm text-muted-foreground">{tool.title}</p>}
       </div>
 
-      <Annotations annotations={tool.providers[0]?.tool.annotations} />
+      <Annotations annotations={tool.annotations} />
 
-      <div className="flex flex-wrap items-center gap-1.5 text-sm">
-        <span className="text-muted-foreground">Provided by</span>
-        {tool.providers.map((p) => (
-          <Link key={p.serverId} to="/mcp/$serverId" params={{ serverId: p.serverId }}>
-            <Badge variant="outline">{p.serverName}</Badge>
-          </Link>
-        ))}
-      </div>
+      <p className={cn('text-sm leading-relaxed', !tool.description && 'text-muted-foreground')}>
+        {tool.description?.trim() || 'No description.'}
+      </p>
 
-      {tool.providers.map((p) => (
-        <section key={p.serverId} className="flex flex-col gap-2">
-          {tool.providers.length > 1 && <h3 className="text-sm font-medium text-muted-foreground">{p.serverName}</h3>}
-          <p className={cn('text-sm', !p.tool.description && 'text-muted-foreground')}>
-            {p.tool.description || 'No description.'}
-          </p>
-          <div>
-            <p className="pb-1 text-xs font-medium text-muted-foreground">Input schema</p>
-            <JsonView value={p.tool.inputSchema ?? {}} />
-          </div>
-        </section>
-      ))}
+      {alsoOn.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="text-muted-foreground">Also on</span>
+          {alsoOn.map((s) => (
+            <Link key={s.id} to="/mcp/$serverId" params={{ serverId: s.id }}>
+              <Badge variant="outline">{s.name}</Badge>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <JsonBlock label="Input schema" value={tool.inputSchema ?? {}} />
     </div>
   )
 }
 
 function Annotations({ annotations }: { annotations?: McpToolAnnotations }) {
   if (!annotations) return null
-  const shown = HINTS.filter((h) => annotations[h.key] !== undefined)
-  if (shown.length === 0) return null
+  const active = HINTS.filter((h) => annotations[h.key])
+  if (active.length === 0) return null
   return (
     <div className="flex flex-wrap gap-1.5">
-      {shown.map((h) => (
-        <Badge key={h.key} variant={annotations[h.key] ? 'secondary' : 'outline'}>
-          {annotations[h.key] ? '✓' : '✗'} {h.label}
+      {active.map((h) => (
+        <Badge key={h.key} variant="outline" className="capitalize">
+          {h.label}
         </Badge>
       ))}
     </div>

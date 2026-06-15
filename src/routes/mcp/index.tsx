@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { mcpQuery } from './-data'
 import { LintFindings } from './-lint-findings'
 import { McpDataTable } from './-mcp-data-table'
+import { McpStats } from './-mcp-stats'
 import { serverColumns } from './-servers-columns'
 import { ToolsBrowser } from './-tools-browser'
 
@@ -93,6 +94,7 @@ function McpPage() {
           </TabsList>
         </div>
         <TabsContent value="servers" className="flex min-h-0 flex-1 flex-col">
+          <McpStats servers={servers} findings={findings} />
           <McpDataTable
             columns={serverCols}
             data={servers}
