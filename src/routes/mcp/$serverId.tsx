@@ -11,11 +11,14 @@ import { findingsForServer } from '#/features/mcp'
 import { mcpQuery } from './-data'
 import { LintFindingRow } from './-lint-finding-row'
 import { StatusBadge } from './-mcp-badges'
-import { McpDataTable } from './-mcp-data-table'
-import { serverToolColumns } from './-server-tools-columns'
+import { ToolsBrowser } from './-tools-browser'
 
 export const Route = createFileRoute('/mcp/$serverId')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(mcpQuery()),
+  loader: async ({ context, params }) => {
+    const data = await context.queryClient.ensureQueryData(mcpQuery())
+    if (!data.servers.some((s) => s.id === params.serverId)) throw redirect({ to: '/mcp' })
+    return data
+  },
   component: ServerDetail,
 })
 
@@ -24,7 +27,6 @@ function ServerDetail() {
   const { data } = useQuery(mcpQuery())
   const server = data?.servers.find((s) => s.id === serverId)
   const serverFindings = useMemo(() => findingsForServer(data?.findings ?? [], serverId), [data, serverId])
-  const columns = useMemo(() => serverToolColumns(serverFindings), [serverFindings])
 
   if (!server) {
     return (
@@ -94,15 +96,8 @@ function ServerDetail() {
           </div>
         )}
 
-        <div className="flex min-h-0 flex-1 flex-col">
-          <McpDataTable
-            columns={columns}
-            data={server.tools}
-            getRowId={(t) => t.id}
-            searchColumnId="name"
-            searchPlaceholder="Filter tools…"
-            emptyMessage="This server exposes no tools."
-          />
+        <div className="flex min-h-0 flex-1 flex-col border-t">
+          <ToolsBrowser servers={[server]} />
         </div>
       </div>
     </Page>

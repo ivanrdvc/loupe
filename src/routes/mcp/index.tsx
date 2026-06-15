@@ -70,6 +70,7 @@ function McpPage() {
 
   return (
     <Page title="MCP">
+      <McpStats servers={servers} findings={findings} />
       <Tabs
         value={activeTab}
         onValueChange={(v) =>
@@ -94,7 +95,6 @@ function McpPage() {
           </TabsList>
         </div>
         <TabsContent value="servers" className="flex min-h-0 flex-1 flex-col">
-          <McpStats servers={servers} findings={findings} />
           <McpDataTable
             columns={serverCols}
             data={servers}

@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Search } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { JsonBlock } from '#/components/ai-elements/json-block'
 import { Badge } from '#/components/ui/badge'
@@ -40,6 +40,17 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
   const visible = useMemo(() => groups.flatMap((g) => g.tools), [groups])
   const selected = visible.find((t) => t.id === selectedId) ?? visible[0] ?? null
 
+  const searching = query.trim() !== ''
+  const collapseByDefault = groups.length > 8
+  const [flipped, setFlipped] = useState<Set<string>>(new Set())
+  const isOpen = (id: string) => searching || (flipped.has(id) ? collapseByDefault : !collapseByDefault)
+  const toggle = (id: string) =>
+    setFlipped((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
   return (
     <div className="flex min-h-0 flex-1">
       <div className="flex w-72 shrink-0 flex-col border-r lg:w-80">
@@ -61,36 +72,56 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
           ) : (
             groups.map((g) => (
               <div key={g.server.id}>
-                <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b bg-muted/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
-                  <span className="truncate">{g.server.name}</span>
-                  <span className="tabular-nums">· {g.tools.length}</span>
+                <div className="sticky top-0 z-10 flex items-center border-b bg-muted/60 text-xs font-medium text-muted-foreground backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => toggle(g.server.id)}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pl-3 hover:text-foreground"
+                  >
+                    {isOpen(g.server.id) ? (
+                      <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+                    ) : (
+                      <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+                    )}
+                    <span className="truncate">{g.server.name}</span>
+                    <span className="tabular-nums">· {g.tools.length}</span>
+                  </button>
+                  <Link
+                    to="/mcp/$serverId"
+                    params={{ serverId: g.server.id }}
+                    className="flex shrink-0 items-center px-3 py-1.5 hover:text-foreground"
+                    title="Open server"
+                  >
+                    <ArrowUpRight className="size-3.5" aria-hidden />
+                  </Link>
                 </div>
-                {g.tools.map((t) => {
-                  const f = flags.get(t.name)
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setSelectedId(t.id)}
-                      className={cn(
-                        'flex w-full flex-col gap-0.5 border-b px-4 py-2.5 text-left hover:bg-muted/40',
-                        selected?.id === t.id && 'bg-muted/60',
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="truncate font-mono text-sm">{t.name}</span>
-                        {f?.conflict ? (
-                          <Badge variant="destructive">conflict</Badge>
-                        ) : f?.duplicate ? (
-                          <Badge variant="warning">dup</Badge>
-                        ) : null}
-                      </span>
-                      {t.description && (
-                        <span className="line-clamp-1 text-xs text-muted-foreground">{t.description}</span>
-                      )}
-                    </button>
-                  )
-                })}
+                {isOpen(g.server.id) &&
+                  g.tools.map((t) => {
+                    const f = flags.get(t.name)
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedId(t.id)}
+                        className={cn(
+                          'flex w-full flex-col gap-0.5 border-b px-4 py-2.5 text-left hover:bg-muted/40',
+                          selected?.id === t.id && 'bg-muted/60',
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="truncate font-mono text-sm">{t.name}</span>
+                          {f?.conflict ? (
+                            <Badge variant="destructive">conflict</Badge>
+                          ) : f?.duplicate ? (
+                            <Badge variant="warning">dup</Badge>
+                          ) : null}
+                        </span>
+                        {t.description && (
+                          <span className="line-clamp-1 text-xs text-muted-foreground">{t.description}</span>
+                        )}
+                      </button>
+                    )
+                  })}
               </div>
             ))
           )}
