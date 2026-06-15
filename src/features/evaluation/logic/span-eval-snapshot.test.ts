@@ -28,7 +28,6 @@ describe('spanEvalSnapshot', () => {
           inputParams: '{"q":"x"}',
           toolResult: '{"ok":true}',
           agentName: 'researcher',
-          systemInstructions: 'Be concise.',
           toolDefinitions: [{ name: 'search' }],
         }),
       ),
@@ -39,8 +38,13 @@ describe('spanEvalSnapshot', () => {
       inputParams: '{"q":"x"}',
       toolResult: '{"ok":true}',
       agentName: 'researcher',
-      systemInstructions: 'Be concise.',
       toolDefinitions: [{ name: 'search' }],
+    })
+  })
+
+  it('omits systemInstructions — the eval-time agent owns its system prompt', () => {
+    expect(spanEvalSnapshot(span({ id: 's1', llmInput: 'x', systemInstructions: 'Be concise.' }))).toEqual({
+      llmInput: 'x',
     })
   })
 

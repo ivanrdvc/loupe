@@ -15,7 +15,6 @@ export function spanEvalSnapshot(span: Span): Record<string, JsonValue> {
   put('toolResult', span.toolResult)
   put('llmOutput', span.llmOutput)
   put('agentName', span.agentName)
-  put('systemInstructions', span.systemInstructions)
   return out
 }
 

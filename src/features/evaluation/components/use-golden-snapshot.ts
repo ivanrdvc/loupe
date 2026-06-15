@@ -24,6 +24,10 @@ export function useGoldenSnapshot({
     ...traceSpansQuery(traceId ?? '__no_trace__'),
     enabled: open && traceId != null,
   })
-  const snapshot = useMemo(() => (traceData?.spans ? traceEvalSnapshot(traceData.spans) : null), [traceData?.spans])
+  const targetSpanId = targetKind === 'span' ? (targetId ?? null) : null
+  const snapshot = useMemo(
+    () => (traceData?.spans ? traceEvalSnapshot(traceData.spans, targetSpanId) : null),
+    [traceData?.spans, targetSpanId],
+  )
   return { snapshot, traceData, isLoading, traceId }
 }

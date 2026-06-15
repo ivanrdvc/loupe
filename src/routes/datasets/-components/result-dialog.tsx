@@ -1,16 +1,16 @@
 import { Link } from '@tanstack/react-router'
 import { Link as LinkIcon } from 'lucide-react'
 import { Button } from '#/components/ui/button'
-import { ScrollArea } from '#/components/ui/scroll-area'
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '#/components/ui/sheet'
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import {
   type ChatMessage,
   type DatasetExample,
@@ -21,7 +21,7 @@ import {
 import { cn } from '#/lib/utils'
 import { Field, ScoreChips, StatusIcon } from './run-bits'
 
-export function ResultSheet({
+export function ResultDialog({
   item,
   example,
   onClose,
@@ -31,15 +31,15 @@ export function ResultSheet({
   onClose: () => void
 }) {
   return (
-    <Sheet open={!!item} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Run result</SheetTitle>
-          <SheetDescription>One example, one run.</SheetDescription>
-        </SheetHeader>
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Run result</DialogTitle>
+          <DialogDescription>One example, one run.</DialogDescription>
+        </DialogHeader>
         {item && (
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="flex flex-col gap-4 px-4 py-2 text-sm">
+          <ScrollArea className="-mx-1 [&>[data-slot=scroll-area-viewport]]:max-h-[70vh]">
+            <div className="flex flex-col gap-4 px-1 text-sm">
               <Field label="Input">
                 {(() => {
                   const turns = inputTurns(example?.input ?? '')
@@ -79,13 +79,13 @@ export function ResultSheet({
             </div>
           </ScrollArea>
         )}
-        <SheetFooter>
-          <SheetClose asChild>
+        <DialogFooter>
+          <DialogClose asChild>
             <Button variant="outline">Close</Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -96,7 +96,7 @@ const ROLE_STYLE: Record<ChatMessage['role'], string> = {
   tool: 'text-warning',
 }
 
-/** Read-only transcript (result drawer). */
+/** Read-only transcript (result dialog). */
 function TranscriptView({ turns }: { turns: ChatMessage[] }) {
   return (
     <div className="flex flex-col gap-1.5">

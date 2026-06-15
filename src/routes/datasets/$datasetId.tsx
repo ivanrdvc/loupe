@@ -37,7 +37,7 @@ import { cn } from '#/lib/utils'
 import { AgentOverridesDialog, countOverrides } from './-components/agent-overrides-dialog'
 import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
-import { ResultSheet } from './-components/result-sheet'
+import { ResultDialog } from './-components/result-dialog'
 import { ScoreChip, ScoreChips, StatusIcon } from './-components/run-bits'
 import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
 
@@ -270,7 +270,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           }}
         />
       )}
-      <ResultSheet
+      <ResultDialog
         item={activeItem}
         example={activeItem ? (examples.find((e) => e.id === activeItem.exampleId) ?? null) : null}
         onClose={() => setActiveItem(null)}

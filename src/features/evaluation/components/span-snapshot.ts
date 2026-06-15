@@ -12,8 +12,11 @@ function pickEvalSpan(spans: Span[]): Span | null {
   return pool[pool.length - 1] ?? null
 }
 
-export function traceEvalSnapshot(spans: Span[]): { span: Span; input: Record<string, JsonValue> } | null {
-  const span = pickEvalSpan(spans)
+export function traceEvalSnapshot(
+  spans: Span[],
+  targetSpanId?: string | null,
+): { span: Span; input: Record<string, JsonValue> } | null {
+  const span = (targetSpanId != null ? spans.find((s) => s.id === targetSpanId) : null) ?? pickEvalSpan(spans)
   if (!span) return null
   return { span, input: spanEvalSnapshot(span) }
 }
