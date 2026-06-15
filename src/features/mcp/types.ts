@@ -12,13 +12,22 @@ export interface McpServerRef {
   source: string
 }
 
+export interface McpToolAnnotations {
+  readOnlyHint?: boolean
+  destructiveHint?: boolean
+  idempotentHint?: boolean
+  openWorldHint?: boolean
+}
+
 export interface McpTool {
   id: string
   serverId: string
   serverName: string
   name: string
+  title?: string
   description?: string
   inputSchema?: JsonValue
+  annotations?: McpToolAnnotations
 }
 
 export interface McpServer extends McpServerRef {
@@ -39,10 +48,13 @@ export interface RegistrySource {
   listServerRefs(): Promise<McpServerRef[]>
 }
 
-type LintSeverity = 'info' | 'warning' | 'error'
+export type LintSeverity = 'info' | 'warning' | 'error'
+
+export type LintCategory = 'server-health' | 'tool-catalog' | 'naming'
 
 export interface McpLintFinding {
   severity: LintSeverity
+  category: LintCategory
   ruleId: string
   message: string
   serverId: string

@@ -1,58 +1,30 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { JsonValue } from '#/lib/json'
-import type { McpServerRef, McpTool } from './types'
+import type { McpServerRef, McpTool, McpToolAnnotations } from './types'
 
 const REQUEST_TIMEOUT_MS = 5000
-
-type JsonRpcToolsList = {
-  result?: {
-    tools?: Array<{
-      name?: unknown
-      description?: unknown
-      inputSchema?: unknown
-      input_schema?: unknown
-    }>
-  }
-  error?: { message?: unknown }
-}
 
 export async function listServerTools(ref: McpServerRef): Promise<McpTool[]> {
   if (!ref.endpoint) return []
   if (ref.transport !== 'streamable-http' && ref.transport !== 'unknown') return []
 
-  const data = await postToolsList(ref.endpoint)
-  const tools = data.result?.tools
-  if (!Array.isArray(tools)) {
-    const message =
-      typeof data.error?.message === 'string' ? data.error.message : 'MCP tools/list returned no tools array'
-    throw new Error(message)
-  }
-
-  const out: McpTool[] = []
-  for (const tool of tools) {
-    if (typeof tool.name !== 'string' || tool.name.length === 0) continue
-    out.push({
+  const client = new Client({ name: 'loupe', version: '1.0.0' })
+  const transport = new StreamableHTTPClientTransport(new URL(ref.endpoint))
+  try {
+    await client.connect(transport, { timeout: REQUEST_TIMEOUT_MS })
+    const { tools } = await client.listTools({}, { timeout: REQUEST_TIMEOUT_MS })
+    return tools.map((tool) => ({
       id: `${ref.id}:${tool.name}`,
       serverId: ref.id,
       serverName: ref.name,
       name: tool.name,
+      title: typeof tool.title === 'string' ? tool.title : undefined,
       description: typeof tool.description === 'string' ? tool.description : undefined,
-      // Value came from resp.json(), which can only produce JSON-shaped output.
-      inputSchema: (tool.inputSchema ?? tool.input_schema) as JsonValue | undefined,
-    })
+      inputSchema: tool.inputSchema as unknown as JsonValue,
+      annotations: tool.annotations as McpToolAnnotations | undefined,
+    }))
+  } finally {
+    await client.close()
   }
-  return out
-}
-
-async function postToolsList(endpoint: string): Promise<JsonRpcToolsList> {
-  const resp = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json, text/event-stream',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 'loupe-tools-list', method: 'tools/list', params: {} }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  })
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-  return (await resp.json()) as JsonRpcToolsList
 }

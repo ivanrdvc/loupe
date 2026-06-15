@@ -71,7 +71,7 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'inventory',
   },
   { to: '/inventory/agents', label: 'Agents', icon: Box, animatedIcon: BoxIcon, group: 'inventory' },
-  { to: '/mcp', label: 'MCP', icon: Puzzle, group: 'inventory', soon: true },
+  { to: '/mcp', label: 'MCP', icon: Puzzle, group: 'inventory' },
   { to: '/inbox', label: 'Inbox', icon: Inbox, group: 'inbox' },
 ]
 

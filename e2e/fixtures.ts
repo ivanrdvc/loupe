@@ -32,6 +32,17 @@ export const AGENT_AS_TOOL = {
   userMessage: 'List all records and render a summary report.',
 } as const
 
+// MCP registry served by e2e/fake-agent.mjs under /mcp/* and wired via
+// MCP_REGISTRY_REFS_JSON in playwright.config.ts. Keep in sync with both.
+export const MCP = {
+  weatherServer: 'Weather Service',
+  searchServer: 'Search API',
+  notesServer: 'Notes Service',
+  weatherTool: 'get_weather',
+  duplicateTool: 'search',
+  dupFinding: 'is exposed by',
+} as const
+
 export const RAW = {
   sessionId: 'e2e-session-raw',
   rootSpanId: 'sp-raw-agent',

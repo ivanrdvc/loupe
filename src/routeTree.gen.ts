@@ -23,6 +23,7 @@ import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as TasksTaskKeyRouteImport } from './routes/tasks/$taskKey'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
+import { Route as McpServerIdRouteImport } from './routes/mcp/$serverId'
 import { Route as EvalsEvalIdRouteImport } from './routes/evals/$evalId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as InventorySystemPromptsIndexRouteImport } from './routes/inventory/system-prompts/index'
@@ -101,6 +102,11 @@ const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   path: '/sessions/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpServerIdRoute = McpServerIdRouteImport.update({
+  id: '/mcp/$serverId',
+  path: '/mcp/$serverId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EvalsEvalIdRoute = EvalsEvalIdRouteImport.update({
   id: '/evals/$evalId',
   path: '/evals/$evalId',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
+  '/mcp/$serverId': typeof McpServerIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
+  '/mcp/$serverId': typeof McpServerIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
+  '/mcp/$serverId': typeof McpServerIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
+    | '/mcp/$serverId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
+    | '/mcp/$serverId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
+    | '/mcp/$serverId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
@@ -285,6 +297,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRoute
   EvalsEvalIdRoute: typeof EvalsEvalIdRoute
+  McpServerIdRoute: typeof McpServerIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   TasksTaskKeyRoute: typeof TasksTaskKeyRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp/$serverId': {
+      id: '/mcp/$serverId'
+      path: '/mcp/$serverId'
+      fullPath: '/mcp/$serverId'
+      preLoaderRoute: typeof McpServerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/evals/$evalId': {
       id: '/evals/$evalId'
       path: '/evals/$evalId'
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatasetsDatasetIdRoute: DatasetsDatasetIdRoute,
   EvalsEvalIdRoute: EvalsEvalIdRoute,
+  McpServerIdRoute: McpServerIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   TasksTaskKeyRoute: TasksTaskKeyRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,

@@ -35,6 +35,28 @@ export default defineConfig({
         JUDGE_PROVIDER: 'fixtures',
         PORT: String(PORT),
         DATASET_RUN_ENDPOINT: `http://localhost:${FAKE_AGENT_PORT}/v1/responses`,
+        MCP_REGISTRY_REFS_JSON: JSON.stringify([
+          {
+            id: 'weather',
+            name: 'Weather Service',
+            endpoint: `http://localhost:${FAKE_AGENT_PORT}/mcp/weather`,
+            transport: 'streamable-http',
+            ownerTeam: 'platform',
+          },
+          {
+            id: 'search',
+            name: 'Search API',
+            endpoint: `http://localhost:${FAKE_AGENT_PORT}/mcp/search`,
+            transport: 'streamable-http',
+          },
+          {
+            id: 'notes',
+            name: 'Notes Service',
+            endpoint: `http://localhost:${FAKE_AGENT_PORT}/mcp/notes`,
+            transport: 'streamable-http',
+            ownerContact: 'notes@team',
+          },
+        ]),
       },
     },
   ],

@@ -32,6 +32,15 @@ export async function listMcpRegistryWithLint() {
   return { ...registry, findings: lintMcpRegistry(registry.servers) }
 }
 
+export { aggregateTools, type UniqueTool } from './logic/aggregate-tools'
+export {
+  findingsForServer,
+  groupFindingsByCategory,
+  LINT_CATEGORY_LABELS,
+  worstSeverity,
+} from './logic/lint-helpers'
+export type { LintSeverity, McpLintFinding, McpServer, McpTool, McpToolAnnotations } from './types'
+
 async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = []
   let next = 0
