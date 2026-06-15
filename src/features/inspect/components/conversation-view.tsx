@@ -1,15 +1,14 @@
-import { ArrowDown, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { ArrowDown, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { CopyButton } from '#/components/copy-button'
 import { Markdown } from '#/components/markdown'
 import { Badge } from '#/components/ui/badge'
-import { type ConversationEvent, groupScaffolding, type InspectorView, type RenderItem } from '#/features/inspect/logic'
+import type { ConversationEvent, InspectorView } from '#/features/inspect/logic'
 import { formatTime, formatTokens, metricTone, tokensFromChars } from '#/lib/format'
 import { prettyJson } from '#/lib/json'
 import { ACCENT, toolTone } from '#/lib/tone'
-import { ScaffoldGroup } from './scaffold-group'
 
 interface ConversationViewProps {
   view: InspectorView
@@ -63,7 +62,7 @@ export function ConversationView({ view, onSelect }: ConversationViewProps) {
     if (spanId) onSelect(spanId)
   }
 
-  const { turns, orchestratorCount, hasScaffolding } = useMemo(() => {
+  const { turns, orchestratorCount } = useMemo(() => {
     const order: (string | undefined)[] = []
     const buckets = new Map<string | undefined, ConversationEvent[]>()
     for (const e of topLevel) {
@@ -77,26 +76,18 @@ export function ConversationView({ view, onSelect }: ConversationViewProps) {
       arr.push(e)
     }
     const nameFor = (id: string) => view.agentLabels.get(id) ?? view.byId.get(id)?.agentName ?? 'Agent'
-    let scaffolded = false
     const built: ConvTurn[] = order.map((key, i) => {
       const evs = buckets.get(key) ?? []
-      const body = evs.filter((e) => !isLeadMessage(e))
-      const scaffoldItems = groupScaffolding(body)
-      if (scaffoldItems.some((it) => it.kind === 'scaffold_group')) scaffolded = true
       return {
         key: key ?? `flat-${i}`,
         orchestratorSpanId: key,
         label: key ? nameFor(key) : undefined,
         lead: evs.filter(isLeadMessage),
-        body,
-        scaffoldItems,
+        body: evs.filter((e) => !isLeadMessage(e)),
       }
     })
-    return { turns: built, orchestratorCount: order.filter((k) => k !== undefined).length, hasScaffolding: scaffolded }
+    return { turns: built, orchestratorCount: order.filter((k) => k !== undefined).length }
   }, [topLevel, view])
-
-  // Escape hatch when the scaffolding detector misclassifies: render every message raw.
-  const [showAll, setShowAll] = useState(false)
 
   if (events.length === 0) {
     return (
@@ -118,13 +109,12 @@ export function ConversationView({ view, onSelect }: ConversationViewProps) {
     <StickToBottom className="relative h-full overflow-hidden" resize="smooth" initial="instant">
       <StickToBottom.Content
         scrollClassName="overflow-y-auto"
-        className={`flex min-h-full flex-col gap-3 px-3 ${hasScaffolding ? 'pt-12' : 'pt-3'} pb-16 sm:px-4`}
+        className="flex min-h-full flex-col gap-3 px-3 pt-3 pb-16 sm:px-4"
       >
         {turns.map((turn) => (
-          <TurnView key={turn.key} turn={turn} showHeader={orchestratorCount > 1} showAll={showAll} ctx={ctx} />
+          <TurnView key={turn.key} turn={turn} showHeader={orchestratorCount > 1} ctx={ctx} />
         ))}
       </StickToBottom.Content>
-      {hasScaffolding && <ShowAllToggle showAll={showAll} onToggle={() => setShowAll((v) => !v)} />}
       <ConversationScrollButton />
     </StickToBottom>
   )
@@ -136,24 +126,12 @@ interface ConvTurn {
   label: string | undefined
   lead: ConversationEvent[]
   body: ConversationEvent[]
-  scaffoldItems: RenderItem[]
 }
 
 const isLeadMessage = (e: ConversationEvent): boolean => e.kind === 'message' && e.role === 'user'
 
 // Header only when a session has >1 orchestrator; single/none renders without it.
-function TurnView({
-  turn,
-  showHeader,
-  showAll,
-  ctx,
-}: {
-  turn: ConvTurn
-  showHeader: boolean
-  showAll: boolean
-  ctx: EventContext
-}) {
-  const items = showAll ? turn.body.map((event): RenderItem => ({ kind: 'event', event })) : turn.scaffoldItems
+function TurnView({ turn, showHeader, ctx }: { turn: ConvTurn; showHeader: boolean; ctx: EventContext }) {
   return (
     <div className="flex flex-col gap-3">
       {turn.lead.map((event) => renderEvent(event, ctx))}
@@ -168,40 +146,12 @@ function TurnView({
                 {turn.label}
               </div>
             )}
-            {renderItems(items, ctx)}
+            {turn.body.map((event) => renderEvent(event, ctx))}
           </div>
         ) : (
-          renderItems(items, ctx)
+          turn.body.map((event) => renderEvent(event, ctx))
         ))}
     </div>
-  )
-}
-
-function renderItems(items: RenderItem[], ctx: EventContext) {
-  return items.map((item) =>
-    item.kind === 'scaffold_group' ? (
-      <ScaffoldGroup
-        key={`scaffold-${item.messages[0].spanId ?? item.messages[0].timestamp}-${item.messages[0].seq}`}
-        messages={item.messages}
-      />
-    ) : (
-      renderEvent(item.event, ctx)
-    ),
-  )
-}
-
-function ShowAllToggle({ showAll, onToggle }: { showAll: boolean; onToggle: () => void }) {
-  const Icon = showAll ? EyeOff : Eye
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      title={showAll ? 'Hide AG-UI scaffolding' : 'Show all messages including scaffolding'}
-      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border bg-background/90 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
-    >
-      <Icon className="size-3" aria-hidden />
-      {showAll ? 'Hide scaffolding' : 'Show all'}
-    </button>
   )
 }
 
