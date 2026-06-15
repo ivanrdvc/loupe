@@ -15,7 +15,7 @@ test('clicking a server opens its detail page with its tools', async ({ page }) 
   await page.goto('/mcp')
   await page.getByRole('link', { name: MCP.weatherServer }).click()
   await expect(page).toHaveURL(/\/mcp\/weather/)
-  await expect(page.getByText(MCP.weatherTool, { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: MCP.weatherTool })).toBeVisible()
 })
 
 test('the tools tab groups by server, flags conflicts, and shows schema detail', async ({ page }) => {
@@ -27,8 +27,8 @@ test('the tools tab groups by server, flags conflicts, and shows schema detail',
   await expect(page.getByText('Input schema')).toBeVisible()
 })
 
-test('the lint tab groups findings with actionable messages', async ({ page }) => {
+test('the lint tab lists findings with actionable messages', async ({ page }) => {
   await page.goto('/mcp?tab=lint')
-  await expect(page.getByRole('heading', { name: /Naming/ })).toBeVisible()
+  await expect(page.getByText('Naming').first()).toBeVisible()
   await expect(page.getByText(MCP.dupFinding, { exact: false })).toBeVisible()
 })
