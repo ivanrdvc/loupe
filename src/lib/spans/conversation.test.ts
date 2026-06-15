@@ -215,6 +215,41 @@ describe('buildConversation — multi-iteration turn collapse', () => {
     expect(out).toEqual(['user:Rent a flat', "assistant:I'll help", 'assistant:here are listings'])
   })
 
+  it('reads the opening user message once per run — a 2nd distinct user turn in one invoke_agent is not surfaced', () => {
+    // Pins the run-grouping tradeoff: only the first call's input is read.
+    const run: Span = {
+      id: 'run',
+      traceId: 't',
+      parentId: null,
+      service: 's',
+      kind: 'internal',
+      operation: 'invoke_agent',
+      name: 'invoke_agent A',
+      startMs: 0,
+      endMs: 100,
+    } as Span
+    const spans: Span[] = [
+      run,
+      chatSpan({
+        id: 'c1',
+        parentId: 'run',
+        startMs: 10,
+        llmInput: [userMsg('first')],
+        llmOutput: [asstMsg('reply one')],
+      }),
+      chatSpan({
+        id: 'c2',
+        parentId: 'run',
+        startMs: 40,
+        llmInput: [userMsg('second')],
+        llmOutput: [asstMsg('reply two')],
+      }),
+    ]
+    const out = texts(buildConversation(spans))
+    expect(out.filter((t) => t.startsWith('user:'))).toEqual(['user:first'])
+    expect(out).toEqual(['user:first', 'assistant:reply one', 'assistant:reply two'])
+  })
+
   it('renders the reply once when a parent generation mirrors the final step', () => {
     // Langfuse shape: the parent and the last step both carry the final text.
     const spans: Span[] = [

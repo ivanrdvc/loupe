@@ -17,6 +17,12 @@ describe('datasetInputFromSnapshot', () => {
     ).toBe('Show me all employees')
   })
 
+  it('returns empty input when llmInput holds only a system message (no prompt leak)', () => {
+    expect(datasetInputFromSnapshot({ llmInput: [{ role: 'system', content: 'You are a helpful assistant.' }] })).toBe(
+      '',
+    )
+  })
+
   it('keeps remaining turns as an array once the system turn is dropped', () => {
     expect(
       datasetInputFromSnapshot({
