@@ -24,12 +24,13 @@ export function IconTabs<T extends string>({
   className,
   variant = 'default',
 }: IconTabsProps<T>) {
+  const line = variant === 'line'
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as T)} className={className}>
       <TabsList aria-label={ariaLabel} variant={variant}>
         {tabs.map(({ id, label, icon: Icon }) => (
-          <TabsTrigger key={id} value={id}>
-            <Icon aria-hidden />
+          <TabsTrigger key={id} value={id} className={line ? 'flex-none px-3 pb-2' : undefined}>
+            <Icon aria-hidden className={line ? 'text-muted-foreground' : undefined} />
             {label}
           </TabsTrigger>
         ))}

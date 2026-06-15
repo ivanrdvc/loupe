@@ -52,9 +52,9 @@ export function InspectViewBar({
   const showRawAll = view === 'spans' && onToggleRawAll
   const hasRefreshGroup = autoRefresh != null && onAutoRefreshChange != null && onRefresh != null
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-4 py-2">
-      <IconTabs tabs={visibleTabs} value={view} onChange={onViewChange} aria-label="Inspect view" />
-      <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-4 pt-2">
+      <IconTabs tabs={visibleTabs} value={view} onChange={onViewChange} aria-label="Inspect view" variant="line" />
+      <div className="flex flex-wrap items-center gap-1 pb-2">
         {showRawAll && (
           <Tooltip>
             <TooltipTrigger asChild>
