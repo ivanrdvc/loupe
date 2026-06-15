@@ -571,7 +571,7 @@ function CollapsibleText({ content }: { content: string }) {
       </pre>
       <CollapsibleTrigger asChild>
         <button type="button" className="mt-1 text-[11px] font-medium text-primary hover:underline">
-          {open ? 'Show less' : `Show all (${content.length.toLocaleString()} chars)`}
+          {open ? 'Show less' : `Show all (${content.length.toLocaleString('en-US')} chars)`}
         </button>
       </CollapsibleTrigger>
     </Collapsible>

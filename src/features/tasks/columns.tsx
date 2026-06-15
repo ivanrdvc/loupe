@@ -129,7 +129,7 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
               isAnimationActive={false}
             />
           </AreaChart>
-          <span className="tabular-nums">{r.fires.toLocaleString()}</span>
+          <span className="tabular-nums">{r.fires.toLocaleString('en-US')}</span>
         </div>
       )
     },

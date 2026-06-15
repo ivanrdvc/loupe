@@ -72,13 +72,13 @@ function StatsGrid({ detail, loading }: { detail: ToolDetail | null; loading: bo
   }
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-b px-4 py-4 sm:grid-cols-4">
-      <Stat label="Calls" value={detail.calls.toLocaleString()} hint="Tool invocations in this window." />
+      <Stat label="Calls" value={detail.calls.toLocaleString('en-US')} hint="Tool invocations in this window." />
       <Stat
         label="Errors"
         hint="Failed invocations. Target: < 1% error rate."
         value={
           <span className="flex items-baseline gap-1.5">
-            <span className="tabular-nums">{detail.errors.toLocaleString()}</span>
+            <span className="tabular-nums">{detail.errors.toLocaleString('en-US')}</span>
             {detail.errors > 0 && (
               <Badge variant="destructive" className="px-1 text-[10px]">
                 {formatPercent(detail.errorRate, 1)}
@@ -122,7 +122,7 @@ export function TokensFromChars({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
   const tokens = tokensFromChars(chars)
   return (
-    <span title={`${chars.toLocaleString()} chars · ≈${tokens.toLocaleString()} tokens`}>
+    <span title={`${chars.toLocaleString('en-US')} chars · ≈${tokens.toLocaleString('en-US')} tokens`}>
       {formatTokens(tokens)}
       <span className="text-muted-foreground"> tok</span>
     </span>

@@ -77,7 +77,7 @@ const columns: ColumnDef<AgentRow>[] = [
   {
     accessorKey: 'calls',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Calls" className="justify-end" />,
-    cell: ({ row }) => <div className="text-right tabular-nums">{row.original.calls.toLocaleString()}</div>,
+    cell: ({ row }) => <div className="text-right tabular-nums">{row.original.calls.toLocaleString('en-US')}</div>,
   },
   {
     accessorKey: 'errorRate',

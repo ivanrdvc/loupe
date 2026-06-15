@@ -33,7 +33,7 @@ interface TileData {
 }
 
 function fmtCount(n: number): string {
-  return n.toLocaleString()
+  return n.toLocaleString('en-US')
 }
 
 function rateTone(numer: number, denom: number, greenAt: number, amberAt: number): Tone {

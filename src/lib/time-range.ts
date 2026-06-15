@@ -57,7 +57,7 @@ export function label(r: TimeRange) {
 }
 
 export const formatDayMonth = (d: Date | number) =>
-  (d instanceof Date ? d : new Date(d)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  (d instanceof Date ? d : new Date(d)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 export function formatChartTick(ts: number, r: TimeRange): string {
   const { from, to } = windowMs(r)

@@ -364,7 +364,7 @@ function AttrRow({ attrKey, value }: { attrKey: string; value: unknown }) {
                 onClick={() => setExpanded((x) => !x)}
               >
                 {expanded ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
-                {expanded ? 'Collapse' : `Show (${formatted.length.toLocaleString()} chars)`}
+                {expanded ? 'Collapse' : `Show (${formatted.length.toLocaleString('en-US')} chars)`}
               </Button>
             )}
           </div>

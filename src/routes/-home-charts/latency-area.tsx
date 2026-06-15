@@ -70,7 +70,7 @@ function LatencyChartInner({ data, range }: { data: LatencyPoint[]; range: TimeR
                   <span className="flex w-full items-center gap-2">
                     <span className="text-muted-foreground">{name}</span>
                     <span className="ml-auto font-mono font-medium tabular-nums">
-                      {isLatency ? formatDuration(n) : n.toLocaleString()}
+                      {isLatency ? formatDuration(n) : n.toLocaleString('en-US')}
                     </span>
                   </span>
                 )

@@ -67,7 +67,7 @@ export function formatTokens(tokens: number | undefined): string {
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
   if (tokens >= 10_000) return `${Math.round(tokens / 1000)}k`
   if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`
-  return tokens.toLocaleString()
+  return tokens.toLocaleString('en-US')
 }
 
 export function tokensFromChars(chars: number): number {

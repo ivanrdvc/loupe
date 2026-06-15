@@ -103,7 +103,7 @@ function Str({ value }: { value: string }) {
           onClick={() => setFull((f) => !f)}
           className="ml-1.5 cursor-pointer font-sans text-[10px] text-muted-foreground underline-offset-2 hover:underline"
         >
-          {full ? 'less' : `+${(value.length - MAX_STRING).toLocaleString()} chars`}
+          {full ? 'less' : `+${(value.length - MAX_STRING).toLocaleString('en-US')} chars`}
         </button>
       )}
     </span>

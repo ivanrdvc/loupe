@@ -162,7 +162,7 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
           name={row.name}
           value={formatPercent(row.errorRate, 1)}
           valueTone={rateTextTone(row.errorRate)}
-          meta={`${row.errors.toLocaleString()} / ${row.total.toLocaleString()} calls`}
+          meta={`${row.errors.toLocaleString('en-US')} / ${row.total.toLocaleString('en-US')} calls`}
           bar={{ pct: row.errorRate, tone: rateBarTone(row.errorRate) }}
         />
       ))}

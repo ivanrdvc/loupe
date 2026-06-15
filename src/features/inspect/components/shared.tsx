@@ -67,5 +67,5 @@ export function formatDuration(ms: number): string {
 
 export function fmtNum(n: number | undefined): string {
   if (n == null) return '0'
-  return n.toLocaleString()
+  return n.toLocaleString('en-US')
 }

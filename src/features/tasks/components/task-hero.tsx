@@ -49,7 +49,7 @@ function FlowChain({ row, errorRate }: { row: TaskRow; errorRate: number }) {
   const taskLabel = row.name ?? (row.taskId && shortId(row.taskId)) ?? row.rootOperation ?? kindMeta.label
   const taskTitle = row.taskId ?? row.name ?? row.rootOperation ?? kindMeta.label
   const taskHint = computeTaskHint(row)
-  const runLabel = `${row.fires.toLocaleString()} ${row.fires === 1 ? 'fire' : 'fires'}`
+  const runLabel = `${row.fires.toLocaleString('en-US')} ${row.fires === 1 ? 'fire' : 'fires'}`
   const runHint = computeRunHint(row)
   const fireTone = row.errored > 0 ? ACCENT.rose.text : ACCENT.emerald.text
   // Animate beams only when the task is still "live" — cron keeps firing,
