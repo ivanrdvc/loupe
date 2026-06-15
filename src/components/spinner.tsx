@@ -1,4 +1,5 @@
 import { LoaderCircle } from 'lucide-react'
+import type { ComponentProps } from 'react'
 import { cn } from '#/lib/utils'
 
 const SIZE_CLASS = {
@@ -6,11 +7,10 @@ const SIZE_CLASS = {
   md: 'size-4',
 } as const
 
-interface Props {
+interface Props extends ComponentProps<typeof LoaderCircle> {
   size?: keyof typeof SIZE_CLASS
-  className?: string
 }
 
-export function Spinner({ size = 'sm', className }: Props) {
-  return <LoaderCircle className={cn(SIZE_CLASS[size], 'animate-spin', className)} />
+export function Spinner({ size = 'sm', className, ...props }: Props) {
+  return <LoaderCircle className={cn(SIZE_CLASS[size], 'animate-spin', className)} {...props} />
 }

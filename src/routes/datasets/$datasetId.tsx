@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
+import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
@@ -133,19 +134,20 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     onError: (err) => toast.error(errMessage(err)),
   })
 
-  const onRunSuccess = async (runId: string, message: string) => {
+  const onRunSuccess = async (runId: string, message: string, toastId?: string | number) => {
     await invalidate()
     setSelectedIds([runId])
     setTab('runs')
-    toast.success(message)
+    toast.success(message, toastId != null ? { id: toastId } : undefined)
     if (autoJudge && judgeDefaults?.configured) judgeMutation.mutate(runId)
   }
 
   const runMutation = useMutation({
     mutationFn: () =>
       runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, overrides } }),
-    onSuccess: ({ runId }) => onRunSuccess(runId, 'Run complete'),
-    onError: (err) => toast.error(errMessage(err)),
+    onMutate: () => ({ toastId: toast.loading('Running on every example…') }),
+    onSuccess: ({ runId }, _vars, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
+    onError: (err, _vars, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
   })
 
   const [runningExampleId, setRunningExampleId] = useState<string | null>(null)
@@ -537,7 +539,7 @@ function RunsTab({
           <TooltipContent>Judge automatically after each run</TooltipContent>
         </Tooltip>
         <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
-          <CirclePlay data-icon="inline-start" />
+          {running ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
           {running ? 'Running…' : 'Run on all'}
         </Button>
       </div>

@@ -108,14 +108,20 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
   // top-level run to group under).
   const parentAgentBySpanId = new Map<string, string>()
   const orchestratorBySpanId = new Map<string, string>()
+  // gen_ai.task.id of the nearest invoke_agent ancestor — the run a chat belongs to.
+  const runBySpanId = new Map<string, string>()
   for (const span of spans) {
     let curr: Span | undefined = span
     let nearestAgentTool: string | undefined
+    let nearestRun: string | undefined
     let outermostAgent: string | undefined
     while (curr?.parentId) {
       const parent = byId.get(curr.parentId)
       if (!parent) break
-      if (parent.operation === 'invoke_agent') outermostAgent = parent.id
+      if (parent.operation === 'invoke_agent') {
+        if (nearestRun === undefined) nearestRun = parent.taskId ?? parent.id
+        outermostAgent = parent.id
+      }
       if (
         nearestAgentTool === undefined &&
         parent.operation === 'tool' &&
@@ -126,30 +132,35 @@ export function buildConversation(spans: Span[]): ConversationEvent[] {
       curr = parent
     }
     if (nearestAgentTool) parentAgentBySpanId.set(span.id, nearestAgentTool)
+    if (nearestRun) runBySpanId.set(span.id, nearestRun)
     if (outermostAgent) orchestratorBySpanId.set(span.id, outermostAgent)
   }
 
   const events: ConversationEvent[] = []
   const seen = new Set<string>()
 
-  // Group chat spans into turns (a chat span + any chat spans nested beneath it
-  // — an agent's per-iteration model calls). One-span-per-turn producers (MEAI)
-  // yield turns of one. For multi-iteration turns, each call's input re-sends
-  // the full history, so we read it once from the largest input rather than
-  // concatenating every call.
+  // A turn is every chat under one run (gen_ai.task.id): the initial call plus
+  // continuations after each tool/client-tool round-trip. No run id (MEAI) falls
+  // back to the outermost chat ancestor. Each iteration's input re-sends the full
+  // history (often re-packed into one synthetic user message), so read the opening
+  // prompt once from the first call and take output from every call.
   const chatById = new Map<string, Span>()
   for (const span of spans) if (span.operation === 'chat') chatById.set(span.id, span)
   const turns = new Map<string, Span[]>()
   for (const span of chatById.values()) {
-    let root = span
-    while (root.parentId) {
-      const parent = chatById.get(root.parentId)
-      if (!parent) break
-      root = parent
+    let rootId = runBySpanId.get(span.id)
+    if (!rootId) {
+      let root = span
+      while (root.parentId) {
+        const parent = chatById.get(root.parentId)
+        if (!parent) break
+        root = parent
+      }
+      rootId = root.id
     }
-    const members = turns.get(root.id)
+    const members = turns.get(rootId)
     if (members) members.push(span)
-    else turns.set(root.id, [span])
+    else turns.set(rootId, [span])
   }
 
   for (const [rootId, members] of turns) {

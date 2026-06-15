@@ -177,6 +177,44 @@ describe('buildConversation — multi-iteration turn collapse', () => {
     expect(out).toEqual(['user:first', 'assistant:one', 'user:second', 'assistant:two'])
   })
 
+  it('groups sibling chats under one invoke_agent, ignoring a re-packed transcript input', () => {
+    // AG-UI / Mastra shape: one run fires an initial chat + a continuation after
+    // a client tool, and the MessageHistory processor re-packs the whole thread
+    // into a single synthetic user message on the 2nd call. That blob must not
+    // render as a fresh user turn.
+    const run: Span = {
+      id: 'run',
+      traceId: 't',
+      parentId: null,
+      service: 's',
+      kind: 'internal',
+      operation: 'invoke_agent',
+      name: 'invoke_agent Estate Agent',
+      startMs: 0,
+      endMs: 100,
+    } as Span
+    const spans: Span[] = [
+      run,
+      chatSpan({
+        id: 'c1',
+        parentId: 'run',
+        startMs: 10,
+        llmInput: [sysMsg('S'), userMsg('Rent a flat')],
+        llmOutput: [asstMsg("I'll help")],
+      }),
+      chatSpan({
+        id: 'c2',
+        parentId: 'run',
+        startMs: 40,
+        llmInput: [sysMsg('S'), userMsg("User: Rent a flat\nAssistant: I'll help")],
+        llmOutput: [asstMsg('here are listings')],
+      }),
+    ]
+    const out = texts(buildConversation(spans))
+    expect(out.filter((t) => t.startsWith('user:'))).toEqual(['user:Rent a flat'])
+    expect(out).toEqual(['user:Rent a flat', "assistant:I'll help", 'assistant:here are listings'])
+  })
+
   it('renders the reply once when a parent generation mirrors the final step', () => {
     // Langfuse shape: the parent and the last step both carry the final text.
     const spans: Span[] = [
