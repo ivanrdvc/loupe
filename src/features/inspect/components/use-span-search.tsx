@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { Badge } from '#/components/ui/badge'
-import { type InspectorView, isCollapsibleInfra } from '#/features/inspect/logic'
+import { type InspectorView, isCollapsibleInfra, isNestedQueryEmbedding } from '#/features/inspect/logic'
 import { displayFor } from './shared'
 
 export function useSpanSearch({ view, onSelect }: { view: InspectorView; onSelect: (id: string) => void }) {
@@ -10,7 +10,9 @@ export function useSpanSearch({ view, onSelect }: { view: InspectorView; onSelec
     const { spans, byId, agentLabels } = view
     // Palette skips infra (http/mcp) spans so search stays focused on meaningful
     // nodes. Per-trace raw toggle in the tree is the way to see them.
-    const visible = spans.filter((s) => !isCollapsibleInfra(s))
+    const visible = spans.filter(
+      (s) => !isCollapsibleInfra(s) && !isNestedQueryEmbedding(s, s.parentId ? byId.get(s.parentId) : undefined),
+    )
     return {
       id: 'session-spans',
       group: 'Spans in this session',

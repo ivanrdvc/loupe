@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Span } from '#/lib/spans'
-import { isAgentSpan, isChatSpan, isCollapsibleInfra, isToolLike, spanHasError } from './predicates'
+import {
+  isAgentSpan,
+  isChatSpan,
+  isCollapsibleInfra,
+  isNestedQueryEmbedding,
+  isToolLike,
+  spanHasError,
+} from './predicates'
 
 function span(over: Partial<Span> & Pick<Span, 'operation'>): Span {
   return {
@@ -36,6 +43,13 @@ describe('predicates', () => {
     expect(isCollapsibleInfra(span({ operation: 'tool' }))).toBe(false)
     expect(isCollapsibleInfra(span({ operation: 'chat' }))).toBe(false)
     expect(isCollapsibleInfra(span({ operation: 'invoke_agent' }))).toBe(false)
+  })
+
+  it('isNestedQueryEmbedding flags an embedding only under a retrieval parent', () => {
+    expect(isNestedQueryEmbedding(span({ operation: 'embedding' }), span({ operation: 'retrieval' }))).toBe(true)
+    expect(isNestedQueryEmbedding(span({ operation: 'embedding' }), span({ operation: 'chat' }))).toBe(false)
+    expect(isNestedQueryEmbedding(span({ operation: 'embedding' }), undefined)).toBe(false)
+    expect(isNestedQueryEmbedding(span({ operation: 'retrieval' }), span({ operation: 'retrieval' }))).toBe(false)
   })
 })
 
