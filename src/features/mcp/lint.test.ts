@@ -116,6 +116,34 @@ describe('lintMcpRegistry', () => {
     expect(findings.length).toBeGreaterThan(0)
     expect(findings.every((f) => typeof f.category === 'string')).toBe(true)
   })
+
+  it('flags a list tool with no pagination as an unbounded cost finding', () => {
+    const s = server('s', { tools: [tool('s', 'list_employees', { inputSchema: undefined })] })
+    const found = lintMcpRegistry([s]).find((f) => f.ruleId === 'tool.unbounded')
+    expect(found?.category).toBe('cost')
+  })
+})
+
+describe('lint config', () => {
+  it('disables a rule', () => {
+    const s = server('s', { fetchStatus: 'error', fetchError: 'HTTP 502' })
+    const config = { rules: { 'server.fetch_failed': { enabled: false } } }
+    expect(rules([s])).toContain('server.fetch_failed')
+    expect(lintMcpRegistry([s], { config }).map((f) => f.ruleId)).not.toContain('server.fetch_failed')
+  })
+
+  it('overrides a rule severity', () => {
+    const s = server('s', { fetchStatus: 'error', fetchError: 'HTTP 502' })
+    const config = { rules: { 'server.fetch_failed': { severity: 'warning' as const } } }
+    expect(lintMcpRegistry([s], { config }).find((f) => f.ruleId === 'server.fetch_failed')?.severity).toBe('warning')
+  })
+
+  it('adjusts a threshold via options', () => {
+    const s = server('s', { tools: range(3).map((i) => tool('s', `t${i}`)) })
+    expect(rules([s])).not.toContain('server.tool_count')
+    const config = { rules: { 'server.tool_count': { options: { warn: 2, error: 5 } } } }
+    expect(lintMcpRegistry([s], { config }).map((f) => f.ruleId)).toContain('server.tool_count')
+  })
 })
 
 function range(n: number): number[] {

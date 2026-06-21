@@ -2,10 +2,11 @@ import type { LintCategory, LintSeverity, McpLintFinding } from '../types'
 
 const SEVERITY_RANK: Record<LintSeverity, number> = { error: 3, warning: 2, info: 1 }
 
-const LINT_CATEGORY_ORDER: LintCategory[] = ['server-health', 'tool-catalog', 'naming']
+const LINT_CATEGORY_ORDER: LintCategory[] = ['server-health', 'cost', 'tool-catalog', 'naming']
 
 export const LINT_CATEGORY_LABELS: Record<LintCategory, string> = {
   'server-health': 'Server health',
+  cost: 'Cost & scale',
   'tool-catalog': 'Tool catalog',
   naming: 'Naming',
 }

@@ -13,7 +13,7 @@ The "why" of loupe subsystems. Mental models, architecture, trade-offs.
 - [Detection and enrichment](detection-and-enrichment.md) — discovering new tools/agents and recovering truncated attributes.
 - [Datasets](datasets.md) — versioned question sets fired at the agent, linked back to traces.
 - [Evaluation](evaluation.md) — one `score` primitive for human / judge / code verdicts.
-- [MCP read-through registry](mcp-read-through.md) — reading MCP registries and live server capabilities.
+- [MCP read-through registry](mcp-read-through.md) — reading MCP registries, live capabilities, cost/scale signals, tags, and config-tunable rules-as-data lint.
 - [Sessions vs Runs](sessions-vs-live.md) — observability surface vs active-execution surface.
 - [Tasks](tasks.md) — machine-driven agent runs rolled up by task identity.
 

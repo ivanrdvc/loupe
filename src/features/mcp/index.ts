@@ -1,6 +1,7 @@
 import { errMessage } from '#/lib/format'
 import { listServerTools } from './client'
 import { lintMcpRegistry } from './lint'
+import { LINT_CONFIG } from './lint-config'
 import { getRegistrySource } from './registry'
 import type { McpRegistryResult, McpServer } from './types'
 
@@ -29,9 +30,10 @@ async function listMcpRegistry(): Promise<McpRegistryResult> {
 
 export async function listMcpRegistryWithLint() {
   const registry = await listMcpRegistry()
-  return { ...registry, findings: lintMcpRegistry(registry.servers) }
+  return { ...registry, findings: lintMcpRegistry(registry.servers, { config: LINT_CONFIG }) }
 }
 
+export { BUILTIN_RULES, lintMcpRegistry } from './lint'
 export { aggregateTools, type UniqueTool } from './logic/aggregate-tools'
 export {
   findingsForServer,
@@ -39,7 +41,18 @@ export {
   LINT_CATEGORY_LABELS,
   worstSeverity,
 } from './logic/lint-helpers'
-export type { LintSeverity, McpLintFinding, McpServer, McpTool, McpToolAnnotations } from './types'
+export { deriveSignals, TOOL_SIGNAL_DESCRIPTIONS, TOOL_SIGNALS, type ToolSignal } from './logic/signals'
+export { TOOL_TAGS } from './tool-tags'
+export type {
+  LintRule,
+  LintSeverity,
+  McpLintConfig,
+  McpLintFinding,
+  McpServer,
+  McpTool,
+  McpToolAnnotations,
+  RuleConfig,
+} from './types'
 
 async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = []
