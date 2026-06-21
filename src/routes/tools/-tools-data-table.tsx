@@ -10,7 +10,6 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import * as React from 'react'
-import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTablePagination } from '#/components/data-table-pagination'
 import { DataTableToolbar } from '#/components/data-table-toolbar'
 import { Spinner } from '#/components/spinner'
@@ -26,12 +25,9 @@ interface ToolsDataTableProps {
   isLoading?: boolean
   sorting: SortingState
   onSortingChange: (next: SortingState) => void
+  onRowClick: (row: ToolRow) => void
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
-  autoRefresh: AutoRefreshInterval
-  onAutoRefreshChange: (interval: AutoRefreshInterval) => void
-  onRefresh: () => void
-  refreshing?: boolean
   dimensions: Record<string, string>
   onDimensionChange: (key: string, value: string) => void
 }
@@ -41,12 +37,9 @@ export function ToolsDataTable({
   isLoading,
   sorting,
   onSortingChange,
+  onRowClick,
   range,
   onRangeChange,
-  autoRefresh,
-  onAutoRefreshChange,
-  onRefresh,
-  refreshing,
   dimensions,
   onDimensionChange,
 }: ToolsDataTableProps) {
@@ -78,26 +71,21 @@ export function ToolsDataTable({
         table={table}
         searchColumnId="name"
         searchPlaceholder="Filter tools…"
-        range={range}
-        onRangeChange={onRangeChange}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={onAutoRefreshChange}
-        onRefresh={onRefresh}
-        refreshing={refreshing}
-      />
-      {TOOL_DIMENSIONS.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-4 pb-2 lg:px-6">
-          {TOOL_DIMENSIONS.map((d) => (
+        extraFilters={
+          TOOL_DIMENSIONS.length > 0 &&
+          TOOL_DIMENSIONS.map((d) => (
             <Input
               key={d.key}
               value={dimensions[d.key] ?? ''}
               onChange={(e) => onDimensionChange(d.key, e.target.value)}
-              placeholder={`${d.label} id…`}
-              className="h-8 w-44"
+              placeholder={`Filter by ${d.label.toLowerCase()}…`}
+              className="h-8 w-full min-w-0 sm:w-56"
             />
-          ))}
-        </div>
-      )}
+          ))
+        }
+        range={range}
+        onRangeChange={onRangeChange}
+      />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
           <Table>
@@ -120,7 +108,8 @@ export function ToolsDataTable({
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                    onClick={() => onRowClick(row.original)}
+                    className="h-12 cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>

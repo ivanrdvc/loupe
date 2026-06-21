@@ -2,10 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import type { SortingState } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
-import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { toolsCatalogQuery } from '#/features/inspect'
-import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import type { ToolDimensionFilter } from '#/lib/telemetry'
 import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
@@ -16,10 +14,10 @@ const SORTABLE_COLUMNS = new Set([
   'calls',
   'errorRate',
   'p95Ms',
-  'avgBytes',
-  'p95Bytes',
-  'maxBytes',
-  'totalBytes',
+  'avgTokens',
+  'p95Tokens',
+  'maxTokens',
+  'totalTokens',
   'lastSeenMs',
 ])
 
@@ -42,7 +40,6 @@ function ToolsPage() {
   const { sort, desc } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const [range, setRange] = useTimeRange()
-  const [autoRefresh, setAutoRefresh] = useAutoRefresh()
   const [dimValues, setDimValues] = useState<Record<string, string>>({})
 
   const dimensions: ToolDimensionFilter[] = useMemo(
@@ -54,10 +51,7 @@ function ToolsPage() {
     [dimValues],
   )
 
-  const { data, isLoading, isFetching, refetch } = useQuery({
-    ...toolsCatalogQuery(range, dimensions),
-    refetchInterval: AUTO_REFRESH_MS[autoRefresh],
-  })
+  const { data, isLoading } = useQuery(toolsCatalogQuery(range, dimensions))
 
   const sorting: SortingState = useMemo(
     () => (sort ? [{ id: sort, desc: desc ?? true }] : [{ id: 'calls', desc: true }]),
@@ -83,14 +77,9 @@ function ToolsPage() {
         isLoading={isLoading}
         sorting={sorting}
         onSortingChange={setSorting}
+        onRowClick={(row) => navigate({ search: (prev) => ({ ...prev, tool: row.name }) })}
         range={range}
         onRangeChange={setRange}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={setAutoRefresh}
-        onRefresh={() => {
-          void refetch()
-        }}
-        refreshing={isFetching}
         dimensions={dimValues}
         onDimensionChange={(key, value) => setDimValues((prev) => ({ ...prev, [key]: value }))}
       />

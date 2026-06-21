@@ -9,6 +9,7 @@ import {
   FIXTURE_INVENTORY,
   FIXTURE_TOOL_ERRORS,
   fixtureToolPayloadBody,
+  fixtureToolPayloadOverTime,
   fixtureToolRecentCalls,
   fixtureTools,
 } from './fixtures'
@@ -24,6 +25,7 @@ import type {
   ToolCallSample,
   ToolErrorRow,
   ToolListOpts,
+  ToolPayloadPoint,
   ToolRow,
   TopOpts,
   WindowOpts,
@@ -67,6 +69,23 @@ export async function fetchToolPayloadBody(p: TelemetryProvider, spanId: string)
       return ai.fetchToolPayloadBody(p, spanId)
     case 'fixtures':
       return fixtureToolPayloadBody(spanId)
+    default:
+      return assertNever(p)
+  }
+}
+
+export async function fetchToolPayloadOverTime(
+  p: TelemetryProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<ToolPayloadPoint[]> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchToolPayloadOverTime(p, name, opts)
+    case 'app-insights':
+      return ai.fetchToolPayloadOverTime(p, name, opts)
+    case 'fixtures':
+      return fixtureToolPayloadOverTime(name)
     default:
       return assertNever(p)
   }

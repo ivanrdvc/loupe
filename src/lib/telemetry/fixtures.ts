@@ -8,6 +8,7 @@ import type {
   SpanSummary,
   ToolCallSample,
   ToolErrorRow,
+  ToolPayloadPoint,
   ToolRow,
   TraceFetch,
   TraceSummary,
@@ -401,11 +402,11 @@ export const FIXTURE_TOOLS: ToolRow[] = [
     callsWithResult: 100,
     errors: 12,
     errorRate: 0.12,
-    avgBytes: 520,
-    p50Bytes: 420,
-    p95Bytes: 1600,
-    maxBytes: 2400,
-    totalBytes: 52_000,
+    avgTokens: 130,
+    p50Tokens: 105,
+    p95Tokens: 400,
+    maxTokens: 600,
+    totalTokens: 13_000,
     p50Ms: 40,
     p95Ms: 1200,
     firstSeenMs: 1_700_000_000_000,
@@ -419,11 +420,11 @@ export const FIXTURE_TOOLS: ToolRow[] = [
     callsWithResult: 40,
     errors: 3,
     errorRate: 0.075,
-    avgBytes: 1200,
-    p50Bytes: 950,
-    p95Bytes: 4000,
-    maxBytes: 8200,
-    totalBytes: 48_000,
+    avgTokens: 300,
+    p50Tokens: 238,
+    p95Tokens: 1000,
+    maxTokens: 2050,
+    totalTokens: 12_000,
     p50Ms: 30,
     p95Ms: 900,
     firstSeenMs: 1_700_000_000_000,
@@ -437,11 +438,11 @@ export const FIXTURE_TOOLS: ToolRow[] = [
     callsWithResult: 25,
     errors: 0,
     errorRate: 0,
-    avgBytes: 800,
-    p50Bytes: 700,
-    p95Bytes: 1600,
-    maxBytes: 3100,
-    totalBytes: 20_000,
+    avgTokens: 200,
+    p50Tokens: 175,
+    p95Tokens: 400,
+    maxTokens: 775,
+    totalTokens: 5_000,
     p50Ms: 20,
     p95Ms: 400,
     firstSeenMs: 1_700_000_000_000,
@@ -508,6 +509,18 @@ export function fixtureToolRecentCalls(name: string): ToolCallSample[] {
       resultChars: 1600,
     },
   ]
+}
+
+export function fixtureToolPayloadOverTime(name: string): ToolPayloadPoint[] {
+  if (!FIXTURE_TOOLS.some((r) => r.name === name)) return []
+  const base = 1_700_000_000_000
+  const hour = 3_600_000
+  const growing = name === 'run_sql'
+  return Array.from({ length: 8 }, (_, i) => ({
+    ts: base + i * hour,
+    p95Tokens: growing ? 200 + i * 260 : 400,
+    calls: 5,
+  }))
 }
 
 export function createFixturesProvider(): FixturesProvider {

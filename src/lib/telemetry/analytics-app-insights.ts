@@ -1,6 +1,7 @@
+import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { aiCoalesce } from './conventions'
-import { mapToolErrorRow, num, toBytes } from './shared'
+import { mapToolErrorRow, num, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
 import type {
   AgentMetrics,
@@ -14,6 +15,7 @@ import type {
   ToolCallSample,
   ToolErrorRow,
   ToolListOpts,
+  ToolPayloadPoint,
   ToolRow,
   TopOpts,
   WindowOpts,
@@ -98,11 +100,11 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       callsWithResult: Number(r.calls_with_result ?? 0),
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
-      avgBytes: toBytes(r.avg_chars),
-      p50Bytes: toBytes(r.p50_chars),
-      p95Bytes: toBytes(r.p95_chars),
-      maxBytes: toBytes(r.max_chars),
-      totalBytes: toBytes(r.total_chars),
+      avgTokens: tokensFromChars(toCount(r.avg_chars)),
+      p50Tokens: tokensFromChars(toCount(r.p50_chars)),
+      p95Tokens: tokensFromChars(toCount(r.p95_chars)),
+      maxTokens: tokensFromChars(toCount(r.max_chars)),
+      totalTokens: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
       firstSeenMs: typeof r.first_seen === 'string' ? Date.parse(r.first_seen) : 0,
@@ -164,6 +166,30 @@ export async function fetchToolRecentCalls(
       return sample
     })
     .filter((s): s is ToolCallSample => s !== null)
+}
+
+export async function fetchToolPayloadOverTime(
+  p: AppInsightsProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<ToolPayloadPoint[]> {
+  if (!TOOL_NAME_RE.test(name)) return []
+  const fromUs = opts?.fromUs ?? 0
+  const toUs = opts?.toUs ?? 0
+  const bucketSec = bucketSecondsFor(fromUs, toUs)
+  const q = `
+    union dependencies, requests
+    | where name == ${kqlString(`execute_tool ${name}`)}
+    | extend result_len = strlen(tostring(customDimensions["${RESULT_ATTR}"]))
+    | extend result_len_nz = iif(result_len > 0, todouble(result_len), real(null))
+    | summarize p95_chars = percentile(result_len_nz, 95), count = count() by bucket = bin(timestamp, ${bucketSec}s)
+    | order by bucket asc
+  `
+  const rows = await p.query(q, opts ?? {})
+  return zeroFillBucketedAt(rows, fromUs, toUs, bucketSec, (r) => ({
+    p95Tokens: tokensFromChars(toCount(r.p95_chars)),
+    calls: Number(r.count ?? 0),
+  })).map((b) => ({ ts: b.ts, p95Tokens: b.value.p95Tokens, calls: b.value.calls }))
 }
 
 export async function fetchChatLatencyOverTime(p: AppInsightsProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

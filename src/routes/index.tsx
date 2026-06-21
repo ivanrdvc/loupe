@@ -10,7 +10,7 @@ import { ThroughputAreaChart } from './-home-charts/throughput-area'
 import { NewAgentsTable, NewToolsTable, Section, ToolErrorTable, ToolPayloadTable } from './-home-components'
 import { cacheHitRateOverTimeQuery, chatLatencyOverTimeQuery, homeInboxQuery, runsPerHourQuery } from './-home-data'
 
-function ViewAllToolsLink({ sort }: { sort?: 'p95Bytes' | 'errorRate' | 'lastSeenMs' }) {
+function ViewAllToolsLink({ sort }: { sort?: 'p95Tokens' | 'errorRate' | 'lastSeenMs' }) {
   return (
     <Link
       to="/tools"
@@ -44,7 +44,7 @@ function Home() {
   const toolErrors = data?.toolErrors ?? []
   const toolPayloads = [...(tools ?? [])]
     .filter((t) => t.callsWithResult > 0)
-    .sort((a, b) => b.p95Bytes - a.p95Bytes)
+    .sort((a, b) => b.p95Tokens - a.p95Tokens)
     .slice(0, PAYLOAD_PREVIEW)
 
   return (
@@ -53,7 +53,7 @@ function Home() {
         <Section
           title={ALERT_KINDS.tool_size_p95.title}
           description={`${ALERT_KINDS.tool_size_p95.blurb} Last ${DEFAULT} days; sizes are estimated tokens — open a call for the exact OpenAI count.`}
-          action={<ViewAllToolsLink sort="p95Bytes" />}
+          action={<ViewAllToolsLink sort="p95Tokens" />}
         >
           <ToolPayloadTable rows={toolPayloads} />
         </Section>

@@ -9,6 +9,6 @@
 - Historic data across agent versions (compare runs over time)
 - Experiment tags (UI only) — "env" → "Tag" filter (`tag.tags`), chips on `/traces` + `/sessions`
 - HTTP API for LLM debugging — `plans/http-api.md`
-- MCP — `plans/mcp.md`
+- MCP global tools view — render the existing `aggregateTools`/`UniqueTool[]` as a once-per-tool list (which server(s) provide each), instead of only feeding duplicate/conflict badges in the by-server Tools tab
 - Anthropic token counts estimated (o200k BPE); exact needs count_tokens API (`src/features/inspect/logic/tokens.ts`)
 - RAG sidecars (embedding/retrieval as documents-with-scores) + multimodal render (image/audio message parts) — deferred until a producer emits those span shapes; classify/UI only, token-leak + base64-inflation already prevented

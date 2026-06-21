@@ -120,7 +120,8 @@ function SidebarProvider({
             ...style,
           } as React.CSSProperties
         }
-        className={cn('group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar', className)}
+        // h-svh (not min-h-svh): definite height so Page's h-full resolves and routes scroll internally.
+        className={cn('group/sidebar-wrapper flex h-svh w-full has-data-[variant=inset]:bg-sidebar', className)}
         {...props}
       >
         {children}

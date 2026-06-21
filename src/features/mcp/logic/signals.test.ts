@@ -59,4 +59,11 @@ describe('deriveSignals', () => {
     expect(s).toEqual(expect.arrayContaining(['bulk', 'self-scoped']))
     expect(s).not.toContain('unbounded')
   })
+
+  it('unions fork vocab onto the defaults instead of replacing them', () => {
+    const t = tool('searchListings', { keywords: { type: 'string' }, limit: { type: 'number' } })
+    expect(deriveSignals(t)).not.toContain('filterable')
+    const s = deriveSignals(t, { filterParams: ['keywords'] })
+    expect(s).toEqual(expect.arrayContaining(['paginated', 'filterable']))
+  })
 })

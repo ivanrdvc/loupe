@@ -36,9 +36,15 @@ test('clicking a tool on the home opens its profile drawer with aggregate stats'
 
 test('the tools catalog lists every tool with its error rate', async ({ page }) => {
   await page.goto('/tools')
-  await expect(page.getByRole('link', { name: 'run_sql' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'get_weather' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'run_sql' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'get_weather' })).toBeVisible()
   await expect(page.getByText('12.0%')).toBeVisible()
+})
+
+test('clicking a catalog row opens the tool profile drawer', async ({ page }) => {
+  await page.goto('/tools')
+  await page.getByRole('cell', { name: 'run_sql' }).click()
+  await expect(page.getByRole('dialog', { name: 'run_sql' })).toBeVisible()
 })
 
 test('the inspector tools tab flags a tool with a high recent error rate', async ({ page }) => {

@@ -25,6 +25,7 @@ import type {
   ToolErrorRow,
   ToolListOpts,
   ToolPayloadBody,
+  ToolPayloadPoint,
   ToolRow,
   TopOpts,
   TraceSummary,
@@ -242,6 +243,10 @@ export async function listToolRecentCalls(
   opts?: WindowOpts & { limit?: number },
 ): Promise<ToolCallSample[]> {
   return analytics.fetchToolRecentCalls(getActiveProvider(), name, opts)
+}
+
+export async function listToolPayloadOverTime(name: string, opts?: WindowOpts): Promise<ToolPayloadPoint[]> {
+  return analytics.fetchToolPayloadOverTime(getActiveProvider(), name, opts)
 }
 
 export async function listChatLatencyOverTime(opts?: WindowOpts): Promise<LatencyPoint[]> {

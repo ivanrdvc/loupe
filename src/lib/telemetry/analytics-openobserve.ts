@@ -1,6 +1,7 @@
+import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { ooCol, ooColumns } from './conventions'
-import { mapToolErrorRow, num, sqlString, toBytes } from './shared'
+import { mapToolErrorRow, num, sqlString, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
 import type {
   AgentMetrics,
@@ -14,6 +15,7 @@ import type {
   ToolCallSample,
   ToolErrorRow,
   ToolListOpts,
+  ToolPayloadPoint,
   ToolRow,
   TopOpts,
   WindowOpts,
@@ -108,11 +110,11 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       callsWithResult: Number(h.calls_with_result ?? 0),
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
-      avgBytes: toBytes(h.avg_chars),
-      p50Bytes: toBytes(h.p50_chars),
-      p95Bytes: toBytes(h.p95_chars),
-      maxBytes: toBytes(h.max_chars),
-      totalBytes: toBytes(h.total_chars),
+      avgTokens: tokensFromChars(toCount(h.avg_chars)),
+      p50Tokens: tokensFromChars(toCount(h.p50_chars)),
+      p95Tokens: tokensFromChars(toCount(h.p95_chars)),
+      maxTokens: tokensFromChars(toCount(h.max_chars)),
+      totalTokens: tokensFromChars(toCount(h.total_chars)),
       p50Ms: Math.round(num(h.p50_ms) ?? 0),
       p95Ms: Math.round(num(h.p95_ms) ?? 0),
       firstSeenMs: firstNs > 0 ? Math.floor(firstNs / 1_000_000) : 0,
@@ -184,6 +186,34 @@ export async function fetchToolRecentCalls(
       return sample
     })
     .filter((s): s is ToolCallSample => s !== null)
+}
+
+export async function fetchToolPayloadOverTime(
+  p: OpenObserveProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<ToolPayloadPoint[]> {
+  if (!TOOL_NAME_RE.test(name)) return []
+  if (!(await p.getKnownColumns()).has('gen_ai_tool_call_result')) return []
+  const fromUs = opts?.fromUs ?? 0
+  const toUs = opts?.toUs ?? 0
+  const bucketSec = bucketSecondsFor(fromUs, toUs)
+  const len = 'NULLIF(LENGTH(gen_ai_tool_call_result), 0)'
+  const sql = `
+    SELECT
+      date_bin(INTERVAL '${bucketSec} seconds', to_timestamp_nanos(start_time)) AS bucket,
+      approx_percentile_cont(${len}, 0.95) AS p95_chars,
+      COUNT(*) AS count
+    FROM "${p.stream}"
+    WHERE operation_name = ${sqlString(`execute_tool ${name}`)}
+    GROUP BY bucket
+    ORDER BY bucket
+  `
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
+  return zeroFillBucketedAt(hits, fromUs, toUs, bucketSec, (h) => ({
+    p95Tokens: tokensFromChars(toCount(h.p95_chars)),
+    calls: Number(h.count ?? 0),
+  })).map((b) => ({ ts: b.ts, p95Tokens: b.value.p95Tokens, calls: b.value.calls }))
 }
 
 export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

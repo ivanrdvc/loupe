@@ -113,6 +113,13 @@
       "when": 1780860996813,
       "tag": "0015_add_inventory_version",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1782069142973,
+      "tag": "0016_nasty_puck",
+      "breakpoints": true
     }
   ]
 }

@@ -143,19 +143,19 @@ export interface ToolErrorRow {
   lastErrorTraceId?: string
 }
 
-// One execute_tool aggregate over a window — the single shape behind the home
-// payload widget, the /tools catalog, and the drawer. *Bytes are result lengths.
+// One execute_tool aggregate over a window. *Tokens are estimated from result
+// char length (≈chars/4); the drawer shows the exact count per call.
 export interface ToolRow {
   name: string // extracted, never the raw "execute_tool …"
   calls: number
   callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  avgBytes: number
-  p50Bytes: number
-  p95Bytes: number
-  maxBytes: number
-  totalBytes: number
+  avgTokens: number
+  p50Tokens: number
+  p95Tokens: number
+  maxTokens: number
+  totalTokens: number
   p50Ms: number
   p95Ms: number
   firstSeenMs: number
@@ -214,6 +214,12 @@ export interface CacheHitPoint {
 export interface RunsPoint {
   ts: number
   runs: number
+}
+
+export interface ToolPayloadPoint {
+  ts: number
+  p95Tokens: number
+  calls: number
 }
 
 export type SessionFetch = {

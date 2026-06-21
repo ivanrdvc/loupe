@@ -61,11 +61,9 @@ export function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoo
     const key = `${parentId ?? ''}|${rootId ?? ''}`
     if (visibleChildren.has(key)) return visibleChildren.get(key) as Span[]
     const showRaw = rootId != null && rawRoots.has(rootId)
-    const parent = parentId != null ? view.byId.get(parentId) : undefined
     const out: Span[] = []
     for (const span of byParent.get(parentId) ?? []) {
-      if (!showRaw && (isCollapsibleInfra(span) || isNestedQueryEmbedding(span, parent)))
-        out.push(...collect(span.id, rootId))
+      if (!showRaw && isCollapsibleInfra(span)) out.push(...collect(span.id, rootId))
       else out.push(span)
     }
     visibleChildren.set(key, out)
@@ -148,6 +146,16 @@ export function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoo
   return rows
 }
 
+// Nested query-embeddings start collapsed so a retrieval reads as one node.
+function defaultCollapsed(view: InspectorView): Set<string> {
+  const ids = new Set<string>()
+  for (const span of view.spans) {
+    const parent = span.parentId ? view.byId.get(span.parentId) : undefined
+    if (isNestedQueryEmbedding(span, parent)) ids.add(span.id)
+  }
+  return ids
+}
+
 interface SpanTreeListProps {
   view: InspectorView
   selectedId: string | null
@@ -168,7 +176,14 @@ export function SpanTreeList({
   onToggleRawRoot,
   onEnsureRawRoot,
 }: SpanTreeListProps) {
-  const [collapsedIds, setCollapsedIds] = useState(() => new Set<string>())
+  const [collapsedIds, setCollapsedIds] = useState(() => defaultCollapsed(view))
+  // Reseed when the view swaps (navigating sessions in the drawer).
+  const seededViewRef = useRef(view)
+  useEffect(() => {
+    if (seededViewRef.current === view) return
+    seededViewRef.current = view
+    setCollapsedIds(defaultCollapsed(view))
+  }, [view])
   const rows = useMemo(() => {
     if (import.meta.env.DEV) {
       const t0 = performance.now()
@@ -220,8 +235,7 @@ export function SpanTreeList({
     })
     // Infra ancestors don't hide the target — buildRows promotes their
     // children — so only a target that is itself collapsed needs raw on.
-    const targetParent = target.parentId ? view.byId.get(target.parentId) : undefined
-    if (isCollapsibleInfra(target) || isNestedQueryEmbedding(target, targetParent)) onEnsureRawRoot(rootId)
+    if (isCollapsibleInfra(target)) onEnsureRawRoot(rootId)
     requestAnimationFrame(() => {
       document.querySelector(`[data-span-id="${selectedId}"]`)?.scrollIntoView({ block: 'nearest' })
     })

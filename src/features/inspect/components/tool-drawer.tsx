@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ChevronDown, Info, X } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronsUpDown, Info, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -10,11 +10,12 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { formatDuration, formatPercent, formatTokens, tokensFromChars, truncateId } from '#/lib/format'
+import { formatDuration, formatPercent, formatTokens, payloadSeverity, tokensFromChars, truncateId } from '#/lib/format'
 import type { ToolCallSample, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
 import { toolDetailQuery, toolPayloadBodyQuery, toolRecentCallsQuery } from './tool-data'
+import { ToolPayloadTrend } from './tool-payload-trend'
 
 interface Props {
   toolName: string | null
@@ -59,6 +60,7 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
 
         <ScrollArea className="min-h-0 flex-1">
           <StatsGrid detail={detail ?? null} loading={detailLoading} />
+          <ToolPayloadTrend name={name} open={open} />
           <RecentCallsSection rows={recent ?? []} loading={recentLoading} />
         </ScrollArea>
       </SheetContent>
@@ -93,18 +95,18 @@ function StatsGrid({ detail, loading }: { detail: ToolRow | null; loading: boole
       <Stat label="p95 latency" hint="95th percentile duration. Target: < 5s." value={formatDuration(detail.p95Ms)} />
       <Stat
         label="p95 result"
-        hint="95th percentile result size. Target: < 2k tokens to keep context lean."
-        value={<TokensFromChars chars={detail.p95Bytes} />}
+        hint="95th percentile result size. Red when one result nears the model context window."
+        value={<Tokens tokens={detail.p95Tokens} severity />}
       />
       <Stat
         label="max result"
-        hint="Largest single result in this window — the worst case that can blow the context budget at scale."
-        value={<TokensFromChars chars={detail.maxBytes} />}
+        hint="Largest single result in this window — the worst case that can blow the context window at scale."
+        value={<Tokens tokens={detail.maxTokens} severity />}
       />
       <Stat
         label="total returned"
-        hint="Sum of all result bytes — total context this tool burned over the window."
-        value={<TokensFromChars chars={detail.totalBytes} />}
+        hint="Sum of all results — total context this tool burned over the window."
+        value={<Tokens tokens={detail.totalTokens} />}
       />
     </div>
   )
@@ -131,7 +133,19 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   )
 }
 
-export function TokensFromChars({ chars }: { chars: number }) {
+export function Tokens({ tokens, severity }: { tokens: number; severity?: boolean }) {
+  if (!tokens) return <span className="text-muted-foreground">—</span>
+  const s = severity ? payloadSeverity(tokens) : 'ok'
+  const tone = s === 'danger' ? 'text-destructive' : s === 'warn' ? 'text-warning' : ''
+  return (
+    <span className={tone}>
+      {formatTokens(tokens)}
+      <span className="text-muted-foreground"> tok</span>
+    </span>
+  )
+}
+
+function TokensFromChars({ chars }: { chars: number }) {
   if (!chars) return <span className="text-muted-foreground">—</span>
   const tokens = tokensFromChars(chars)
   return (
@@ -142,7 +156,22 @@ export function TokensFromChars({ chars }: { chars: number }) {
   )
 }
 
+type RecentSortKey = 'time' | 'duration' | 'size'
+
+const recentSortValue: Record<RecentSortKey, (r: ToolCallSample) => number> = {
+  time: (r) => r.startedAtMs,
+  duration: (r) => r.durationMs,
+  size: (r) => r.resultChars ?? 0,
+}
+
 function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading: boolean }) {
+  const [sort, setSort] = useState<{ key: RecentSortKey; desc: boolean }>({ key: 'time', desc: true })
+  const sorted = useMemo(() => {
+    const value = recentSortValue[sort.key]
+    return [...rows].sort((a, b) => (sort.desc ? value(b) - value(a) : value(a) - value(b)))
+  }, [rows, sort])
+  const toggle = (key: RecentSortKey) => setSort((prev) => ({ key, desc: prev.key === key ? !prev.desc : true }))
+
   return (
     <section className="flex min-h-0 flex-col px-4 py-4">
       <h3 className="mb-2 text-xs font-medium text-muted-foreground">Recent calls</h3>
@@ -155,20 +184,49 @@ function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading
           <TableHeader>
             <TableRow>
               <TableHead>Trace</TableHead>
-              <TableHead>When</TableHead>
-              <TableHead className="text-right tabular-nums">Duration</TableHead>
-              <TableHead className="text-right tabular-nums">Size</TableHead>
+              <SortHead label="When" active={sort} sortKey="time" onClick={toggle} />
+              <SortHead label="Duration" active={sort} sortKey="duration" onClick={toggle} align="right" />
+              <SortHead label="Size" active={sort} sortKey="size" onClick={toggle} align="right" />
               <TableHead className="w-12 text-right">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => (
+            {sorted.map((r) => (
               <RecentCallRow key={`${r.traceId}:${r.startedAtMs}`} row={r} />
             ))}
           </TableBody>
         </Table>
       )}
     </section>
+  )
+}
+
+function SortHead({
+  label,
+  sortKey,
+  active,
+  onClick,
+  align,
+}: {
+  label: string
+  sortKey: RecentSortKey
+  active: { key: RecentSortKey; desc: boolean }
+  onClick: (key: RecentSortKey) => void
+  align?: 'right'
+}) {
+  const isActive = active.key === sortKey
+  const Icon = !isActive ? ChevronsUpDown : active.desc ? ArrowDown : ArrowUp
+  return (
+    <TableHead className={align === 'right' ? 'text-right tabular-nums' : undefined}>
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''} ${isActive ? 'text-foreground' : ''}`}
+      >
+        <span>{label}</span>
+        <Icon className="size-3 text-muted-foreground" aria-hidden />
+      </button>
+    </TableHead>
   )
 }
 

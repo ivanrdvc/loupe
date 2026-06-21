@@ -1,6 +1,6 @@
 import { db } from '#/db'
 import { inboxItems } from '#/db/schema'
-import { CONTEXT_BUDGET_TOKENS, tokensFromChars } from '#/lib/format'
+import { CONTEXT_BUDGET_TOKENS } from '#/lib/format'
 import { listTools, type ToolRow } from '#/lib/telemetry'
 
 const MIN_PAYLOAD_CALLS = 3
@@ -22,10 +22,10 @@ export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired
   let fired = 0
   for (const cur of current) {
     if (cur.callsWithResult < MIN_PAYLOAD_CALLS) continue
-    if (tokensFromChars(cur.p95Bytes) < CONTEXT_BUDGET_TOKENS) continue
+    if (cur.p95Tokens < CONTEXT_BUDGET_TOKENS) continue
     const prev = priorByName.get(cur.name)
     const isNew = !prev
-    const isSpike = !!prev && cur.p95Bytes >= prev.p95Bytes * PAYLOAD_SPIKE_RATIO
+    const isSpike = !!prev && cur.p95Tokens >= prev.p95Tokens * PAYLOAD_SPIKE_RATIO
     if (!isNew && !isSpike) continue
     const inserted = await db
       .insert(inboxItems)
@@ -45,12 +45,10 @@ export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired
 }
 
 function payloadSummary(cur: ToolRow, prev?: ToolRow): string {
-  const tokens = tokensFromChars(cur.p95Bytes)
   if (!prev) {
-    return `${cur.name} p95 output ~${formatK(tokens)} tokens — first observed over budget`
+    return `${cur.name} p95 output ~${formatK(cur.p95Tokens)} tokens — first observed over budget`
   }
-  const prevTokens = tokensFromChars(prev.p95Bytes)
-  return `${cur.name} p95 output ~${formatK(tokens)} tokens — was ~${formatK(prevTokens)} prior window`
+  return `${cur.name} p95 output ~${formatK(cur.p95Tokens)} tokens — was ~${formatK(prev.p95Tokens)} prior window`
 }
 
 function formatK(n: number): string {

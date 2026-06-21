@@ -50,7 +50,7 @@ export function sqlString(value: string): string {
 }
 
 // Rounds a length aggregate to a non-negative count.
-export function toBytes(v: unknown): number {
+export function toCount(v: unknown): number {
   const n = Math.round(Number(v ?? 0))
   return Number.isFinite(n) && n > 0 ? n : 0
 }

@@ -102,9 +102,12 @@ export function EvaluatorFormDialog({
     setModel(defaultModel)
   }
 
+  // Clear after each apply so re-picking the same template refires onValueChange.
+  const [templateKey, setTemplateKey] = useState('')
   const applyTemplate = (key: string) => {
     const t = JUDGE_TEMPLATES.find((x) => x.key === key)
     if (!t) return
+    setTemplateKey('')
     setName(t.key)
     setScope(t.scope)
     setDataType(t.dataType)
@@ -181,7 +184,7 @@ export function EvaluatorFormDialog({
           {!editing && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="evaluator-template">Start from a template</Label>
-              <Select onValueChange={applyTemplate}>
+              <Select value={templateKey} onValueChange={applyTemplate}>
                 <SelectTrigger id="evaluator-template" className="text-xs">
                   <SelectValue placeholder="Prefill from a template…" />
                 </SelectTrigger>
