@@ -9,12 +9,15 @@ import {
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table'
+import { Download } from 'lucide-react'
 import * as React from 'react'
 import { DataTablePagination } from '#/components/data-table-pagination'
 import { DataTableToolbar } from '#/components/data-table-toolbar'
 import { Spinner } from '#/components/spinner'
+import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import { downloadCsv } from '#/lib/csv'
 import type { ToolRow } from '#/lib/telemetry'
 import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
 import type { TimeRange } from '#/lib/time-range'
@@ -85,6 +88,22 @@ export function ToolsDataTable({
         }
         range={range}
         onRangeChange={onRangeChange}
+        actions={
+          <Button
+            variant="outline"
+            disabled={data.length === 0}
+            onClick={() =>
+              downloadCsv(
+                'tools.csv',
+                CSV_COLUMNS,
+                data.map((r) => CSV_COLUMNS.map((c) => r[c])),
+              )
+            }
+          >
+            <Download className="size-4" aria-hidden />
+            CSV
+          </Button>
+        }
       />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
@@ -137,3 +156,20 @@ export function ToolsDataTable({
     </div>
   )
 }
+
+const CSV_COLUMNS: (keyof ToolRow)[] = [
+  'name',
+  'calls',
+  'callsWithResult',
+  'errors',
+  'errorRate',
+  'avgTokens',
+  'p50Tokens',
+  'p95Tokens',
+  'maxTokens',
+  'totalTokens',
+  'p50Ms',
+  'p95Ms',
+  'firstSeenMs',
+  'lastSeenMs',
+]

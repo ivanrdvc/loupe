@@ -235,6 +235,18 @@ describe('classifySpan — tool I/O', () => {
   })
 })
 
+describe('classifySpan — a large non-JSON result is kept raw, never flagged truncated', () => {
+  it('classifier is provider-agnostic: no truncation flag regardless of size', () => {
+    const big = 'x'.repeat(9000)
+    const c = classifySpan('execute_tool dump', {
+      'gen_ai.operation.name': 'execute_tool',
+      'gen_ai.tool.call.result': big,
+    })
+    expect(c.truncatedAttrs).toBeUndefined()
+    expect(c.toolResult).toBe(big)
+  })
+})
+
 describe('classifySpan — streaming: TTFT both forms, usage stays unknown', () => {
   it('reads TTFT from the underscore form (OpenObserve), seconds → ms', () => {
     const c = classifySpan('chat gpt-5-nano', {

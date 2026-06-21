@@ -21,7 +21,7 @@ export async function listServerTools(ref: McpServerRef): Promise<McpTool[]> {
   const transport = new StreamableHTTPClientTransport(new URL(ref.endpoint))
   try {
     await client.connect(transport, { timeout: REQUEST_TIMEOUT_MS })
-    const { tools } = await client.request({ method: 'tools/list', params: {} }, PASSTHROUGH, {
+    const { tools = [] } = await client.request({ method: 'tools/list', params: {} }, PASSTHROUGH, {
       timeout: REQUEST_TIMEOUT_MS,
     })
     return tools.map((tool) => ({
@@ -47,5 +47,6 @@ function schemaDeviation(tool: unknown): string | undefined {
   if (!issue) return undefined
   const path = issue.path.map(String)
   const value = path.reduce<unknown>((acc, key) => (acc == null ? acc : (acc as Record<string, unknown>)[key]), tool)
-  return path.length ? `${path.join('.')} = ${JSON.stringify(value)}` : issue.message
+  if (!path.length || value === undefined) return issue.message
+  return `${path.join('.')} = ${JSON.stringify(value)}`
 }
