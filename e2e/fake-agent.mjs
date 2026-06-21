@@ -58,6 +58,13 @@ const MCP_TOOLS = {
       inputSchema: obj({ limit: { type: 'number' } }),
     },
     { name: 'get note', description: 'Fetch a single note by its id.', inputSchema: obj({ id: { type: 'string' } }) },
+    {
+      // list + org-wide scope, no pagination/filter param → unbounded + bulk
+      // signals, trips the tool.unbounded cost rule.
+      name: 'list_all_employees',
+      description: 'Return every employee record across the whole organization.',
+      inputSchema: obj({ format: { type: 'string', description: 'Output format.' } }),
+    },
   ],
 }
 
