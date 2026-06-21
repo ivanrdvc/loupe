@@ -50,7 +50,7 @@ export interface RegistrySource {
 
 export type LintSeverity = 'info' | 'warning' | 'error'
 
-export type LintCategory = 'server-health' | 'tool-catalog' | 'naming'
+export type LintCategory = 'server-health' | 'tool-catalog' | 'naming' | 'cost'
 
 export interface McpLintFinding {
   severity: LintSeverity
@@ -62,4 +62,27 @@ export interface McpLintFinding {
   toolId?: string
   toolName?: string
   evidence?: JsonValue
+}
+
+export type LintRuleOptions = Record<string, JsonValue>
+
+// A rule is data. A fork adds rules by passing `[...BUILTIN_RULES, ...extra]` to
+// lintMcpRegistry — that param is the seam, so core needs no extension registry.
+export interface LintRule {
+  id: string
+  category: LintCategory
+  defaultOptions: LintRuleOptions
+  run(servers: McpServer[], options: LintRuleOptions): McpLintFinding[]
+}
+
+// Per-rule tuning (LINT_CONFIG, keyed by ruleId). Config only tunes; adding a
+// new rule is code (a LintRule), never config.
+export interface RuleConfig {
+  enabled?: boolean
+  severity?: LintSeverity
+  options?: LintRuleOptions
+}
+
+export interface McpLintConfig {
+  rules?: Record<string, RuleConfig>
 }

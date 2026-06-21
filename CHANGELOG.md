@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.5.0...loupe-v0.6.0) (2026-06-15)
+
+
+### Features
+
+* **inspect:** add waterfall timeline tab ([#68](https://github.com/ivanrdvc/loupe/issues/68)) ([d09d718](https://github.com/ivanrdvc/loupe/commit/d09d7189b54e796a77ce8eff2c97ccde31a22622))
+* **mcp:** add MCP server inventory with lint ([#70](https://github.com/ivanrdvc/loupe/issues/70)) ([8927833](https://github.com/ivanrdvc/loupe/commit/892783374dc4f6ee290c6e86d6ed849a9f5916a6))
+* **spans:** classify retrieval & embedding RAG spans ([#56](https://github.com/ivanrdvc/loupe/issues/56)) ([36d6ee7](https://github.com/ivanrdvc/loupe/commit/36d6ee72885fee5aefdebaacf9116e13fbae82cc))
+
+
+### Bug Fixes
+
+* **detection:** label sub-agents by "ever nested", not "all nested" ([#53](https://github.com/ivanrdvc/loupe/issues/53)) ([aeccbbe](https://github.com/ivanrdvc/loupe/commit/aeccbbe2f53ab6997fa768a006a30eb8f8f70fad))
+* **inspector:** group conversation by orchestrator run ([#57](https://github.com/ivanrdvc/loupe/issues/57)) ([c7498e7](https://github.com/ivanrdvc/loupe/commit/c7498e74e04e466b5498ae0f01969b9270aba09e))
+* **inspect:** resolve four span-inspector bugs ([#55](https://github.com/ivanrdvc/loupe/issues/55)) ([6b4251b](https://github.com/ivanrdvc/loupe/commit/6b4251bd13cef154f7f35084cc405485abaf4685))
+* **inspect:** suppress system messages and surface tool-result size ([#69](https://github.com/ivanrdvc/loupe/issues/69)) ([98cb126](https://github.com/ivanrdvc/loupe/commit/98cb1260c060c79a33f7b21a223d29968c7743dd))
+* **telemetry:** push list filters into the provider before LIMIT ([#59](https://github.com/ivanrdvc/loupe/issues/59)) ([555edfb](https://github.com/ivanrdvc/loupe/commit/555edfb588843561d91d3fa0bdb7ae25b8989e26))
+
 ## [0.5.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.4.0...loupe-v0.5.0) (2026-06-07)
 
 

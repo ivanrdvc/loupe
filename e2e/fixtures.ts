@@ -41,6 +41,8 @@ export const MCP = {
   weatherTool: 'get_weather',
   duplicateTool: 'search',
   dupFinding: 'is exposed by',
+  unboundedTool: 'list_all_employees',
+  unboundedFinding: 'returns an unbounded result set',
 } as const
 
 export const RAW = {
