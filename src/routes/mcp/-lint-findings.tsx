@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { FacetedFilterSpec } from '#/components/data-table-toolbar'
-import type { McpLintFinding } from '#/features/mcp'
+import { LINT_CATEGORY_LABELS, type McpLintFinding } from '#/features/mcp'
 import { lintColumns } from './-lint-columns'
 import { McpDataTable } from './-mcp-data-table'
 
@@ -17,11 +17,7 @@ const LINT_FILTERS: FacetedFilterSpec[] = [
   {
     columnId: 'category',
     title: 'Category',
-    options: [
-      { label: 'Server health', value: 'server-health' },
-      { label: 'Tool catalog', value: 'tool-catalog' },
-      { label: 'Naming', value: 'naming' },
-    ],
+    options: Object.entries(LINT_CATEGORY_LABELS).map(([value, label]) => ({ label, value })),
   },
 ]
 
