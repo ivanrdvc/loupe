@@ -12,6 +12,7 @@ import {
   type McpToolAnnotations,
   TOOL_SIGNAL_DESCRIPTIONS,
   TOOL_TAGS,
+  type ToolSignal,
 } from '#/features/mcp'
 import { cn } from '#/lib/utils'
 
@@ -33,13 +34,17 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
     return m
   }, [servers])
 
-  const attrsFor = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const server of servers) {
-      for (const tool of server.tools) m.set(tool.id, [...deriveSignals(tool), ...(TOOL_TAGS[tool.id] ?? [])])
-    }
+  const signalsFor = useMemo(() => {
+    const m = new Map<string, ToolSignal[]>()
+    for (const server of servers) for (const tool of server.tools) m.set(tool.id, deriveSignals(tool))
     return m
   }, [servers])
+
+  const attrsFor = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const [id, signals] of signalsFor) m.set(id, [...signals, ...(TOOL_TAGS[id] ?? [])])
+    return m
+  }, [signalsFor])
 
   // Available filter chips: every signal/tag present across the registry.
   const facetOptions = useMemo(() => {
@@ -141,26 +146,39 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
                 {isOpen(g.server.id) &&
                   g.tools.map((t) => {
                     const f = flags.get(t.name)
-                    const unbounded = (attrsFor.get(t.id) ?? []).includes('unbounded')
+                    const signals = signalsFor.get(t.id) ?? []
                     return (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => setSelectedId(t.id)}
                         className={cn(
-                          'flex w-full flex-col gap-0.5 border-b px-4 py-2.5 text-left hover:bg-muted/40',
+                          'flex w-full flex-col gap-1 border-b px-4 py-2.5 text-left hover:bg-muted/40',
                           selected?.id === t.id && 'bg-muted/60',
                         )}
                       >
                         <span className="flex items-center gap-2">
                           <span className="truncate font-mono text-sm">{t.name}</span>
-                          {unbounded && <Badge variant="warning">unbounded</Badge>}
                           {f?.conflict ? (
                             <Badge variant="destructive">conflict</Badge>
                           ) : f?.duplicate ? (
                             <Badge variant="warning">dup</Badge>
                           ) : null}
                         </span>
+                        {signals.length > 0 && (
+                          <span className="flex flex-wrap gap-1">
+                            {signals.map((s) => (
+                              <Badge
+                                key={s}
+                                variant={s === 'unbounded' || s === 'bulk' ? 'warning' : 'outline'}
+                                className="font-normal"
+                                title={TOOL_SIGNAL_DESCRIPTIONS[s]}
+                              >
+                                {s}
+                              </Badge>
+                            ))}
+                          </span>
+                        )}
                         {t.description && (
                           <span className="line-clamp-1 text-xs text-muted-foreground">{t.description}</span>
                         )}
@@ -233,6 +251,13 @@ function ToolDetail({ tool, servers }: { tool: McpTool; servers: McpServer[] }) 
             </Link>
           ))}
         </div>
+      )}
+
+      {tool.schemaNote && (
+        <p className="text-xs text-muted-foreground">
+          Schema note: the MCP SDK flags <code className="font-mono">{tool.schemaNote}</code> — legal JSON Schema,
+          recovered intact.
+        </p>
       )}
 
       <JsonBlock label="Input schema" value={tool.inputSchema ?? {}} />

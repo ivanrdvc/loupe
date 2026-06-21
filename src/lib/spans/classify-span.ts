@@ -1,20 +1,7 @@
 import { type JsonValue, parseJson } from '#/lib/json'
 import { pickCanonical, pickCanonicalNumber } from '#/lib/telemetry/conventions'
-import type { Operation, RetrievalDocument, TruncatableField, TruncatedAttrSet } from '.'
+import type { Operation, RetrievalDocument, TruncatedAttrSet } from '.'
 import { estimateCostUsd } from './llm-pricing'
-
-// Backends (e.g. App Insights customDimensions) clamp string values around 8 KB.
-const TRUNCATION_THRESHOLD = 8000
-
-function parseOrFlag(raw: string | undefined, c: Classification, field: TruncatableField): JsonValue | undefined {
-  if (raw === undefined) return undefined
-  const parsed = parseJson(raw)
-  if (parsed === undefined && raw.length >= TRUNCATION_THRESHOLD) {
-    c.truncatedAttrs ??= {}
-    c.truncatedAttrs[field] = true
-  }
-  return parsed
-}
 
 // GenAI-shaped fields extracted from a span's OTel attributes and span name.
 // Every ingest path (push endpoint, OpenObserve, App Insights, ...) hands an
@@ -124,7 +111,6 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
   const sysRaw = pickString(attrs, ['gen_ai.system_instructions', 'gen_ai_system_instructions'])
   const sysInstructions = parseSystemInstructions(sysRaw)
   if (sysInstructions) c.systemInstructions = sysInstructions
-  parseOrFlag(sysRaw, c, 'systemInstructions')
 
   // Run-graph identity (top-level so producers stamping on non-invoke_agent
   // spans also flow through). graph.node.* is accepted as an alias.
@@ -166,7 +152,7 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
 
   // Read on both chat and invoke_agent — chat copy is often truncated.
   const toolDefsRaw = pickString(attrs, ['gen_ai.tool.definitions', 'gen_ai_tool_definitions', 'llm_request_functions'])
-  const toolDefs = parseOrFlag(toolDefsRaw, c, 'toolDefinitions')
+  const toolDefs = parseJson(toolDefsRaw)
   if (toolDefs !== undefined) c.toolDefinitions = toolDefs
 
   if (operation === 'tool' || operation === 'mcp') {
@@ -179,17 +165,14 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
     const args =
       pickString(attrs, ['gen_ai.tool.call.arguments', 'gen_ai_tool_call_arguments']) ??
       toolMessageContent(pickCanonical(attrs, 'llmInput'))
-    if (args) {
-      c.inputParams = args
-      parseOrFlag(args, c, 'inputParams')
-    }
+    if (args) c.inputParams = args
     // Raw-string fallback when parse fails — `undefined` check (not nullish)
     // so literal JSON `null` still passes through.
     const rawResult =
       pickString(attrs, ['gen_ai.tool.call.result', 'gen_ai_tool_call_result']) ??
       toolMessageContent(pickCanonical(attrs, 'llmOutput') ?? pickString(attrs, ['_o2_llm_output']))
     if (rawResult !== undefined) {
-      const parsed = parseOrFlag(rawResult, c, 'toolResult')
+      const parsed = parseJson(rawResult)
       c.toolResult = parsed !== undefined ? parsed : rawResult
     }
   }

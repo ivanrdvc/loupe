@@ -6,8 +6,8 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/componen
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { InventoryRow } from '#/features/inventory/server'
-import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
-import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
+import { CONTEXT_BUDGET_TOKENS, formatPercent, formatTokens, payloadSeverity } from '#/lib/format'
+import type { ToolErrorRow, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
 
@@ -95,10 +95,14 @@ function rateBarTone(rate: number): string {
   return 'bg-muted-foreground/40'
 }
 
-function sizeTextTone(tokens: number): string {
-  if (tokens >= 10_000) return 'text-destructive'
-  if (tokens >= 2000) return 'text-warning'
-  return 'text-foreground'
+function budgetTextTone(tokens: number): string {
+  const s = payloadSeverity(tokens)
+  return s === 'danger' ? 'text-destructive' : s === 'warn' ? 'text-warning' : 'text-foreground'
+}
+
+function budgetBarTone(tokens: number): string {
+  const s = payloadSeverity(tokens)
+  return s === 'danger' ? 'bg-destructive' : s === 'warn' ? 'bg-warning' : 'bg-primary/60'
 }
 
 // One tool metric row — the whole row drills into the tool's profile drawer.
@@ -113,7 +117,7 @@ function ToolStatRow({
   value: string
   valueTone: string
   meta: string
-  bar?: { pct: number; tone: string }
+  bar?: { ratio: number; tone: string }
 }) {
   const display = toolDisplayName(name)
   const tone = toolTone('tool')
@@ -140,7 +144,7 @@ function ToolStatRow({
             <span className="ml-auto h-1 w-20 shrink-0 overflow-hidden rounded-full bg-muted">
               <span
                 className={`block h-full rounded-full ${bar.tone}`}
-                style={{ width: `${Math.max(2, Math.min(100, Math.round(bar.pct * 100)))}%` }}
+                style={{ width: `${Math.max(2, Math.min(100, Math.round(bar.ratio * 100)))}%` }}
               />
             </span>
           )}
@@ -163,30 +167,29 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
           value={formatPercent(row.errorRate, 1)}
           valueTone={rateTextTone(row.errorRate)}
           meta={`${row.errors.toLocaleString('en-US')} / ${row.total.toLocaleString('en-US')} calls`}
-          bar={{ pct: row.errorRate, tone: rateBarTone(row.errorRate) }}
+          bar={{ ratio: row.errorRate, tone: rateBarTone(row.errorRate) }}
         />
       ))}
     </ul>
   )
 }
 
-export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
+export function ToolPayloadTable({ rows }: { rows: ToolRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No tool-call payloads" description="No execute_tool spans in this window." />
   }
-  const maxP95 = Math.max(...rows.map((r) => r.p95Chars), 1)
   return (
     <ul className="-mx-2 flex flex-col">
       {rows.map((row) => {
-        const p95Tok = tokensFromChars(row.p95Chars)
+        const p95Tok = row.p95Tokens
         return (
           <ToolStatRow
             key={row.name}
             name={row.name}
             value={`${formatTokens(p95Tok)} tok`}
-            valueTone={sizeTextTone(p95Tok)}
-            meta={`avg ${formatTokens(tokensFromChars(row.avgChars))} · max ${formatTokens(tokensFromChars(row.maxChars))}`}
-            bar={{ pct: row.p95Chars / maxP95, tone: 'bg-primary/60' }}
+            valueTone={budgetTextTone(p95Tok)}
+            meta={`${row.calls.toLocaleString('en-US')} calls · max ${formatTokens(row.maxTokens)}`}
+            bar={{ ratio: p95Tok / CONTEXT_BUDGET_TOKENS, tone: budgetBarTone(p95Tok) }}
           />
         )
       })}

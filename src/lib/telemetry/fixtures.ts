@@ -2,14 +2,14 @@ import type { Span } from '#/lib/spans'
 import type {
   FixturesProvider,
   InventoryObservation,
+  RawPayloadBody,
   SessionFetch,
   SessionSummary,
   SpanSummary,
   ToolCallSample,
-  ToolCatalogRow,
-  ToolDetail,
   ToolErrorRow,
-  ToolPayloadRow,
+  ToolPayloadPoint,
+  ToolRow,
   TraceFetch,
   TraceSummary,
 } from './types'
@@ -394,39 +394,60 @@ const SPAN_SUMMARIES: SpanSummary[] = [
 // drawer have data under TELEMETRY_PROVIDER=fixtures. `run_sql` carries a
 // high error rate and `get_weather` a notable one so the home error widget
 // and the inspector health hint both render. Asserted in e2e/tools.spec.ts.
-export const FIXTURE_TOOL_CATALOG: ToolCatalogRow[] = [
+// run_sql: high error rate; get_weather: notable payload. Asserted in e2e/tools.spec.ts.
+export const FIXTURE_TOOLS: ToolRow[] = [
   {
     name: 'run_sql',
     calls: 100,
+    callsWithResult: 100,
     errors: 12,
     errorRate: 0.12,
-    avgChars: 520,
-    p95Chars: 1600,
+    avgTokens: 130,
+    p50Tokens: 105,
+    p95Tokens: 400,
+    maxTokens: 600,
+    totalTokens: 13_000,
     p50Ms: 40,
     p95Ms: 1200,
+    firstSeenMs: 1_700_000_000_000,
     lastSeenMs: 1_700_000_000_000,
+    sampleTraceId: 'tr-chat',
+    sampleSessionId: 'e2e-session-chat',
   },
   {
     name: 'get_weather',
     calls: 40,
+    callsWithResult: 40,
     errors: 3,
     errorRate: 0.075,
-    avgChars: 1200,
-    p95Chars: 4000,
+    avgTokens: 300,
+    p50Tokens: 238,
+    p95Tokens: 1000,
+    maxTokens: 2050,
+    totalTokens: 12_000,
     p50Ms: 30,
     p95Ms: 900,
+    firstSeenMs: 1_700_000_000_000,
     lastSeenMs: 1_700_000_000_000,
+    sampleTraceId: 'tr-chat',
+    sampleSessionId: 'e2e-session-chat',
   },
   {
     name: 'search_docs',
     calls: 25,
+    callsWithResult: 25,
     errors: 0,
     errorRate: 0,
-    avgChars: 800,
-    p95Chars: 1600,
+    avgTokens: 200,
+    p50Tokens: 175,
+    p95Tokens: 400,
+    maxTokens: 775,
+    totalTokens: 5_000,
     p50Ms: 20,
     p95Ms: 400,
+    firstSeenMs: 1_700_000_000_000,
     lastSeenMs: 1_700_000_000_000,
+    sampleTraceId: 'tr-chat',
   },
 ]
 
@@ -457,55 +478,49 @@ export const FIXTURE_TOOL_ERRORS: ToolErrorRow[] = [
   { name: 'get_weather', errors: 3, total: 40, errorRate: 0.075, lastErrorTraceId: 'tr-chat' },
 ]
 
-export const FIXTURE_TOOL_PAYLOADS: ToolPayloadRow[] = [
-  {
-    name: 'get_weather',
-    avgChars: 1200,
-    p95Chars: 4000,
-    maxChars: 8200,
-    count: 40,
-    sampleTraceId: 'tr-chat',
-    sampleSessionId: 'e2e-session-chat',
-  },
-  { name: 'search_docs', avgChars: 800, p95Chars: 1600, maxChars: 3100, count: 25, sampleTraceId: 'tr-chat' },
-]
+export function fixtureTools(name?: string): ToolRow[] {
+  return name ? FIXTURE_TOOLS.filter((r) => r.name === name) : FIXTURE_TOOLS
+}
 
-export function fixtureToolDetail(name: string): ToolDetail | null {
-  const row = FIXTURE_TOOL_CATALOG.find((r) => r.name === name)
-  if (!row) return null
-  return {
-    name: row.name,
-    calls: row.calls,
-    errors: row.errors,
-    errorRate: row.errorRate,
-    avgChars: row.avgChars,
-    p95Chars: row.p95Chars,
-    maxChars: Math.round(row.p95Chars * 1.5),
-    p50Ms: row.p50Ms,
-    p95Ms: row.p95Ms,
-    firstSeenMs: 1_700_000_000_000,
-    lastSeenMs: row.lastSeenMs,
-  }
+export function fixtureToolPayloadBody(spanId: string): RawPayloadBody | null {
+  if (!spanId) return null
+  return { body: JSON.stringify({ ok: true, span: spanId, rows: 3 }), truncated: false }
 }
 
 export function fixtureToolRecentCalls(name: string): ToolCallSample[] {
-  if (!FIXTURE_TOOL_CATALOG.some((r) => r.name === name)) return []
+  if (!FIXTURE_TOOLS.some((r) => r.name === name)) return []
   return [
     {
       traceId: 'tr-chat',
+      spanId: 'sp-tool-1',
       sessionId: 'e2e-session-chat',
       startedAtMs: 1_700_000_000_000,
       durationMs: 40,
       hasError: false,
+      resultChars: 520,
     },
     {
       traceId: 'tr-chat',
+      spanId: 'sp-tool-2',
       sessionId: 'e2e-session-chat',
       startedAtMs: 1_700_000_000_050,
       durationMs: 1200,
       hasError: name === 'run_sql',
+      resultChars: 1600,
     },
   ]
+}
+
+export function fixtureToolPayloadOverTime(name: string): ToolPayloadPoint[] {
+  if (!FIXTURE_TOOLS.some((r) => r.name === name)) return []
+  const base = 1_700_000_000_000
+  const hour = 3_600_000
+  const growing = name === 'run_sql'
+  return Array.from({ length: 8 }, (_, i) => ({
+    ts: base + i * hour,
+    p95Tokens: growing ? 200 + i * 260 : 400,
+    calls: 5,
+  }))
 }
 
 export function createFixturesProvider(): FixturesProvider {

@@ -49,6 +49,18 @@ const ATTRS = {
 
 export type CanonicalField = keyof typeof ATTRS
 
+// Span dimensions the tool catalog can be filtered by. Forks append company id
+// here (plus its alias in ATTRS) — the one edit point; everything else is generic.
+export const TOOL_DIMENSIONS = [{ key: 'user', label: 'User', field: 'userId' }] as const satisfies readonly {
+  key: string
+  label: string
+  field: CanonicalField
+}[]
+
+export function isToolDimensionField(field: string): field is CanonicalField {
+  return TOOL_DIMENSIONS.some((d) => d.field === field)
+}
+
 function bothForms(keys: readonly string[]): string[] {
   return keys.flatMap((k) => {
     const flat = k.replaceAll('.', '_')

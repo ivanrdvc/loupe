@@ -1,7 +1,8 @@
+import { SIGNAL_VOCAB } from '../signal-vocab'
 import type { McpTool } from '../types'
 
-// Cost/scale signals derived from a tool's name + schema — which tools won't
-// scale as the org grows (`get_all_employees` with no pagination balloons context).
+// Cost/scale signals from a tool's name + schema — which tools won't bound their
+// result size as data grows (`get_all_employees`, no pagination → balloons context).
 export const TOOL_SIGNALS = ['paginated', 'unbounded', 'bulk', 'self-scoped', 'filterable'] as const
 export type ToolSignal = (typeof TOOL_SIGNALS)[number]
 
@@ -13,7 +14,16 @@ export const TOOL_SIGNAL_DESCRIPTIONS: Record<ToolSignal, string> = {
   filterable: 'Accepts a filter/query/date param to narrow results.',
 }
 
-const PAGINATION_PARAMS = new Set([
+// A fork extends any list via SIGNAL_VOCAB — entries union onto the defaults.
+export type SignalVocabOverrides = {
+  paginationParams?: string[]
+  filterParams?: string[]
+  listWords?: string[]
+  bulkWords?: string[]
+  selfWords?: string[]
+}
+
+const BASE_PAGINATION_PARAMS = [
   'cursor',
   'page',
   'page_token',
@@ -30,9 +40,9 @@ const PAGINATION_PARAMS = new Set([
   'maxresults',
   'top',
   'skip',
-])
+]
 
-const FILTER_PARAMS = new Set([
+const BASE_FILTER_PARAMS = [
   'filter',
   'filters',
   'query',
@@ -47,21 +57,50 @@ const FILTER_PARAMS = new Set([
   'start_date',
   'end_date',
   'date',
-])
+]
 
-const LIST_NAME = /(^|[_-])(list|search|find|query|all|export|browse)([_-]|$)/i
-const BULK_SCOPE = /(^|[_-])(all|every|bulk|org|organization|company|global|everyone)([_-]|$)/i
-const SELF_SCOPE = /(^|[_-])(my|me|self|mine|current)([_-]|$)/i
+const BASE_LIST_WORDS = ['list', 'search', 'find', 'query', 'all', 'export', 'browse']
+const BASE_BULK_WORDS = ['all', 'every', 'bulk', 'org', 'organization', 'company', 'global', 'everyone']
+const BASE_SELF_WORDS = ['my', 'me', 'self', 'mine', 'current']
 
-export function deriveSignals(tool: McpTool): ToolSignal[] {
+type CompiledVocab = {
+  paginationParams: Set<string>
+  filterParams: Set<string>
+  listRe: RegExp
+  bulkRe: RegExp
+  selfRe: RegExp
+}
+
+function paramSet(base: string[], extra?: string[]): Set<string> {
+  return new Set([...base, ...(extra ?? [])].map((p) => p.toLowerCase()))
+}
+
+function wordRe(base: string[], extra?: string[]): RegExp {
+  return new RegExp(`(^|[_-])(${[...base, ...(extra ?? [])].join('|')})([_-]|$)`, 'i')
+}
+
+function compile(o: SignalVocabOverrides): CompiledVocab {
+  return {
+    paginationParams: paramSet(BASE_PAGINATION_PARAMS, o.paginationParams),
+    filterParams: paramSet(BASE_FILTER_PARAMS, o.filterParams),
+    listRe: wordRe(BASE_LIST_WORDS, o.listWords),
+    bulkRe: wordRe(BASE_BULK_WORDS, o.bulkWords),
+    selfRe: wordRe(BASE_SELF_WORDS, o.selfWords),
+  }
+}
+
+const DEFAULT_VOCAB = compile(SIGNAL_VOCAB)
+
+export function deriveSignals(tool: McpTool, overrides: SignalVocabOverrides = SIGNAL_VOCAB): ToolSignal[] {
+  const vocab = overrides === SIGNAL_VOCAB ? DEFAULT_VOCAB : compile(overrides)
   const params = schemaParamNames(tool.inputSchema).map((p) => p.toLowerCase())
   const name = tool.name.toLowerCase()
 
-  const paginated = params.some((p) => PAGINATION_PARAMS.has(p))
-  const filterable = params.some((p) => FILTER_PARAMS.has(p))
-  const bulk = BULK_SCOPE.test(name)
-  const selfScoped = SELF_SCOPE.test(name)
-  const listLike = LIST_NAME.test(name) || bulk
+  const paginated = params.some((p) => vocab.paginationParams.has(p))
+  const filterable = params.some((p) => vocab.filterParams.has(p))
+  const bulk = vocab.bulkRe.test(name)
+  const selfScoped = vocab.selfRe.test(name)
+  const listLike = vocab.listRe.test(name) || bulk
 
   const signals = new Set<ToolSignal>()
   if (paginated) signals.add('paginated')

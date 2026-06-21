@@ -24,11 +24,12 @@ interface DataTableToolbarProps<TData> {
   searchColumnId?: string
   searchPlaceholder?: string
   filters?: FacetedFilterSpec[]
+  extraFilters?: React.ReactNode
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
-  autoRefresh: AutoRefreshInterval
-  onAutoRefreshChange: (interval: AutoRefreshInterval) => void
-  onRefresh: () => void
+  autoRefresh?: AutoRefreshInterval
+  onAutoRefreshChange?: (interval: AutoRefreshInterval) => void
+  onRefresh?: () => void
   refreshing?: boolean
   actions?: React.ReactNode
 }
@@ -38,6 +39,7 @@ export function DataTableToolbar<TData>({
   searchColumnId,
   searchPlaceholder = 'Search…',
   filters,
+  extraFilters,
   range,
   onRangeChange,
   autoRefresh,
@@ -72,6 +74,7 @@ export function DataTableToolbar<TData>({
             />
           </div>
         )}
+        {extraFilters}
         {isFiltered && (
           <Button
             variant="ghost"
@@ -85,12 +88,14 @@ export function DataTableToolbar<TData>({
       <div className="flex flex-wrap items-center gap-2">
         {actions}
         <TimeRangeSelect value={range} onChange={onRangeChange} />
-        <AutoRefreshSelect
-          value={autoRefresh}
-          onChange={onAutoRefreshChange}
-          onRefresh={onRefresh}
-          loading={refreshing}
-        />
+        {autoRefresh && onAutoRefreshChange && onRefresh && (
+          <AutoRefreshSelect
+            value={autoRefresh}
+            onChange={onAutoRefreshChange}
+            onRefresh={onRefresh}
+            loading={refreshing}
+          />
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-x-1.5">

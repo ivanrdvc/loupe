@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Page } from '#/components/page'
+import { toolsCatalogQuery } from '#/features/inspect'
 import { ALERT_KINDS } from '#/lib/alerts/kinds'
+import { DEFAULT } from '#/lib/time-range'
 import { CacheAreaChart } from './-home-charts/cache-area'
 import { LatencyAreaChart } from './-home-charts/latency-area'
 import { ThroughputAreaChart } from './-home-charts/throughput-area'
 import { NewAgentsTable, NewToolsTable, Section, ToolErrorTable, ToolPayloadTable } from './-home-components'
 import { cacheHitRateOverTimeQuery, chatLatencyOverTimeQuery, homeInboxQuery, runsPerHourQuery } from './-home-data'
 
-function ViewAllToolsLink({ sort }: { sort?: 'p95Chars' | 'errorRate' | 'lastSeenMs' }) {
+function ViewAllToolsLink({ sort }: { sort?: 'p95Tokens' | 'errorRate' | 'lastSeenMs' }) {
   return (
     <Link
       to="/tools"
@@ -26,25 +28,32 @@ export const Route = createFileRoute('/')({
     qc.prefetchQuery(chatLatencyOverTimeQuery())
     qc.prefetchQuery(cacheHitRateOverTimeQuery())
     qc.prefetchQuery(runsPerHourQuery())
+    qc.prefetchQuery(toolsCatalogQuery())
     return qc.ensureQueryData(homeInboxQuery())
   },
   component: Home,
 })
 
+const PAYLOAD_PREVIEW = 5
+
 function Home() {
   const { data } = useQuery(homeInboxQuery())
+  const { data: tools } = useQuery(toolsCatalogQuery())
   const newTools = data?.newTools ?? []
   const newAgents = data?.newAgents ?? []
   const toolErrors = data?.toolErrors ?? []
-  const toolPayloads = data?.toolPayloads ?? []
+  const toolPayloads = [...(tools ?? [])]
+    .filter((t) => t.callsWithResult > 0)
+    .sort((a, b) => b.p95Tokens - a.p95Tokens)
+    .slice(0, PAYLOAD_PREVIEW)
 
   return (
     <Page title="Home">
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 xl:grid-cols-2">
         <Section
           title={ALERT_KINDS.tool_size_p95.title}
-          description={ALERT_KINDS.tool_size_p95.blurb}
-          action={<ViewAllToolsLink sort="p95Chars" />}
+          description={`${ALERT_KINDS.tool_size_p95.blurb} Last ${DEFAULT} days; sizes are estimated tokens — open a call for the exact OpenAI count.`}
+          action={<ViewAllToolsLink sort="p95Tokens" />}
         >
           <ToolPayloadTable rows={toolPayloads} />
         </Section>

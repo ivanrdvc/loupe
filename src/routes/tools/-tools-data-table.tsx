@@ -9,27 +9,30 @@ import {
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table'
+import { Download } from 'lucide-react'
 import * as React from 'react'
-import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTablePagination } from '#/components/data-table-pagination'
 import { DataTableToolbar } from '#/components/data-table-toolbar'
 import { Spinner } from '#/components/spinner'
+import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import type { ToolCatalogRow } from '#/lib/telemetry'
+import { downloadCsv } from '#/lib/csv'
+import type { ToolRow } from '#/lib/telemetry'
+import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
 import type { TimeRange } from '#/lib/time-range'
 import { toolColumns } from './-columns'
 
 interface ToolsDataTableProps {
-  data: ToolCatalogRow[]
+  data: ToolRow[]
   isLoading?: boolean
   sorting: SortingState
   onSortingChange: (next: SortingState) => void
+  onRowClick: (row: ToolRow) => void
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
-  autoRefresh: AutoRefreshInterval
-  onAutoRefreshChange: (interval: AutoRefreshInterval) => void
-  onRefresh: () => void
-  refreshing?: boolean
+  dimensions: Record<string, string>
+  onDimensionChange: (key: string, value: string) => void
 }
 
 export function ToolsDataTable({
@@ -37,12 +40,11 @@ export function ToolsDataTable({
   isLoading,
   sorting,
   onSortingChange,
+  onRowClick,
   range,
   onRangeChange,
-  autoRefresh,
-  onAutoRefreshChange,
-  onRefresh,
-  refreshing,
+  dimensions,
+  onDimensionChange,
 }: ToolsDataTableProps) {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -72,12 +74,36 @@ export function ToolsDataTable({
         table={table}
         searchColumnId="name"
         searchPlaceholder="Filter tools…"
+        extraFilters={
+          TOOL_DIMENSIONS.length > 0 &&
+          TOOL_DIMENSIONS.map((d) => (
+            <Input
+              key={d.key}
+              value={dimensions[d.key] ?? ''}
+              onChange={(e) => onDimensionChange(d.key, e.target.value)}
+              placeholder={`Filter by ${d.label.toLowerCase()}…`}
+              className="h-8 w-full min-w-0 sm:w-56"
+            />
+          ))
+        }
         range={range}
         onRangeChange={onRangeChange}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={onAutoRefreshChange}
-        onRefresh={onRefresh}
-        refreshing={refreshing}
+        actions={
+          <Button
+            variant="outline"
+            disabled={data.length === 0}
+            onClick={() =>
+              downloadCsv(
+                'tools.csv',
+                CSV_COLUMNS,
+                data.map((r) => CSV_COLUMNS.map((c) => r[c])),
+              )
+            }
+          >
+            <Download className="size-4" aria-hidden />
+            CSV
+          </Button>
+        }
       />
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
@@ -101,7 +127,8 @@ export function ToolsDataTable({
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                    onClick={() => onRowClick(row.original)}
+                    className="h-12 cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
@@ -129,3 +156,20 @@ export function ToolsDataTable({
     </div>
   )
 }
+
+const CSV_COLUMNS: (keyof ToolRow)[] = [
+  'name',
+  'calls',
+  'callsWithResult',
+  'errors',
+  'errorRate',
+  'avgTokens',
+  'p50Tokens',
+  'p95Tokens',
+  'maxTokens',
+  'totalTokens',
+  'p50Ms',
+  'p95Ms',
+  'firstSeenMs',
+  'lastSeenMs',
+]

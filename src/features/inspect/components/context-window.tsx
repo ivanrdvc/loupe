@@ -55,7 +55,7 @@ export function ContextWindow({ view }: ContextWindowProps) {
   const model = peakSpan?.model
   const limit = contextWindowFor(model)
   const peakInput = peakSpan?.inputTokens ?? 0
-  const pct = limit ? Math.min(1, peakInput / limit) : 0
+  const ratio = limit ? Math.min(1, peakInput / limit) : 0
 
   const totalInput = useMemo(() => chatSpans.reduce((s, c) => s + (c.inputTokens ?? 0), 0), [chatSpans])
   const totalOutput = total.outputTokens || chatSpans.reduce((s, c) => s + (c.outputTokens ?? 0), 0)
@@ -72,20 +72,20 @@ export function ContextWindow({ view }: ContextWindowProps) {
         className="inline-flex h-7 items-center gap-2 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/30"
         aria-label="Model context usage"
       >
-        <span className="tabular-nums">{limit ? formatPercent(pct, 1) : formatTokens(peakInput)}</span>
-        <Ring pct={pct} />
+        <span className="tabular-nums">{limit ? formatPercent(ratio, 1) : formatTokens(peakInput)}</span>
+        <Ring ratio={ratio} />
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={6} className="w-64 p-0 text-xs">
         <div className="border-b px-3 py-2">
           <div className="flex items-baseline justify-between">
             <div className="font-medium tabular-nums text-foreground">
-              {limit ? formatPercent(pct, 1) : formatTokens(peakInput)}
+              {limit ? formatPercent(ratio, 1) : formatTokens(peakInput)}
             </div>
             <div className="tabular-nums text-muted-foreground">
               {limit ? `${formatTokens(peakInput)} / ${formatTokens(limit)}` : `${formatTokens(peakInput)} peak`}
             </div>
           </div>
-          {limit && <Progress value={pct * 100} className="mt-2" />}
+          {limit && <Progress value={ratio * 100} className="mt-2" />}
           {model && <div className={`mt-1.5 truncate font-mono text-[11px] ${ACCENT.violet.ident}`}>{model}</div>}
         </div>
 
@@ -119,10 +119,10 @@ function Row({ label, value, dim }: { label: string; value: string; dim?: boolea
 
 // Matches the AI Elements ring exactly — two concentric circles, the second
 // stroked with a dasharray sized so dashoffset linearly maps usage to fill.
-function Ring({ pct }: { pct: number }) {
+function Ring({ ratio }: { ratio: number }) {
   const r = 10
   const c = 2 * Math.PI * r
-  const offset = c * (1 - pct)
+  const offset = c * (1 - ratio)
   return (
     <svg
       aria-label="Model context usage"
@@ -132,7 +132,7 @@ function Ring({ pct }: { pct: number }) {
       height={20}
       style={{ color: 'currentcolor' }}
     >
-      <title>{`${formatPercent(pct, 1)} of context used`}</title>
+      <title>{`${formatPercent(ratio, 1)} of context used`}</title>
       <circle cx={12} cy={12} r={r} fill="none" opacity={0.25} stroke="currentColor" strokeWidth={2} />
       <circle
         cx={12}

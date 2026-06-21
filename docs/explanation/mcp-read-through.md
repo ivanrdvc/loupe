@@ -69,8 +69,12 @@ Under `src/features/mcp/` (the generic, all-forks core):
 - `lint.ts` — `BUILTIN_RULES` (rules-as-data) + `lintMcpRegistry(servers, {
   config, rules })`. See [Lint](#lint).
 - `lint-config.ts` — `LINT_CONFIG`, a code-declared map of per-rule overrides.
-- `logic/signals.ts` — `deriveSignals(tool)`: cost/scale flags derived purely
-  from a tool's name + input schema. See [Signals & tags](#signals--tags).
+- `logic/signals.ts` — `deriveSignals(tool, overrides?)`: cost/scale flags
+  derived purely from a tool's name + input schema. See
+  [Signals & tags](#signals--tags).
+- `signal-vocab.ts` — `SIGNAL_VOCAB`, a code-declared set of extra param
+  names / name-words unioned onto the built-in signal vocabulary. Empty in
+  core; a fork extends it for its registry's naming.
 - `tool-tags.ts` — `TOOL_TAGS`, a code-declared map of manual labels keyed by
   tool id. Empty in core; a fork populates it for its registry.
 - `logic/aggregate-tools.ts` — collapses tools to a unique set across servers
@@ -103,8 +107,10 @@ filter facets:
   pagination *or* filter param, so its output grows with the data) is the cost
   signal — `get_all_employees` blows up agent context, `get_my_reports` doesn't.
   `self-scoped` suppresses `unbounded` even when `bulk` also matches. The
-  keyword/param sets live in `signals.ts` and are *not* config-tunable (changing
-  them is code).
+  built-in keyword/param sets live in `signals.ts`; a fork extends them in code
+  via `SIGNAL_VOCAB` (`signal-vocab.ts`), whose entries *union onto* the
+  defaults — needed because a domain filter param (`priceMax`) can't be told
+  from a cosmetic one (`format`) by name, so the synonym list is fork-specific.
 - **Tags** are *manual* labels, declared in code (`TOOL_TAGS` in `tool-tags.ts`,
   keyed by tool id). Curation that isn't derivable like a signal, but small and
   fork-specific enough that it doesn't earn a DB table — a committed map is

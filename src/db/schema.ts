@@ -178,24 +178,6 @@ export const datasetRunItems = sqliteTable(
   ],
 )
 
-export const metricRollup = sqliteTable(
-  'metric_rollup',
-  {
-    id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
-    metric: text().notNull(),
-    bucketKey: text('bucket_key').notNull(),
-    value: real().notNull(),
-    periodStart: integer('period_start', { mode: 'timestamp_ms' }).notNull(),
-    periodEnd: integer('period_end', { mode: 'timestamp_ms' }).notNull(),
-    computedAt: integer('computed_at', { mode: 'timestamp_ms' }).notNull(),
-    sampleRef: text('sample_ref'),
-  },
-  (table) => [
-    index('metric_rollup_metric_period_idx').on(table.metric, table.periodEnd),
-    index('metric_rollup_metric_bucket_idx').on(table.metric, table.bucketKey),
-  ],
-)
-
 // Evaluation — scores, evaluators, experiments (see docs/explanation/evaluation.md).
 // One primitive (`score`) shared by human / llm / code writers. `eval_definition`
 // (the Evaluator) + `eval_run` (the Experiment) drive the offline + online judge.

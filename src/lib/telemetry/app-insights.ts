@@ -9,6 +9,8 @@ import {
   propagateSessionInTrace,
   type Span,
   type SpanKind,
+  type TruncatableField,
+  type TruncatedAttrSet,
 } from '#/lib/spans'
 import { classifySpan, extractAgentName } from '#/lib/spans/classify-span'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
@@ -564,6 +566,7 @@ export function normalizeAiRow(row: Record<string, unknown>, traceId: string): S
     rawAttributes[k] = v as JsonValue
   }
   for (const [k, v] of Object.entries(cd)) rawAttributes[k] = v as JsonValue
+  const truncatedAttrs = detectTruncatedDims(cd)
   return {
     id: String(row.id ?? ''),
     traceId,
@@ -577,8 +580,32 @@ export function normalizeAiRow(row: Record<string, unknown>, traceId: string): S
     ...(errorType ? { errorType } : {}),
     ...(errorMessage ? { errorMessage } : {}),
     ...classifySpan(operationName, cd, startMs),
+    ...(truncatedAttrs ? { truncatedAttrs } : {}),
     rawAttributes,
   }
+}
+
+// App Insights clamps customDimensions values near 8 KB; flag fields stored at the cap.
+const TRUNCATE_THRESHOLD = 8000
+const TRUNCATABLE_DIM_KEYS: Record<TruncatableField, string> = {
+  systemInstructions: 'gen_ai.system_instructions',
+  toolDefinitions: 'gen_ai.tool.definitions',
+  inputParams: 'gen_ai.tool.call.arguments',
+  toolResult: 'gen_ai.tool.call.result',
+  llmInput: 'gen_ai.input.messages',
+  llmOutput: 'gen_ai.output.messages',
+}
+
+function detectTruncatedDims(cd: Record<string, unknown>): TruncatedAttrSet | undefined {
+  let out: TruncatedAttrSet | undefined
+  for (const [field, key] of Object.entries(TRUNCATABLE_DIM_KEYS)) {
+    const v = cd[key]
+    if (typeof v === 'string' && v.length >= TRUNCATE_THRESHOLD) {
+      out ??= {}
+      out[field as TruncatableField] = true
+    }
+  }
+  return out
 }
 
 function costFromRow(row: Record<string, unknown>, spanStartMs: number | undefined): number | undefined {

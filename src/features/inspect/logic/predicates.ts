@@ -8,7 +8,7 @@ export const isToolLike = (s: Span): boolean => s.operation === 'tool' || s.oper
 // Transport noise hidden by default in the tree and span palette.
 export const isCollapsibleInfra = (s: Span): boolean => s.operation === 'http' || s.operation === 'mcp'
 // The query-embedding nested inside a retrieval span is part of recall, not a
-// distinct step — fold it into the retrieval row so recall reads as one node.
+// distinct step — collapsed by default so recall reads as one node until expanded.
 export const isNestedQueryEmbedding = (s: Span, parent: Span | undefined): boolean =>
   s.operation === 'embedding' && parent?.operation === 'retrieval'
 

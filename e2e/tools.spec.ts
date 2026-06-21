@@ -7,8 +7,9 @@ import { expect, test } from '@playwright/test'
 
 test('home error widget lists a high-error-rate tool with its rate', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('Tools with high error rate')).toBeVisible()
-  const row = page.getByRole('link', { name: /run_sql/ })
+  const errorCard = page.locator('[data-slot="card"]', { hasText: 'Tools with high error rate' })
+  await expect(errorCard).toBeVisible()
+  const row = errorCard.getByRole('link', { name: /run_sql/ })
   await expect(row).toBeVisible()
   await expect(row).toContainText('12.0%')
 })
@@ -21,7 +22,10 @@ test('home payload widget lists a heavy tool', async ({ page }) => {
 
 test('clicking a tool on the home opens its profile drawer with aggregate stats', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('link', { name: /run_sql/ }).click()
+  await page
+    .getByRole('link', { name: /run_sql/ })
+    .first()
+    .click()
 
   const drawer = page.getByRole('dialog', { name: 'run_sql' })
   await expect(drawer).toBeVisible()
@@ -32,9 +36,15 @@ test('clicking a tool on the home opens its profile drawer with aggregate stats'
 
 test('the tools catalog lists every tool with its error rate', async ({ page }) => {
   await page.goto('/tools')
-  await expect(page.getByRole('link', { name: 'run_sql' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'get_weather' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'run_sql' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'get_weather' })).toBeVisible()
   await expect(page.getByText('12.0%')).toBeVisible()
+})
+
+test('clicking a catalog row opens the tool profile drawer', async ({ page }) => {
+  await page.goto('/tools')
+  await page.getByRole('cell', { name: 'run_sql' }).click()
+  await expect(page.getByRole('dialog', { name: 'run_sql' })).toBeVisible()
 })
 
 test('the inspector tools tab flags a tool with a high recent error rate', async ({ page }) => {

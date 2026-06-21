@@ -1,88 +1,117 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
-import { LRUCache } from 'lru-cache'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
-  getActiveProviderId,
-  getToolDetail,
-  listAllTools,
+  getToolPayloadBody,
+  listToolPayloadOverTime,
   listToolRecentCalls,
-  type ToolCallSample,
-  type ToolCatalogRow,
-  type ToolDetail,
+  listTools,
+  type ToolDimensionFilter,
+  type ToolPayloadBody,
+  type ToolPayloadPoint,
+  type ToolRow,
 } from '#/lib/telemetry'
+import { isToolDimensionField } from '#/lib/telemetry/conventions'
 import { DEFAULT, parse, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
-const detailCache = new LRUCache<string, ToolDetail>({ max: 500, ttl: 5 * 60_000 })
-const recentCache = new LRUCache<string, ToolCallSample[]>({ max: 500, ttl: 2 * 60_000 })
-const catalogCache = new LRUCache<string, ToolCatalogRow[]>({ max: 100 })
+// Queried live: React Query's staleTime is the only cache, so the window and
+// dimensions in the key can't disagree the way the old per-name LRU caches did.
 
-const catalogTtlMs = (range: TimeRange) => {
-  const us = windowUs(range)
-  const days = (us.toUs - us.fromUs) / 1_000_000 / 86_400
-  if (days <= 1) return 5 * 60_000
-  if (days <= 7) return 15 * 60_000
-  return 30 * 60_000
+function parseDimensions(input: unknown): ToolDimensionFilter[] {
+  if (!Array.isArray(input)) return []
+  const out: ToolDimensionFilter[] = []
+  for (const d of input) {
+    if (!d || typeof d !== 'object') continue
+    const { field, value } = d as { field?: unknown; value?: unknown }
+    if (typeof field === 'string' && isToolDimensionField(field) && typeof value === 'string' && value) {
+      out.push({ field, value })
+    }
+  }
+  return out
 }
 
-const toolNameValidator = (input: unknown): string => {
-  if (typeof input !== 'string' || !input) throw new Error('expected tool name')
+const parseToolsInput = (input: unknown): { range: TimeRange; dimensions: ToolDimensionFilter[] } => {
+  const obj = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
+  return { range: parse(obj.range), dimensions: parseDimensions(obj.dimensions) }
+}
+
+const parseToolInput = (input: unknown): { name: string; range: TimeRange } => {
+  const obj = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
+  if (typeof obj.name !== 'string' || !obj.name) throw new Error('expected tool name')
+  return { name: obj.name, range: parse(obj.range) }
+}
+
+const spanIdValidator = (input: unknown): string => {
+  if (typeof input !== 'string' || !input) throw new Error('expected span id')
   return input
 }
 
-const fetchDetail = createServerFn({ method: 'GET' })
-  .inputValidator(toolNameValidator)
-  .handler(async ({ data }) => {
-    const key = `${getActiveProviderId()}:${data}`
-    const cached = detailCache.get(key)
-    if (cached) return cached
-    const result = await getToolDetail(data)
-    if (result) detailCache.set(key, result)
-    return result
+const fetchCatalog = createServerFn({ method: 'GET' })
+  .inputValidator(parseToolsInput)
+  .handler(async ({ data }): Promise<ToolRow[]> => {
+    const { fromUs, toUs } = windowUs(data.range)
+    return listTools({ fromUs, toUs, limit: 1000, dimensions: data.dimensions })
+  })
+
+const fetchTool = createServerFn({ method: 'GET' })
+  .inputValidator(parseToolInput)
+  .handler(async ({ data }): Promise<ToolRow | null> => {
+    const { fromUs, toUs } = windowUs(data.range)
+    const rows = await listTools({ fromUs, toUs, name: data.name })
+    return rows[0] ?? null
   })
 
 const fetchRecent = createServerFn({ method: 'GET' })
-  .inputValidator(toolNameValidator)
+  .inputValidator(parseToolInput)
   .handler(async ({ data }) => {
-    const key = `${getActiveProviderId()}:${data}`
-    const cached = recentCache.get(key)
-    if (cached) return cached
-    const result = await listToolRecentCalls(data, { limit: 8 })
-    recentCache.set(key, result)
-    return result
+    const { fromUs, toUs } = windowUs(data.range)
+    return listToolRecentCalls(data.name, { fromUs, toUs, limit: 8 })
   })
 
-export const toolDetailQuery = (name: string) =>
-  queryOptions({
-    queryKey: queryKeys.tools.detail(name),
-    queryFn: () => fetchDetail({ data: name }),
-    staleTime: STALE_TELEMETRY_MS,
+const fetchTrend = createServerFn({ method: 'GET' })
+  .inputValidator(parseToolInput)
+  .handler(async ({ data }): Promise<ToolPayloadPoint[]> => {
+    const { fromUs, toUs } = windowUs(data.range)
+    return listToolPayloadOverTime(data.name, { fromUs, toUs })
   })
 
-export const toolRecentCallsQuery = (name: string) =>
-  queryOptions({
-    queryKey: queryKeys.tools.recent(name),
-    queryFn: () => fetchRecent({ data: name }),
-    staleTime: STALE_TELEMETRY_MS,
-  })
-
-const fetchCatalog = createServerFn({ method: 'GET' })
-  .inputValidator((input: unknown) => parse(input))
-  .handler(async ({ data }): Promise<ToolCatalogRow[]> => {
-    const key = `${getActiveProviderId()}:${serialize(data)}`
-    const cached = catalogCache.get(key)
-    if (cached) return cached
-    const { fromUs, toUs } = windowUs(data)
-    const result = await listAllTools({ fromUs, toUs, limit: 1000 })
-    catalogCache.set(key, result, { ttl: catalogTtlMs(data) })
-    return result
-  })
+const fetchBody = createServerFn({ method: 'GET' })
+  .inputValidator(spanIdValidator)
+  .handler(async ({ data }): Promise<ToolPayloadBody | null> => getToolPayloadBody(data))
 
 // The full per-tool aggregate set. Shared by the /tools catalog and the
-// inspector's at-a-glance health hint — same numbers, one cached fetch.
-export const toolsCatalogQuery = (range: TimeRange = DEFAULT) =>
+// inspector's health hint — same numbers, one cached query.
+export const toolsCatalogQuery = (range: TimeRange = DEFAULT, dimensions: ToolDimensionFilter[] = []) =>
   queryOptions({
-    queryKey: queryKeys.tools.catalog(serialize(range)),
-    queryFn: () => fetchCatalog({ data: range }),
+    queryKey: queryKeys.tools.catalog(serialize(range), dimensions.length ? JSON.stringify(dimensions) : undefined),
+    queryFn: () => fetchCatalog({ data: { range, dimensions } }),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+
+export const toolDetailQuery = (name: string, range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: queryKeys.tools.detail(name, serialize(range)),
+    queryFn: () => fetchTool({ data: { name, range } }),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+
+export const toolRecentCallsQuery = (name: string, range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: queryKeys.tools.recent(name, serialize(range)),
+    queryFn: () => fetchRecent({ data: { name, range } }),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+
+export const toolPayloadTrendQuery = (name: string, range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: queryKeys.tools.trend(name, serialize(range)),
+    queryFn: () => fetchTrend({ data: { name, range } }),
+    staleTime: STALE_TELEMETRY_MS,
+  })
+
+export const toolPayloadBodyQuery = (spanId: string) =>
+  queryOptions({
+    queryKey: queryKeys.tools.body(spanId),
+    queryFn: () => fetchBody({ data: spanId }),
     staleTime: STALE_TELEMETRY_MS,
   })

@@ -1,5 +1,6 @@
 import { getCookie } from '@tanstack/react-start/server'
 import type { Span } from '#/lib/spans'
+import { countTokens } from '#/lib/tokens'
 import * as analytics from './analytics'
 import { createAppInsightsProvider } from './app-insights'
 import { createFixturesProvider } from './fixtures'
@@ -21,10 +22,11 @@ import type {
   SpanSummary,
   TelemetryProvider,
   ToolCallSample,
-  ToolCatalogRow,
-  ToolDetail,
   ToolErrorRow,
-  ToolPayloadRow,
+  ToolListOpts,
+  ToolPayloadBody,
+  ToolPayloadPoint,
+  ToolRow,
   TopOpts,
   TraceSummary,
   WindowOpts,
@@ -226,16 +228,14 @@ export async function listToolErrorRates(opts?: TopOpts): Promise<ToolErrorRow[]
   return analytics.fetchToolErrorRates(getActiveProvider(), opts)
 }
 
-export async function listToolPayloadSizes(opts?: TopOpts): Promise<ToolPayloadRow[]> {
-  return analytics.fetchToolPayloadSizes(getActiveProvider(), opts)
+export async function listTools(opts?: ToolListOpts): Promise<ToolRow[]> {
+  return analytics.fetchTools(getActiveProvider(), opts)
 }
 
-export async function listAllTools(opts?: TopOpts): Promise<ToolCatalogRow[]> {
-  return analytics.fetchAllTools(getActiveProvider(), opts)
-}
-
-export async function getToolDetail(name: string, opts?: WindowOpts): Promise<ToolDetail | null> {
-  return analytics.fetchToolDetail(getActiveProvider(), name, opts)
+export async function getToolPayloadBody(spanId: string): Promise<ToolPayloadBody | null> {
+  const raw = await analytics.fetchToolPayloadBody(getActiveProvider(), spanId)
+  if (!raw) return null
+  return { ...raw, tokens: countTokens(raw.body) }
 }
 
 export async function listToolRecentCalls(
@@ -243,6 +243,10 @@ export async function listToolRecentCalls(
   opts?: WindowOpts & { limit?: number },
 ): Promise<ToolCallSample[]> {
   return analytics.fetchToolRecentCalls(getActiveProvider(), name, opts)
+}
+
+export async function listToolPayloadOverTime(name: string, opts?: WindowOpts): Promise<ToolPayloadPoint[]> {
+  return analytics.fetchToolPayloadOverTime(getActiveProvider(), name, opts)
 }
 
 export async function listChatLatencyOverTime(opts?: WindowOpts): Promise<LatencyPoint[]> {

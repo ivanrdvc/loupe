@@ -4,7 +4,7 @@ import { asMessages } from '#/lib/spans/conversation'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 import { pickCanonical, pickCanonicalNumber } from './conventions'
 import { classifyTraceCategory } from './trace-category'
-import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, ToolPayloadRow, TraceSummary } from './types'
+import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, TraceSummary } from './types'
 
 // Sessions are reconstructed from raw spans, so the scan has to pull every
 // row that could carry a session-identifying attribute. When the cap is hit
@@ -44,24 +44,15 @@ export function mapToolErrorRow(row: Record<string, unknown>): ToolErrorRow {
   }
 }
 
-export function mapToolPayloadRow(row: Record<string, unknown>): ToolPayloadRow {
-  // LENGTH() in DataFusion returns char count for string columns — same as bytes
-  // for ASCII, slightly off for multibyte. Close enough for context-budget framing.
-  const toChars = (v: unknown) => {
-    const n = Math.round(Number(v ?? 0))
-    return Number.isFinite(n) && n > 0 ? n : 0
-  }
-  const sample = row.sample_trace_id
-  const session = row.sample_session_id
-  return {
-    name: String(row.name ?? '?'),
-    avgChars: toChars(row.avg_chars),
-    p95Chars: toChars(row.p95_chars),
-    maxChars: toChars(row.max_chars),
-    count: Number(row.count ?? 0),
-    sampleTraceId: typeof sample === 'string' && sample ? sample : undefined,
-    sampleSessionId: typeof session === 'string' && session ? session : undefined,
-  }
+// Single-quote a value for inline SQL (DataFusion has no backslash escapes).
+export function sqlString(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
+// Rounds a length aggregate to a non-negative count.
+export function toCount(v: unknown): number {
+  const n = Math.round(Number(v ?? 0))
+  return Number.isFinite(n) && n > 0 ? n : 0
 }
 
 export function aggregateSessions(hits: Array<Record<string, unknown>>, limit: number): SessionSummary[] {

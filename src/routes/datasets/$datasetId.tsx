@@ -31,6 +31,7 @@ import {
 } from '#/features/evaluation'
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
 import { runDataset, updateDataset } from '#/features/evaluation/server/datasets'
+import { downloadCsv } from '#/lib/csv'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -193,7 +194,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
             ))}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => downloadCsv(dataset.name, examples)}>
+            <Button variant="outline" size="sm" onClick={() => downloadDatasetCsv(dataset.name, examples)}>
               <Download data-icon="inline-start" />
               CSV
             </Button>
@@ -785,20 +786,16 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
   )
 }
 
-// Client-side CSV export of the dataset's examples (input · expected · metadata · source).
-function downloadCsv(name: string, examples: DatasetExample[]) {
-  const cell = (v: string) => `"${v.replace(/"/g, '""')}"`
-  const rows = [['input', 'expected', 'metadata', 'sourceTraceId']]
-  for (const e of examples) {
-    const input = typeof e.input === 'string' ? e.input : JSON.stringify(e.input)
-    rows.push([input, e.expected ?? '', JSON.stringify(e.metadata), e.sourceTraceId ?? ''])
-  }
-  const csv = rows.map((r) => r.map(cell).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+function downloadDatasetCsv(name: string, examples: DatasetExample[]) {
+  const rows = examples.map((e) => [
+    typeof e.input === 'string' ? e.input : JSON.stringify(e.input),
+    e.expected ?? '',
+    JSON.stringify(e.metadata),
+    e.sourceTraceId ?? '',
+  ])
+  downloadCsv(
+    `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`,
+    ['input', 'expected', 'metadata', 'sourceTraceId'],
+    rows,
+  )
 }

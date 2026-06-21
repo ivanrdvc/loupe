@@ -74,6 +74,18 @@ export function tokensFromChars(chars: number): number {
   return Math.ceil(chars / 4)
 }
 
+// Above this a result is wastefully large; at MODEL_CONTEXT_WINDOW it can't fit (crash).
+export const CONTEXT_BUDGET_TOKENS = 2000
+export const MODEL_CONTEXT_WINDOW = 200_000
+
+export type PayloadSeverity = 'ok' | 'warn' | 'danger'
+
+export function payloadSeverity(tokens: number): PayloadSeverity {
+  if (tokens >= MODEL_CONTEXT_WINDOW) return 'danger'
+  if (tokens >= CONTEXT_BUDGET_TOKENS) return 'warn'
+  return 'ok'
+}
+
 export function truncateId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id
 }

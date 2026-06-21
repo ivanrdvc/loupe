@@ -30,9 +30,11 @@ export const queryKeys = {
   },
   tools: {
     all: () => ['tools'] as const,
-    catalog: (range: string) => ['tools', 'catalog', { range }] as const,
-    detail: (name: string) => ['tools', 'detail', name] as const,
-    recent: (name: string) => ['tools', 'recent', name] as const,
+    catalog: (range: string, dimensions?: string) => ['tools', 'catalog', { range, dimensions }] as const,
+    detail: (name: string, range: string) => ['tools', 'detail', name, { range }] as const,
+    recent: (name: string, range: string) => ['tools', 'recent', name, { range }] as const,
+    trend: (name: string, range: string) => ['tools', 'trend', name, { range }] as const,
+    body: (spanId: string) => ['tools', 'body', spanId] as const,
   },
   providers: {
     all: () => ['providers'] as const,

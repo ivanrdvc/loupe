@@ -15,10 +15,8 @@ import {
   listChatLatencyOverTime,
   listRunsPerHour,
   listToolErrorRates,
-  listToolPayloadSizes,
   type RunsPoint,
   type ToolErrorRow,
-  type ToolPayloadRow,
 } from '#/lib/telemetry'
 import { DEFAULT, parse, serialize, type TimeRange, windowMs, windowUs } from '#/lib/time-range'
 
@@ -26,7 +24,6 @@ export type HomeInbox = {
   newTools: InventoryRow[]
   newAgents: InventoryRow[]
   toolErrors: ToolErrorRow[]
-  toolPayloads: ToolPayloadRow[]
 }
 
 function ttlMsFor(range: TimeRange): number {
@@ -52,22 +49,28 @@ const fetchInbox = createServerFn({ method: 'GET' })
 
     const { from, to } = windowMs(data)
     const { fromUs, toUs } = windowUs(data)
-    void Promise.allSettled([
-      runDetection('new_tool'),
-      runDetection('new_agent'),
-      runToolPayloadDetection({ fromUs, toUs }),
-      recoverStuckEvalRuns(),
-      runOnlineEvals(),
-    ])
-    const [inventory, toolErrors, toolPayloads] = await Promise.all([
+    kickBackgroundJobs({ fromUs, toUs })
+    const [inventory, toolErrors] = await Promise.all([
       listHomeInventory(from, to),
       listToolErrorRates({ fromUs, toUs, limit: 5 }).catch(() => []),
-      listToolPayloadSizes({ fromUs, toUs, limit: 5 }).catch(() => []),
     ])
-    const result: HomeInbox = { ...inventory, toolErrors, toolPayloads }
+    const result: HomeInbox = { ...inventory, toolErrors }
     inboxCache.set(key, result, { ttl: ttlMsFor(data) })
     return result
   })
+
+// Opportunistic background work, fired (never awaited) on home reads. loupe has
+// no long-lived scheduler, so reads are the tick; each job self-gates — detection
+// by its persisted cursor, evals by their own state — so firing every read is cheap.
+function kickBackgroundJobs(window: { fromUs: number; toUs: number }): void {
+  void Promise.allSettled([
+    runDetection('new_tool'),
+    runDetection('new_agent'),
+    runToolPayloadDetection(window),
+    recoverStuckEvalRuns(),
+    runOnlineEvals(),
+  ])
+}
 
 const fetchLatency = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))

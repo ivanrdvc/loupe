@@ -28,6 +28,8 @@ export interface McpTool {
   description?: string
   inputSchema?: JsonValue
   annotations?: McpToolAnnotations
+  // Deviating path/value where the SDK validator rejected a legal JSON Schema.
+  schemaNote?: string
 }
 
 export interface McpServer extends McpServerRef {

@@ -1,4 +1,5 @@
 import type { Span } from '#/lib/spans'
+import type { CanonicalField } from './conventions'
 
 export interface WindowOpts {
   fromUs?: number
@@ -142,50 +143,58 @@ export interface ToolErrorRow {
   lastErrorTraceId?: string
 }
 
-export interface ToolPayloadRow {
-  name: string
-  avgChars: number
-  p95Chars: number
-  maxChars: number
-  count: number
-  sampleTraceId?: string
-  sampleSessionId?: string
-}
-
-export interface ToolCatalogRow {
-  name: string
+// One execute_tool aggregate over a window. *Tokens are estimated from result
+// char length (≈chars/4); the drawer shows the exact count per call.
+export interface ToolRow {
+  name: string // extracted, never the raw "execute_tool …"
   calls: number
+  callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  avgChars: number
-  p95Chars: number
-  p50Ms: number
-  p95Ms: number
-  lastSeenMs: number
-}
-
-export interface ToolDetail {
-  name: string
-  calls: number
-  errors: number
-  errorRate: number
-  avgChars: number
-  p95Chars: number
-  maxChars: number
+  avgTokens: number
+  p50Tokens: number
+  p95Tokens: number
+  maxTokens: number
+  totalTokens: number
   p50Ms: number
   p95Ms: number
   firstSeenMs: number
   lastSeenMs: number
+  sampleTraceId?: string
+  sampleSessionId?: string
+}
+
+// `field` resolves through the conventions allow-list; forks add company id there.
+export interface ToolDimensionFilter {
+  field: CanonicalField
+  value: string
+}
+
+export interface ToolListOpts extends ListOpts {
+  name?: string // exact tool name → single-row fetch
+  dimensions?: readonly ToolDimensionFilter[]
 }
 
 export interface ToolCallSample {
   traceId: string
+  spanId?: string
   sessionId?: string
   startedAtMs: number
   durationMs: number
   hasError: boolean
   resultChars?: number
 }
+
+// `truncated` when the provider capped the stored body (App Insights caps
+// customDimensions); forks override the provider impl to read a complete store.
+export interface ToolPayloadBody {
+  body: string
+  tokens: number
+  truncated: boolean
+}
+
+// Provider yield; the dispatch wrapper adds the exact token count.
+export type RawPayloadBody = Pick<ToolPayloadBody, 'body' | 'truncated'>
 
 export type TopOpts = ListOpts
 
@@ -205,6 +214,12 @@ export interface CacheHitPoint {
 export interface RunsPoint {
   ts: number
   runs: number
+}
+
+export interface ToolPayloadPoint {
+  ts: number
+  p95Tokens: number
+  calls: number
 }
 
 export type SessionFetch = {
