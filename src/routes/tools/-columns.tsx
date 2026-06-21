@@ -5,9 +5,9 @@ import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { TokensFromChars } from '#/features/inspect'
 import { formatDuration, formatPercent } from '#/lib/format'
-import type { ToolCatalogRow } from '#/lib/telemetry'
+import type { ToolRow } from '#/lib/telemetry'
 
-export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
+export const toolColumns: ColumnDef<ToolRow>[] = [
   {
     accessorKey: 'name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tool" />,
@@ -41,30 +41,43 @@ export const toolColumns: ColumnDef<ToolCatalogRow>[] = [
     },
   },
   {
-    accessorKey: 'p50Ms',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="p50" className="justify-end" />,
-    cell: ({ row }) => <div className="text-right tabular-nums">{formatDuration(row.original.p50Ms)}</div>,
-  },
-  {
     accessorKey: 'p95Ms',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="p95" className="justify-end" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="p95 latency" className="justify-end" />,
     cell: ({ row }) => <div className="text-right tabular-nums">{formatDuration(row.original.p95Ms)}</div>,
   },
   {
-    accessorKey: 'avgChars',
+    accessorKey: 'avgBytes',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Avg tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <TokensFromChars chars={row.original.avgChars} />
+        <TokensFromChars chars={row.original.avgBytes} />
       </div>
     ),
   },
   {
-    accessorKey: 'p95Chars',
+    accessorKey: 'p95Bytes',
     header: ({ column }) => <DataTableColumnHeader column={column} title="p95 tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <TokensFromChars chars={row.original.p95Chars} />
+        <TokensFromChars chars={row.original.p95Bytes} />
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'maxBytes',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Max tokens" className="justify-end" />,
+    cell: ({ row }) => (
+      <div className="text-right tabular-nums">
+        <TokensFromChars chars={row.original.maxBytes} />
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'totalBytes',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Total tokens" className="justify-end" />,
+    cell: ({ row }) => (
+      <div className="text-right tabular-nums">
+        <TokensFromChars chars={row.original.totalBytes} />
       </div>
     ),
   },

@@ -1,11 +1,8 @@
 import { db } from '#/db'
 import { inboxItems } from '#/db/schema'
-import { tokensFromChars } from '#/lib/format'
-import { listToolPayloadSizes, type ToolPayloadRow } from '#/lib/telemetry'
+import { CONTEXT_BUDGET_TOKENS, tokensFromChars } from '#/lib/format'
+import { listTools, type ToolRow } from '#/lib/telemetry'
 
-// Noise-floor thresholds. Payload spikes on rare tools are meaningless until
-// there are enough calls to draw a line under.
-const MIN_PAYLOAD_CHARS = 1000
 const MIN_PAYLOAD_CALLS = 3
 const PAYLOAD_SPIKE_RATIO = 2
 
@@ -17,18 +14,18 @@ export interface AnomalyWindow {
 export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired: number }> {
   const span = w.toUs - w.fromUs
   const [current, prior] = await Promise.all([
-    listToolPayloadSizes({ fromUs: w.fromUs, toUs: w.toUs, limit: 50 }).catch(() => [] as ToolPayloadRow[]),
-    listToolPayloadSizes({ fromUs: w.fromUs - span, toUs: w.fromUs, limit: 50 }).catch(() => [] as ToolPayloadRow[]),
+    listTools({ fromUs: w.fromUs, toUs: w.toUs, limit: 50 }).catch(() => [] as ToolRow[]),
+    listTools({ fromUs: w.fromUs - span, toUs: w.fromUs, limit: 50 }).catch(() => [] as ToolRow[]),
   ])
   const priorByName = new Map(prior.map((r) => [r.name, r]))
   const day = bucketDay(w.toUs)
   let fired = 0
   for (const cur of current) {
-    if (cur.count < MIN_PAYLOAD_CALLS) continue
-    if (cur.p95Chars < MIN_PAYLOAD_CHARS) continue
+    if (cur.callsWithResult < MIN_PAYLOAD_CALLS) continue
+    if (tokensFromChars(cur.p95Bytes) < CONTEXT_BUDGET_TOKENS) continue
     const prev = priorByName.get(cur.name)
     const isNew = !prev
-    const isSpike = !!prev && cur.p95Chars >= prev.p95Chars * PAYLOAD_SPIKE_RATIO
+    const isSpike = !!prev && cur.p95Bytes >= prev.p95Bytes * PAYLOAD_SPIKE_RATIO
     if (!isNew && !isSpike) continue
     const inserted = await db
       .insert(inboxItems)
@@ -47,12 +44,12 @@ export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired
   return { fired }
 }
 
-function payloadSummary(cur: ToolPayloadRow, prev?: ToolPayloadRow): string {
-  const tokens = tokensFromChars(cur.p95Chars)
+function payloadSummary(cur: ToolRow, prev?: ToolRow): string {
+  const tokens = tokensFromChars(cur.p95Bytes)
   if (!prev) {
-    return `${cur.name} p95 output ~${formatK(tokens)} tokens (${formatK(cur.p95Chars)} chars) — first observed at this size`
+    return `${cur.name} p95 output ~${formatK(tokens)} tokens — first observed over budget`
   }
-  const prevTokens = tokensFromChars(prev.p95Chars)
+  const prevTokens = tokensFromChars(prev.p95Bytes)
   return `${cur.name} p95 output ~${formatK(tokens)} tokens — was ~${formatK(prevTokens)} prior window`
 }
 

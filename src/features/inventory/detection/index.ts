@@ -1,8 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { discoveryCursors, inboxItems, inventory, inventoryVersions } from '#/db/schema'
-import type { InventoryDiscoveryKind } from '#/lib/telemetry'
-import { discoverFromSources } from './source'
+import { discoverInventory, type InventoryDiscoveryKind } from '#/lib/telemetry'
 
 const FIRST_SCAN_MS = 60 * 60 * 1000
 const DETECTION_INTERVAL_MS = Number(process.env.DETECTION_INTERVAL_MS) || 60 * 60 * 1000
@@ -10,7 +9,9 @@ const DETECTION_INTERVAL_MS = Number(process.env.DETECTION_INTERVAL_MS) || 60 * 
 const running = new Set<InventoryDiscoveryKind>()
 const NOOP = { observed: 0, inserted: 0 }
 
-// Read-triggered but gated by the cursor to one scan per interval.
+// Read-triggered but gated by the persisted cursor to one scan per interval; the
+// cursor also bounds the scan window so it survives restarts and coordinates
+// across replicas.
 export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ observed: number; inserted: number }> {
   if (running.has(kind)) return NOOP
   const now = Date.now()
@@ -21,7 +22,7 @@ export async function runDetection(kind: InventoryDiscoveryKind): Promise<{ obse
   const fromMs = lastScannedMs ?? now - FIRST_SCAN_MS
   running.add(kind)
   try {
-    const observations = await discoverFromSources(kind, { fromUs: fromMs * 1000, toUs: now * 1000 })
+    const observations = await discoverInventory(kind, { fromUs: fromMs * 1000, toUs: now * 1000 }).catch(() => [])
     let inserted = 0
 
     for (const observation of observations) {

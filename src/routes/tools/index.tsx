@@ -1,15 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import type { SortingState } from '@tanstack/react-table'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { toolsCatalogQuery } from '#/features/inspect'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
+import type { ToolDimensionFilter } from '#/lib/telemetry'
+import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
 import { ToolsDataTable } from './-tools-data-table'
 
-const SORTABLE_COLUMNS = new Set(['name', 'calls', 'errorRate', 'p50Ms', 'p95Ms', 'avgChars', 'p95Chars', 'lastSeenMs'])
+const SORTABLE_COLUMNS = new Set([
+  'name',
+  'calls',
+  'errorRate',
+  'p95Ms',
+  'avgBytes',
+  'p95Bytes',
+  'maxBytes',
+  'totalBytes',
+  'lastSeenMs',
+])
 
 export const Route = createFileRoute('/tools/')({
   validateSearch: (search: Record<string, unknown>): { sort?: string; desc?: boolean; tool?: string } => {
@@ -31,8 +43,19 @@ function ToolsPage() {
   const navigate = useNavigate({ from: Route.fullPath })
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
+  const [dimValues, setDimValues] = useState<Record<string, string>>({})
+
+  const dimensions: ToolDimensionFilter[] = useMemo(
+    () =>
+      TOOL_DIMENSIONS.flatMap((d) => {
+        const value = dimValues[d.key]?.trim()
+        return value ? [{ field: d.field, value }] : []
+      }),
+    [dimValues],
+  )
+
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...toolsCatalogQuery(range),
+    ...toolsCatalogQuery(range, dimensions),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
 
@@ -68,6 +91,8 @@ function ToolsPage() {
           void refetch()
         }}
         refreshing={isFetching}
+        dimensions={dimValues}
+        onDimensionChange={(key, value) => setDimValues((prev) => ({ ...prev, [key]: value }))}
       />
     </Page>
   )

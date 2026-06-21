@@ -74,6 +74,9 @@ export function tokensFromChars(chars: number): number {
   return Math.ceil(chars / 4)
 }
 
+// Per-call result-size target; the single threshold behind every payload severity cue.
+export const CONTEXT_BUDGET_TOKENS = 2000
+
 export function truncateId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id
 }

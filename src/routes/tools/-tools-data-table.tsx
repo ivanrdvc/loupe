@@ -14,13 +14,15 @@ import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTablePagination } from '#/components/data-table-pagination'
 import { DataTableToolbar } from '#/components/data-table-toolbar'
 import { Spinner } from '#/components/spinner'
+import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import type { ToolCatalogRow } from '#/lib/telemetry'
+import type { ToolRow } from '#/lib/telemetry'
+import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
 import type { TimeRange } from '#/lib/time-range'
 import { toolColumns } from './-columns'
 
 interface ToolsDataTableProps {
-  data: ToolCatalogRow[]
+  data: ToolRow[]
   isLoading?: boolean
   sorting: SortingState
   onSortingChange: (next: SortingState) => void
@@ -30,6 +32,8 @@ interface ToolsDataTableProps {
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
   refreshing?: boolean
+  dimensions: Record<string, string>
+  onDimensionChange: (key: string, value: string) => void
 }
 
 export function ToolsDataTable({
@@ -43,6 +47,8 @@ export function ToolsDataTable({
   onAutoRefreshChange,
   onRefresh,
   refreshing,
+  dimensions,
+  onDimensionChange,
 }: ToolsDataTableProps) {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -79,6 +85,19 @@ export function ToolsDataTable({
         onRefresh={onRefresh}
         refreshing={refreshing}
       />
+      {TOOL_DIMENSIONS.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-2 lg:px-6">
+          {TOOL_DIMENSIONS.map((d) => (
+            <Input
+              key={d.key}
+              value={dimensions[d.key] ?? ''}
+              onChange={(e) => onDimensionChange(d.key, e.target.value)}
+              placeholder={`${d.label} id…`}
+              className="h-8 w-44"
+            />
+          ))}
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col border-t">
         <div className="min-h-0 flex-1 overflow-hidden overflow-y-auto bg-background">
           <Table>

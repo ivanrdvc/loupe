@@ -7,11 +7,10 @@ import * as ai from './analytics-app-insights'
 import * as oo from './analytics-openobserve'
 import {
   FIXTURE_INVENTORY,
-  FIXTURE_TOOL_CATALOG,
   FIXTURE_TOOL_ERRORS,
-  FIXTURE_TOOL_PAYLOADS,
-  fixtureToolDetail,
+  fixtureToolPayloadBody,
   fixtureToolRecentCalls,
+  fixtureTools,
 } from './fixtures'
 import type {
   AgentMetrics,
@@ -19,13 +18,13 @@ import type {
   InventoryDiscoveryKind,
   InventoryObservation,
   LatencyPoint,
+  RawPayloadBody,
   RunsPoint,
   TelemetryProvider,
   ToolCallSample,
-  ToolCatalogRow,
-  ToolDetail,
   ToolErrorRow,
-  ToolPayloadRow,
+  ToolListOpts,
+  ToolRow,
   TopOpts,
   WindowOpts,
 } from './types'
@@ -47,14 +46,27 @@ export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts):
   }
 }
 
-export async function fetchToolPayloadSizes(p: TelemetryProvider, opts?: TopOpts): Promise<ToolPayloadRow[]> {
+export async function fetchTools(p: TelemetryProvider, opts?: ToolListOpts): Promise<ToolRow[]> {
   switch (p.name) {
     case 'openobserve':
-      return oo.fetchToolPayloadSizes(p, opts)
+      return oo.fetchTools(p, opts)
     case 'app-insights':
-      return ai.fetchToolPayloadSizes(p, opts)
+      return ai.fetchTools(p, opts)
     case 'fixtures':
-      return FIXTURE_TOOL_PAYLOADS
+      return fixtureTools(opts?.name)
+    default:
+      return assertNever(p)
+  }
+}
+
+export async function fetchToolPayloadBody(p: TelemetryProvider, spanId: string): Promise<RawPayloadBody | null> {
+  switch (p.name) {
+    case 'openobserve':
+      return oo.fetchToolPayloadBody(p, spanId)
+    case 'app-insights':
+      return ai.fetchToolPayloadBody(p, spanId)
+    case 'fixtures':
+      return fixtureToolPayloadBody(spanId)
     default:
       return assertNever(p)
   }
@@ -94,36 +106,6 @@ export async function fetchRunsPerHour(p: TelemetryProvider, opts?: WindowOpts):
       return ai.fetchRunsPerHour(p, opts)
     case 'fixtures':
       return []
-    default:
-      return assertNever(p)
-  }
-}
-
-export async function fetchAllTools(p: TelemetryProvider, opts?: TopOpts): Promise<ToolCatalogRow[]> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchAllTools(p, opts)
-    case 'app-insights':
-      return ai.fetchAllTools(p, opts)
-    case 'fixtures':
-      return FIXTURE_TOOL_CATALOG
-    default:
-      return assertNever(p)
-  }
-}
-
-export async function fetchToolDetail(
-  p: TelemetryProvider,
-  name: string,
-  opts?: WindowOpts,
-): Promise<ToolDetail | null> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchToolDetail(p, name, opts)
-    case 'app-insights':
-      return ai.fetchToolDetail(p, name, opts)
-    case 'fixtures':
-      return fixtureToolDetail(name)
     default:
       return assertNever(p)
   }

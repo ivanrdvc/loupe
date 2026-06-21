@@ -22,6 +22,7 @@ import {
   num,
   pickIdentityValue,
   SESSION_SCAN_LIMIT,
+  sqlString,
   TRACE_FETCH_LIMIT,
 } from './shared'
 import type {
@@ -409,10 +410,6 @@ function whereIdentity(opts: { userId?: string; userName?: string } | undefined,
   if (cols.length === 0) return 'AND 1 = 0'
   const ors = cols.map((k) => `${k} = ${sqlString(id.value)}`).join(' OR ')
   return `AND (${ors})`
-}
-
-function sqlString(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`
 }
 
 function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {

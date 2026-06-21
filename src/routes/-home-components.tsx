@@ -6,8 +6,8 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '#/componen
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { InventoryRow } from '#/features/inventory/server'
-import { formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
-import type { ToolErrorRow, ToolPayloadRow } from '#/lib/telemetry'
+import { CONTEXT_BUDGET_TOKENS, formatPercent, formatTokens, tokensFromChars } from '#/lib/format'
+import type { ToolErrorRow, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
 
@@ -95,10 +95,17 @@ function rateBarTone(rate: number): string {
   return 'bg-muted-foreground/40'
 }
 
-function sizeTextTone(tokens: number): string {
-  if (tokens >= 10_000) return 'text-destructive'
-  if (tokens >= 2000) return 'text-warning'
+// Severity = how far past the context budget the p95 result sits.
+function budgetTextTone(tokens: number): string {
+  if (tokens >= CONTEXT_BUDGET_TOKENS * 2) return 'text-destructive'
+  if (tokens >= CONTEXT_BUDGET_TOKENS) return 'text-warning'
   return 'text-foreground'
+}
+
+function budgetBarTone(tokens: number): string {
+  if (tokens >= CONTEXT_BUDGET_TOKENS * 2) return 'bg-destructive'
+  if (tokens >= CONTEXT_BUDGET_TOKENS) return 'bg-warning'
+  return 'bg-primary/60'
 }
 
 // One tool metric row — the whole row drills into the tool's profile drawer.
@@ -170,23 +177,22 @@ export function ToolErrorTable({ rows }: { rows: ToolErrorRow[] }) {
   )
 }
 
-export function ToolPayloadTable({ rows }: { rows: ToolPayloadRow[] }) {
+export function ToolPayloadTable({ rows }: { rows: ToolRow[] }) {
   if (rows.length === 0) {
     return <SectionEmpty title="No tool-call payloads" description="No execute_tool spans in this window." />
   }
-  const maxP95 = Math.max(...rows.map((r) => r.p95Chars), 1)
   return (
     <ul className="-mx-2 flex flex-col">
       {rows.map((row) => {
-        const p95Tok = tokensFromChars(row.p95Chars)
+        const p95Tok = tokensFromChars(row.p95Bytes)
         return (
           <ToolStatRow
             key={row.name}
             name={row.name}
             value={`${formatTokens(p95Tok)} tok`}
-            valueTone={sizeTextTone(p95Tok)}
-            meta={`avg ${formatTokens(tokensFromChars(row.avgChars))} · max ${formatTokens(tokensFromChars(row.maxChars))}`}
-            bar={{ pct: row.p95Chars / maxP95, tone: 'bg-primary/60' }}
+            valueTone={budgetTextTone(p95Tok)}
+            meta={`${row.calls.toLocaleString('en-US')} calls · max ${formatTokens(tokensFromChars(row.maxBytes))}`}
+            bar={{ pct: p95Tok / CONTEXT_BUDGET_TOKENS, tone: budgetBarTone(p95Tok) }}
           />
         )
       })}
