@@ -97,8 +97,6 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
     LIMIT ${limit}
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
-  // Real max-result tokens: the single largest body per tool, tokenized. Max is
-  // one call, so unlike the p95/total estimates it can be exact.
   const maxTokensByOp = known.has('gen_ai_tool_call_result')
     ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, opts)
     : new Map<string, number>()
@@ -131,8 +129,7 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
   })
 }
 
-// Per-tool real max-result tokens: take the longest result body for each tool
-// (one row each via ROW_NUMBER) and tokenize it. Returns operation_name → tokens.
+// Longest result body per tool (one row each via ROW_NUMBER), tokenized.
 async function maxResultTokensByOp(
   p: OpenObserveProvider,
   where: string,
@@ -186,8 +183,7 @@ export async function fetchToolRecentCalls(
   const known = await p.getKnownColumns()
   const sessionCols = ooColumns('sessionId', { known })
   const sessionExpr = sessionCols.length === 0 ? 'NULL' : `COALESCE(${sessionCols.join(', ')})`
-  // Pull the whole result body (bounded by `limit`) so we can tokenize it for a
-  // real per-call token count — SQL can only measure characters.
+  // Pull the body (not just LENGTH) so we can tokenize a real per-call count.
   const sql = `
     SELECT
       trace_id,

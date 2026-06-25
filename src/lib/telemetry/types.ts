@@ -143,17 +143,14 @@ export interface ToolErrorRow {
   lastErrorTraceId?: string
 }
 
-// One execute_tool aggregate over a window. *Tokens are estimated from result
-// char length (≈chars/4); the drawer shows the exact count per call.
+// One execute_tool aggregate over a window.
 export interface ToolRow {
   name: string // extracted, never the raw "execute_tool …"
   calls: number
   callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  // Distribution stats are chars÷4 estimates from a SQL LENGTH() aggregate (the
-  // tokenizer can't run in the store). `maxTokens` is the one exception: max is a
-  // single call, so we fetch that one body and tokenize it for a real count.
+  // chars÷4 estimates; maxTokens is real (the one biggest body, tokenized).
   avgTokensEst: number
   p50TokensEst: number
   p95TokensEst: number
@@ -186,8 +183,7 @@ export interface ToolCallSample {
   durationMs: number
   hasError: boolean
   resultChars?: number
-  // Real token count of the result body (o200k). Absent when the body wasn't
-  // stored; on App Insights it reflects the (possibly truncated) stored body.
+  // Real o200k count of the result body; absent when no body was stored.
   resultTokens?: number
 }
 

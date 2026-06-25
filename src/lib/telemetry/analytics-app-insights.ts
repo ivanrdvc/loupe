@@ -165,8 +165,7 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round(num(r.duration_ms) ?? 0),
         hasError: r.has_error === true || r.has_error === 'true',
       }
-      // Body may be truncated by the App Insights 8KB customDimensions cap, so
-      // the token count reflects the stored body, not necessarily the full result.
+      // App Insights caps the body at ~8KB, so this counts the stored head.
       const body = typeof r.result_body === 'string' ? r.result_body : ''
       if (body.length > 0) {
         sample.resultChars = body.length
