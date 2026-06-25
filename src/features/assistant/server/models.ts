@@ -1,31 +1,25 @@
 import { createAzure } from '@ai-sdk/azure'
-import { openai } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from 'ai'
-import type { ChatModelId } from '../models'
+import type { ChatModelId } from '../chat-models'
 
-/** Azure deployment backing the nano model; defaults to the OpenAI model id. */
 const AZURE_NANO_DEPLOYMENT = process.env.AZURE_OPENAI_NANO_DEPLOYMENT ?? 'gpt-5-nano'
 
-// Built from loupe's AZURE_OPENAI_* convention (resource name or full endpoint).
-let azureProvider: ReturnType<typeof createAzure> | null = null
-function azure() {
-  if (!azureProvider) {
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.replace(/\/$/, '')
-    azureProvider = createAzure({
-      apiKey: process.env.AZURE_OPENAI_API_KEY,
-      resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
-      apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-      ...(endpoint ? { baseURL: `${endpoint}/openai/deployments` } : {}),
-    })
-  }
-  return azureProvider
-}
-
+// Mirrors src/features/evaluation/server/judge.ts: BYO key from env, Responses
+// API for gpt-5 reasoning, Azure via AZURE_OPENAI_* (resource name or endpoint).
 export function resolveChatModel(id: ChatModelId): LanguageModel {
-  switch (id) {
-    case 'azure-gpt-5-nano':
-      return azure()(AZURE_NANO_DEPLOYMENT)
-    default:
-      return openai('gpt-5-nano')
+  if (id === 'azure-gpt-5-nano') {
+    const apiKey = process.env.AZURE_OPENAI_API_KEY
+    if (!apiKey) throw new Error('Set AZURE_OPENAI_API_KEY to use the Azure assistant model.')
+    const resourceName = process.env.AZURE_OPENAI_RESOURCE_NAME
+    const baseURL = process.env.AZURE_OPENAI_ENDPOINT
+    if (!resourceName && !baseURL) {
+      throw new Error('Set AZURE_OPENAI_RESOURCE_NAME (or AZURE_OPENAI_ENDPOINT) for the Azure assistant model.')
+    }
+    const azure = createAzure({ apiKey, resourceName, baseURL, apiVersion: process.env.AZURE_OPENAI_API_VERSION })
+    return azure.responses(AZURE_NANO_DEPLOYMENT)
   }
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('Set OPENAI_API_KEY to use the assistant.')
+  return createOpenAI({ apiKey }).responses('gpt-5-nano')
 }

@@ -2,7 +2,7 @@ import { useChat } from '@ai-sdk/react'
 import { useNavigate } from '@tanstack/react-router'
 import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
 import { AlertTriangle, Coins, Route, Sparkles, Timer, Wrench } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { Conversation, ConversationContent, ConversationScrollButton } from '#/components/ai-elements/conversation'
 import {
   ModelSelector,
@@ -24,12 +24,27 @@ import {
 } from '#/components/ai-elements/prompt-input'
 import { Shimmer } from '#/components/ai-elements/shimmer'
 import { Button } from '#/components/ui/button.tsx'
+import { createLocalStorageStore } from '#/lib/local-storage-store'
 import { cn } from '#/lib/utils'
-import { CHAT_MODELS, type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '../models'
+import { CHAT_MODELS, type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '../chat-models'
 import type { PageContext } from '../server/prompt'
 import { AssistantMessage } from './assistant-message'
 
-const MODEL_STORAGE_KEY = 'assistant-chat-model'
+const MODEL_KEY = 'assistant-chat-model'
+const modelStore = createLocalStorageStore(MODEL_KEY)
+const readModel = (): ChatModelId => {
+  const v = typeof window === 'undefined' ? null : window.localStorage.getItem(MODEL_KEY)
+  return isChatModelId(v) ? v : DEFAULT_CHAT_MODEL
+}
+
+function useChatModel(): [ChatModelId, (id: ChatModelId) => void] {
+  const model = useSyncExternalStore(modelStore.subscribe, readModel, () => DEFAULT_CHAT_MODEL)
+  const setModel = useCallback((id: ChatModelId) => {
+    window.localStorage.setItem(MODEL_KEY, id)
+    modelStore.notify()
+  }, [])
+  return [model, setModel]
+}
 
 function suggestionsFor(ctx: PageContext) {
   if (ctx.traceId)
@@ -54,41 +69,26 @@ function suggestionsFor(ctx: PageContext) {
 export function AssistantChat({ context }: { context: PageContext }) {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
-  const [model, setModel] = useState<ChatModelId>(() => {
-    if (typeof window === 'undefined') return DEFAULT_CHAT_MODEL
-    const saved = window.localStorage.getItem(MODEL_STORAGE_KEY)
-    return isChatModelId(saved) ? saved : DEFAULT_CHAT_MODEL
+  const [model, setModel] = useChatModel()
+
+  // Per vercel/ai-chatbot use-active-chat.tsx: the transport reads the latest
+  // model/context from a ref inside prepareSendMessagesRequest.
+  const live = useRef({ model, context })
+  live.current = { model, context }
+  const { messages, sendMessage, status, stop, regenerate, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      prepareSendMessagesRequest: ({ messages }) => ({ body: { messages, ...live.current } }),
+    }),
   })
-  // Refs so the memoized transport always reads the latest values without being recreated.
-  const modelRef = useRef(model)
-  modelRef.current = model
-  const contextRef = useRef(context)
-  contextRef.current = context
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: '/api/chat',
-        prepareSendMessagesRequest: ({ messages }) => ({
-          body: { messages, model: modelRef.current, context: contextRef.current },
-        }),
-      }),
-    [],
-  )
-
-  const { messages, sendMessage, status, stop, regenerate, error } = useChat({ transport })
-
+  const isBusy = status === 'streaming' || status === 'submitted'
   // Standalone "Thinking…" until the assistant emits a reasoning block or text.
   const last = messages.at(-1)
   const lastHasVisible =
     last?.role === 'assistant' &&
     last.parts.some((p) => (isTextUIPart(p) && p.text) || (isReasoningUIPart(p) && p.text))
-  const awaitingText = (status === 'submitted' || status === 'streaming') && !lastHasVisible
-
-  const pickModel = (id: ChatModelId) => {
-    setModel(id)
-    window.localStorage.setItem(MODEL_STORAGE_KEY, id)
-  }
+  const awaitingText = isBusy && !lastHasVisible
 
   const submit = (message: PromptInputMessage) => {
     const text = message.text?.trim()
@@ -154,13 +154,9 @@ export function AssistantChat({ context }: { context: PageContext }) {
           </PromptInputBody>
           <PromptInputFooter className="px-2.5 pb-2.5">
             <PromptInputTools>
-              <ComposerModelSelector model={model} onModelChange={pickModel} />
+              <ComposerModelSelector model={model} onModelChange={setModel} />
             </PromptInputTools>
-            <PromptInputSubmit
-              disabled={!input.trim() && status !== 'streaming' && status !== 'submitted'}
-              onStop={stop}
-              status={status}
-            />
+            <PromptInputSubmit disabled={!input.trim() && !isBusy} onStop={stop} status={status} />
           </PromptInputFooter>
         </PromptInput>
       </div>

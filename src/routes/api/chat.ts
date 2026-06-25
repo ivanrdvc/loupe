@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 'ai'
-import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/assistant/models'
+import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/assistant/chat-models'
 import { resolveChatModel } from '#/features/assistant/server/models'
 import { type PageContext, systemPrompt } from '#/features/assistant/server/prompt'
 import { assistantTools } from '#/features/assistant/server/tools'

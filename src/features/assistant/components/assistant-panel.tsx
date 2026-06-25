@@ -1,6 +1,6 @@
 import { useRouterState, useSearch } from '@tanstack/react-router'
 import { ChevronsRight, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '#/components/ui/button.tsx'
 import { cn } from '#/lib/utils'
 import type { PageContext } from '../server/prompt'
@@ -8,6 +8,7 @@ import { AssistantChat } from './assistant-chat'
 import { useAssistant } from './assistant-provider'
 
 const PANEL_WIDTH = '26rem'
+const ORIGIN = typeof window === 'undefined' ? undefined : window.location.origin
 
 /** Right-side push panel — a flex sibling of SidebarInset, so content shrinks rather than overlays. */
 export function AssistantPanel() {
@@ -17,14 +18,17 @@ export function AssistantPanel() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const search = useSearch({ strict: false }) as { trace?: string; session?: string }
 
-  if (!enabled) return null
+  const context: PageContext = useMemo(
+    () => ({
+      pathname,
+      origin: ORIGIN,
+      traceId: typeof search.trace === 'string' ? search.trace : undefined,
+      sessionId: !search.trace && typeof search.session === 'string' ? search.session : undefined,
+    }),
+    [pathname, search.trace, search.session],
+  )
 
-  const context: PageContext = {
-    pathname,
-    origin: typeof window === 'undefined' ? undefined : window.location.origin,
-    traceId: typeof search.trace === 'string' ? search.trace : undefined,
-    sessionId: !search.trace && typeof search.session === 'string' ? search.session : undefined,
-  }
+  if (!enabled) return null
 
   return (
     <aside
