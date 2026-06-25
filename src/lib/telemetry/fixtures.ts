@@ -498,6 +498,7 @@ export function fixtureToolRecentCalls(name: string): ToolCallSample[] {
       durationMs: 40,
       hasError: false,
       resultChars: 520,
+      resultTokens: 130,
     },
     {
       traceId: 'tr-chat',
@@ -507,6 +508,7 @@ export function fixtureToolRecentCalls(name: string): ToolCallSample[] {
       durationMs: 1200,
       hasError: name === 'run_sql',
       resultChars: 1600,
+      resultTokens: 400,
     },
   ]
 }
