@@ -46,7 +46,7 @@ function rateTone(numer: number, denom: number, greenAt: number, amberAt: number
 
 // "Error-free" only means no span/transport error — loupe can't see logical
 // failures, so the label stays honest about what it measures.
-function buildTiles(summary: RollupSummary): TileData[] {
+export function buildTiles(summary: RollupSummary): TileData[] {
   const errorFreeCaption =
     summary.fires === 0
       ? ''
