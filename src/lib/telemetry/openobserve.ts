@@ -147,10 +147,19 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
 
   // 20004 = column referenced in SQL doesn't exist in stream schema. Drop the
   // cache and retry once with a fresh probe — handles columns that appeared
-  // after our cache was warmed.
-  const runWithSchema = async <T>(run: (known: ReadonlySet<string>) => Promise<T>): Promise<T> => {
+  // after our cache was warmed. `requires` re-probes a stale cache that would
+  // blank a column to `'' AS col` (valid SQL, raises no 20004) before running.
+  const runWithSchema = async <T>(
+    run: (known: ReadonlySet<string>) => Promise<T>,
+    requires?: (known: ReadonlySet<string>) => boolean,
+  ): Promise<T> => {
+    let known = await getKnownColumns()
+    if (requires && !requires(known)) {
+      forgetSchema()
+      known = await getKnownColumns()
+    }
     try {
-      return await run(await getKnownColumns())
+      return await run(known)
     } catch (e) {
       const msg = errMessage(e)
       if (!msg.includes('"code":20004')) throw e
@@ -237,7 +246,12 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         LIMIT ${SESSION_SCAN_LIMIT}
       `
       }
-      const hits = await runWithSchema((known) => search(buildSql(known), fromUs, toUs, SESSION_SCAN_LIMIT))
+      // An agent stream always carries a session/thread attribute; an empty
+      // session-column set means a stale cache, not reality — re-probe.
+      const hits = await runWithSchema(
+        (known) => search(buildSql(known), fromUs, toUs, SESSION_SCAN_LIMIT),
+        (known) => ooColumns('sessionId', { known }).length > 0,
+      )
       const truncated = hits.length >= SESSION_SCAN_LIMIT
       return { sessions: aggregateSessions(hits, limit), truncated }
     },

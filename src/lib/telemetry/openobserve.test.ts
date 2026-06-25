@@ -144,3 +144,31 @@ describe('listTraces pushes filters into the query before LIMIT', () => {
     expect(sql.indexOf("service_name = 'svc-x'")).toBeLessThan(sql.indexOf('GROUP BY'))
   })
 })
+
+describe('listSessions re-probes a stale schema missing session columns', () => {
+  const cfg = { baseUrl: 'http://oo', org: 'o', stream: 's', user: 'u', password: 'p' }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('forgets and re-probes when the cached schema has no session column, then queries it', async () => {
+    let schemaFetches = 0
+    let lastSql = ''
+    // First probe predates the session attribute; second is healthy. The blank
+    // column raises no SQL error, so without the guard the stale cache sticks.
+    const schemas = [[{ name: 'service_name' }], [{ name: 'service_name' }, { name: 'gen_ai_conversation_id' }]]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: string }) => {
+        if (String(url).includes('/schema')) {
+          const schema = schemas[Math.min(schemaFetches, schemas.length - 1)]
+          schemaFetches++
+          return { ok: true, json: async () => ({ schema }) }
+        }
+        lastSql = JSON.parse(String(init?.body)).query.sql
+        return { ok: true, json: async () => ({ hits: [] }) }
+      }),
+    )
+    await createOpenObserveProvider(cfg).listSessions?.({ limit: 50 })
+    expect(schemaFetches).toBe(2)
+    expect(lastSql).toContain('gen_ai_conversation_id')
+  })
+})
