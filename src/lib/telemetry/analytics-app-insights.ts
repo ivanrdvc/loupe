@@ -1,5 +1,6 @@
 import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
+import { countTokens } from '#/lib/tokens'
 import { aiCoalesce } from './conventions'
 import { mapToolErrorRow, num, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
@@ -66,7 +67,8 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
     union dependencies, requests
     ${nameFilter}
     ${dimFilters}
-    | extend result_len = strlen(tostring(customDimensions["${RESULT_ATTR}"]))
+    | extend body = tostring(customDimensions["${RESULT_ATTR}"])
+    | extend result_len = strlen(body)
     | extend result_len_nz = iif(result_len > 0, todouble(result_len), real(null))
     | extend sess = ${aiCoalesce('sessionId')}
     | summarize
@@ -77,6 +79,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
         p50_chars = percentile(result_len_nz, 50),
         p95_chars = percentile(result_len_nz, 95),
         max_chars = max(result_len_nz),
+        max_body = arg_max(result_len, body),
         total_chars = sum(result_len),
         p50_ms = percentile(duration, 50),
         p95_ms = percentile(duration, 95),
@@ -100,11 +103,14 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       callsWithResult: Number(r.calls_with_result ?? 0),
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
-      avgTokens: tokensFromChars(toCount(r.avg_chars)),
-      p50Tokens: tokensFromChars(toCount(r.p50_chars)),
-      p95Tokens: tokensFromChars(toCount(r.p95_chars)),
-      maxTokens: tokensFromChars(toCount(r.max_chars)),
-      totalTokens: tokensFromChars(toCount(r.total_chars)),
+      avgTokensEst: tokensFromChars(toCount(r.avg_chars)),
+      p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
+      p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
+      maxTokens:
+        typeof r.max_body === 'string' && r.max_body.length > 0
+          ? countTokens(r.max_body)
+          : tokensFromChars(toCount(r.max_chars)),
+      totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
       firstSeenMs: typeof r.first_seen === 'string' ? Date.parse(r.first_seen) : 0,
@@ -143,7 +149,7 @@ export async function fetchToolRecentCalls(
     | extend sess = ${aiCoalesce('sessionId')}
     | order by timestamp desc
     | take ${limit}
-    | project trace_id = operation_Id, span_id = id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false), result_chars = strlen(tostring(customDimensions["${RESULT_ATTR}"]))
+    | project trace_id = operation_Id, span_id = id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false), result_body = tostring(customDimensions["${RESULT_ATTR}"])
   `
   const rows = await p.query(q, opts ?? {})
   return rows
@@ -159,8 +165,12 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round(num(r.duration_ms) ?? 0),
         hasError: r.has_error === true || r.has_error === 'true',
       }
-      const chars = num(r.result_chars)
-      if (chars != null && chars > 0) sample.resultChars = Math.round(chars)
+      // App Insights caps the body at ~8KB, so this counts the stored head.
+      const body = typeof r.result_body === 'string' ? r.result_body : ''
+      if (body.length > 0) {
+        sample.resultChars = body.length
+        sample.resultTokens = countTokens(body)
+      }
       if (sessionId) sample.sessionId = sessionId
       if (spanId) sample.spanId = spanId
       return sample
@@ -187,9 +197,9 @@ export async function fetchToolPayloadOverTime(
   `
   const rows = await p.query(q, opts ?? {})
   return zeroFillBucketedAt(rows, fromUs, toUs, bucketSec, (r) => ({
-    p95Tokens: tokensFromChars(toCount(r.p95_chars)),
+    p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
     calls: Number(r.count ?? 0),
-  })).map((b) => ({ ts: b.ts, p95Tokens: b.value.p95Tokens, calls: b.value.calls }))
+  })).map((b) => ({ ts: b.ts, p95TokensEst: b.value.p95TokensEst, calls: b.value.calls }))
 }
 
 export async function fetchChatLatencyOverTime(p: AppInsightsProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

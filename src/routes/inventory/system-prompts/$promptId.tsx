@@ -63,10 +63,13 @@ function SystemPromptBreadcrumb({ name }: { name?: string }) {
   )
 }
 
+const HISTORY_PAGE = 25
+
 function SystemPromptDetailLoaded({ data }: { data: SystemPromptDetail }) {
   const { entity, versions } = data
   // The live value lives on the entity; older distinct values are the history rows.
   const [activeId, setActiveId] = useState<number | null>(null)
+  const [visible, setVisible] = useState(HISTORY_PAGE)
   const active = versions.find((v) => v.id === activeId)
   const shown = active ? active.value : (entity.systemPrompt ?? '')
   const isLatest = activeId === null
@@ -89,17 +92,18 @@ function SystemPromptDetailLoaded({ data }: { data: SystemPromptDetail }) {
             <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-4 text-sm">{shown}</pre>
           </div>
           <aside className="border-l bg-card/30 lg:sticky lg:top-0 lg:h-[calc(100vh-3.5rem)]">
-            <div className="border-b px-4 py-3">
+            <div className="flex items-baseline justify-between border-b px-4 py-3">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">History</h2>
+              {versions.length > 0 && <span className="text-[11px] text-muted-foreground">{versions.length}</span>}
             </div>
-            <ul className="flex flex-col">
+            <ul className="flex flex-col overflow-y-auto lg:max-h-[calc(100vh-7rem)]">
               <HistoryRow
                 label="Current"
                 sub={formatAgo(entity.lastSeenAt)}
                 active={isLatest}
                 onClick={() => setActiveId(null)}
               />
-              {versions.map((v) => (
+              {versions.slice(0, visible).map((v) => (
                 <HistoryRow
                   key={v.id}
                   label={v.value.slice(0, 60)}
@@ -108,6 +112,17 @@ function SystemPromptDetailLoaded({ data }: { data: SystemPromptDetail }) {
                   onClick={() => setActiveId(v.id)}
                 />
               ))}
+              {visible < versions.length && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setVisible((n) => n + HISTORY_PAGE)}
+                    className="w-full px-4 py-2.5 text-left text-xs text-muted-foreground hover:bg-muted/50"
+                  >
+                    Show {Math.min(HISTORY_PAGE, versions.length - visible)} more
+                  </button>
+                </li>
+              )}
             </ul>
           </aside>
         </div>

@@ -8,7 +8,7 @@ export function useSpanSearch({ view, onSelect }: { view: InspectorView; onSelec
   const provider = useMemo<SearchProvider | null>(() => {
     if (view.spans.length === 0) return null
     const { spans, byId, agentLabels } = view
-    // Palette skips infra (http/mcp) spans so search stays focused on meaningful
+    // Palette skips infra (http/unknown/mcp) spans so search stays focused on meaningful
     // nodes. Per-trace raw toggle in the tree is the way to see them.
     const visible = spans.filter(
       (s) => !isCollapsibleInfra(s) && !isNestedQueryEmbedding(s, s.parentId ? byId.get(s.parentId) : undefined),

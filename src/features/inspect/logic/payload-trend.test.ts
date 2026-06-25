@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ToolPayloadPoint } from '#/lib/telemetry'
 import { classifyPayloadTrend } from './payload-trend'
 
-const pt = (p95Tokens: number, calls = 5): ToolPayloadPoint => ({ ts: 0, p95Tokens, calls })
+const pt = (p95TokensEst: number, calls = 5): ToolPayloadPoint => ({ ts: 0, p95TokensEst, calls })
 
 describe('classifyPayloadTrend', () => {
   it('flags a rising per-call size as growing (list-shaped)', () => {

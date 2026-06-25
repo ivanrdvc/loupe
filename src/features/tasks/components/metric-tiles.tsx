@@ -1,5 +1,5 @@
 import type { RollupSummary } from '#/features/tasks/rollup'
-import { formatPercent } from '#/lib/format'
+import { formatDuration, formatPercent } from '#/lib/format'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
@@ -44,32 +44,32 @@ function rateTone(numer: number, denom: number, greenAt: number, amberAt: number
   return 'rose'
 }
 
-function errorTone(errored: number, fires: number): Tone {
-  if (fires === 0) return 'muted'
-  if (errored === 0) return 'emerald'
-  if (errored / fires < 0.05) return 'amber'
-  return 'rose'
-}
-
-function buildTiles(summary: RollupSummary): TileData[] {
+// "Error-free" = no span/transport error; loupe can't see logical failures.
+export function buildTiles(summary: RollupSummary): TileData[] {
+  const errorFreeCaption =
+    summary.fires === 0
+      ? ''
+      : summary.errored === 0
+        ? `${fmtCount(summary.success)}/${fmtCount(summary.fires)} fires`
+        : `${fmtCount(summary.success)}/${fmtCount(summary.fires)} fires · ${fmtCount(summary.errored)} errored`
   return [
     {
-      label: 'Success rate',
+      label: 'Error-free fires',
       value: formatPercent(summary.success, summary.fires),
-      caption: summary.fires === 0 ? '' : `${fmtCount(summary.success)}/${fmtCount(summary.fires)}`,
+      caption: errorFreeCaption,
       tone: rateTone(summary.success, summary.fires, 0.99, 0.95),
     },
     {
       label: 'Healthy tasks',
       value: formatPercent(summary.healthyTasks, summary.taskCount),
-      caption: summary.taskCount === 0 ? '' : `${fmtCount(summary.healthyTasks)}/${fmtCount(summary.taskCount)}`,
+      caption: summary.taskCount === 0 ? '' : `${fmtCount(summary.healthyTasks)}/${fmtCount(summary.taskCount)} tasks`,
       tone: rateTone(summary.healthyTasks, summary.taskCount, 0.95, 0.85),
     },
     {
-      label: 'Errored fires',
-      value: summary.fires === 0 ? '—' : fmtCount(summary.errored),
-      caption: summary.fires === 0 ? '' : summary.errored === 0 ? 'clean' : `of ${fmtCount(summary.fires)} fires`,
-      tone: errorTone(summary.errored, summary.fires),
+      label: 'Avg duration',
+      value: summary.fires === 0 ? '—' : formatDuration(summary.avgDurationMs),
+      caption: summary.fires === 0 ? '' : `over ${fmtCount(summary.fires)} fires`,
+      tone: 'muted',
     },
   ]
 }

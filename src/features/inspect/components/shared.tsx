@@ -1,4 +1,4 @@
-import { Brain, FileSearch, type LucideIcon, Network } from 'lucide-react'
+import { Brain, CircleDashed, FileSearch, Globe, type LucideIcon, Network } from 'lucide-react'
 import type { Span } from '#/lib/spans'
 import { ACCENT, type AccentFamily, toolTone } from '#/lib/tone'
 
@@ -10,6 +10,8 @@ export const SPAN_FAMILY: Record<string, AccentFamily> = {
   mcp: 'sky',
   retrieval: 'emerald',
   embedding: 'cyan',
+  http: 'blue',
+  unknown: 'zinc',
 }
 
 export interface Display {
@@ -29,6 +31,8 @@ const SPAN_TAGS: Record<string, { tagLabel: string; tagIcon: LucideIcon; tagColo
   mcp: { tagLabel: 'mcp', tagIcon: toolTone('mcp').icon, tagColor: ACCENT[SPAN_FAMILY.mcp].text },
   retrieval: { tagLabel: 'retrieval', tagIcon: FileSearch, tagColor: ACCENT[SPAN_FAMILY.retrieval].text },
   embedding: { tagLabel: 'embedding', tagIcon: Network, tagColor: ACCENT[SPAN_FAMILY.embedding].text },
+  http: { tagLabel: 'http', tagIcon: Globe, tagColor: ACCENT[SPAN_FAMILY.http].text },
+  unknown: { tagLabel: 'unknown', tagIcon: CircleDashed, tagColor: ACCENT[SPAN_FAMILY.unknown].text },
 }
 
 const OPERATION_LABELS: Record<string, string> = {

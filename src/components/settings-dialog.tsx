@@ -12,7 +12,6 @@ import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { type AppFont, type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
-import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 
 const APP_VERSION = `v${__APP_VERSION__}`
@@ -233,21 +232,25 @@ function ProviderRow() {
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: (id: ProviderId) => setProviderFn({ data: id }),
-    onSuccess: async () => {
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: queryKeys.providers.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.sessions.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.traces.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.home.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.inbox.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.tools.all() }),
-      ])
-    },
+    // The active provider feeds essentially every server-derived query, so a
+    // switch invalidates all of them — a curated allowlist silently goes stale
+    // as query families are added.
+    onSuccess: () => qc.invalidateQueries(),
   })
 
-  const providers = data?.providers ?? []
-  const active = (data?.active ?? 'openobserve') as ProviderId
+  const providers = (data?.providers ?? []).filter((p) => p.id === 'openobserve' || p.id === 'app-insights')
+  const active = data?.active === 'app-insights' ? 'app-insights' : 'openobserve'
   const missing = providers.find((p) => !p.configured)?.missing
+
+  if (data?.active === 'fixtures') {
+    return (
+      <Field label="Telemetry provider" hint="Using test telemetry from TELEMETRY_PROVIDER=fixtures.">
+        <code className="inline-flex w-fit items-center rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          Fixtures
+        </code>
+      </Field>
+    )
+  }
 
   return (
     <Field

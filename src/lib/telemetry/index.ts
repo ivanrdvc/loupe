@@ -95,8 +95,8 @@ export function listProviderStatus(): ProviderStatus[] {
     ai.configured = false
     ai.missing = ['APPLICATIONINSIGHTS_RESOURCE_ID or APPLICATIONINSIGHTS_APP_ID+API_KEY']
   }
-  // Fixtures only appears when explicitly requested via env, so it never shows
-  // as a selectable provider in a real deployment.
+  // Fixtures only appears when explicitly requested via env. Settings shows it
+  // read-only; it is test telemetry, not a user-selectable backend.
   if (process.env.TELEMETRY_PROVIDER === 'fixtures') {
     return [oo, ai, { id: 'fixtures', label: 'Fixtures (e2e)', configured: true }]
   }

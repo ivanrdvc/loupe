@@ -63,7 +63,7 @@ export function DetailPanel({
             {display.purposeLabel}
           </span>
         )}
-        {span.operation !== 'http' && (
+        {span.operation !== 'http' && span.operation !== 'unknown' && (
           <ReviewSheetButton
             targetKind="span"
             targetId={span.id}
@@ -154,8 +154,8 @@ export function DetailPanel({
         ) : (
           <JsonBlock label="Result" value={span.toolResult} />
         ))}
-      {isChatSpan(span) && span.llmInput == null && span.inputTokens != null && span.inputTokens > 0 && (
-        <TruncatedAttrFallback span={span} field="llmInput" tokens={span.inputTokens} />
+      {isChatSpan(span) && span.llmInput == null && span.truncatedAttrs?.llmInput && (
+        <TruncatedAttrFallback span={span} field="llmInput" tokens={span.inputTokens ?? undefined} />
       )}
       {(span.llmInput != null || span.llmOutput != null) && (
         <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} view={view} />

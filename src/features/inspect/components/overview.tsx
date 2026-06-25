@@ -175,8 +175,11 @@ function SessionTools({ view, selectedSpan }: { view: InspectorView; selectedSpa
     <div className="px-4 py-4">
       <header className="mb-3 flex items-baseline justify-between gap-2 text-sm">
         <span className="truncate font-medium text-foreground">{scopeLabel}</span>
-        <span className="shrink-0 tabular-nums text-muted-foreground">
-          {count} tool{count === 1 ? '' : 's'} · {tokens ? `${formatTokens(tokens)} tokens` : '—'}
+        <span
+          className="shrink-0 tabular-nums text-muted-foreground"
+          title="Tool-definition tokens estimated from length (chars÷4)"
+        >
+          {count} tool{count === 1 ? '' : 's'} · {tokens ? `≈${formatTokens(tokens)} tokens` : '—'}
         </span>
       </header>
       <ContextTools groups={groups} truncated={toolDefsTruncated} />

@@ -143,19 +143,19 @@ export interface ToolErrorRow {
   lastErrorTraceId?: string
 }
 
-// One execute_tool aggregate over a window. *Tokens are estimated from result
-// char length (≈chars/4); the drawer shows the exact count per call.
+// One execute_tool aggregate over a window.
 export interface ToolRow {
   name: string // extracted, never the raw "execute_tool …"
   calls: number
   callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  avgTokens: number
-  p50Tokens: number
-  p95Tokens: number
+  // chars÷4 estimates; maxTokens is real (the one biggest body, tokenized).
+  avgTokensEst: number
+  p50TokensEst: number
+  p95TokensEst: number
   maxTokens: number
-  totalTokens: number
+  totalTokensEst: number
   p50Ms: number
   p95Ms: number
   firstSeenMs: number
@@ -183,6 +183,8 @@ export interface ToolCallSample {
   durationMs: number
   hasError: boolean
   resultChars?: number
+  // Real o200k count of the result body; absent when no body was stored.
+  resultTokens?: number
 }
 
 // `truncated` when the provider capped the stored body (App Insights caps
@@ -218,7 +220,7 @@ export interface RunsPoint {
 
 export interface ToolPayloadPoint {
   ts: number
-  p95Tokens: number
+  p95TokensEst: number // chars÷4 estimate; see ToolRow
   calls: number
 }
 
@@ -278,7 +280,7 @@ export interface AppInsightsProvider extends BaseProvider {
 }
 
 // In-memory provider for the e2e suite (see fixtures.ts). Not configured in
-// production — only selectable when TELEMETRY_PROVIDER=fixtures.
+// production; settings shows it read-only when TELEMETRY_PROVIDER=fixtures.
 export interface FixturesProvider extends BaseProvider {
   name: 'fixtures'
 }

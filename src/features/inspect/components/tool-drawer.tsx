@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronsUpDown, Info, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, Info, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
@@ -10,11 +10,11 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { formatDuration, formatPercent, formatTokens, payloadSeverity, tokensFromChars, truncateId } from '#/lib/format'
+import { formatDuration, formatPercent, formatTokens, payloadSeverity, truncateId } from '#/lib/format'
 import type { ToolCallSample, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
-import { toolDetailQuery, toolPayloadBodyQuery, toolRecentCallsQuery } from './tool-data'
+import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
 import { ToolPayloadTrend } from './tool-payload-trend'
 
 interface Props {
@@ -95,18 +95,18 @@ function StatsGrid({ detail, loading }: { detail: ToolRow | null; loading: boole
       <Stat label="p95 latency" hint="95th percentile duration. Target: < 5s." value={formatDuration(detail.p95Ms)} />
       <Stat
         label="p95 result"
-        hint="95th percentile result size. Red when one result nears the model context window."
-        value={<Tokens tokens={detail.p95Tokens} severity />}
+        hint="95th percentile result size, estimated from result length (chars÷4) over the window. Red when one result nears the model context window. Recent calls below show exact counts."
+        value={<Tokens tokens={detail.p95TokensEst} severity estimate />}
       />
       <Stat
         label="max result"
-        hint="Largest single result in this window — the worst case that can blow the context window at scale."
+        hint="Largest single result in this window — the worst case that can blow the context window at scale. Tokenized exactly from the result body."
         value={<Tokens tokens={detail.maxTokens} severity />}
       />
       <Stat
         label="total returned"
-        hint="Sum of all results — total context this tool burned over the window."
-        value={<Tokens tokens={detail.totalTokens} />}
+        hint="Sum of all results over the window (estimated chars÷4) — total context this tool burned."
+        value={<Tokens tokens={detail.totalTokensEst} estimate />}
       />
     </div>
   )
@@ -133,23 +133,13 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   )
 }
 
-export function Tokens({ tokens, severity }: { tokens: number; severity?: boolean }) {
+export function Tokens({ tokens, severity, estimate }: { tokens: number; severity?: boolean; estimate?: boolean }) {
   if (!tokens) return <span className="text-muted-foreground">—</span>
   const s = severity ? payloadSeverity(tokens) : 'ok'
   const tone = s === 'danger' ? 'text-destructive' : s === 'warn' ? 'text-warning' : ''
   return (
-    <span className={tone}>
-      {formatTokens(tokens)}
-      <span className="text-muted-foreground"> tok</span>
-    </span>
-  )
-}
-
-function TokensFromChars({ chars }: { chars: number }) {
-  if (!chars) return <span className="text-muted-foreground">—</span>
-  const tokens = tokensFromChars(chars)
-  return (
-    <span title={`${chars.toLocaleString('en-US')} chars · ≈${tokens.toLocaleString('en-US')} tokens`}>
+    <span className={tone} title={estimate ? 'Estimated from result length (chars÷4)' : undefined}>
+      {estimate ? '≈' : ''}
       {formatTokens(tokens)}
       <span className="text-muted-foreground"> tok</span>
     </span>
@@ -161,7 +151,7 @@ type RecentSortKey = 'time' | 'duration' | 'size'
 const recentSortValue: Record<RecentSortKey, (r: ToolCallSample) => number> = {
   time: (r) => r.startedAtMs,
   duration: (r) => r.durationMs,
-  size: (r) => r.resultChars ?? 0,
+  size: (r) => r.resultTokens ?? 0,
 }
 
 function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading: boolean }) {
@@ -191,8 +181,8 @@ function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((r) => (
-              <RecentCallRow key={`${r.traceId}:${r.startedAtMs}`} row={r} />
+            {sorted.map((r, i) => (
+              <RecentCallRow key={r.spanId ?? `${r.traceId}:${r.startedAtMs}:${i}`} row={r} />
             ))}
           </TableBody>
         </Table>
@@ -230,85 +220,41 @@ function SortHead({
   )
 }
 
-// Clicking a row with a result lazily fetches its actual payload body.
 function RecentCallRow({ row: r }: { row: ToolCallSample }) {
-  const [open, setOpen] = useState(false)
-  const expandable = !!r.spanId && !!r.resultChars
-  const { data: payload, isLoading } = useQuery({
-    ...toolPayloadBodyQuery(r.spanId ?? ''),
-    enabled: open && expandable,
-  })
   return (
-    <>
-      <TableRow
-        className={expandable ? 'cursor-pointer' : undefined}
-        onClick={expandable ? () => setOpen((o) => !o) : undefined}
-      >
-        <TableCell>
-          <Link
-            to="."
-            search={((prev: Record<string, unknown>) => ({ ...prev, trace: r.traceId })) as unknown as never}
-            onClick={(e) => e.stopPropagation()}
-            className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {truncateId(r.traceId)}
-          </Link>
-        </TableCell>
-        <TableCell>
-          <RelativeTime ts={r.startedAtMs} className="tabular-nums text-muted-foreground" />
-        </TableCell>
-        <TableCell className="text-right tabular-nums">{formatDuration(r.durationMs)}</TableCell>
-        <TableCell className="text-right tabular-nums">
-          {r.resultChars ? (
-            <span className="inline-flex items-center justify-end gap-1">
-              <TokensFromChars chars={r.resultChars} />
-              {expandable && (
-                <ChevronDown
-                  className={`size-3 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
-                  aria-hidden
-                />
-              )}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </TableCell>
-        <TableCell className="text-right">
-          {r.hasError ? (
-            <Badge variant="destructive" className="px-1 text-[10px]">
-              Error
-            </Badge>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </TableCell>
-      </TableRow>
-      {open && (
-        <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={5} className="bg-muted/30 p-0">
-            {isLoading ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Loading payload…</div>
-            ) : !payload ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Payload unavailable.</div>
-            ) : (
-              <div className="space-y-1 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">
-                  {formatTokens(payload.tokens)} tokens
-                  {payload.truncated && (
-                    <span className="text-warning">
-                      {' '}
-                      · truncated by provider, showing first {payload.body.length.toLocaleString('en-US')} chars
-                    </span>
-                  )}
-                </p>
-                <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground">
-                  {payload.body}
-                </pre>
-              </div>
-            )}
-          </TableCell>
-        </TableRow>
-      )}
-    </>
+    <TableRow>
+      <TableCell>
+        <Link
+          to="."
+          search={((prev: Record<string, unknown>) => ({ ...prev, trace: r.traceId })) as unknown as never}
+          className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {truncateId(r.traceId)}
+        </Link>
+      </TableCell>
+      <TableCell>
+        <RelativeTime ts={r.startedAtMs} className="tabular-nums text-muted-foreground" />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">{formatDuration(r.durationMs)}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        {r.resultTokens ? (
+          <span title={r.resultChars ? `${r.resultChars.toLocaleString('en-US')} characters` : undefined}>
+            {formatTokens(r.resultTokens)}
+            <span className="text-muted-foreground"> tok</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {r.hasError ? (
+          <Badge variant="destructive" className="px-1 text-[10px]">
+            Error
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+    </TableRow>
   )
 }

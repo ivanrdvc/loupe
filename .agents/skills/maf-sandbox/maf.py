@@ -7,6 +7,7 @@
 #   "opentelemetry-sdk==1.40",
 #   "opentelemetry-api==1.40",
 #   "opentelemetry-exporter-otlp-proto-http==1.40",
+#   "opentelemetry-instrumentation-httpx==0.61b0",
 #   "azure-monitor-opentelemetry-exporter==1.0.0b52",
 #   "python-dotenv",
 #   "mcp",
@@ -59,6 +60,12 @@ from agent_framework.openai import OpenAIChatClient  # noqa: E402
 from opentelemetry import context as otel_context  # noqa: E402
 
 configure_otel_providers(enable_sensitive_data=True)
+
+# Instrument the OpenAI SDK's httpx client so each completion emits a raw
+# `POST /v1/chat/completions` transport span (no gen_ai attrs → loupe `unknown`).
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # noqa: E402
+
+HTTPXClientInstrumentor().instrument()
 
 # Dual-emit to App Insights when configured — exercises the 8 KB
 # customDimensions truncation that the loupe truncation-resilience branch

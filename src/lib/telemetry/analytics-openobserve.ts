@@ -1,5 +1,6 @@
 import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
+import { countTokens } from '#/lib/tokens'
 import { ooCol, ooColumns } from './conventions'
 import { mapToolErrorRow, num, sqlString, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
@@ -96,6 +97,9 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
     LIMIT ${limit}
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  const maxTokensByOp = known.has('gen_ai_tool_call_result')
+    ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, opts)
+    : new Map<string, number>()
   return hits.map((h) => {
     const calls = Number(h.calls ?? 0)
     const errors = Number(h.errors ?? 0)
@@ -110,11 +114,11 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       callsWithResult: Number(h.calls_with_result ?? 0),
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
-      avgTokens: tokensFromChars(toCount(h.avg_chars)),
-      p50Tokens: tokensFromChars(toCount(h.p50_chars)),
-      p95Tokens: tokensFromChars(toCount(h.p95_chars)),
-      maxTokens: tokensFromChars(toCount(h.max_chars)),
-      totalTokens: tokensFromChars(toCount(h.total_chars)),
+      avgTokensEst: tokensFromChars(toCount(h.avg_chars)),
+      p50TokensEst: tokensFromChars(toCount(h.p50_chars)),
+      p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
+      maxTokens: maxTokensByOp.get(raw) ?? tokensFromChars(toCount(h.max_chars)),
+      totalTokensEst: tokensFromChars(toCount(h.total_chars)),
       p50Ms: Math.round(num(h.p50_ms) ?? 0),
       p95Ms: Math.round(num(h.p95_ms) ?? 0),
       firstSeenMs: firstNs > 0 ? Math.floor(firstNs / 1_000_000) : 0,
@@ -123,6 +127,34 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       ...(typeof session === 'string' && session ? { sampleSessionId: session } : {}),
     }
   })
+}
+
+// Longest result body per tool (one row each via ROW_NUMBER), tokenized.
+async function maxResultTokensByOp(
+  p: OpenObserveProvider,
+  where: string,
+  limit: number,
+  opts?: WindowOpts,
+): Promise<Map<string, number>> {
+  const sql = `
+    SELECT operation_name AS name, body FROM (
+      SELECT
+        operation_name,
+        gen_ai_tool_call_result AS body,
+        ROW_NUMBER() OVER (PARTITION BY operation_name ORDER BY LENGTH(gen_ai_tool_call_result) DESC) AS rn
+      FROM "${p.stream}"
+      WHERE ${where} AND gen_ai_tool_call_result IS NOT NULL
+    ) WHERE rn = 1
+    LIMIT ${limit}
+  `
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  const out = new Map<string, number>()
+  for (const h of hits) {
+    const op = typeof h.name === 'string' ? h.name : ''
+    const body = typeof h.body === 'string' ? h.body : ''
+    if (op && body.length > 0) out.set(op, countTokens(body))
+  }
+  return out
 }
 
 // OO stores the body whole, so never truncated.
@@ -151,6 +183,7 @@ export async function fetchToolRecentCalls(
   const known = await p.getKnownColumns()
   const sessionCols = ooColumns('sessionId', { known })
   const sessionExpr = sessionCols.length === 0 ? 'NULL' : `COALESCE(${sessionCols.join(', ')})`
+  // Pull the body (not just LENGTH) so we can tokenize a real per-call count.
   const sql = `
     SELECT
       trace_id,
@@ -159,7 +192,7 @@ export async function fetchToolRecentCalls(
       start_time,
       duration,
       span_status,
-      ${known.has('gen_ai_tool_call_result') ? 'LENGTH(gen_ai_tool_call_result)' : 'NULL'} AS result_chars
+      ${known.has('gen_ai_tool_call_result') ? 'gen_ai_tool_call_result' : 'NULL'} AS result_body
     FROM "${p.stream}"
     WHERE operation_name = ${sqlString(`execute_tool ${name}`)}
     ORDER BY start_time DESC
@@ -179,8 +212,11 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round((num(h.duration) ?? 0) / 1000),
         hasError: h.span_status === 'ERROR',
       }
-      const chars = num(h.result_chars)
-      if (chars != null && chars > 0) sample.resultChars = Math.round(chars)
+      const body = typeof h.result_body === 'string' ? h.result_body : ''
+      if (body.length > 0) {
+        sample.resultChars = body.length
+        sample.resultTokens = countTokens(body)
+      }
       if (sessionId) sample.sessionId = sessionId
       if (spanId) sample.spanId = spanId
       return sample
@@ -211,9 +247,9 @@ export async function fetchToolPayloadOverTime(
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
   return zeroFillBucketedAt(hits, fromUs, toUs, bucketSec, (h) => ({
-    p95Tokens: tokensFromChars(toCount(h.p95_chars)),
+    p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
     calls: Number(h.count ?? 0),
-  })).map((b) => ({ ts: b.ts, p95Tokens: b.value.p95Tokens, calls: b.value.calls }))
+  })).map((b) => ({ ts: b.ts, p95TokensEst: b.value.p95TokensEst, calls: b.value.calls }))
 }
 
 export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

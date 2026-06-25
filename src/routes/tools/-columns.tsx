@@ -41,20 +41,20 @@ export const toolColumns: ColumnDef<ToolRow>[] = [
     cell: ({ row }) => <div className="text-right tabular-nums">{formatDuration(row.original.p95Ms)}</div>,
   },
   {
-    accessorKey: 'avgTokens',
+    accessorKey: 'avgTokensEst',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Avg tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <Tokens tokens={row.original.avgTokens} />
+        <Tokens tokens={row.original.avgTokensEst} estimate />
       </div>
     ),
   },
   {
-    accessorKey: 'p95Tokens',
+    accessorKey: 'p95TokensEst',
     header: ({ column }) => <DataTableColumnHeader column={column} title="p95 tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <Tokens tokens={row.original.p95Tokens} severity />
+        <Tokens tokens={row.original.p95TokensEst} severity estimate />
       </div>
     ),
   },
@@ -68,11 +68,11 @@ export const toolColumns: ColumnDef<ToolRow>[] = [
     ),
   },
   {
-    accessorKey: 'totalTokens',
+    accessorKey: 'totalTokensEst',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Total tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <Tokens tokens={row.original.totalTokens} />
+        <Tokens tokens={row.original.totalTokensEst} estimate />
       </div>
     ),
   },

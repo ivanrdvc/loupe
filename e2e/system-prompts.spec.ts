@@ -22,4 +22,8 @@ test('opens an agent and shows its system prompt with history', async ({ page })
   await page.getByRole('cell', { name: 'WeatherBot' }).click()
   await expect(page.getByText('You are a helpful weather assistant. Be concise.').first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'History' })).toBeVisible()
+  // The history list always renders at least the live "Current" version row.
+  // (Pagination / "Show more" is not exercised — the fixture agent has ≤25
+  // versions; see the e2e report note.)
+  await expect(page.getByRole('button', { name: /Current/ })).toBeVisible()
 })

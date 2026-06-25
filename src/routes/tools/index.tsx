@@ -14,10 +14,10 @@ const SORTABLE_COLUMNS = new Set([
   'calls',
   'errorRate',
   'p95Ms',
-  'avgTokens',
-  'p95Tokens',
+  'avgTokensEst',
+  'p95TokensEst',
   'maxTokens',
-  'totalTokens',
+  'totalTokensEst',
   'lastSeenMs',
 ])
 
