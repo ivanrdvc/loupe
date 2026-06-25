@@ -8,7 +8,7 @@ import { classifyPayloadTrend, type TrendDirection } from '../logic/payload-tren
 import { toolPayloadTrendQuery } from './tool-data'
 
 const CHART_CONFIG: ChartConfig = {
-  p95Tokens: { label: 'p95 result', color: 'var(--primary)' },
+  p95TokensEst: { label: 'p95 result (est)', color: 'var(--primary)' },
 }
 
 const SHAPE: Record<TrendDirection, { label: string; tone: string }> = {
@@ -37,8 +37,8 @@ export function ToolPayloadTrend({ name, open }: { name: string; open: boolean }
         <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="tool-trend-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-p95Tokens)" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="var(--color-p95Tokens)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--color-p95TokensEst)" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="var(--color-p95TokensEst)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <ChartTooltip
@@ -51,10 +51,10 @@ export function ToolPayloadTrend({ name, open }: { name: string; open: boolean }
             }
           />
           <Area
-            dataKey="p95Tokens"
+            dataKey="p95TokensEst"
             type="monotone"
             fill="url(#tool-trend-fill)"
-            stroke="var(--color-p95Tokens)"
+            stroke="var(--color-p95TokensEst)"
             strokeWidth={2}
             isAnimationActive={false}
           />

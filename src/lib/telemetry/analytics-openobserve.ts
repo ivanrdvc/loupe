@@ -111,11 +111,11 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       callsWithResult: Number(h.calls_with_result ?? 0),
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
-      avgTokens: tokensFromChars(toCount(h.avg_chars)),
-      p50Tokens: tokensFromChars(toCount(h.p50_chars)),
-      p95Tokens: tokensFromChars(toCount(h.p95_chars)),
-      maxTokens: tokensFromChars(toCount(h.max_chars)),
-      totalTokens: tokensFromChars(toCount(h.total_chars)),
+      avgTokensEst: tokensFromChars(toCount(h.avg_chars)),
+      p50TokensEst: tokensFromChars(toCount(h.p50_chars)),
+      p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
+      maxTokensEst: tokensFromChars(toCount(h.max_chars)),
+      totalTokensEst: tokensFromChars(toCount(h.total_chars)),
       p50Ms: Math.round(num(h.p50_ms) ?? 0),
       p95Ms: Math.round(num(h.p95_ms) ?? 0),
       firstSeenMs: firstNs > 0 ? Math.floor(firstNs / 1_000_000) : 0,
@@ -124,6 +124,25 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       ...(typeof session === 'string' && session ? { sampleSessionId: session } : {}),
     }
   })
+}
+
+export async function fetchToolMaxResultTokens(
+  p: OpenObserveProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<number | null> {
+  if (!TOOL_NAME_RE.test(name)) return null
+  if (!(await p.getKnownColumns()).has('gen_ai_tool_call_result')) return null
+  const sql = `
+    SELECT gen_ai_tool_call_result AS body
+    FROM "${p.stream}"
+    WHERE operation_name = ${sqlString(`execute_tool ${name}`)} AND gen_ai_tool_call_result IS NOT NULL
+    ORDER BY LENGTH(gen_ai_tool_call_result) DESC
+    LIMIT 1
+  `
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 1 }))
+  const body = typeof hits[0]?.body === 'string' ? hits[0].body : ''
+  return body.length > 0 ? countTokens(body) : null
 }
 
 // OO stores the body whole, so never truncated.
@@ -217,9 +236,9 @@ export async function fetchToolPayloadOverTime(
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 5000 }))
   return zeroFillBucketedAt(hits, fromUs, toUs, bucketSec, (h) => ({
-    p95Tokens: tokensFromChars(toCount(h.p95_chars)),
+    p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
     calls: Number(h.count ?? 0),
-  })).map((b) => ({ ts: b.ts, p95Tokens: b.value.p95Tokens, calls: b.value.calls }))
+  })).map((b) => ({ ts: b.ts, p95TokensEst: b.value.p95TokensEst, calls: b.value.calls }))
 }
 
 export async function fetchChatLatencyOverTime(p: OpenObserveProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

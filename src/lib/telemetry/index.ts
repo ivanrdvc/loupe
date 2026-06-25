@@ -245,6 +245,10 @@ export async function listToolRecentCalls(
   return analytics.fetchToolRecentCalls(getActiveProvider(), name, opts)
 }
 
+export async function getToolMaxResultTokens(name: string, opts?: WindowOpts): Promise<number | null> {
+  return analytics.fetchToolMaxResultTokens(getActiveProvider(), name, opts)
+}
+
 export async function listToolPayloadOverTime(name: string, opts?: WindowOpts): Promise<ToolPayloadPoint[]> {
   return analytics.fetchToolPayloadOverTime(getActiveProvider(), name, opts)
 }

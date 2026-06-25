@@ -14,7 +14,7 @@ import { formatDuration, formatPercent, formatTokens, payloadSeverity, truncateI
 import type { ToolCallSample, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
-import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
+import { toolDetailQuery, toolMaxTokensQuery, toolRecentCallsQuery } from './tool-data'
 import { ToolPayloadTrend } from './tool-payload-trend'
 
 interface Props {
@@ -35,6 +35,7 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
     ...toolRecentCallsQuery(name, range),
     enabled: open,
   })
+  const { data: maxResultTokens } = useQuery({ ...toolMaxTokensQuery(name, range), enabled: open })
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
@@ -59,7 +60,7 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
         </header>
 
         <ScrollArea className="min-h-0 flex-1">
-          <StatsGrid detail={detail ?? null} loading={detailLoading} />
+          <StatsGrid detail={detail ?? null} maxResultTokens={maxResultTokens ?? null} loading={detailLoading} />
           <ToolPayloadTrend name={name} open={open} />
           <RecentCallsSection rows={recent ?? []} loading={recentLoading} />
         </ScrollArea>
@@ -68,7 +69,15 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
   )
 }
 
-function StatsGrid({ detail, loading }: { detail: ToolRow | null; loading: boolean }) {
+function StatsGrid({
+  detail,
+  maxResultTokens,
+  loading,
+}: {
+  detail: ToolRow | null
+  maxResultTokens: number | null
+  loading: boolean
+}) {
   if (loading && !detail) {
     return <div className="px-4 py-6 text-xs text-muted-foreground">Loading…</div>
   }
@@ -95,18 +104,24 @@ function StatsGrid({ detail, loading }: { detail: ToolRow | null; loading: boole
       <Stat label="p95 latency" hint="95th percentile duration. Target: < 5s." value={formatDuration(detail.p95Ms)} />
       <Stat
         label="p95 result"
-        hint="95th percentile result size. Red when one result nears the model context window."
-        value={<Tokens tokens={detail.p95Tokens} severity />}
+        hint="95th percentile result size, estimated from result length (chars÷4) over the window. Red when one result nears the model context window. Recent calls below show exact counts."
+        value={<Tokens tokens={detail.p95TokensEst} severity estimate />}
       />
       <Stat
         label="max result"
-        hint="Largest single result in this window — the worst case that can blow the context window at scale."
-        value={<Tokens tokens={detail.maxTokens} severity />}
+        hint="Largest single result in this window — the worst case that can blow the context window at scale. Tokenized exactly from the result body."
+        value={
+          maxResultTokens != null ? (
+            <Tokens tokens={maxResultTokens} severity />
+          ) : (
+            <Tokens tokens={detail.maxTokensEst} severity estimate />
+          )
+        }
       />
       <Stat
         label="total returned"
-        hint="Sum of all results — total context this tool burned over the window."
-        value={<Tokens tokens={detail.totalTokens} />}
+        hint="Sum of all results over the window (estimated chars÷4) — total context this tool burned."
+        value={<Tokens tokens={detail.totalTokensEst} estimate />}
       />
     </div>
   )
@@ -133,12 +148,13 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   )
 }
 
-export function Tokens({ tokens, severity }: { tokens: number; severity?: boolean }) {
+export function Tokens({ tokens, severity, estimate }: { tokens: number; severity?: boolean; estimate?: boolean }) {
   if (!tokens) return <span className="text-muted-foreground">—</span>
   const s = severity ? payloadSeverity(tokens) : 'ok'
   const tone = s === 'danger' ? 'text-destructive' : s === 'warn' ? 'text-warning' : ''
   return (
-    <span className={tone}>
+    <span className={tone} title={estimate ? 'Estimated from result length (chars÷4)' : undefined}>
+      {estimate ? '≈' : ''}
       {formatTokens(tokens)}
       <span className="text-muted-foreground"> tok</span>
     </span>

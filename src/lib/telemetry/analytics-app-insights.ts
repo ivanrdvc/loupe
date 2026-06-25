@@ -101,11 +101,11 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       callsWithResult: Number(r.calls_with_result ?? 0),
       errors,
       errorRate: calls > 0 ? errors / calls : 0,
-      avgTokens: tokensFromChars(toCount(r.avg_chars)),
-      p50Tokens: tokensFromChars(toCount(r.p50_chars)),
-      p95Tokens: tokensFromChars(toCount(r.p95_chars)),
-      maxTokens: tokensFromChars(toCount(r.max_chars)),
-      totalTokens: tokensFromChars(toCount(r.total_chars)),
+      avgTokensEst: tokensFromChars(toCount(r.avg_chars)),
+      p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
+      p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
+      maxTokensEst: tokensFromChars(toCount(r.max_chars)),
+      totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
       firstSeenMs: typeof r.first_seen === 'string' ? Date.parse(r.first_seen) : 0,
@@ -114,6 +114,27 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       ...(typeof session === 'string' && session ? { sampleSessionId: session } : {}),
     }
   })
+}
+
+export async function fetchToolMaxResultTokens(
+  p: AppInsightsProvider,
+  name: string,
+  opts?: WindowOpts,
+): Promise<number | null> {
+  if (!TOOL_NAME_RE.test(name)) return null
+  const q = `
+    union dependencies, requests
+    | where name == ${kqlString(`execute_tool ${name}`)}
+    | extend body = tostring(customDimensions["${RESULT_ATTR}"])
+    | where isnotempty(body)
+    | top 1 by strlen(body) desc
+    | project body
+  `
+  const rows = await p.query(q, opts ?? {})
+  const body = typeof rows[0]?.body === 'string' ? rows[0].body : ''
+  // App Insights caps the stored body at ~8KB, so a truly huge result reads as
+  // its truncated head; the count is real for what's stored.
+  return body.length > 0 ? countTokens(body) : null
 }
 
 export async function fetchToolPayloadBody(p: AppInsightsProvider, spanId: string): Promise<RawPayloadBody | null> {
@@ -193,9 +214,9 @@ export async function fetchToolPayloadOverTime(
   `
   const rows = await p.query(q, opts ?? {})
   return zeroFillBucketedAt(rows, fromUs, toUs, bucketSec, (r) => ({
-    p95Tokens: tokensFromChars(toCount(r.p95_chars)),
+    p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
     calls: Number(r.count ?? 0),
-  })).map((b) => ({ ts: b.ts, p95Tokens: b.value.p95Tokens, calls: b.value.calls }))
+  })).map((b) => ({ ts: b.ts, p95TokensEst: b.value.p95TokensEst, calls: b.value.calls }))
 }
 
 export async function fetchChatLatencyOverTime(p: AppInsightsProvider, opts?: WindowOpts): Promise<LatencyPoint[]> {

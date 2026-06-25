@@ -22,10 +22,10 @@ export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired
   let fired = 0
   for (const cur of current) {
     if (cur.callsWithResult < MIN_PAYLOAD_CALLS) continue
-    if (cur.p95Tokens < CONTEXT_BUDGET_TOKENS) continue
+    if (cur.p95TokensEst < CONTEXT_BUDGET_TOKENS) continue
     const prev = priorByName.get(cur.name)
     const isNew = !prev
-    const isSpike = !!prev && cur.p95Tokens >= prev.p95Tokens * PAYLOAD_SPIKE_RATIO
+    const isSpike = !!prev && cur.p95TokensEst >= prev.p95TokensEst * PAYLOAD_SPIKE_RATIO
     if (!isNew && !isSpike) continue
     const inserted = await db
       .insert(inboxItems)
@@ -46,9 +46,9 @@ export async function runToolPayloadDetection(w: AnomalyWindow): Promise<{ fired
 
 function payloadSummary(cur: ToolRow, prev?: ToolRow): string {
   if (!prev) {
-    return `${cur.name} p95 output ~${formatK(cur.p95Tokens)} tokens — first observed over budget`
+    return `${cur.name} p95 output ~${formatK(cur.p95TokensEst)} tokens — first observed over budget`
   }
-  return `${cur.name} p95 output ~${formatK(cur.p95Tokens)} tokens — was ~${formatK(prev.p95Tokens)} prior window`
+  return `${cur.name} p95 output ~${formatK(cur.p95TokensEst)} tokens — was ~${formatK(prev.p95TokensEst)} prior window`
 }
 
 function formatK(n: number): string {

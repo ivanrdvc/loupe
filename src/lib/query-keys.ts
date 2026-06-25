@@ -34,6 +34,7 @@ export const queryKeys = {
     detail: (name: string, range: string) => ['tools', 'detail', name, { range }] as const,
     recent: (name: string, range: string) => ['tools', 'recent', name, { range }] as const,
     trend: (name: string, range: string) => ['tools', 'trend', name, { range }] as const,
+    maxTokens: (name: string, range: string) => ['tools', 'maxTokens', name, { range }] as const,
     body: (spanId: string) => ['tools', 'body', spanId] as const,
   },
   providers: {

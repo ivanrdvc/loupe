@@ -151,11 +151,14 @@ export interface ToolRow {
   callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  avgTokens: number
-  p50Tokens: number
-  p95Tokens: number
-  maxTokens: number
-  totalTokens: number
+  // Estimated token size of tool results: chars÷4 from a SQL LENGTH() aggregate
+  // (the tokenizer can't run in the store). Real per-call counts live on
+  // ToolCallSample.resultTokens; these stay estimates until a producer emits them.
+  avgTokensEst: number
+  p50TokensEst: number
+  p95TokensEst: number
+  maxTokensEst: number
+  totalTokensEst: number
   p50Ms: number
   p95Ms: number
   firstSeenMs: number
@@ -221,7 +224,7 @@ export interface RunsPoint {
 
 export interface ToolPayloadPoint {
   ts: number
-  p95Tokens: number
+  p95TokensEst: number // chars÷4 estimate; see ToolRow
   calls: number
 }
 
