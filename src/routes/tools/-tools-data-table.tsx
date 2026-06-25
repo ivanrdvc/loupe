@@ -166,7 +166,7 @@ const CSV_COLUMNS: (keyof ToolRow)[] = [
   'avgTokensEst',
   'p50TokensEst',
   'p95TokensEst',
-  'maxTokensEst',
+  'maxTokens',
   'totalTokensEst',
   'p50Ms',
   'p95Ms',

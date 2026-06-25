@@ -16,7 +16,7 @@ const SORTABLE_COLUMNS = new Set([
   'p95Ms',
   'avgTokensEst',
   'p95TokensEst',
-  'maxTokensEst',
+  'maxTokens',
   'totalTokensEst',
   'lastSeenMs',
 ])

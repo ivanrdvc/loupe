@@ -2,7 +2,6 @@ import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
-  getToolMaxResultTokens,
   getToolPayloadBody,
   listToolPayloadOverTime,
   listToolRecentCalls,
@@ -76,13 +75,6 @@ const fetchTrend = createServerFn({ method: 'GET' })
     return listToolPayloadOverTime(data.name, { fromUs, toUs })
   })
 
-const fetchMaxTokens = createServerFn({ method: 'GET' })
-  .inputValidator(parseToolInput)
-  .handler(async ({ data }): Promise<number | null> => {
-    const { fromUs, toUs } = windowUs(data.range)
-    return getToolMaxResultTokens(data.name, { fromUs, toUs })
-  })
-
 const fetchBody = createServerFn({ method: 'GET' })
   .inputValidator(spanIdValidator)
   .handler(async ({ data }): Promise<ToolPayloadBody | null> => getToolPayloadBody(data))
@@ -114,13 +106,6 @@ export const toolPayloadTrendQuery = (name: string, range: TimeRange = DEFAULT) 
   queryOptions({
     queryKey: queryKeys.tools.trend(name, serialize(range)),
     queryFn: () => fetchTrend({ data: { name, range } }),
-    staleTime: STALE_TELEMETRY_MS,
-  })
-
-export const toolMaxTokensQuery = (name: string, range: TimeRange = DEFAULT) =>
-  queryOptions({
-    queryKey: queryKeys.tools.maxTokens(name, serialize(range)),
-    queryFn: () => fetchMaxTokens({ data: { name, range } }),
     staleTime: STALE_TELEMETRY_MS,
   })
 

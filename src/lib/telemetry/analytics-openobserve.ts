@@ -97,6 +97,11 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
     LIMIT ${limit}
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  // Real max-result tokens: the single largest body per tool, tokenized. Max is
+  // one call, so unlike the p95/total estimates it can be exact.
+  const maxTokensByOp = known.has('gen_ai_tool_call_result')
+    ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, opts)
+    : new Map<string, number>()
   return hits.map((h) => {
     const calls = Number(h.calls ?? 0)
     const errors = Number(h.errors ?? 0)
@@ -114,7 +119,7 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       avgTokensEst: tokensFromChars(toCount(h.avg_chars)),
       p50TokensEst: tokensFromChars(toCount(h.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
-      maxTokensEst: tokensFromChars(toCount(h.max_chars)),
+      maxTokens: maxTokensByOp.get(raw) ?? tokensFromChars(toCount(h.max_chars)),
       totalTokensEst: tokensFromChars(toCount(h.total_chars)),
       p50Ms: Math.round(num(h.p50_ms) ?? 0),
       p95Ms: Math.round(num(h.p95_ms) ?? 0),
@@ -126,23 +131,33 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
   })
 }
 
-export async function fetchToolMaxResultTokens(
+// Per-tool real max-result tokens: take the longest result body for each tool
+// (one row each via ROW_NUMBER) and tokenize it. Returns operation_name → tokens.
+async function maxResultTokensByOp(
   p: OpenObserveProvider,
-  name: string,
+  where: string,
+  limit: number,
   opts?: WindowOpts,
-): Promise<number | null> {
-  if (!TOOL_NAME_RE.test(name)) return null
-  if (!(await p.getKnownColumns()).has('gen_ai_tool_call_result')) return null
+): Promise<Map<string, number>> {
   const sql = `
-    SELECT gen_ai_tool_call_result AS body
-    FROM "${p.stream}"
-    WHERE operation_name = ${sqlString(`execute_tool ${name}`)} AND gen_ai_tool_call_result IS NOT NULL
-    ORDER BY LENGTH(gen_ai_tool_call_result) DESC
-    LIMIT 1
+    SELECT operation_name AS name, body FROM (
+      SELECT
+        operation_name,
+        gen_ai_tool_call_result AS body,
+        ROW_NUMBER() OVER (PARTITION BY operation_name ORDER BY LENGTH(gen_ai_tool_call_result) DESC) AS rn
+      FROM "${p.stream}"
+      WHERE ${where} AND gen_ai_tool_call_result IS NOT NULL
+    ) WHERE rn = 1
+    LIMIT ${limit}
   `
-  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: 1 }))
-  const body = typeof hits[0]?.body === 'string' ? hits[0].body : ''
-  return body.length > 0 ? countTokens(body) : null
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  const out = new Map<string, number>()
+  for (const h of hits) {
+    const op = typeof h.name === 'string' ? h.name : ''
+    const body = typeof h.body === 'string' ? h.body : ''
+    if (op && body.length > 0) out.set(op, countTokens(body))
+  }
+  return out
 }
 
 // OO stores the body whole, so never truncated.

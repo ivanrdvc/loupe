@@ -59,11 +59,11 @@ export const toolColumns: ColumnDef<ToolRow>[] = [
     ),
   },
   {
-    accessorKey: 'maxTokensEst',
+    accessorKey: 'maxTokens',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Max tokens" className="justify-end" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        <Tokens tokens={row.original.maxTokensEst} severity estimate />
+        <Tokens tokens={row.original.maxTokens} severity />
       </div>
     ),
   },

@@ -14,7 +14,7 @@ import { formatDuration, formatPercent, formatTokens, payloadSeverity, truncateI
 import type { ToolCallSample, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
-import { toolDetailQuery, toolMaxTokensQuery, toolRecentCallsQuery } from './tool-data'
+import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
 import { ToolPayloadTrend } from './tool-payload-trend'
 
 interface Props {
@@ -35,7 +35,6 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
     ...toolRecentCallsQuery(name, range),
     enabled: open,
   })
-  const { data: maxResultTokens } = useQuery({ ...toolMaxTokensQuery(name, range), enabled: open })
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
@@ -60,7 +59,7 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
         </header>
 
         <ScrollArea className="min-h-0 flex-1">
-          <StatsGrid detail={detail ?? null} maxResultTokens={maxResultTokens ?? null} loading={detailLoading} />
+          <StatsGrid detail={detail ?? null} loading={detailLoading} />
           <ToolPayloadTrend name={name} open={open} />
           <RecentCallsSection rows={recent ?? []} loading={recentLoading} />
         </ScrollArea>
@@ -69,15 +68,7 @@ export function ToolInspectDrawer({ toolName, onClose }: Props) {
   )
 }
 
-function StatsGrid({
-  detail,
-  maxResultTokens,
-  loading,
-}: {
-  detail: ToolRow | null
-  maxResultTokens: number | null
-  loading: boolean
-}) {
+function StatsGrid({ detail, loading }: { detail: ToolRow | null; loading: boolean }) {
   if (loading && !detail) {
     return <div className="px-4 py-6 text-xs text-muted-foreground">Loading…</div>
   }
@@ -110,13 +101,7 @@ function StatsGrid({
       <Stat
         label="max result"
         hint="Largest single result in this window — the worst case that can blow the context window at scale. Tokenized exactly from the result body."
-        value={
-          maxResultTokens != null ? (
-            <Tokens tokens={maxResultTokens} severity />
-          ) : (
-            <Tokens tokens={detail.maxTokensEst} severity estimate />
-          )
-        }
+        value={<Tokens tokens={detail.maxTokens} severity />}
       />
       <Stat
         label="total returned"

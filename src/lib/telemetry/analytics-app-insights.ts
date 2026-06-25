@@ -67,7 +67,8 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
     union dependencies, requests
     ${nameFilter}
     ${dimFilters}
-    | extend result_len = strlen(tostring(customDimensions["${RESULT_ATTR}"]))
+    | extend body = tostring(customDimensions["${RESULT_ATTR}"])
+    | extend result_len = strlen(body)
     | extend result_len_nz = iif(result_len > 0, todouble(result_len), real(null))
     | extend sess = ${aiCoalesce('sessionId')}
     | summarize
@@ -78,6 +79,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
         p50_chars = percentile(result_len_nz, 50),
         p95_chars = percentile(result_len_nz, 95),
         max_chars = max(result_len_nz),
+        max_body = arg_max(result_len, body),
         total_chars = sum(result_len),
         p50_ms = percentile(duration, 50),
         p95_ms = percentile(duration, 95),
@@ -104,7 +106,10 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       avgTokensEst: tokensFromChars(toCount(r.avg_chars)),
       p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
-      maxTokensEst: tokensFromChars(toCount(r.max_chars)),
+      maxTokens:
+        typeof r.max_body === 'string' && r.max_body.length > 0
+          ? countTokens(r.max_body)
+          : tokensFromChars(toCount(r.max_chars)),
       totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
@@ -114,27 +119,6 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       ...(typeof session === 'string' && session ? { sampleSessionId: session } : {}),
     }
   })
-}
-
-export async function fetchToolMaxResultTokens(
-  p: AppInsightsProvider,
-  name: string,
-  opts?: WindowOpts,
-): Promise<number | null> {
-  if (!TOOL_NAME_RE.test(name)) return null
-  const q = `
-    union dependencies, requests
-    | where name == ${kqlString(`execute_tool ${name}`)}
-    | extend body = tostring(customDimensions["${RESULT_ATTR}"])
-    | where isnotempty(body)
-    | top 1 by strlen(body) desc
-    | project body
-  `
-  const rows = await p.query(q, opts ?? {})
-  const body = typeof rows[0]?.body === 'string' ? rows[0].body : ''
-  // App Insights caps the stored body at ~8KB, so a truly huge result reads as
-  // its truncated head; the count is real for what's stored.
-  return body.length > 0 ? countTokens(body) : null
 }
 
 export async function fetchToolPayloadBody(p: AppInsightsProvider, spanId: string): Promise<RawPayloadBody | null> {

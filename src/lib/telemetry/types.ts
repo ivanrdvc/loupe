@@ -151,13 +151,13 @@ export interface ToolRow {
   callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  // Estimated token size of tool results: chars÷4 from a SQL LENGTH() aggregate
-  // (the tokenizer can't run in the store). Real per-call counts live on
-  // ToolCallSample.resultTokens; these stay estimates until a producer emits them.
+  // Distribution stats are chars÷4 estimates from a SQL LENGTH() aggregate (the
+  // tokenizer can't run in the store). `maxTokens` is the one exception: max is a
+  // single call, so we fetch that one body and tokenize it for a real count.
   avgTokensEst: number
   p50TokensEst: number
   p95TokensEst: number
-  maxTokensEst: number
+  maxTokens: number
   totalTokensEst: number
   p50Ms: number
   p95Ms: number

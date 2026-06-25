@@ -147,26 +147,6 @@ export async function fetchToolRecentCalls(
   }
 }
 
-// Real token count of the single largest result (worst-case payload). Max is a
-// one-row stat, so unlike the p95/total estimates we can fetch that body and
-// tokenize it. Null when no body is stored.
-export async function fetchToolMaxResultTokens(
-  p: TelemetryProvider,
-  name: string,
-  opts?: WindowOpts,
-): Promise<number | null> {
-  switch (p.name) {
-    case 'openobserve':
-      return oo.fetchToolMaxResultTokens(p, name, opts)
-    case 'app-insights':
-      return ai.fetchToolMaxResultTokens(p, name, opts)
-    case 'fixtures':
-      return null
-    default:
-      return assertNever(p)
-  }
-}
-
 export async function fetchInventory(
   p: TelemetryProvider,
   kind: InventoryDiscoveryKind,
