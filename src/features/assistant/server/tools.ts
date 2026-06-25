@@ -10,59 +10,79 @@ function lastNDaysWindow(days: number) {
   return { fromUs: toUs - days * DAY_US, toUs }
 }
 
-/** Trim a full Span to the fields the model needs — keeps tool output small. */
-function compactSpan(s: Span) {
-  return {
-    id: s.id,
-    kind: s.kind,
-    operation: s.operation,
-    name: s.name,
-    purpose: s.operationName,
-    agent: s.agentName,
-    tool: s.toolName,
-    model: s.model,
-    durationMs: Math.round(s.endMs - s.startMs),
-    tokens: s.tokens,
-    costUsd: s.costUsd,
-    hasError: s.hasError || undefined,
-    error: s.errorMessage,
-  }
+const MAX_STEPS = 80
+
+function uniq(xs: (string | undefined)[]): string[] {
+  return [...new Set(xs.filter(Boolean) as string[])]
 }
 
-const MAX_SPANS = 120
+const dur = (s: Span) => Math.round(s.endMs - s.startMs)
+
+/** Server-side analysis of a span set — small, answer-shaped, no heavy payloads
+ *  (llmInput/llmOutput/toolResult are excluded; deep-link to inspect those). */
+function summarize(spans: Span[]) {
+  const start = Math.min(...spans.map((s) => s.startMs))
+  const end = Math.max(...spans.map((s) => s.endMs))
+  const errored = spans.filter((s) => s.hasError || s.errorMessage)
+  const toolCounts: Record<string, number> = {}
+  for (const s of spans) if (s.toolName) toolCounts[s.toolName] = (toolCounts[s.toolName] ?? 0) + 1
+
+  return {
+    durationMs: Math.round(end - start),
+    spanCount: spans.length,
+    totalTokens: spans.reduce((n, s) => n + (s.tokens ?? 0), 0) || undefined,
+    totalCostUsd: spans.reduce((n, s) => n + (s.costUsd ?? 0), 0) || undefined,
+    errorCount: errored.length,
+    agents: uniq(spans.map((s) => s.agentName)),
+    models: uniq(spans.map((s) => s.model)),
+    tools: Object.entries(toolCounts).map(([name, calls]) => ({ name, calls })),
+    slowest: [...spans]
+      .sort((a, b) => dur(b) - dur(a))
+      .slice(0, 3)
+      .map((s) => ({ name: s.name, op: s.operation, tool: s.toolName, durationMs: dur(s) })),
+    errors: errored.slice(0, 10).map((s) => ({ name: s.name, tool: s.toolName, message: s.errorMessage })),
+    // Ordered step path for narration — metadata only.
+    steps: [...spans]
+      .sort((a, b) => a.startMs - b.startMs)
+      .slice(0, MAX_STEPS)
+      .map((s) => ({
+        op: s.operation,
+        name: s.name,
+        tool: s.toolName,
+        agent: s.agentName,
+        purpose: s.operationName,
+        durationMs: dur(s),
+        error: s.errorMessage ?? (s.hasError ? true : undefined),
+      })),
+    stepsTruncated: spans.length > MAX_STEPS,
+  }
+}
 
 export const assistantTools = {
   get_trace: tool({
     description:
-      'Fetch the spans of a single trace (end-to-end run) by id. Use for "explain this trace" or to inspect what an agent did, which tools it called, errors, and token usage.',
-    inputSchema: z.object({ traceId: z.string().describe('The trace id to fetch.') }),
+      'Summarize one trace (end-to-end run) by id: duration, tokens, cost, errors, slowest steps, tools used, and the ordered step path. Use for "explain this trace" or "what was slow / what failed". Returns metadata only — point the user at the link for raw messages and tool I/O.',
+    inputSchema: z.object({ traceId: z.string().describe('The trace id.') }),
     execute: async ({ traceId }) => {
       const res = await getTrace(traceId)
-      if (!res) return { found: false as const }
-      return {
-        found: true as const,
-        provider: res.provider,
-        truncated: res.truncated,
-        spanCount: res.spans.length,
-        spans: res.spans.slice(0, MAX_SPANS).map(compactSpan),
-      }
+      if (!res?.spans.length) return { found: false as const }
+      return { found: true as const, link: `?trace=${traceId}`, truncated: res.truncated, ...summarize(res.spans) }
     },
   }),
 
   get_session: tool({
     description:
-      'Fetch a session by id — its spans across all traces in the session, plus title and trace ids. Use for "what happened in this session" or "was the user satisfied".',
-    inputSchema: z.object({ sessionId: z.string().describe('The session id to fetch.') }),
+      'Summarize a session (conversation / multi-trace run) by id: title, trace count, duration, tokens, errors, agents, and slowest steps. Use for "what happened this session", "any errors", or "where did the tokens go".',
+    inputSchema: z.object({ sessionId: z.string().describe('The session id.') }),
     execute: async ({ sessionId }) => {
       const res = await getSession(sessionId)
-      if (!res) return { found: false as const }
+      if (!res?.spans.length) return { found: false as const }
       return {
         found: true as const,
-        provider: res.provider,
+        link: `?session=${sessionId}`,
         title: res.title,
-        traceIds: res.traceIds,
-        spanCount: res.spans.length,
-        spans: res.spans.slice(0, MAX_SPANS).map(compactSpan),
+        traceCount: res.traceIds.length,
+        ...summarize(res.spans),
       }
     },
   }),

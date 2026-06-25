@@ -21,6 +21,7 @@ export function AssistantPanel() {
 
   const context: PageContext = {
     pathname,
+    origin: typeof window === 'undefined' ? undefined : window.location.origin,
     traceId: typeof search.trace === 'string' ? search.trace : undefined,
     sessionId: !search.trace && typeof search.session === 'string' ? search.session : undefined,
   }

@@ -1,4 +1,5 @@
 import { useChat } from '@ai-sdk/react'
+import { useNavigate } from '@tanstack/react-router'
 import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
 import { AlertTriangle, Coins, Route, Sparkles, Timer, Wrench } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
@@ -51,6 +52,7 @@ function suggestionsFor(ctx: PageContext) {
 }
 
 export function AssistantChat({ context }: { context: PageContext }) {
+  const navigate = useNavigate()
   const [input, setInput] = useState('')
   const [model, setModel] = useState<ChatModelId>(() => {
     if (typeof window === 'undefined') return DEFAULT_CHAT_MODEL
@@ -95,8 +97,23 @@ export function AssistantChat({ context }: { context: PageContext }) {
     setInput('')
   }
 
+  // Intercept the model's ?trace=/?session= deep-links so they open the
+  // inspector via the router instead of a full-page navigation.
+  const onLinkClick = (e: React.MouseEvent) => {
+    const anchor = (e.target as HTMLElement).closest('a')
+    if (!anchor) return
+    const url = new URL(anchor.href, window.location.href)
+    if (url.origin !== window.location.origin) return
+    if (!url.searchParams.has('trace') && !url.searchParams.has('session')) return
+    e.preventDefault()
+    const params = Object.fromEntries(url.searchParams)
+    void navigate({ to: '.', search: (prev) => ({ ...prev, ...params }) })
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    // biome-ignore lint/a11y/useKeyWithClickEvents: delegated link interception, not a control
+    // biome-ignore lint/a11y/noStaticElementInteractions: delegated link interception, not a control
+    <div className="flex min-h-0 flex-1 flex-col" onClick={onLinkClick}>
       <Conversation initial="instant">
         <ConversationContent className="px-4">
           {messages.length === 0 ? (

@@ -49,7 +49,8 @@ export function AssistantMessage({
             <ReasoningContent>{reasoning}</ReasoningContent>
           </Reasoning>
         )}
-        {text && <MessageResponse>{text}</MessageResponse>}
+        {/* Plain anchors — the chat intercepts same-origin ?trace=/?session= links for in-app nav. */}
+        {text && <MessageResponse linkSafety={{ enabled: false }}>{text}</MessageResponse>}
       </MessageContent>
 
       {message.role === 'assistant' && !isGenerating && (
