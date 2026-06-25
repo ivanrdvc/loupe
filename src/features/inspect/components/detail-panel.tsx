@@ -37,7 +37,7 @@ export function DetailPanel({
   onSelect?: (id: string) => void
 }) {
   const duration = span.endMs - span.startMs
-  const http = span.operation === 'http' ? httpSummary(span) : null
+  const http = span.operation === 'unknown' ? httpSummary(span) : null
   const display = displayFor(span, view?.agentLabels)
   const systemPrompt = view?.systemPromptByAgent.get(span.id)
   const nestedErrors = useMemo<Span[]>(() => view?.descendantErrors(span.id) ?? [], [view, span.id])
@@ -63,7 +63,7 @@ export function DetailPanel({
             {display.purposeLabel}
           </span>
         )}
-        {span.operation !== 'http' && (
+        {span.operation !== 'unknown' && (
           <ReviewSheetButton
             targetKind="span"
             targetId={span.id}

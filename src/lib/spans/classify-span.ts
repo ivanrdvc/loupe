@@ -327,7 +327,7 @@ function pickOperation(name: string, attrs: Record<string, unknown>): Operation 
   if (name.startsWith('execute_tool ')) return 'tool'
   if (name.startsWith('retrieval ')) return 'retrieval'
   if (name.startsWith('embeddings ')) return 'embedding'
-  return 'http'
+  return 'unknown'
 }
 
 function pickAgentName(name: string, attrs: Record<string, unknown>): string | undefined {

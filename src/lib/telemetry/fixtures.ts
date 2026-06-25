@@ -135,7 +135,7 @@ const RAW_SPANS: Span[] = [
     id: 'sp-raw-http',
     traceId: 'tr-raw',
     parentId: 'sp-raw-chat',
-    operation: 'http',
+    operation: 'unknown',
     name: 'POST api.openai.com/v1/chat/completions',
     sessionId: 'e2e-session-raw',
     sessionSource: 'attribute',

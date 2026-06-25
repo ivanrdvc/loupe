@@ -24,8 +24,8 @@ const rowIds = (spans: Span[], rawRoots = new Set<string>()) =>
 describe('buildRows — collapsible-infra promotion', () => {
   it('keeps the root of an all-HTTP trace and reveals its children under raw', () => {
     const spans = [
-      span({ id: 'h1', operation: 'http', traceId: 'T', parentId: null }),
-      span({ id: 'h2', operation: 'http', traceId: 'T', parentId: 'h1' }),
+      span({ id: 'h1', operation: 'unknown', traceId: 'T', parentId: null }),
+      span({ id: 'h2', operation: 'unknown', traceId: 'T', parentId: 'h1' }),
     ]
     expect(rowIds(spans)).toEqual(['h1'])
     expect(rowIds(spans, new Set(['h1']))).toEqual(['h1', 'h2'])
@@ -33,7 +33,7 @@ describe('buildRows — collapsible-infra promotion', () => {
 
   it('promotes real children over an infra root (no noisy transport row)', () => {
     const spans = [
-      span({ id: 'post', operation: 'http', traceId: 'T2', parentId: null }),
+      span({ id: 'post', operation: 'unknown', traceId: 'T2', parentId: null }),
       span({ id: 'agent', operation: 'invoke_agent', traceId: 'T2', parentId: 'post' }),
       span({ id: 'chat', operation: 'chat', traceId: 'T2', parentId: 'agent' }),
     ]
@@ -46,7 +46,7 @@ describe('buildRows — collapsible-infra promotion', () => {
     const spans = [
       span({ id: 'agent', operation: 'invoke_agent', traceId: 'T3', parentId: null }),
       span({ id: 'chat', operation: 'chat', traceId: 'T3', parentId: 'agent' }),
-      span({ id: 'stray', operation: 'http', traceId: 'T3', parentId: null }),
+      span({ id: 'stray', operation: 'unknown', traceId: 'T3', parentId: null }),
     ]
     expect(rowIds(spans)).not.toContain('stray')
   })
@@ -55,7 +55,7 @@ describe('buildRows — collapsible-infra promotion', () => {
     const spans = [
       span({ id: 'agent', operation: 'invoke_agent', traceId: 'T4', parentId: null }),
       span({ id: 'chat', operation: 'chat', traceId: 'T4', parentId: 'agent' }),
-      span({ id: 'cosmos404', operation: 'http', traceId: 'T4', parentId: null, hasError: true, errorType: '404' }),
+      span({ id: 'cosmos404', operation: 'unknown', traceId: 'T4', parentId: null, hasError: true, errorType: '404' }),
     ]
     expect(rowIds(spans)).toContain('cosmos404')
   })

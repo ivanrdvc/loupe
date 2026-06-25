@@ -1,7 +1,8 @@
 import type { JsonValue } from '#/lib/json'
 
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
-export type Operation = 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent' | 'retrieval' | 'embedding'
+// `unknown` = fallthrough bucket for unclassifiable spans (transport, app code).
+export type Operation = 'unknown' | 'chat' | 'tool' | 'mcp' | 'invoke_agent' | 'retrieval' | 'embedding'
 
 // `gen_ai.retrieval.documents` entry — spec guarantees only id + score.
 export interface RetrievalDocument {

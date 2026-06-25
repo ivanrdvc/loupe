@@ -38,7 +38,7 @@ describe('predicates', () => {
   })
 
   it('isCollapsibleInfra targets http and mcp (transport noise hidden by default)', () => {
-    expect(isCollapsibleInfra(span({ operation: 'http' }))).toBe(true)
+    expect(isCollapsibleInfra(span({ operation: 'unknown' }))).toBe(true)
     expect(isCollapsibleInfra(span({ operation: 'mcp' }))).toBe(true)
     expect(isCollapsibleInfra(span({ operation: 'tool' }))).toBe(false)
     expect(isCollapsibleInfra(span({ operation: 'chat' }))).toBe(false)

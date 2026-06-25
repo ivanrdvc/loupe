@@ -94,7 +94,7 @@ function orchestratorIds(spans: Span[]): string[] {
 describe('normalizeRunGraph + orchestrator filter', () => {
   it('excludes nested invoke_agent runs (direct parent is an agent)', () => {
     const spans = [
-      span({ id: 'root', operation: 'http', endMs: 200 }),
+      span({ id: 'root', operation: 'unknown', endMs: 200 }),
       span({ id: 'orch', operation: 'invoke_agent', parentId: 'root', startMs: 10 }),
       span({ id: 'sub', operation: 'invoke_agent', parentId: 'orch', startMs: 20 }),
     ]
@@ -103,7 +103,7 @@ describe('normalizeRunGraph + orchestrator filter', () => {
 
   it('returns sibling top-level invoke_agents in one trace (.NET re-invoke per step)', () => {
     const spans = [
-      span({ id: 'root', operation: 'http', endMs: 500 }),
+      span({ id: 'root', operation: 'unknown', endMs: 500 }),
       span({ id: 'orchA', operation: 'invoke_agent', parentId: 'root', startMs: 10 }),
       span({ id: 'chatA', operation: 'chat', parentId: 'orchA', startMs: 20 }),
       span({ id: 'orchB', operation: 'invoke_agent', parentId: 'root', startMs: 100 }),
@@ -136,7 +136,7 @@ describe('normalizeRunGraph + orchestrator filter', () => {
     // `sub` looks like a top-level invoke_agent by shape (parent is http) but
     // claims another agent's id as its parent — must still bucket as subagent.
     const spans = [
-      span({ id: 'root', operation: 'http' }),
+      span({ id: 'root', operation: 'unknown' }),
       span({ id: 'orch', operation: 'invoke_agent', parentId: 'root', startMs: 10, taskId: 'orch' }),
       span({ id: 'sub', operation: 'invoke_agent', parentId: 'root', startMs: 20, taskParentId: 'orch' }),
     ]
