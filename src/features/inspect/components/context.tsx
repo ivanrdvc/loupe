@@ -48,8 +48,8 @@ function GroupSection({ group }: { group: ToolGroup }) {
     <section className="flex min-w-0 flex-col gap-2">
       <header className="flex items-baseline justify-between gap-2 px-1 text-[11px] text-muted-foreground">
         <span className="truncate">{group.domain}</span>
-        <span className="tabular-nums font-mono">
-          {group.tools.length} · {formatTokens(group.tokens)} tok
+        <span className="tabular-nums font-mono" title="Estimated from tool-definition length (chars÷4)">
+          {group.tools.length} · ≈{formatTokens(group.tokens)} tok
         </span>
       </header>
       <div className="overflow-hidden rounded-md border">
@@ -126,8 +126,8 @@ export function ExpandableRow({
         </div>
         {badge}
         {tokens != null && (
-          <Badge variant="outline" className="tabular-nums">
-            {formatTokens(tokens)} tok
+          <Badge variant="outline" className="tabular-nums" title="Estimated from content length (chars÷4)">
+            ≈{formatTokens(tokens)} tok
           </Badge>
         )}
         {open ? (
