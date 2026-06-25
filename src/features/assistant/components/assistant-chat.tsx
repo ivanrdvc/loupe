@@ -1,6 +1,6 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
-import { ListTree, Sparkles, ThumbsDown } from 'lucide-react'
+import { AlertTriangle, Coins, Route, Sparkles, Timer, Wrench } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { Conversation, ConversationContent, ConversationScrollButton } from '#/components/ai-elements/conversation'
 import {
@@ -33,20 +33,20 @@ const MODEL_STORAGE_KEY = 'assistant-chat-model'
 function suggestionsFor(ctx: PageContext) {
   if (ctx.traceId)
     return [
-      { icon: Sparkles, text: 'Explain what is happening in this trace' },
-      { icon: ListTree, text: 'Which span is the slowest, and why?' },
-      { icon: ThumbsDown, text: 'Did anything error in this trace?' },
+      { icon: Route, text: 'Walk me through this trace step by step' },
+      { icon: Timer, text: 'What was the slowest step, and why?' },
+      { icon: AlertTriangle, text: 'Did anything fail in this trace?' },
     ]
   if (ctx.sessionId)
     return [
-      { icon: ThumbsDown, text: 'Was the user satisfied in this session?' },
       { icon: Sparkles, text: 'Summarize what the agent did this session' },
-      { icon: ListTree, text: 'Break down token usage across the session' },
+      { icon: Coins, text: 'Where did the tokens go this session?' },
+      { icon: AlertTriangle, text: 'Did this session hit any errors?' },
     ]
   return [
-    { icon: Sparkles, text: 'What happened across my recent traces?' },
-    { icon: ListTree, text: 'Which tools are the heaviest or failing most?' },
-    { icon: ThumbsDown, text: 'Show me sessions that had errors' },
+    { icon: Sparkles, text: 'Summarize my recent agent runs' },
+    { icon: Wrench, text: 'Which tools error most or run slowest?' },
+    { icon: AlertTriangle, text: 'Show recent sessions that hit errors' },
   ]
 }
 
@@ -154,10 +154,12 @@ export function AssistantChat({ context }: { context: PageContext }) {
 function EmptyState({ context, onPick }: { context: PageContext; onPick: (text: string) => void }) {
   return (
     <div className="flex min-h-full flex-col justify-end pb-4">
-      <h2 className="text-lg font-semibold">Ask about your agents</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <Shimmer as="h2" className="text-lg font-semibold" duration={1.4} repeat={0}>
+        Ask about your agents
+      </Shimmer>
+      <Shimmer as="p" className="mt-1 text-sm" duration={1.4} repeat={0}>
         I read your live telemetry — explain a trace, dig into a session, or surface slow or failing tools.
-      </p>
+      </Shimmer>
       <div className="mt-4 flex flex-col gap-2">
         {suggestionsFor(context).map(({ icon: Icon, text }) => (
           <button
