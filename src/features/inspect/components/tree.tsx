@@ -56,15 +56,34 @@ export function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoo
   // tree stays connected. When raw is enabled for a trace, its subtree shows
   // them as real nodes. Cache key includes rootId so different traces with
   // different raw settings stay independent.
+  // `http`/`mcp` is the unclassified bucket (classify-span's fallthrough), hidden
+  // on the assumption a classified ancestor represents it. Traces with no
+  // classified span at all have nothing to fall back on, so we let their root
+  // stay rather than render an empty tree.
+  const tracesWithClassifiedSpan = new Set<string>()
+  for (const span of view.spans) {
+    if (!isCollapsibleInfra(span)) tracesWithClassifiedSpan.add(span.traceId)
+  }
+
   const visibleChildren = new Map<string, Span[]>()
   const collect = (parentId: string | null, rootId: string | null): Span[] => {
     const key = `${parentId ?? ''}|${rootId ?? ''}`
     if (visibleChildren.has(key)) return visibleChildren.get(key) as Span[]
-    const showRaw = rootId != null && rawRoots.has(rootId)
     const out: Span[] = []
     for (const span of byParent.get(parentId) ?? []) {
-      if (!showRaw && isCollapsibleInfra(span)) out.push(...collect(span.id, rootId))
-      else out.push(span)
+      // A top-level span is its own root, so consult rawRoots for its own id.
+      const spanRootId = rootId ?? span.id
+      const showRaw = rawRoots.has(spanRootId)
+      if (showRaw || !isCollapsibleInfra(span)) {
+        out.push(span)
+        continue
+      }
+      // Drop an unclassified span only when its work survives elsewhere: its
+      // children promote up, or a classified sibling/ancestor represents it.
+      const promoted = collect(span.id, rootId)
+      if (promoted.length > 0) out.push(...promoted)
+      else if (spanHasError(span)) out.push(span)
+      else if (span.parentId === null && !tracesWithClassifiedSpan.has(span.traceId)) out.push(span)
     }
     visibleChildren.set(key, out)
     return out
