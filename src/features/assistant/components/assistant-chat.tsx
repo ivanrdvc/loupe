@@ -154,9 +154,9 @@ export function AssistantChat({ context }: { context: PageContext }) {
 function EmptyState({ context, onPick }: { context: PageContext; onPick: (text: string) => void }) {
   return (
     <div className="flex min-h-full flex-col justify-end pb-4">
-      <h2 className="text-lg font-semibold">Make the most of the assistant</h2>
+      <h2 className="text-lg font-semibold">Ask about your agents</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Analyze sessions, explore patterns, or probe what you're looking at.
+        I read your live telemetry — explain a trace, dig into a session, or surface slow or failing tools.
       </p>
       <div className="mt-4 flex flex-col gap-2">
         {suggestionsFor(context).map(({ icon: Icon, text }) => (
