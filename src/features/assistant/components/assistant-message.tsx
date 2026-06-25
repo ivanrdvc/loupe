@@ -1,4 +1,4 @@
-import type { ChatStatus, UIMessage } from 'ai'
+import { type ChatStatus, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
 import { Copy, RefreshCcw } from 'lucide-react'
 import {
   Message,
@@ -11,8 +11,8 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '#/components/ai-e
 
 function messageText(message: UIMessage): string {
   return message.parts
-    .filter((p) => p.type === 'text')
-    .map((p) => (p as { text: string }).text)
+    .filter(isTextUIPart)
+    .map((p) => p.text)
     .join('\n\n')
 }
 
@@ -33,8 +33,8 @@ export function AssistantMessage({
 
   // Tool-call cards aren't rendered (tools still run server-side); reasoning is one block.
   const reasoning = message.parts
-    .filter((p) => p.type === 'reasoning')
-    .map((p) => (p as { text: string }).text)
+    .filter(isReasoningUIPart)
+    .map((p) => p.text)
     .join('\n\n')
     .trim()
   const text = messageText(message)
@@ -55,7 +55,7 @@ export function AssistantMessage({
       {message.role === 'assistant' && !isGenerating && (
         <MessageActions className={actionsClassName}>
           {isLast && (
-            <MessageAction label="Retry" onClick={onRegenerate} tooltip="Retry">
+            <MessageAction label="Retry" onClick={() => onRegenerate()} tooltip="Retry">
               <RefreshCcw className="size-3" />
             </MessageAction>
           )}

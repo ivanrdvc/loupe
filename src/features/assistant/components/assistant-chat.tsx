@@ -1,5 +1,5 @@
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
 import { ListTree, Sparkles, ThumbsDown } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { Conversation, ConversationContent, ConversationScrollButton } from '#/components/ai-elements/conversation'
@@ -57,6 +57,7 @@ export function AssistantChat({ context }: { context: PageContext }) {
     const saved = window.localStorage.getItem(MODEL_STORAGE_KEY)
     return isChatModelId(saved) ? saved : DEFAULT_CHAT_MODEL
   })
+  // Refs so the memoized transport always reads the latest values without being recreated.
   const modelRef = useRef(model)
   modelRef.current = model
   const contextRef = useRef(context)
@@ -79,7 +80,7 @@ export function AssistantChat({ context }: { context: PageContext }) {
   const last = messages.at(-1)
   const lastHasVisible =
     last?.role === 'assistant' &&
-    last.parts.some((p) => (p.type === 'text' || p.type === 'reasoning') && Boolean((p as { text?: string }).text))
+    last.parts.some((p) => (isTextUIPart(p) && p.text) || (isReasoningUIPart(p) && p.text))
   const awaitingText = (status === 'submitted' || status === 'streaming') && !lastHasVisible
 
   const pickModel = (id: ChatModelId) => {
