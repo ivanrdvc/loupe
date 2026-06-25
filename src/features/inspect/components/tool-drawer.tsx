@@ -191,8 +191,8 @@ function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((r) => (
-              <RecentCallRow key={`${r.traceId}:${r.startedAtMs}`} row={r} />
+            {sorted.map((r, i) => (
+              <RecentCallRow key={r.spanId ?? `${r.traceId}:${r.startedAtMs}:${i}`} row={r} />
             ))}
           </TableBody>
         </Table>
