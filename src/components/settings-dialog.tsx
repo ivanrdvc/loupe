@@ -12,7 +12,6 @@ import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { type AppFont, type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
-import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 
 const APP_VERSION = `v${__APP_VERSION__}`
@@ -233,16 +232,10 @@ function ProviderRow() {
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: (id: ProviderId) => setProviderFn({ data: id }),
-    onSuccess: async () => {
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: queryKeys.providers.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.sessions.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.traces.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.home.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.inbox.all() }),
-        qc.invalidateQueries({ queryKey: queryKeys.tools.all() }),
-      ])
-    },
+    // The active provider feeds essentially every server-derived query, so a
+    // switch invalidates all of them — a curated allowlist silently goes stale
+    // as query families are added.
+    onSuccess: () => qc.invalidateQueries(),
   })
 
   const providers = data?.providers ?? []
