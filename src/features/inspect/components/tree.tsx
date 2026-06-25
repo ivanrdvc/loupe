@@ -51,15 +51,11 @@ export function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoo
     )
   }
 
-  // Hide spans classified as plain http — those are the SDK-level transport
-  // calls (POST /v1/chat/completions etc.). Children re-parent up so the
-  // tree stays connected. When raw is enabled for a trace, its subtree shows
-  // them as real nodes. Cache key includes rootId so different traces with
-  // different raw settings stay independent.
-  // `http`/`mcp` is the unclassified bucket (classify-span's fallthrough), hidden
-  // on the assumption a classified ancestor represents it. Traces with no
-  // classified span at all have nothing to fall back on, so we let their root
-  // stay rather than render an empty tree.
+  // Infra spans (`http`/`unknown`/`mcp`) are hidden on the assumption a classified
+  // ancestor represents them; children re-parent up so the tree stays connected,
+  // and raw mode shows them as real nodes (cache key includes rootId so traces
+  // with different raw settings stay independent). A trace with no classified span
+  // has nothing to fall back on, so we keep its root rather than render empty.
   const tracesWithClassifiedSpan = new Set<string>()
   for (const span of view.spans) {
     if (!isCollapsibleInfra(span)) tracesWithClassifiedSpan.add(span.traceId)

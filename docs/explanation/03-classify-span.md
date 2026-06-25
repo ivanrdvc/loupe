@@ -30,7 +30,7 @@ Each provider's job is: fetch from its backend, hand over the raw attribute bag 
 
 ## What the classifier handles
 
-- **`operation`** — chat / invoke_agent / tool / unknown. Reads `gen_ai.operation.name` (or `gen_ai_operation_name`); accepts OTel GenAI variants `text_completion`, `generate_content`, `create_agent`. Falls back to parsing the span name (`chat …`, `invoke_agent …`, `execute_tool …`); anything unrecognized becomes `unknown`.
+- **`operation`** — chat / invoke_agent / tool / http / unknown. Reads `gen_ai.operation.name` (or `gen_ai_operation_name`); accepts OTel GenAI variants `text_completion`, `generate_content`, `create_agent`. Falls back to parsing the span name (`chat …`, `invoke_agent …`, `execute_tool …`); a span carrying an `http.request.method`/`http.method` attr becomes `http`, and anything else unrecognized becomes `unknown`.
 - **`model`** — `gen_ai.{request,response}.model` in dotted and underscore forms.
 - **`tokens`, `costUsd`** — `gen_ai.usage.total_tokens` / `gen_ai_usage_total_tokens` / `llm_usage_tokens_total`, similar for cost. Accepts numeric strings (OpenObserve serializes some `SUM()` aggregates as strings).
 - **`agentName`** (on `invoke_agent`) — attr `gen_ai.agent.name`, falling back to parsing `"invoke_agent Explorer(…)"` out of the span name. Helper `extractAgentName` is exported because `hitToSummary` (the trace-list roll-up) needs the same parser.

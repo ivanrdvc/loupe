@@ -1,8 +1,9 @@
 import type { JsonValue } from '#/lib/json'
 
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
-// `unknown` = fallthrough bucket for unclassifiable spans (transport, app code).
-export type Operation = 'unknown' | 'chat' | 'tool' | 'mcp' | 'invoke_agent' | 'retrieval' | 'embedding'
+// `http` = real HTTP span (has the OTel http method attr); `unknown` = fallthrough
+// for everything else we can't classify. Both collapse by default.
+export type Operation = 'unknown' | 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent' | 'retrieval' | 'embedding'
 
 // `gen_ai.retrieval.documents` entry — spec guarantees only id + score.
 export interface RetrievalDocument {

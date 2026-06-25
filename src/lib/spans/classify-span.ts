@@ -327,6 +327,8 @@ function pickOperation(name: string, attrs: Record<string, unknown>): Operation 
   if (name.startsWith('execute_tool ')) return 'tool'
   if (name.startsWith('retrieval ')) return 'retrieval'
   if (name.startsWith('embeddings ')) return 'embedding'
+  // A genuine HTTP client/server span carries the OTel http method attribute.
+  if (pickString(attrs, ['http.request.method', 'http.method', 'http_request_method', 'http_method'])) return 'http'
   return 'unknown'
 }
 

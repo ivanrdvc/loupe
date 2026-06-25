@@ -102,6 +102,14 @@ describe('classifySpan — operation classification', () => {
     expect(classifySpan('retrieval memory-collection', {}).operation).toBe('retrieval')
     expect(classifySpan('embeddings text-embedding-3-small', {}).operation).toBe('embedding')
   })
+
+  it('classifies a span with an http method attr as http, else unknown', () => {
+    expect(classifySpan('POST', { 'http.method': 'POST' }).operation).toBe('http')
+    expect(classifySpan('POST', { 'http.request.method': 'POST' }).operation).toBe('http')
+    expect(classifySpan('POST', { http_method: 'POST' }).operation).toBe('http')
+    expect(classifySpan('POST', { http_request_method: 'POST' }).operation).toBe('http')
+    expect(classifySpan('some_custom_op', {}).operation).toBe('unknown')
+  })
 })
 
 describe('classifySpan — RAG recall fields', () => {
