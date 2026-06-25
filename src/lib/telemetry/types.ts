@@ -278,7 +278,7 @@ export interface AppInsightsProvider extends BaseProvider {
 }
 
 // In-memory provider for the e2e suite (see fixtures.ts). Not configured in
-// production — only selectable when TELEMETRY_PROVIDER=fixtures.
+// production; settings shows it read-only when TELEMETRY_PROVIDER=fixtures.
 export interface FixturesProvider extends BaseProvider {
   name: 'fixtures'
 }

@@ -238,9 +238,19 @@ function ProviderRow() {
     onSuccess: () => qc.invalidateQueries(),
   })
 
-  const providers = data?.providers ?? []
-  const active = (data?.active ?? 'openobserve') as ProviderId
+  const providers = (data?.providers ?? []).filter((p) => p.id === 'openobserve' || p.id === 'app-insights')
+  const active = data?.active === 'app-insights' ? 'app-insights' : 'openobserve'
   const missing = providers.find((p) => !p.configured)?.missing
+
+  if (data?.active === 'fixtures') {
+    return (
+      <Field label="Telemetry provider" hint="Using test telemetry from TELEMETRY_PROVIDER=fixtures.">
+        <code className="inline-flex w-fit items-center rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          Fixtures
+        </code>
+      </Field>
+    )
+  }
 
   return (
     <Field
