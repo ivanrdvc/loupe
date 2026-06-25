@@ -1,5 +1,6 @@
 import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
+import { countTokens } from '#/lib/tokens'
 import { ooCol, ooColumns } from './conventions'
 import { mapToolErrorRow, num, sqlString, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
@@ -151,6 +152,8 @@ export async function fetchToolRecentCalls(
   const known = await p.getKnownColumns()
   const sessionCols = ooColumns('sessionId', { known })
   const sessionExpr = sessionCols.length === 0 ? 'NULL' : `COALESCE(${sessionCols.join(', ')})`
+  // Pull the whole result body (bounded by `limit`) so we can tokenize it for a
+  // real per-call token count — SQL can only measure characters.
   const sql = `
     SELECT
       trace_id,
@@ -159,7 +162,7 @@ export async function fetchToolRecentCalls(
       start_time,
       duration,
       span_status,
-      ${known.has('gen_ai_tool_call_result') ? 'LENGTH(gen_ai_tool_call_result)' : 'NULL'} AS result_chars
+      ${known.has('gen_ai_tool_call_result') ? 'gen_ai_tool_call_result' : 'NULL'} AS result_body
     FROM "${p.stream}"
     WHERE operation_name = ${sqlString(`execute_tool ${name}`)}
     ORDER BY start_time DESC
@@ -179,8 +182,11 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round((num(h.duration) ?? 0) / 1000),
         hasError: h.span_status === 'ERROR',
       }
-      const chars = num(h.result_chars)
-      if (chars != null && chars > 0) sample.resultChars = Math.round(chars)
+      const body = typeof h.result_body === 'string' ? h.result_body : ''
+      if (body.length > 0) {
+        sample.resultChars = body.length
+        sample.resultTokens = countTokens(body)
+      }
       if (sessionId) sample.sessionId = sessionId
       if (spanId) sample.spanId = spanId
       return sample

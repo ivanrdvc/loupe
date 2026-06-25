@@ -183,6 +183,9 @@ export interface ToolCallSample {
   durationMs: number
   hasError: boolean
   resultChars?: number
+  // Real token count of the result body (o200k). Absent when the body wasn't
+  // stored; on App Insights it reflects the (possibly truncated) stored body.
+  resultTokens?: number
 }
 
 // `truncated` when the provider capped the stored body (App Insights caps

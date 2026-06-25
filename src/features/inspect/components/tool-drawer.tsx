@@ -150,7 +150,7 @@ type RecentSortKey = 'time' | 'duration' | 'size'
 const recentSortValue: Record<RecentSortKey, (r: ToolCallSample) => number> = {
   time: (r) => r.startedAtMs,
   duration: (r) => r.durationMs,
-  size: (r) => r.resultChars ?? 0,
+  size: (r) => r.resultTokens ?? 0,
 }
 
 function RecentCallsSection({ rows, loading }: { rows: ToolCallSample[]; loading: boolean }) {
@@ -236,10 +236,10 @@ function RecentCallRow({ row: r }: { row: ToolCallSample }) {
       </TableCell>
       <TableCell className="text-right tabular-nums">{formatDuration(r.durationMs)}</TableCell>
       <TableCell className="text-right tabular-nums">
-        {r.resultChars ? (
-          <span title={`${r.resultChars.toLocaleString('en-US')} characters`}>
-            {formatTokens(r.resultChars)}
-            <span className="text-muted-foreground"> chars</span>
+        {r.resultTokens ? (
+          <span title={r.resultChars ? `${r.resultChars.toLocaleString('en-US')} characters` : undefined}>
+            {formatTokens(r.resultTokens)}
+            <span className="text-muted-foreground"> tok</span>
           </span>
         ) : (
           <span className="text-muted-foreground">—</span>

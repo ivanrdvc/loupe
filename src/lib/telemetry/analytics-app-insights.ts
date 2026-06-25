@@ -1,5 +1,6 @@
 import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
+import { countTokens } from '#/lib/tokens'
 import { aiCoalesce } from './conventions'
 import { mapToolErrorRow, num, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
@@ -143,7 +144,7 @@ export async function fetchToolRecentCalls(
     | extend sess = ${aiCoalesce('sessionId')}
     | order by timestamp desc
     | take ${limit}
-    | project trace_id = operation_Id, span_id = id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false), result_chars = strlen(tostring(customDimensions["${RESULT_ATTR}"]))
+    | project trace_id = operation_Id, span_id = id, session_id = sess, started_at = timestamp, duration_ms = duration, has_error = (success == false), result_body = tostring(customDimensions["${RESULT_ATTR}"])
   `
   const rows = await p.query(q, opts ?? {})
   return rows
@@ -159,8 +160,13 @@ export async function fetchToolRecentCalls(
         durationMs: Math.round(num(r.duration_ms) ?? 0),
         hasError: r.has_error === true || r.has_error === 'true',
       }
-      const chars = num(r.result_chars)
-      if (chars != null && chars > 0) sample.resultChars = Math.round(chars)
+      // Body may be truncated by the App Insights 8KB customDimensions cap, so
+      // the token count reflects the stored body, not necessarily the full result.
+      const body = typeof r.result_body === 'string' ? r.result_body : ''
+      if (body.length > 0) {
+        sample.resultChars = body.length
+        sample.resultTokens = countTokens(body)
+      }
       if (sessionId) sample.sessionId = sessionId
       if (spanId) sample.spanId = spanId
       return sample
