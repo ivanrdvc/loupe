@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronsUpDown, Info, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, Info, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
@@ -10,11 +10,11 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '#
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { formatDuration, formatPercent, formatTokens, payloadSeverity, tokensFromChars, truncateId } from '#/lib/format'
+import { formatDuration, formatPercent, formatTokens, payloadSeverity, truncateId } from '#/lib/format'
 import type { ToolCallSample, ToolRow } from '#/lib/telemetry'
 import { ACCENT, toolTone } from '#/lib/tone'
 import { toolDisplayName } from '#/lib/tools'
-import { toolDetailQuery, toolPayloadBodyQuery, toolRecentCallsQuery } from './tool-data'
+import { toolDetailQuery, toolRecentCallsQuery } from './tool-data'
 import { ToolPayloadTrend } from './tool-payload-trend'
 
 interface Props {
@@ -145,17 +145,6 @@ export function Tokens({ tokens, severity }: { tokens: number; severity?: boolea
   )
 }
 
-function TokensFromChars({ chars }: { chars: number }) {
-  if (!chars) return <span className="text-muted-foreground">—</span>
-  const tokens = tokensFromChars(chars)
-  return (
-    <span title={`${chars.toLocaleString('en-US')} chars · ≈${tokens.toLocaleString('en-US')} tokens`}>
-      {formatTokens(tokens)}
-      <span className="text-muted-foreground"> tok</span>
-    </span>
-  )
-}
-
 type RecentSortKey = 'time' | 'duration' | 'size'
 
 const recentSortValue: Record<RecentSortKey, (r: ToolCallSample) => number> = {
@@ -230,85 +219,41 @@ function SortHead({
   )
 }
 
-// Clicking a row with a result lazily fetches its actual payload body.
 function RecentCallRow({ row: r }: { row: ToolCallSample }) {
-  const [open, setOpen] = useState(false)
-  const expandable = !!r.spanId && !!r.resultChars
-  const { data: payload, isLoading } = useQuery({
-    ...toolPayloadBodyQuery(r.spanId ?? ''),
-    enabled: open && expandable,
-  })
   return (
-    <>
-      <TableRow
-        className={expandable ? 'cursor-pointer' : undefined}
-        onClick={expandable ? () => setOpen((o) => !o) : undefined}
-      >
-        <TableCell>
-          <Link
-            to="."
-            search={((prev: Record<string, unknown>) => ({ ...prev, trace: r.traceId })) as unknown as never}
-            onClick={(e) => e.stopPropagation()}
-            className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {truncateId(r.traceId)}
-          </Link>
-        </TableCell>
-        <TableCell>
-          <RelativeTime ts={r.startedAtMs} className="tabular-nums text-muted-foreground" />
-        </TableCell>
-        <TableCell className="text-right tabular-nums">{formatDuration(r.durationMs)}</TableCell>
-        <TableCell className="text-right tabular-nums">
-          {r.resultChars ? (
-            <span className="inline-flex items-center justify-end gap-1">
-              <TokensFromChars chars={r.resultChars} />
-              {expandable && (
-                <ChevronDown
-                  className={`size-3 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
-                  aria-hidden
-                />
-              )}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </TableCell>
-        <TableCell className="text-right">
-          {r.hasError ? (
-            <Badge variant="destructive" className="px-1 text-[10px]">
-              Error
-            </Badge>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </TableCell>
-      </TableRow>
-      {open && (
-        <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={5} className="bg-muted/30 p-0">
-            {isLoading ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Loading payload…</div>
-            ) : !payload ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Payload unavailable.</div>
-            ) : (
-              <div className="space-y-1 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">
-                  {formatTokens(payload.tokens)} tokens
-                  {payload.truncated && (
-                    <span className="text-warning">
-                      {' '}
-                      · truncated by provider, showing first {payload.body.length.toLocaleString('en-US')} chars
-                    </span>
-                  )}
-                </p>
-                <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground">
-                  {payload.body}
-                </pre>
-              </div>
-            )}
-          </TableCell>
-        </TableRow>
-      )}
-    </>
+    <TableRow>
+      <TableCell>
+        <Link
+          to="."
+          search={((prev: Record<string, unknown>) => ({ ...prev, trace: r.traceId })) as unknown as never}
+          className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {truncateId(r.traceId)}
+        </Link>
+      </TableCell>
+      <TableCell>
+        <RelativeTime ts={r.startedAtMs} className="tabular-nums text-muted-foreground" />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">{formatDuration(r.durationMs)}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        {r.resultChars ? (
+          <span title={`${r.resultChars.toLocaleString('en-US')} characters`}>
+            {formatTokens(r.resultChars)}
+            <span className="text-muted-foreground"> chars</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {r.hasError ? (
+          <Badge variant="destructive" className="px-1 text-[10px]">
+            Error
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+    </TableRow>
   )
 }
