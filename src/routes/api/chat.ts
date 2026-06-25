@@ -1,0 +1,33 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 'ai'
+import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/assistant/models'
+import { resolveChatModel } from '#/features/assistant/server/models'
+import { type PageContext, systemPrompt } from '#/features/assistant/server/prompt'
+import { assistantTools } from '#/features/assistant/server/tools'
+
+interface ChatRequest {
+  messages: UIMessage[]
+  model?: string
+  context?: PageContext
+}
+
+export const Route = createFileRoute('/api/chat')({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const body = (await request.json()) as ChatRequest
+        const modelId: ChatModelId = isChatModelId(body.model) ? body.model : DEFAULT_CHAT_MODEL
+        const result = streamText({
+          model: resolveChatModel(modelId),
+          system: systemPrompt(body.context ?? { pathname: '/' }),
+          messages: await convertToModelMessages(body.messages),
+          tools: assistantTools,
+          stopWhen: stepCountIs(8),
+          // gpt-5 only streams a thinking summary when asked; keep effort low so it's quick.
+          providerOptions: { openai: { reasoningSummary: 'auto', reasoningEffort: 'low' } },
+        })
+        return result.toUIMessageStreamResponse({ sendReasoning: true })
+      },
+    },
+  },
+})

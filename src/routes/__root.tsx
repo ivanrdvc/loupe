@@ -7,6 +7,7 @@ import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
+import { AssistantLauncher, AssistantPanel, AssistantProvider } from '#/features/assistant'
 import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
 import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
@@ -94,12 +95,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <SidebarProvider className="bg-sidebar">
               <CommandPaletteProvider>
                 <ShortcutsDialogProvider>
-                  <AppSidebar />
-                  <SidebarInset>{children}</SidebarInset>
-                  <SessionDrawerMount />
-                  <TraceDrawerMount />
-                  <ToolDrawerMount />
-                  <Toaster />
+                  <AssistantProvider>
+                    <AppSidebar />
+                    <SidebarInset>{children}</SidebarInset>
+                    <AssistantPanel />
+                    <AssistantLauncher />
+                    <SessionDrawerMount />
+                    <TraceDrawerMount />
+                    <ToolDrawerMount />
+                    <Toaster />
+                  </AssistantProvider>
                 </ShortcutsDialogProvider>
               </CommandPaletteProvider>
             </SidebarProvider>
