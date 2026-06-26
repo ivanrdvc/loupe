@@ -107,7 +107,9 @@ export function collectFrontendTools(spans: Span[]): FrontendTool[] {
         if (!defs.has(name)) defs.set(name, { description: toolDescription(raw), raw })
       }
     }
-    for (const msg of [...asMessages(span.llmInput), ...asMessages(span.llmOutput)]) {
+    // Only the model's own output for this span — llmInput echoes prior-thread
+    // history, so a tool executed in an unloaded trace would falsely look frontend.
+    for (const msg of asMessages(span.llmOutput)) {
       for (const part of msg.parts) if (part.kind === 'tool_call') called.add(part.name)
     }
   }

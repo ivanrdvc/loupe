@@ -99,14 +99,21 @@ export function AgentChat({ context }: { context: PageContext }) {
   // Intercept the model's ?trace=/?session= deep-links so they open the
   // inspector via the router instead of a full-page navigation.
   const onLinkClick = (e: React.MouseEvent) => {
+    // Let the browser handle modifier/non-primary clicks (open in new tab/window).
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
     const anchor = (e.target as HTMLElement).closest('a')
-    if (!anchor) return
+    if (!anchor || (anchor.target && anchor.target !== '_self')) return
     const url = new URL(anchor.href, window.location.href)
     if (url.origin !== window.location.origin) return
     if (!url.searchParams.has('trace') && !url.searchParams.has('session')) return
     e.preventDefault()
     const params = Object.fromEntries(url.searchParams)
-    void navigate({ to: '.', search: (prev) => ({ ...prev, ...params }) })
+    // Replace the inspector params wholesale so a stale span/trace/session from
+    // a prior link doesn't ride along into the new target.
+    void navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, trace: undefined, session: undefined, span: undefined, ...params }),
+    })
   }
 
   return (

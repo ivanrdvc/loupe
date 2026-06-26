@@ -4,8 +4,8 @@ this verbatim into its system prompt so it can ground answers in your actual
 project instead of speaking in generic telemetry terms.
 
 This file is the default; a fork can replace it wholesale, or point elsewhere
-with the ASSISTANT_PROFILE_PATH env var. If the file is empty or missing, the
-assistant simply omits this section.
+with the AGENT_PROFILE_PATH env var. If the file is empty or missing, the
+agent simply omits this section.
 
 Suggested things to cover:
 - What the agent does and who uses it.

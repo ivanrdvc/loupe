@@ -29,7 +29,15 @@ export const Route = createFileRoute('/api/chat')({
           providerOptions: { openai: { reasoningSummary: 'auto', reasoningEffort: 'low' } },
           experimental_telemetry: agentTelemetry(body.conversationId),
         })
-        return result.toUIMessageStreamResponse({ sendReasoning: true })
+        return result.toUIMessageStreamResponse({
+          sendReasoning: true,
+          // Default masking hides the cause as "An error occurred."; log it and
+          // surface a real message so missing keys / tool failures are diagnosable.
+          onError: (error) => {
+            console.error('[agent chat]', error)
+            return error instanceof Error ? error.message : 'Something went wrong.'
+          },
+        })
       },
     },
   },

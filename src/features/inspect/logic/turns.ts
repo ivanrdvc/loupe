@@ -57,8 +57,12 @@ export function buildTurns(
 
 export function turnTotals(turn: Turn): TurnTotals {
   // Utility chats (`gen_ai.operation.purpose` set) are side-calls — excluded
-  // from spend and model so a title-gen doesn't masquerade as the turn.
-  const userFacing = turn.chats.filter((c) => !c.operationName)
+  // from spend and model so a title-gen doesn't masquerade as the turn. But
+  // `operationName` is ancestor-inherited (propagateInheritedAttrs), so a turn
+  // wrapped by a utility Activity carries it on every chat; when filtering
+  // would zero the set, keep all chats rather than dropping the turn's spend.
+  const nonUtility = turn.chats.filter((c) => !c.operationName)
+  const userFacing = nonUtility.length ? nonUtility : turn.chats
   let inputTokens = 0
   let outputTokens = 0
   let cachedTokens = 0
@@ -70,6 +74,6 @@ export function turnTotals(turn: Turn): TurnTotals {
     costUsd += c.costUsd ?? 0
   }
   const durationMs = Math.max(0, turn.run.endMs - turn.run.startMs)
-  const model = (userFacing.at(-1) ?? turn.chats.at(-1))?.model
+  const model = userFacing.at(-1)?.model
   return { inputTokens, outputTokens, cachedTokens, costUsd, durationMs, model }
 }
