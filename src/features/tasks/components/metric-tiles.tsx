@@ -1,5 +1,5 @@
 import type { RollupSummary } from '#/features/tasks/rollup'
-import { formatDuration, formatPercent } from '#/lib/format'
+import { formatCost, formatDuration, formatPercent } from '#/lib/format'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
@@ -69,6 +69,12 @@ export function buildTiles(summary: RollupSummary): TileData[] {
       label: 'Avg duration',
       value: summary.fires === 0 ? '—' : formatDuration(summary.avgDurationMs),
       caption: summary.fires === 0 ? '' : `over ${fmtCount(summary.fires)} fires`,
+      tone: 'muted',
+    },
+    {
+      label: 'Cost',
+      value: summary.totalCostUsd == null ? '—' : formatCost(summary.totalCostUsd),
+      caption: '',
       tone: 'muted',
     },
   ]

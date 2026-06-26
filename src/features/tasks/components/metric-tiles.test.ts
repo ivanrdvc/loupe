@@ -13,15 +13,21 @@ function summary(overrides: Partial<RollupSummary> = {}): RollupSummary {
     avgDurationMs: 1500,
     taskCount: 4,
     healthyTasks: 4,
+    pausedTasks: 0,
+    neverRunTasks: 0,
   }
   return { ...base, ...overrides }
 }
 
 describe('buildTiles', () => {
-  it('returns exactly 3 tiles with the deduped labels', () => {
+  it('returns the deduped tile labels', () => {
     const tiles = buildTiles(summary())
-    expect(tiles).toHaveLength(3)
-    expect(tiles.map((t) => t.label)).toEqual(['Error-free fires', 'Healthy tasks', 'Avg duration'])
+    expect(tiles).toHaveLength(4)
+    expect(tiles.map((t) => t.label)).toEqual(['Error-free fires', 'Healthy tasks', 'Avg duration', 'Cost'])
+  })
+
+  it('cost tile shows em-dash when cost is unknown', () => {
+    expect(buildTiles(summary({ totalCostUsd: undefined }))[3].value).toBe('—')
   })
 
   it('drops the legacy Success rate / Errored fires labels', () => {

@@ -21,7 +21,9 @@ export const SINGLE_TRACE = {
 
 export const TASK = {
   traceId: 'tr-task-nightly',
+  key: 'task:nightly-report',
   name: 'Nightly Report',
+  cost: '$0.0123',
 } as const
 
 export const AGENT_AS_TOOL = {

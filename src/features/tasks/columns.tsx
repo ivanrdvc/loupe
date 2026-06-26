@@ -5,8 +5,8 @@ import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { KindBadge } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
-import type { TaskRow } from '#/features/tasks/rollup'
-import { formatDuration, formatPercent, metricTone } from '#/lib/format'
+import { type TaskRow, taskState } from '#/features/tasks/rollup'
+import { formatCost, formatDuration, formatPercent, metricTone } from '#/lib/format'
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
@@ -54,6 +54,7 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
               derived
             </Badge>
           )}
+          <StateBadge row={r} />
         </div>
       )
     },
@@ -155,11 +156,26 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
     },
   },
   {
+    id: 'cost',
+    accessorFn: (r) => r.costUsd ?? -1,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" className="justify-end" />,
+    cell: ({ row }) => {
+      const cost = row.original.costUsd
+      return (
+        <div className="text-right tabular-nums text-muted-foreground">
+          {cost == null ? <span className="text-muted-foreground/60">—</span> : formatCost(cost)}
+        </div>
+      )
+    },
+  },
+  {
     accessorKey: 'lastFireMs',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Last fire" />,
-    cell: ({ row }) => (
-      <RelativeTime ts={row.original.lastFireMs} className="whitespace-nowrap tabular-nums text-muted-foreground" />
-    ),
+    cell: ({ row }) => {
+      const ts = row.original.lastFireMs || row.original.declared?.lifetime?.lastRunAtMs || 0
+      if (ts === 0) return <span className="text-muted-foreground/60">—</span>
+      return <RelativeTime ts={ts} className="whitespace-nowrap tabular-nums text-muted-foreground" />
+    },
   },
   {
     id: 'createdBy',
@@ -184,6 +200,31 @@ export const taskColumns: ColumnDef<TaskRow>[] = [
     enableSorting: false,
   },
 ]
+
+function StateBadge({ row }: { row: TaskRow }) {
+  const state = taskState(row)
+  if (state === 'paused')
+    return (
+      <Badge
+        variant="outline"
+        className={cn('shrink-0 px-1.5 text-[10px]', ACCENT.amber.status)}
+        title="Paused in the registry"
+      >
+        paused
+      </Badge>
+    )
+  if (state === 'never-run')
+    return (
+      <Badge
+        variant="outline"
+        className="shrink-0 px-1.5 text-[10px] text-muted-foreground"
+        title="Registered but never run"
+      >
+        never run
+      </Badge>
+    )
+  return null
+}
 
 function deriveLabel(key: string): string {
   const [, rest] = key.split(':', 2)

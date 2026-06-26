@@ -22,3 +22,21 @@ test('tasks page shows the health-framed summary tiles', async ({ page }) => {
   await expect(page.getByText('Success rate')).toHaveCount(0)
   await expect(page.getByText('Errored fires')).toHaveCount(0)
 })
+
+test('tasks list surfaces cost in the summary tile and the row', async ({ page }) => {
+  await page.goto('/tasks')
+
+  await expect(page.getByRole('term').filter({ hasText: 'Cost' })).toBeVisible()
+  const row = page.getByRole('row', { name: new RegExp(TASK.name) })
+  await expect(row.getByText(TASK.cost)).toBeVisible()
+})
+
+test('task detail has a Cost tab with the per-fire breakdown', async ({ page }) => {
+  await page.goto(`/tasks/${encodeURIComponent(TASK.key)}`)
+  await expect(page.getByText(TASK.name).first()).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Cost' }).click()
+  await expect(page).toHaveURL(/tab=cost/)
+  await expect(page.getByText('Total', { exact: true })).toBeVisible()
+  await expect(page.getByText(TASK.cost).first()).toBeVisible()
+})

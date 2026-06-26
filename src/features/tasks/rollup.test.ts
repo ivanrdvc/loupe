@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TraceSummary } from '#/lib/telemetry'
-import { rollupTasks, summarizeRollup } from './rollup'
+import type { DeclaredTask } from './declared'
+import { rollupTasks, summarizeRollup, type TaskRow, taskState } from './rollup'
 
 function trace(over: Partial<TraceSummary> & { id: string; startedAtMs: number }): TraceSummary {
   return {
@@ -9,6 +10,27 @@ function trace(over: Partial<TraceSummary> & { id: string; startedAtMs: number }
     category: 'scheduled',
     ...over,
   }
+}
+
+function taskRow(over: Partial<TaskRow>): TaskRow {
+  return {
+    key: 'task:x',
+    identitySource: 'task.id',
+    kind: 'cron',
+    category: 'scheduled',
+    fires: 0,
+    errored: 0,
+    successRate: 1,
+    avgDurationMs: 0,
+    lastFireMs: 0,
+    spark: [],
+    sampleTraceId: '',
+    ...over,
+  }
+}
+
+function declared(over: Partial<DeclaredTask> = {}): DeclaredTask {
+  return { id: 'x', status: 'active', ...over }
 }
 
 describe('rollupTasks', () => {
@@ -70,6 +92,20 @@ describe('rollupTasks', () => {
     expect(spark).toHaveLength(10)
     expect(spark.reduce((n, p) => n + p.fires, 0)).toBe(3)
   })
+
+  it('sums fire cost; undefined (not 0) when no fire carried usage', () => {
+    const priced = rollupTasks(
+      [
+        trace({ id: '1', startedAtMs: 1, taskId: 'a', totalCostUsd: 0.01 }),
+        trace({ id: '2', startedAtMs: 2, taskId: 'a', totalCostUsd: 0.02 }),
+      ],
+      { fromMs: 0, toMs: 100 },
+    )
+    expect(priced[0]?.costUsd).toBeCloseTo(0.03)
+
+    const unpriced = rollupTasks([trace({ id: '1', startedAtMs: 1, taskId: 'b' })], { fromMs: 0, toMs: 100 })
+    expect(unpriced[0]?.costUsd).toBeUndefined()
+  })
 })
 
 describe('summarizeRollup', () => {
@@ -102,6 +138,39 @@ describe('summarizeRollup', () => {
       avgDurationMs: 0,
       taskCount: 0,
       healthyTasks: 0,
+      totalCostUsd: undefined,
+      pausedTasks: 0,
+      neverRunTasks: 0,
     })
+  })
+
+  it('sums cost and counts paused / never-run from declared rows', () => {
+    const rows = [
+      taskRow({ fires: 3, costUsd: 0.02 }),
+      taskRow({ fires: 0, declared: declared({ status: 'paused' }) }),
+      taskRow({ fires: 0, declared: declared({ status: 'active' }) }),
+    ]
+    const s = summarizeRollup(rows)
+    expect(s.totalCostUsd).toBeCloseTo(0.02)
+    expect(s.pausedTasks).toBe(1)
+    expect(s.neverRunTasks).toBe(1)
+  })
+})
+
+describe('taskState', () => {
+  it('reports declared status, independent of fires', () => {
+    expect(taskState(taskRow({ fires: 5, declared: declared({ status: 'paused' }) }))).toBe('paused')
+    expect(taskState(taskRow({ declared: declared({ status: 'archived' }) }))).toBe('archived')
+  })
+
+  it('is never-run when declared but no fires and no lifetime runs', () => {
+    expect(taskState(taskRow({ fires: 0, declared: declared() }))).toBe('never-run')
+    const withRuns = declared({ lifetime: { totalRuns: 4, succeededRuns: 4 } })
+    expect(taskState(taskRow({ fires: 0, declared: withRuns }))).toBe('healthy')
+  })
+
+  it('falls back to fire health when no declared overlay', () => {
+    expect(taskState(taskRow({ fires: 2, errored: 0 }))).toBe('healthy')
+    expect(taskState(taskRow({ fires: 2, errored: 1 }))).toBe('failing')
   })
 })
