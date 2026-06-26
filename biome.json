@@ -10,6 +10,8 @@
     "includes": [
       "**",
       "!**/routeTree.gen.ts",
+      "!src/components/ui",
+      "!src/components/ai-elements",
       "!**/drizzle",
       "!**/.nitro",
       "!**/.tanstack",
@@ -51,29 +53,6 @@
     }
   },
   "overrides": [
-    {
-      "includes": ["src/components/ui/**"],
-      "linter": {
-        "rules": {
-          "a11y": {
-            "noSvgWithoutTitle": "off",
-            "useSemanticElements": "off",
-            "useKeyWithClickEvents": "off",
-            "useFocusableInteractive": "off"
-          },
-          "suspicious": {
-            "noArrayIndexKey": "off",
-            "noDocumentCookie": "off"
-          },
-          "correctness": {
-            "useExhaustiveDependencies": "off"
-          },
-          "security": {
-            "noDangerouslySetInnerHtml": "off"
-          }
-        }
-      }
-    },
     {
       "includes": ["src/components/icons/**"],
       "linter": {
