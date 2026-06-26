@@ -10,6 +10,7 @@ The "why" of loupe subsystems. Mental models, architecture, trade-offs.
 
 ## Subsystems
 
+- [Agent](agent.md) — embedded chat agent that reads live telemetry through read-only tools and emits its own GenAI-semconv spans back into loupe.
 - [Detection and enrichment](detection-and-enrichment.md) — discovering new tools/agents and recovering truncated attributes.
 - [Datasets](datasets.md) — versioned question sets fired at the agent, linked back to traces.
 - [Evaluation](evaluation.md) — one `score` primitive for human / judge / code verdicts.

@@ -1,7 +1,7 @@
 import { tokensFromChars } from '#/lib/format'
 import { formatJson, type JsonValue } from '#/lib/json'
 import type { Span } from '#/lib/spans'
-import { type ToolError, toolError } from '#/lib/spans/conversation'
+import { asMessages, type ToolError, toolError } from '#/lib/spans/conversation'
 import { isAgentSpan, isChatSpan } from './predicates'
 
 type ToolGroupKind = 'server' | 'default'
@@ -89,28 +89,33 @@ export function collectToolGroups(spans: Span[]): ToolGroup[] {
     .sort((a, b) => b.tokens - a.tokens || a.domain.localeCompare(b.domain))
 }
 
-// Defined but never executed → handled frontend-side (CopilotKit, etc.).
-// Gated on at least one execute_tool span existing — without backend
-// instrumentation, every defined tool would falsely look frontend.
+// Client-side tools (AG-UI/CopilotKit): the model calls them but they run in the
+// browser, so the call has no backend execute_tool span. A merely-uncalled tool
+// is just unused, not frontend — and the gate keeps this to actual AG-UI runs.
 export function collectFrontendTools(spans: Span[]): FrontendTool[] {
+  if (!spans.some((s) => s.agUiRunId)) return []
+
   const backendExecuted = new Set<string>()
+  const defs = new Map<string, { description: string; raw: JsonValue }>()
+  const called = new Set<string>()
   for (const span of spans) {
     if (span.operation === 'tool' && span.toolName) backendExecuted.add(span.toolName)
-  }
-  if (backendExecuted.size === 0) return []
-
-  const defs = new Map<string, { description: string; raw: JsonValue }>()
-  for (const span of spans) {
-    if (!isChatSpan(span) || span.toolDefinitions == null) continue
-    for (const raw of flattenToolDefinitions(span.toolDefinitions)) {
-      const name = toolName(raw)
-      if (!defs.has(name)) defs.set(name, { description: toolDescription(raw), raw })
+    if (!isChatSpan(span)) continue
+    if (span.toolDefinitions != null) {
+      for (const raw of flattenToolDefinitions(span.toolDefinitions)) {
+        const name = toolName(raw)
+        if (!defs.has(name)) defs.set(name, { description: toolDescription(raw), raw })
+      }
+    }
+    for (const msg of [...asMessages(span.llmInput), ...asMessages(span.llmOutput)]) {
+      for (const part of msg.parts) if (part.kind === 'tool_call') called.add(part.name)
     }
   }
 
   const out: FrontendTool[] = []
-  for (const [name, def] of defs) {
-    if (backendExecuted.has(name)) continue
+  for (const name of called) {
+    const def = defs.get(name)
+    if (backendExecuted.has(name) || !def) continue
     out.push({
       id: `frontend-${name}`,
       name,

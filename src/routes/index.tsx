@@ -10,7 +10,7 @@ import { ThroughputAreaChart } from './-home-charts/throughput-area'
 import { NewAgentsTable, NewToolsTable, Section, ToolErrorTable, ToolPayloadTable } from './-home-components'
 import { cacheHitRateOverTimeQuery, chatLatencyOverTimeQuery, homeInboxQuery, runsPerHourQuery } from './-home-data'
 
-function ViewAllToolsLink({ sort }: { sort?: 'p95TokensEst' | 'errorRate' | 'lastSeenMs' }) {
+function ViewAllToolsLink({ sort }: { sort?: 'maxTokens' | 'errorRate' | 'lastSeenMs' }) {
   return (
     <Link
       to="/tools"
@@ -44,7 +44,7 @@ function Home() {
   const toolErrors = data?.toolErrors ?? []
   const toolPayloads = [...(tools ?? [])]
     .filter((t) => t.callsWithResult > 0)
-    .sort((a, b) => b.p95TokensEst - a.p95TokensEst)
+    .sort((a, b) => b.maxTokens - a.maxTokens)
     .slice(0, PAYLOAD_PREVIEW)
 
   return (
@@ -52,8 +52,8 @@ function Home() {
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 xl:grid-cols-2">
         <Section
           title={ALERT_KINDS.tool_size_p95.title}
-          description={`${ALERT_KINDS.tool_size_p95.blurb} Last ${DEFAULT} days; sizes are estimated tokens — open a call for the exact OpenAI count.`}
-          action={<ViewAllToolsLink sort="p95TokensEst" />}
+          description={`${ALERT_KINDS.tool_size_p95.blurb} Last ${DEFAULT} days; headline is the exact tokenized max, p95 is a chars÷4 estimate.`}
+          action={<ViewAllToolsLink sort="maxTokens" />}
         >
           <ToolPayloadTable rows={toolPayloads} />
         </Section>

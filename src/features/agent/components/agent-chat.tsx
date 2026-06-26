@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react'
 import { useNavigate } from '@tanstack/react-router'
 import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
-import { AlertTriangle, Coins, Route, Sparkles, Timer, Wrench } from 'lucide-react'
+import { AlertTriangle, Coins, Route, Sparkles, Timer } from 'lucide-react'
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { Conversation, ConversationContent, ConversationScrollButton } from '#/components/ai-elements/conversation'
 import {
@@ -28,9 +28,9 @@ import { createLocalStorageStore } from '#/lib/local-storage-store'
 import { cn } from '#/lib/utils'
 import { CHAT_MODELS, type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '../chat-models'
 import type { PageContext } from '../server/prompt'
-import { AssistantMessage } from './assistant-message'
+import { AgentMessage } from './agent-message'
 
-const MODEL_KEY = 'assistant-chat-model'
+const MODEL_KEY = 'agent-chat-model'
 const modelStore = createLocalStorageStore(MODEL_KEY)
 const readModel = (): ChatModelId => {
   const v = typeof window === 'undefined' ? null : window.localStorage.getItem(MODEL_KEY)
@@ -49,24 +49,23 @@ function useChatModel(): [ChatModelId, (id: ChatModelId) => void] {
 function suggestionsFor(ctx: PageContext) {
   if (ctx.traceId)
     return [
-      { icon: Route, text: 'Walk me through this trace step by step' },
+      { icon: AlertTriangle, text: 'Why did this trace fail?' },
+      { icon: Route, text: 'Walk me through what happened' },
       { icon: Timer, text: 'What was the slowest step, and why?' },
-      { icon: AlertTriangle, text: 'Did anything fail in this trace?' },
     ]
   if (ctx.sessionId)
     return [
-      { icon: Sparkles, text: 'Summarize what the agent did this session' },
-      { icon: Coins, text: 'Where did the tokens go this session?' },
-      { icon: AlertTriangle, text: 'Did this session hit any errors?' },
+      { icon: Sparkles, text: 'Summarize this session' },
+      { icon: AlertTriangle, text: 'What errored, and why?' },
+      { icon: Coins, text: 'Where did the tokens and cost go?' },
     ]
   return [
-    { icon: Sparkles, text: 'Summarize my recent agent runs' },
-    { icon: Wrench, text: 'Which tools error most or run slowest?' },
-    { icon: AlertTriangle, text: 'Show recent sessions that hit errors' },
+    { icon: Route, text: 'Walk me through my latest run' },
+    { icon: AlertTriangle, text: 'What failed in the last hour?' },
   ]
 }
 
-export function AssistantChat({ context }: { context: PageContext }) {
+export function AgentChat({ context }: { context: PageContext }) {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
   const [model, setModel] = useChatModel()
@@ -78,12 +77,12 @@ export function AssistantChat({ context }: { context: PageContext }) {
   const { messages, sendMessage, status, stop, regenerate, error } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      prepareSendMessagesRequest: ({ messages }) => ({ body: { messages, ...live.current } }),
+      prepareSendMessagesRequest: ({ messages, id }) => ({ body: { messages, conversationId: id, ...live.current } }),
     }),
   })
 
   const isBusy = status === 'streaming' || status === 'submitted'
-  // Standalone "Thinking…" until the assistant emits a reasoning block or text.
+  // Standalone "Thinking…" until the agent emits a reasoning block or text.
   const last = messages.at(-1)
   const lastHasVisible =
     last?.role === 'assistant' &&
@@ -120,7 +119,7 @@ export function AssistantChat({ context }: { context: PageContext }) {
             <EmptyState context={context} onPick={(text) => sendMessage({ text })} />
           ) : (
             messages.map((message, i) => (
-              <AssistantMessage
+              <AgentMessage
                 key={message.id}
                 message={message}
                 isLast={i === messages.length - 1}
@@ -149,7 +148,7 @@ export function AssistantChat({ context }: { context: PageContext }) {
               className="min-h-14 px-3 pt-2.5 text-[13px] leading-relaxed"
               value={input}
               onChange={(e) => setInput(e.currentTarget.value)}
-              placeholder="Ask the assistant — about this page, trace, or session"
+              placeholder="Ask the agent — about this page, trace, or session"
             />
           </PromptInputBody>
           <PromptInputFooter className="px-2.5 pb-2.5">

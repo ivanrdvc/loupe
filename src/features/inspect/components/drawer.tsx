@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Maximize2, Share2, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { CopyButton } from '#/components/copy-button'
@@ -41,6 +41,8 @@ interface InspectDrawerProps {
   expandTrace?: { traceId: string }
   /** Stable id for the inspected entity — resets picker state when it changes while `open`. */
   inspectKey?: string | null
+  /** Deep-linked span to focus once loaded (from `?span=`). Unknown ids are ignored. */
+  focusSpanId?: string
   autoRefresh?: AutoRefreshInterval
   onAutoRefreshChange?: (value: AutoRefreshInterval) => void
   onRefresh?: () => void
@@ -58,6 +60,7 @@ export function InspectDrawer({
   expandSession,
   expandTrace,
   inspectKey,
+  focusSpanId,
   autoRefresh,
   onAutoRefreshChange,
   onRefresh,
@@ -106,9 +109,20 @@ export function InspectDrawer({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed reset when the previewed session identity changes while the drawer stays mounted
   useEffect(() => {
+    focusedRef.current = null
     setSelectedId(null)
     setDrawerView('spans')
   }, [inspectKey])
+
+  // Honor a deep-linked span: select it once it appears in the loaded spans. Applied
+  // once per id (so auto-refresh doesn't yank a manual selection); unknown ids no-op.
+  const focusedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focusSpanId || focusSpanId === focusedRef.current || !view.byId.has(focusSpanId)) return
+    focusedRef.current = focusSpanId
+    setSelectedId(focusSpanId)
+    setDrawerView('spans')
+  }, [focusSpanId, view])
 
   // Auto-select the single chat span for utility traces so the detail panel opens immediately.
   useEffect(() => {

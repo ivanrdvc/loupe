@@ -7,7 +7,7 @@ import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
-import { AssistantLauncher, AssistantPanel, AssistantProvider } from '#/features/assistant'
+import { AgentLauncher, AgentPanel, AgentProvider } from '#/features/agent'
 import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
 import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
@@ -95,16 +95,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <SidebarProvider className="bg-sidebar">
               <CommandPaletteProvider>
                 <ShortcutsDialogProvider>
-                  <AssistantProvider>
+                  <AgentProvider>
                     <AppSidebar />
                     <SidebarInset>{children}</SidebarInset>
-                    <AssistantPanel />
-                    <AssistantLauncher />
+                    <AgentPanel />
+                    <AgentLauncher />
                     <SessionDrawerMount />
                     <TraceDrawerMount />
                     <ToolDrawerMount />
                     <Toaster />
-                  </AssistantProvider>
+                  </AgentProvider>
                 </ShortcutsDialogProvider>
               </CommandPaletteProvider>
             </SidebarProvider>
@@ -123,16 +123,20 @@ type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
 const clearKey =
   (key: string): SearchUpdater =>
   (prev) => ({ ...prev, [key]: undefined })
+const clearKeys =
+  (...keys: string[]): SearchUpdater =>
+  (prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, undefined])) })
 
 function TraceDrawerMount() {
-  const search = useSearch({ strict: false }) as { trace?: string }
+  const search = useSearch({ strict: false }) as { trace?: string; span?: string }
   const navigate = useNavigate()
   const previewTraceId = typeof search.trace === 'string' && search.trace ? search.trace : null
   return (
     <InspectDrawerHost
       previewId={previewTraceId}
+      focusSpanId={typeof search.span === 'string' ? search.span : undefined}
       onClose={() => {
-        void navigate({ search: clearKey('trace') as never, replace: true })
+        void navigate({ search: clearKeys('trace', 'span') as never, replace: true })
       }}
       query={(id) => traceSpansQuery(id)}
       expand={(id) => ({ expandTrace: { traceId: id } })}
@@ -141,15 +145,16 @@ function TraceDrawerMount() {
 }
 
 function SessionDrawerMount() {
-  const search = useSearch({ strict: false }) as { session?: string; trace?: string }
+  const search = useSearch({ strict: false }) as { session?: string; trace?: string; span?: string }
   const navigate = useNavigate()
   // When both are set, the trace drawer takes priority — never stack two Sheets.
   const previewSessionId = !search.trace && typeof search.session === 'string' && search.session ? search.session : null
   return (
     <InspectDrawerHost
       previewId={previewSessionId}
+      focusSpanId={typeof search.span === 'string' ? search.span : undefined}
       onClose={() => {
-        void navigate({ search: clearKey('session') as never, replace: true })
+        void navigate({ search: clearKeys('session', 'span') as never, replace: true })
       }}
       query={(id) => sessionQuery(id, SESSION_DRAWER_RANGE)}
       expand={(id) => ({ expandSession: { sessionId: id, range: SESSION_DRAWER_RANGE } })}

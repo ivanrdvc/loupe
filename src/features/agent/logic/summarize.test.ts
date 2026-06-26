@@ -40,7 +40,30 @@ describe('summarize', () => {
   it('ranks slowest first and surfaces errored spans', () => {
     const s = summarize(spans)
     expect(s.slowest[0]).toMatchObject({ name: 'root', durationMs: 300 })
-    expect(s.errors).toEqual([{ name: 'bad', tool: undefined, message: 'boom' }])
+    expect(s.errors).toEqual([
+      { id: 'bad', name: 'bad', tool: undefined, type: undefined, message: 'boom', stack: undefined },
+    ])
+  })
+
+  it('surfaces exception type and trims long stacks for "why" answers', () => {
+    const longStack = `RuntimeError: boom\n${'  at frame\n'.repeat(300)}most recent call last`
+    const s = summarize([
+      span({
+        id: 'x',
+        operation: 'tool',
+        startMs: 0,
+        endMs: 5,
+        hasError: true,
+        errorType: 'RuntimeError',
+        errorMessage: 'boom',
+        errorStack: longStack,
+      }),
+    ])
+    expect(s.errors[0]).toMatchObject({ type: 'RuntimeError', message: 'boom' })
+    expect(s.errors[0].stack).toContain('RuntimeError: boom')
+    expect(s.errors[0].stack).toContain('… [stack trimmed] …')
+    expect(s.errors[0].stack).toContain('most recent call last')
+    expect(s.errors[0].stack?.length).toBeLessThan(longStack.length)
   })
 
   it('orders steps by start time and flags errors inline', () => {

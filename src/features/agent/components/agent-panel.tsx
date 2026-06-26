@@ -4,15 +4,15 @@ import { useMemo, useState } from 'react'
 import { Button } from '#/components/ui/button.tsx'
 import { cn } from '#/lib/utils'
 import type { PageContext } from '../server/prompt'
-import { AssistantChat } from './assistant-chat'
-import { useAssistant } from './assistant-provider'
+import { AgentChat } from './agent-chat'
+import { useAgent } from './agent-provider'
 
 const PANEL_WIDTH = '26rem'
 const ORIGIN = typeof window === 'undefined' ? undefined : window.location.origin
 
 /** Right-side push panel — a flex sibling of SidebarInset, so content shrinks rather than overlays. */
-export function AssistantPanel() {
-  const { enabled, open, setOpen } = useAssistant()
+export function AgentPanel() {
+  const { enabled, open, setOpen } = useAgent()
   // Remount to reset the conversation.
   const [chatKey, setChatKey] = useState(0)
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -41,7 +41,7 @@ export function AssistantPanel() {
     >
       <div className="flex h-svh flex-col" style={{ width: PANEL_WIDTH }}>
         <header className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
-          <div className="rounded-md bg-muted px-2.5 py-1 text-sm font-medium">Assistant</div>
+          <div className="rounded-md bg-muted px-2.5 py-1 text-sm font-medium">Agent</div>
           <div className="flex items-center gap-0.5 text-muted-foreground">
             <Button
               variant="ghost"
@@ -57,7 +57,7 @@ export function AssistantPanel() {
             </Button>
           </div>
         </header>
-        {open && <AssistantChat key={chatKey} context={context} />}
+        {open && <AgentChat key={chatKey} context={context} />}
       </div>
     </aside>
   )

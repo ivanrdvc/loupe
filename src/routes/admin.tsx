@@ -3,7 +3,7 @@ import { Page } from '#/components/page'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Label } from '#/components/ui/label'
 import { Switch } from '#/components/ui/switch'
-import { useAssistant } from '#/features/assistant'
+import { useAgent } from '#/features/agent'
 
 export const Route = createFileRoute('/admin')({
   component: Admin,
@@ -19,7 +19,7 @@ function Admin() {
             <CardDescription>Temporary toggles, persisted per browser.</CardDescription>
           </CardHeader>
           <CardContent>
-            <AssistantToggle />
+            <AgentToggle />
           </CardContent>
         </Card>
       </div>
@@ -27,15 +27,15 @@ function Admin() {
   )
 }
 
-function AssistantToggle() {
-  const { enabled, setEnabled } = useAssistant()
+function AgentToggle() {
+  const { enabled, setEnabled } = useAgent()
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="space-y-0.5">
-        <Label htmlFor="assistant-flag">Assistant panel</Label>
-        <p className="text-sm text-muted-foreground">Show the assistant launcher and right-side chat panel.</p>
+        <Label htmlFor="agent-flag">Agent panel</Label>
+        <p className="text-sm text-muted-foreground">Show the agent launcher and right-side chat panel.</p>
       </div>
-      <Switch id="assistant-flag" checked={enabled} onCheckedChange={setEnabled} />
+      <Switch id="agent-flag" checked={enabled} onCheckedChange={setEnabled} />
     </div>
   )
 }

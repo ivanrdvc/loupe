@@ -1,11 +1,11 @@
 import * as React from 'react'
 import { createLocalStorageStore } from '#/lib/local-storage-store'
 
-const STORAGE_KEY = 'assistant-enabled'
+const STORAGE_KEY = 'agent-enabled'
 const store = createLocalStorageStore(STORAGE_KEY)
 const readEnabled = () => typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY) === '1'
 
-type AssistantContextValue = {
+type AgentContextValue = {
   /** Feature flag; persisted per browser. Toggle from /admin (temp, see TODO.md). */
   enabled: boolean
   setEnabled: (enabled: boolean) => void
@@ -13,15 +13,15 @@ type AssistantContextValue = {
   setOpen: (open: boolean) => void
 }
 
-const AssistantContext = React.createContext<AssistantContextValue | null>(null)
+const AgentContext = React.createContext<AgentContextValue | null>(null)
 
-export function useAssistant() {
-  const ctx = React.useContext(AssistantContext)
-  if (!ctx) throw new Error('useAssistant must be used within an AssistantProvider.')
+export function useAgent() {
+  const ctx = React.useContext(AgentContext)
+  if (!ctx) throw new Error('useAgent must be used within an AgentProvider.')
   return ctx
 }
 
-export function AssistantProvider({ children }: { children: React.ReactNode }) {
+export function AgentProvider({ children }: { children: React.ReactNode }) {
   const enabled = React.useSyncExternalStore(store.subscribe, readEnabled, () => false)
   const [open, setOpen] = React.useState(false)
 
@@ -32,5 +32,5 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const value = React.useMemo(() => ({ enabled, setEnabled, open, setOpen }), [enabled, setEnabled, open])
-  return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>
+  return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>
 }

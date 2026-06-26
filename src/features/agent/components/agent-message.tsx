@@ -18,7 +18,7 @@ function messageText(message: UIMessage): string {
 
 const actionsClassName = 'opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100'
 
-export function AssistantMessage({
+export function AgentMessage({
   message,
   isLast,
   status,
