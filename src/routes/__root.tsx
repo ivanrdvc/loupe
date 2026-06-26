@@ -7,6 +7,7 @@ import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
+import { AgentLauncher, AgentPanel, AgentProvider } from '#/features/agent'
 import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
 import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
@@ -75,10 +76,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   shellComponent: RootDocument,
 })
 
-// Runs before React hydrates so the chosen color theme / font are applied
-// without a flash. Reads localStorage and sets data-theme / data-font on
-// <html>; CSS variants key off those attributes (see styles.css).
-const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loupe';document.documentElement.dataset.theme=t;var f=localStorage.getItem('app-font');if(f)document.documentElement.dataset.font=f;}catch(e){}`
+// Runs before React hydrates so the chosen color theme is applied without a
+// flash. Reads localStorage and sets data-theme on <html>; CSS variants key
+// off that attribute (see styles.css).
+const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loupe';if(['tremor','neutral'].indexOf(t)<0){t='loupe';localStorage.setItem('color-theme',t);}document.documentElement.dataset.theme=t;}catch(e){}`
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -94,12 +95,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <SidebarProvider className="bg-sidebar">
               <CommandPaletteProvider>
                 <ShortcutsDialogProvider>
-                  <AppSidebar />
-                  <SidebarInset>{children}</SidebarInset>
-                  <SessionDrawerMount />
-                  <TraceDrawerMount />
-                  <ToolDrawerMount />
-                  <Toaster />
+                  <AgentProvider>
+                    <AppSidebar />
+                    <SidebarInset>{children}</SidebarInset>
+                    <AgentPanel />
+                    <AgentLauncher />
+                    <SessionDrawerMount />
+                    <TraceDrawerMount />
+                    <ToolDrawerMount />
+                    <Toaster />
+                  </AgentProvider>
                 </ShortcutsDialogProvider>
               </CommandPaletteProvider>
             </SidebarProvider>
@@ -118,16 +123,20 @@ type SearchUpdater = (prev: Record<string, unknown>) => Record<string, unknown>
 const clearKey =
   (key: string): SearchUpdater =>
   (prev) => ({ ...prev, [key]: undefined })
+const clearKeys =
+  (...keys: string[]): SearchUpdater =>
+  (prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, undefined])) })
 
 function TraceDrawerMount() {
-  const search = useSearch({ strict: false }) as { trace?: string }
+  const search = useSearch({ strict: false }) as { trace?: string; span?: string }
   const navigate = useNavigate()
   const previewTraceId = typeof search.trace === 'string' && search.trace ? search.trace : null
   return (
     <InspectDrawerHost
       previewId={previewTraceId}
+      focusSpanId={typeof search.span === 'string' ? search.span : undefined}
       onClose={() => {
-        void navigate({ search: clearKey('trace') as never, replace: true })
+        void navigate({ search: clearKeys('trace', 'span') as never, replace: true })
       }}
       query={(id) => traceSpansQuery(id)}
       expand={(id) => ({ expandTrace: { traceId: id } })}
@@ -136,15 +145,16 @@ function TraceDrawerMount() {
 }
 
 function SessionDrawerMount() {
-  const search = useSearch({ strict: false }) as { session?: string; trace?: string }
+  const search = useSearch({ strict: false }) as { session?: string; trace?: string; span?: string }
   const navigate = useNavigate()
   // When both are set, the trace drawer takes priority — never stack two Sheets.
   const previewSessionId = !search.trace && typeof search.session === 'string' && search.session ? search.session : null
   return (
     <InspectDrawerHost
       previewId={previewSessionId}
+      focusSpanId={typeof search.span === 'string' ? search.span : undefined}
       onClose={() => {
-        void navigate({ search: clearKey('session') as never, replace: true })
+        void navigate({ search: clearKeys('session', 'span') as never, replace: true })
       }}
       query={(id) => sessionQuery(id, SESSION_DRAWER_RANGE)}
       expand={(id) => ({ expandSession: { sessionId: id, range: SESSION_DRAWER_RANGE } })}

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TracesIndexRouteImport } from './routes/traces/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools/index'
@@ -26,12 +27,18 @@ import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessio
 import { Route as McpServerIdRouteImport } from './routes/mcp/$serverId'
 import { Route as EvalsEvalIdRouteImport } from './routes/evals/$evalId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as InventorySystemPromptsIndexRouteImport } from './routes/inventory/system-prompts/index'
 import { Route as InventoryAgentsIndexRouteImport } from './routes/inventory/agents/index'
 import { Route as InventorySystemPromptsPromptIdRouteImport } from './routes/inventory/system-prompts/$promptId'
 import { Route as EvalsRunsRunIdRouteImport } from './routes/evals/runs.$runId'
 import { Route as ApiEvalsIngestRouteImport } from './routes/api/evals/ingest'
 
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -117,6 +124,11 @@ const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
   path: '/datasets/$datasetId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InventorySystemPromptsIndexRoute =
   InventorySystemPromptsIndexRouteImport.update({
     id: '/inventory/system-prompts/',
@@ -147,6 +159,8 @@ const ApiEvalsIngestRoute = ApiEvalsIngestRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/api/chat': typeof ApiChatRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/mcp/$serverId': typeof McpServerIdRoute
@@ -171,6 +185,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/api/chat': typeof ApiChatRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/mcp/$serverId': typeof McpServerIdRoute
@@ -196,6 +212,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/api/chat': typeof ApiChatRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/mcp/$serverId': typeof McpServerIdRoute
@@ -222,6 +240,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/api/chat'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
     | '/mcp/$serverId'
@@ -246,6 +266,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
+    | '/api/chat'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
     | '/mcp/$serverId'
@@ -270,6 +292,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/api/chat'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
     | '/mcp/$serverId'
@@ -295,6 +319,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  ApiChatRoute: typeof ApiChatRoute
   DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRoute
   EvalsEvalIdRoute: typeof EvalsEvalIdRoute
   McpServerIdRoute: typeof McpServerIdRoute
@@ -320,6 +346,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -439,6 +472,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsDatasetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inventory/system-prompts/': {
       id: '/inventory/system-prompts/'
       path: '/inventory/system-prompts'
@@ -479,6 +519,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  ApiChatRoute: ApiChatRoute,
   DatasetsDatasetIdRoute: DatasetsDatasetIdRoute,
   EvalsEvalIdRoute: EvalsEvalIdRoute,
   McpServerIdRoute: McpServerIdRoute,

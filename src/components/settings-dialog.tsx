@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { type AppFont, type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
+import { type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
 import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import { cn } from '#/lib/utils'
 
@@ -73,16 +73,9 @@ const MODES = [
 ] as const
 
 const COLORS: { value: ColorTheme; label: string; dot: string }[] = [
-  { value: 'loupe', label: 'Loupe', dot: 'oklch(0.65 0.27 295)' },
+  { value: 'loupe', label: 'Loupe', dot: '#7c3aed' },
   { value: 'tremor', label: 'Tremor', dot: 'oklch(0.623 0.214 259.815)' },
   { value: 'neutral', label: 'Neutral', dot: 'oklch(0.205 0 0)' },
-  { value: 'spotify', label: 'Spotify', dot: 'oklch(0.67 0.17 153.85)' },
-  { value: 'performative', label: 'Performative', dot: '#7c3aed' },
-]
-
-const FONTS: { value: AppFont; label: string; family: string }[] = [
-  { value: 'pretendard', label: 'Pretendard', family: "'Pretendard Variable', sans-serif" },
-  { value: 'inter', label: 'Inter', family: "'Inter Variable', sans-serif" },
 ]
 
 const TILE_BASE =
@@ -92,7 +85,7 @@ const TILE_ACTIVE = 'border-ring bg-input/60 text-foreground ring-2 ring-ring/30
 function AppearancePane() {
   const { theme, setTheme } = useTheme()
   const activeMode = theme ?? 'dark'
-  const { colorTheme, setColorTheme, font, setFont } = useAppTheme()
+  const { colorTheme, setColorTheme } = useAppTheme()
 
   return (
     <div className="space-y-6">
@@ -133,28 +126,6 @@ function AppearancePane() {
               >
                 <span className="size-3.5 shrink-0 rounded-full border border-border/40" style={{ background: dot }} />
                 <span>{label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </Field>
-
-      <Field label="Font">
-        <div className="grid grid-cols-2 gap-2">
-          {FONTS.map(({ value, label, family }) => {
-            const isActive = font === value
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFont(value)}
-                aria-pressed={isActive}
-                className={cn(TILE_BASE, 'justify-between', isActive && TILE_ACTIVE)}
-              >
-                <span>{label}</span>
-                <span className="text-base text-muted-foreground" style={{ fontFamily: family }}>
-                  Aa
-                </span>
               </button>
             )
           })}

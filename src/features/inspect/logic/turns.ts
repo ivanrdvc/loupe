@@ -33,6 +33,8 @@ export function buildTurns(
     const chats: Span[] = []
     const subagentChats: Span[] = []
     const actions: Span[] = []
+    // Depth counts agent/tool boundaries, not raw levels — a wrapper span (e.g. a
+    // provider's `agent_step`) between agent and chat must not demote the chat.
     const walk = (parentId: string, depth: number) => {
       for (const s of childrenByParent.get(parentId) ?? []) {
         if (isChatSpan(s)) {
@@ -41,7 +43,7 @@ export function buildTurns(
         } else if (depth === 0 && (isToolLike(s) || isAgentSpan(s))) {
           actions.push(s)
         }
-        walk(s.id, depth + 1)
+        walk(s.id, isAgentSpan(s) || isToolLike(s) ? depth + 1 : depth)
       }
     }
     walk(orchId, 0)
@@ -54,24 +56,24 @@ export function buildTurns(
 }
 
 export function turnTotals(turn: Turn): TurnTotals {
+  // Utility chats (`gen_ai.operation.purpose` set) are side-calls — excluded
+  // from spend and model so a title-gen doesn't masquerade as the turn. But
+  // `operationName` is ancestor-inherited (propagateInheritedAttrs), so a turn
+  // wrapped by a utility Activity carries it on every chat; when filtering
+  // would zero the set, keep all chats rather than dropping the turn's spend.
+  const nonUtility = turn.chats.filter((c) => !c.operationName)
+  const userFacing = nonUtility.length ? nonUtility : turn.chats
   let inputTokens = 0
   let outputTokens = 0
   let cachedTokens = 0
   let costUsd = 0
-  for (const c of turn.chats) {
-    inputTokens += c.inputTokens ?? 0
-    outputTokens += c.outputTokens ?? 0
-    cachedTokens += c.cachedTokens ?? 0
-    costUsd += c.costUsd ?? 0
-  }
-  for (const c of turn.subagentChats) {
+  for (const c of [...userFacing, ...turn.subagentChats]) {
     inputTokens += c.inputTokens ?? 0
     outputTokens += c.outputTokens ?? 0
     cachedTokens += c.cachedTokens ?? 0
     costUsd += c.costUsd ?? 0
   }
   const durationMs = Math.max(0, turn.run.endMs - turn.run.startMs)
-  // Final orchestrator chat wins on model — what produced the user-visible answer.
-  const model = turn.chats.at(-1)?.model
+  const model = userFacing.at(-1)?.model
   return { inputTokens, outputTokens, cachedTokens, costUsd, durationMs, model }
 }

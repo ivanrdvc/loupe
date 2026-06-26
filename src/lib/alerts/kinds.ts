@@ -28,7 +28,7 @@ export const ALERT_KINDS: Record<AlertKind, AlertKindMeta> = {
   tool_size_p95: {
     label: 'Tool output size',
     title: 'Tools returning too much',
-    blurb: 'Top by p95 result size. Target: <2k tokens per call to keep context lean.',
+    blurb: 'Top by largest result. Target: <2k tokens per call to keep context lean.',
   },
 }
 

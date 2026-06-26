@@ -16,6 +16,8 @@ interface InspectDrawerHostProps<T extends { spans: Span[] }, K extends QueryKey
   onClose: () => void
   query: (id: string) => UseQueryOptions<T | null, Error, T | null, K>
   expand: (id: string) => ExpandProps
+  /** Deep-linked span to focus once loaded (from `?span=`). */
+  focusSpanId?: string
 }
 
 /** Cross-page session/trace drawer: fetches an entity's spans, retaining the last
@@ -25,6 +27,7 @@ export function InspectDrawerHost<T extends { spans: Span[] }, K extends QueryKe
   onClose,
   query,
   expand,
+  focusSpanId,
 }: InspectDrawerHostProps<T, K>) {
   const open = previewId !== null
   const queryId = previewId ?? PLACEHOLDER_ID
@@ -57,6 +60,7 @@ export function InspectDrawerHost<T extends { spans: Span[] }, K extends QueryKe
       open={open}
       onClose={onClose}
       inspectKey={display?.id ?? null}
+      focusSpanId={focusSpanId}
       spans={spans}
       loading={open ? isLoading : false}
       title={display?.id}
