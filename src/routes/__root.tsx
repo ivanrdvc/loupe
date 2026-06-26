@@ -76,10 +76,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   shellComponent: RootDocument,
 })
 
-// Runs before React hydrates so the chosen color theme / font are applied
-// without a flash. Reads localStorage and sets data-theme / data-font on
-// <html>; CSS variants key off those attributes (see styles.css).
-const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loupe';document.documentElement.dataset.theme=t;var f=localStorage.getItem('app-font');if(f)document.documentElement.dataset.font=f;}catch(e){}`
+// Runs before React hydrates so the chosen color theme is applied without a
+// flash. Reads localStorage and sets data-theme on <html>; CSS variants key
+// off that attribute (see styles.css).
+const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loupe';if(['tremor','neutral'].indexOf(t)<0){t='loupe';localStorage.setItem('color-theme',t);}document.documentElement.dataset.theme=t;}catch(e){}`
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (

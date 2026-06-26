@@ -37,6 +37,8 @@ function agentTracer(): Tracer {
 export function agentTelemetry(conversationId?: string) {
   return {
     isEnabled: true,
+    // @ai-sdk/otel maps functionId → gen_ai.agent.name; else loupe names the agent by its model.
+    functionId: 'loupe agent',
     integrations: [
       new OpenTelemetry({
         tracer: agentTracer(),
