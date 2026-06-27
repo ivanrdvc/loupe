@@ -129,13 +129,16 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
   })
 }
 
-// Longest result body per tool (one row each via ROW_NUMBER), tokenized.
+// Token count isn't monotonic with char length, so tokenize the longest-by-chars
+// candidates (not just the single longest) and take the real max.
+const MAX_TOKEN_CANDIDATES = 12
 async function maxResultTokensByOp(
   p: OpenObserveProvider,
   where: string,
   limit: number,
   opts?: WindowOpts,
 ): Promise<Map<string, number>> {
+  const size = limit * MAX_TOKEN_CANDIDATES
   const sql = `
     SELECT operation_name AS name, body FROM (
       SELECT
@@ -144,15 +147,17 @@ async function maxResultTokensByOp(
         ROW_NUMBER() OVER (PARTITION BY operation_name ORDER BY LENGTH(gen_ai_tool_call_result) DESC) AS rn
       FROM "${p.stream}"
       WHERE ${where} AND gen_ai_tool_call_result IS NOT NULL
-    ) WHERE rn = 1
-    LIMIT ${limit}
+    ) WHERE rn <= ${MAX_TOKEN_CANDIDATES}
+    LIMIT ${size}
   `
-  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size }))
   const out = new Map<string, number>()
   for (const h of hits) {
     const op = typeof h.name === 'string' ? h.name : ''
     const body = typeof h.body === 'string' ? h.body : ''
-    if (op && body.length > 0) out.set(op, countTokens(body))
+    if (!op || body.length === 0) continue
+    const tokens = countTokens(body)
+    if (tokens > (out.get(op) ?? 0)) out.set(op, tokens)
   }
   return out
 }
@@ -355,7 +360,8 @@ export async function fetchInventory(
   `
     : `
     SELECT
-      a.operation_name AS operation_name,
+      COALESCE(NULLIF(a.gen_ai_agent_name, ''), a.operation_name) AS operation_name,
+      MAX(NULLIF(a.gen_ai_agent_name, '')) AS agent_name,
       MIN(a.start_time) AS first_seen,
       MAX(a.start_time) AS last_seen,
       MIN(a.trace_id) AS sample_trace_id,
@@ -365,7 +371,7 @@ export async function fetchInventory(
     FROM "${p.stream}" a
     LEFT JOIN "${p.stream}" pp ON a.reference_parent_span_id = pp.span_id
     WHERE a.operation_name LIKE 'invoke_agent %'${envFilter('a.deployment_environment')}
-    GROUP BY a.operation_name
+    GROUP BY COALESCE(NULLIF(a.gen_ai_agent_name, ''), a.operation_name)
     ORDER BY first_seen DESC
     LIMIT 1000
   `
@@ -379,7 +385,10 @@ function hitToInventoryObservation(
 ): InventoryObservation | null {
   const operationName = String(h.operation_name ?? '')
   const isTool = kind === 'new_tool'
-  const name = isTool ? extractToolName(operationName) : extractAgentName(operationName)
+  // Agents: prefer the gen_ai.agent.name attribute. @ai-sdk/otel names the span
+  // `invoke_agent <model>`, so the span name alone yields the model id, not the agent.
+  const agentName = typeof h.agent_name === 'string' && h.agent_name ? h.agent_name : undefined
+  const name = isTool ? extractToolName(operationName) : (agentName ?? extractAgentName(operationName))
   if (!name) return null
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? firstSeenNs)

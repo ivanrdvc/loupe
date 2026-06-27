@@ -79,7 +79,6 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
         p50_chars = percentile(result_len_nz, 50),
         p95_chars = percentile(result_len_nz, 95),
         max_chars = max(result_len_nz),
-        max_body = arg_max(result_len, body),
         total_chars = sum(result_len),
         p50_ms = percentile(duration, 50),
         p95_ms = percentile(duration, 95),
@@ -91,6 +90,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
     | top ${limit} by calls desc
   `
   const rows = await p.query(q, opts ?? {})
+  const maxTokensByName = await maxResultTokensByName(p, `${nameFilter}\n    ${dimFilters}`, opts)
   return rows.map((r) => {
     const calls = Number(r.calls ?? 0)
     const errors = Number(r.errors ?? 0)
@@ -106,10 +106,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       avgTokensEst: tokensFromChars(toCount(r.avg_chars)),
       p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
-      maxTokens:
-        typeof r.max_body === 'string' && r.max_body.length > 0
-          ? countTokens(r.max_body)
-          : tokensFromChars(toCount(r.max_chars)),
+      maxTokens: maxTokensByName.get(raw) ?? tokensFromChars(toCount(r.max_chars)),
       totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
@@ -119,6 +116,35 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       ...(typeof session === 'string' && session ? { sampleSessionId: session } : {}),
     }
   })
+}
+
+// Token count isn't monotonic with char length, so tokenize the longest-by-chars
+// candidates (not just the single longest) and take the real max.
+const MAX_TOKEN_CANDIDATES = 12
+async function maxResultTokensByName(
+  p: AppInsightsProvider,
+  filters: string,
+  opts?: WindowOpts,
+): Promise<Map<string, number>> {
+  const q = `
+    union dependencies, requests
+    ${filters}
+    | extend body = tostring(customDimensions["${RESULT_ATTR}"])
+    | extend result_len = strlen(body)
+    | where result_len > 0
+    | partition by name (top ${MAX_TOKEN_CANDIDATES} by result_len desc | project name, body)
+    | project name, body
+  `
+  const rows = await p.query(q, opts ?? {})
+  const out = new Map<string, number>()
+  for (const r of rows) {
+    const nm = typeof r.name === 'string' ? r.name : ''
+    const body = typeof r.body === 'string' ? r.body : ''
+    if (!nm || body.length === 0) continue
+    const tokens = countTokens(body)
+    if (tokens > (out.get(nm) ?? 0)) out.set(nm, tokens)
+  }
+  return out
 }
 
 export async function fetchToolPayloadBody(p: AppInsightsProvider, spanId: string): Promise<RawPayloadBody | null> {
@@ -285,15 +311,18 @@ export async function fetchInventory(
       | project parent_id = id, parent_is_tool = 1;
     union dependencies, requests
     | where name startswith "invoke_agent "
+    | extend agent_name = tostring(customDimensions["gen_ai.agent.name"])
     | join kind=leftouter (tool_parents) on $left.operation_ParentId == $right.parent_id
     | summarize
         first_seen = min(timestamp),
         last_seen  = max(timestamp),
         sample_trace_id = any(operation_Id),
+        agent_name = take_anyif(agent_name, isnotempty(agent_name)),
+        operation_name = take_any(name),
         description = take_anyif(tostring(customDimensions["gen_ai.agent.description"]), isnotempty(tostring(customDimensions["gen_ai.agent.description"]))),
         system_instructions = take_anyif(tostring(customDimensions["gen_ai.system_instructions"]), isnotempty(tostring(customDimensions["gen_ai.system_instructions"]))),
         ever_nested = max(iif(parent_is_tool == 1, 1, 0))
-      by operation_name = name
+      by agent_key = iif(isnotempty(agent_name), agent_name, name)
     | top 1000 by first_seen desc
   `
   const rows = await p.query(q, opts ?? {})
@@ -306,7 +335,10 @@ function rowToInventoryObservation(
 ): InventoryObservation | null {
   const operationName = String(row.operation_name ?? '')
   const isTool = kind === 'new_tool'
-  const name = isTool ? extractToolName(operationName) : extractAgentName(operationName)
+  // Agents: prefer the gen_ai.agent.name attribute; the span name only yields the
+  // model id under producers (e.g. @ai-sdk/otel) that name spans `invoke_agent <model>`.
+  const agentName = typeof row.agent_name === 'string' && row.agent_name ? row.agent_name : undefined
+  const name = isTool ? extractToolName(operationName) : (agentName ?? extractAgentName(operationName))
   if (!name) return null
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : firstSeen

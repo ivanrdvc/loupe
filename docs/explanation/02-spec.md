@@ -35,10 +35,13 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 | AG-UI thread id | `ag_ui.thread_id` | string | AG-UI | read (alias for conversation.id) |
 | User id | `user.id` | string | OTel | read |
 | Utility purpose tag | `gen_ai.operation.purpose` | e.g. `title_generation` | proposed in OTel | read |
-| Operation kind | `gen_ai.operation.name` | `chat` \| `embeddings` \| `retrieval` \| `invoke_agent` \| `execute_tool` (future: `rerank`) | OTel GenAI semconv | read. For `retrieval`/`embeddings` loupe reads **only** `gen_ai.operation.name` — not `openinference.span.kind` |
+| Operation kind | `gen_ai.operation.name` | `chat` \| `embeddings` \| `retrieval` \| `invoke_agent` \| `execute_tool` \| memory operations (`search_memory`, `upsert_memory`, etc.; future: `rerank`) | OTel GenAI semconv | read. For retrieval, embeddings, and memory loupe reads **only** `gen_ai.operation.name` — not `openinference.span.kind` |
 | Data source (RAG) | `gen_ai.data_source.id` | string | OTel GenAI semconv | read (retrieval spans) |
 | Retrieval query | `gen_ai.retrieval.query.text` | string (opt-in) | OTel GenAI semconv | read (retrieval spans) |
 | Retrieved docs | `gen_ai.retrieval.documents` | list of `{id, score}` | OTel GenAI semconv | read (retrieval spans); only spec-guaranteed `id`+`score` kept |
+| Memory store | `gen_ai.memory.store.id` | string | OTel GenAI semconv (development) | read (memory spans) |
+| Memory record count | `gen_ai.memory.record.count` | integer | OTel GenAI semconv (development) | read (memory spans) |
+| Memory records | `gen_ai.memory.records` | list of `{content, id?, metadata?, score?}` | OTel GenAI semconv (development) | read and rendered; sensitive-data opt-in |
 | Embedding dims | `gen_ai.embeddings.dimension.count` | int | OTel GenAI semconv | read (embedding spans) |
 | Run-graph node id | `gen_ai.task.id` | string (often the span_id) | external convention | read; stamped consumer-side when absent |
 | Run-graph parent id | `gen_ai.task.parent.id` | string (null on top-level) | external convention | read; stamped consumer-side when absent |

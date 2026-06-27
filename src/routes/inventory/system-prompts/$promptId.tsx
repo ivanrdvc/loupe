@@ -88,8 +88,10 @@ function SystemPromptDetailLoaded({ data }: { data: SystemPromptDetail }) {
         </div>
 
         <div className="grid grid-cols-1 gap-0 lg:grid-cols-[1fr_320px]">
-          <div className="px-4 py-6 lg:px-6">
-            <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-4 text-sm">{shown}</pre>
+          <div className="min-w-0 px-4 py-6 lg:px-6">
+            <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/40 p-4 font-sans text-sm">
+              {shown}
+            </pre>
           </div>
           <aside className="border-l bg-card/30 lg:sticky lg:top-0 lg:h-[calc(100vh-3.5rem)]">
             <div className="flex items-baseline justify-between border-b px-4 py-3">

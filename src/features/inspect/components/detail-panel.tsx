@@ -39,7 +39,7 @@ export function DetailPanel({
   const duration = span.endMs - span.startMs
   const http = span.operation === 'http' ? httpSummary(span) : null
   const display = displayFor(span, view?.agentLabels)
-  const systemPrompt = view?.systemPromptByAgent.get(span.id)
+  const agentPrompt = view?.systemPromptByAgent.get(span.id)
   const nestedErrors = useMemo<Span[]>(() => view?.descendantErrors(span.id) ?? [], [view, span.id])
 
   return (
@@ -121,6 +121,8 @@ export function DetailPanel({
         {span.dataSourceId && <Stat label="Data source" value={span.dataSourceId} />}
         {span.retrievalDocuments && <Stat label="Documents" value={fmtNum(span.retrievalDocuments.length)} />}
         {span.agentId && <Stat label="Agent id" value={span.agentId} />}
+        {span.memoryStoreId && <Stat label="Memory store" value={span.memoryStoreId} />}
+        {span.memoryRecordCount != null && <Stat label="Records" value={fmtNum(span.memoryRecordCount)} />}
         {span.finishReasons && span.finishReasons.length > 0 && (
           <Stat label="Finish" value={span.finishReasons.join(', ')} />
         )}
@@ -128,18 +130,29 @@ export function DetailPanel({
         {span.systemFingerprint && <Stat label="Fingerprint" value={span.systemFingerprint} />}
       </dl>
 
+      {span.agentDescription && <RoleCard kind="agent" label="description" content={span.agentDescription} />}
+      {!isChatSpan(span) && agentPrompt ? (
+        <RoleCard kind="system" label="base instructions" content={agentPrompt} />
+      ) : !isChatSpan(span) && span.truncatedAttrs?.systemInstructions ? (
+        <TruncatedAttrFallback span={span} field="systemInstructions" />
+      ) : null}
+
       {isChatSpan(span) && <SpanContextBreakdown span={span} />}
 
       {(span.retrievalQuery || span.retrievalDocuments) && (
         <RetrievalBlock query={span.retrievalQuery} docs={span.retrievalDocuments} />
       )}
 
-      {span.agentDescription && <RoleCard kind="agent" label="description" content={span.agentDescription} />}
-      {systemPrompt ? (
-        <RoleCard kind="system" label="system prompt" content={systemPrompt} />
-      ) : span.truncatedAttrs?.systemInstructions ? (
+      {isChatSpan(span) && !span.systemInstructions && span.truncatedAttrs?.systemInstructions ? (
         <TruncatedAttrFallback span={span} field="systemInstructions" />
       ) : null}
+
+      {span.memoryRecords != null && (
+        <MemoryRecordsBlock
+          label={span.memoryOperation === 'search_memory' ? 'Retrieved memory' : 'Memory records'}
+          records={span.memoryRecords}
+        />
+      )}
 
       {span.truncatedAttrs?.toolDefinitions && <TruncatedAttrFallback span={span} field="toolDefinitions" />}
       {span.inputParams &&
@@ -158,7 +171,13 @@ export function DetailPanel({
         <TruncatedAttrFallback span={span} field="llmInput" tokens={span.inputTokens ?? undefined} />
       )}
       {(span.llmInput != null || span.llmOutput != null) && (
-        <MessagesBlock input={span.llmInput} output={span.llmOutput} outputType={span.outputType} view={view} />
+        <MessagesBlock
+          input={span.llmInput}
+          output={span.llmOutput}
+          outputType={span.outputType}
+          systemPrompt={span.systemInstructions}
+          view={view}
+        />
       )}
       <SpanLogsBlock span={span} view={view} />
     </div>
@@ -232,11 +251,13 @@ function MessagesBlock({
   input,
   output,
   outputType,
+  systemPrompt,
   view,
 }: {
   input?: JsonValue
   output?: JsonValue
   outputType?: string
+  systemPrompt?: string
   view?: InspectorView
 }) {
   const inputMsgs = useMemo(() => asMessages(input).filter((m) => m.role !== 'system'), [input])
@@ -251,7 +272,7 @@ function MessagesBlock({
   const turnInput = inputMsgs.slice(tailStart)
 
   // If parser produced nothing usable, fall back to raw JSON so we don't hide data.
-  if (inputMsgs.length === 0 && outputMsgs.length === 0) {
+  if (inputMsgs.length === 0 && outputMsgs.length === 0 && !systemPrompt) {
     return (
       <>
         {input != null && <JsonBlock label="LLM Input" value={input} />}
@@ -261,9 +282,10 @@ function MessagesBlock({
   }
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      {turnInput.length > 0 && (
+      {(turnInput.length > 0 || systemPrompt) && (
         <PanelSection label="Input" copyText={prettyJson(input)} raw={<JsonTree value={input} />}>
           <div className="min-w-0 divide-y divide-border/60">
+            {systemPrompt && <SystemPromptDisclosure content={systemPrompt} />}
             {history.length > 0 && <HistoryDisclosure msgs={history} callResolutions={callResolutions} />}
             {turnInput.map((msg, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: message positions are stable for a frozen span
@@ -420,6 +442,49 @@ function RetrievalBlock({ query, docs }: { query?: string; docs?: RetrievalDocum
   )
 }
 
+function MemoryRecordsBlock({ label, records }: { label: string; records: JsonValue[] }) {
+  return (
+    <PanelSection label={label} copyText={prettyJson(records)} raw={<JsonTree value={records} />}>
+      <div className="min-w-0 divide-y divide-border/60">
+        {records.map((record, index) => {
+          const value = record && typeof record === 'object' && !Array.isArray(record) ? record : null
+          const id = value && typeof value.id === 'string' ? value.id : undefined
+          const score = value && typeof value.score === 'number' ? value.score : undefined
+          const content = value && 'content' in value ? value.content : record
+          const metadata = value && 'metadata' in value ? value.metadata : undefined
+          return (
+            <article key={id ?? index} className="min-w-0 py-2.5 first:pt-0 last:pb-0">
+              <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${ACCENT.pink.badge}`}>
+                  {id ?? `record ${index + 1}`}
+                </span>
+                {score != null && (
+                  <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                    score {score.toFixed(3)}
+                  </span>
+                )}
+              </div>
+              {typeof content === 'string' ? (
+                <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{content}</p>
+              ) : (
+                <JsonView value={content} className="border-0 bg-transparent p-0" />
+              )}
+              {metadata != null && (
+                <div className="mt-2 border-t border-dashed border-border/70 pt-2">
+                  <div className="mb-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Metadata
+                  </div>
+                  <JsonView value={metadata} className="border-0 bg-transparent p-0" />
+                </div>
+              )}
+            </article>
+          )
+        })}
+      </div>
+    </PanelSection>
+  )
+}
+
 function RoleCard({ kind, label, content }: { kind: RoleKey; label: string; content: string }) {
   return (
     <Card size="sm" className="min-w-0 gap-2">
@@ -431,6 +496,27 @@ function RoleCard({ kind, label, content }: { kind: RoleKey; label: string; cont
         <CollapsibleText content={content} />
       </CardContent>
     </Card>
+  )
+}
+
+function SystemPromptDisclosure({ content }: { content: string }) {
+  const [open, setOpen] = useState(false)
+  const role: RoleKey = 'system'
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="group min-w-0 py-2.5 first:pt-0 last:pb-0">
+      <CollapsibleTrigger className="flex w-full min-w-0 items-center gap-2 text-left">
+        <RoleChip role={role} />
+        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+          {content.length.toLocaleString('en-US')} chars
+        </span>
+        <ChevronDown className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-foreground">
+          {content}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 

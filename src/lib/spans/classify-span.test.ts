@@ -112,6 +112,26 @@ describe('classifySpan — operation classification', () => {
   })
 })
 
+describe('classifySpan — memory lifecycle', () => {
+  it('classifies an OTel memory search and reads its records', () => {
+    const c = classifySpan('search_memory', {
+      'gen_ai.operation.name': 'search_memory',
+      'gen_ai.memory.store.id': 'user-preference-memory',
+      'gen_ai.memory.record.count': 2,
+      'gen_ai.memory.records': '[{"id":"name","content":"Lin"},{"id":"preference","content":"dark roast coffee"}]',
+    })
+
+    expect(c.operation).toBe('memory')
+    expect(c.memoryOperation).toBe('search_memory')
+    expect(c.memoryStoreId).toBe('user-preference-memory')
+    expect(c.memoryRecordCount).toBe(2)
+    expect(c.memoryRecords).toEqual([
+      { id: 'name', content: 'Lin' },
+      { id: 'preference', content: 'dark roast coffee' },
+    ])
+  })
+})
+
 describe('classifySpan — RAG recall fields', () => {
   it('parses retrieval query, data source, and documents (id + score)', () => {
     const c = classifySpan('retrieval mem', {

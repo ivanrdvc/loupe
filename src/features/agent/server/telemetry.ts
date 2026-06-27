@@ -34,7 +34,7 @@ function agentTracer(): Tracer {
 
 // @ai-sdk/otel emits OTel GenAI semconv natively; enrichSpan adds the session key
 // loupe groups by, which the AI SDK has no native concept of.
-export function agentTelemetry(conversationId?: string) {
+export function agentTelemetry(sessionId?: string) {
   return {
     isEnabled: true,
     // @ai-sdk/otel maps functionId → gen_ai.agent.name; else loupe names the agent by its model.
@@ -43,7 +43,8 @@ export function agentTelemetry(conversationId?: string) {
       new OpenTelemetry({
         tracer: agentTracer(),
         usage: true,
-        enrichSpan: conversationId ? () => ({ 'gen_ai.conversation.id': conversationId }) : undefined,
+        // A chat session maps to one gen_ai.conversation.id (the semconv key loupe groups by).
+        enrichSpan: sessionId ? () => ({ 'gen_ai.conversation.id': sessionId }) : undefined,
       }),
     ],
   }
