@@ -1,5 +1,4 @@
 import { useChat } from '@ai-sdk/react'
-import { useNavigate } from '@tanstack/react-router'
 import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
 import { AlertTriangle, Coins, Route, Sparkles, Timer } from 'lucide-react'
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
@@ -27,6 +26,8 @@ import { Button } from '#/components/ui/button.tsx'
 import { createLocalStorageStore } from '#/lib/local-storage-store'
 import { cn } from '#/lib/utils'
 import { CHAT_MODELS, type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '../chat-models'
+import { saveSession } from '../logic/sessions'
+import type { LoupeAgentUIMessage } from '../server/agent'
 import type { MentionRef, PageContext } from '../server/prompt'
 import { MentionBackdrop, useMentionPicker } from './agent-mention'
 import { AgentMessage } from './agent-message'
@@ -66,35 +67,42 @@ function suggestionsFor(ctx: PageContext) {
   ]
 }
 
-export function AgentChat({ context }: { context: PageContext }) {
-  const navigate = useNavigate()
+export function AgentChat({
+  sessionId,
+  initialMessages,
+  context,
+}: {
+  sessionId: string
+  initialMessages: LoupeAgentUIMessage[]
+  context: PageContext
+}) {
   const [input, setInput] = useState('')
   const [model, setModel] = useChatModel()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   const picker = useMentionPicker(input, setInput, textareaRef)
 
-  // Per vercel/ai-chatbot use-active-chat.tsx: the transport reads the latest
-  // model/context from a ref inside prepareSendMessagesRequest.
+  // The transport reads the latest model/context from a ref inside prepareSendMessagesRequest.
   const live = useRef({ model, context })
   live.current = { model, context }
-  // The @-mentions for the message being sent; set at submit, then consumed
-  // (and cleared) inside prepareSendMessagesRequest — which runs async, so it
-  // must do the clearing, not submit().
+  // Mentions are set at submit, then consumed and cleared inside the async
+  // prepareSendMessagesRequest — so it does the clearing, not submit().
   const pendingMentions = useRef<MentionRef[]>([])
-  const { messages, sendMessage, status, stop, regenerate, error } = useChat({
+  const { messages, sendMessage, status, stop, regenerate, error } = useChat<LoupeAgentUIMessage>({
+    id: sessionId,
+    messages: initialMessages,
+    onFinish: ({ messages }) => saveSession({ sessionId, messages }),
     transport: new DefaultChatTransport({
       api: '/api/chat',
       prepareSendMessagesRequest: ({ messages, id }) => {
         const mentions = pendingMentions.current
         pendingMentions.current = []
-        return { body: { messages, conversationId: id, mentions, ...live.current } }
+        return { body: { messages, sessionId: id, mentions, ...live.current } }
       },
     }),
   })
 
   const isBusy = status === 'streaming' || status === 'submitted'
-  // Standalone "Thinking…" until the agent emits a reasoning block or text.
   const last = messages.at(-1)
   const lastHasVisible =
     last?.role === 'assistant' &&
@@ -110,30 +118,8 @@ export function AgentChat({ context }: { context: PageContext }) {
     picker.reset()
   }
 
-  // Intercept the model's ?trace=/?session= deep-links so they open the
-  // inspector via the router instead of a full-page navigation.
-  const onLinkClick = (e: React.MouseEvent) => {
-    // Let the browser handle modifier/non-primary clicks (open in new tab/window).
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
-    const anchor = (e.target as HTMLElement).closest('a')
-    if (!anchor || (anchor.target && anchor.target !== '_self')) return
-    const url = new URL(anchor.href, window.location.href)
-    if (url.origin !== window.location.origin) return
-    if (!url.searchParams.has('trace') && !url.searchParams.has('session')) return
-    e.preventDefault()
-    const params = Object.fromEntries(url.searchParams)
-    // Replace the inspector params wholesale so a stale span/trace/session from
-    // a prior link doesn't ride along into the new target.
-    void navigate({
-      to: '.',
-      search: (prev) => ({ ...prev, trace: undefined, session: undefined, span: undefined, ...params }),
-    })
-  }
-
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: delegated link interception, not a control
-    // biome-ignore lint/a11y/noStaticElementInteractions: delegated link interception, not a control
-    <div className="flex min-h-0 flex-1 flex-col" onClick={onLinkClick}>
+    <div className="flex min-h-0 flex-1 flex-col">
       <Conversation initial="instant">
         <ConversationContent className="px-4">
           {messages.length === 0 ? (

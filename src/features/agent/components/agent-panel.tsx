@@ -1,11 +1,13 @@
 import { useRouterState, useSearch } from '@tanstack/react-router'
 import { ChevronsRight, Plus } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button } from '#/components/ui/button.tsx'
 import { cn } from '#/lib/utils'
+import { loadSession, newSession, sessionStore } from '../logic/sessions'
 import type { PageContext } from '../server/prompt'
 import { AgentChat } from './agent-chat'
 import { useAgent } from './agent-provider'
+import { SessionHistory } from './agent-sessions'
 
 const PANEL_WIDTH = '26rem'
 const ORIGIN = typeof window === 'undefined' ? undefined : window.location.origin
@@ -13,10 +15,13 @@ const ORIGIN = typeof window === 'undefined' ? undefined : window.location.origi
 /** Right-side push panel — a flex sibling of SidebarInset, so content shrinks rather than overlays. */
 export function AgentPanel() {
   const { enabled, open, setOpen } = useAgent()
-  // Remount to reset the conversation.
-  const [chatKey, setChatKey] = useState(0)
-  // Mount the chat on first open and keep it mounted, so the expensive mount
-  // never races the width animation and the conversation survives a collapse.
+  const { activeId } = useSyncExternalStore(
+    sessionStore.subscribe,
+    sessionStore.getSnapshot,
+    sessionStore.getServerSnapshot,
+  )
+  const initialMessages = useMemo(() => loadSession(activeId), [activeId])
+  // Keep mounted after first open so the chat survives a collapse.
   const [hasOpened, setHasOpened] = useState(false)
   useEffect(() => {
     if (open) setHasOpened(true)
@@ -49,21 +54,18 @@ export function AgentPanel() {
         <header className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
           <div className="rounded-md bg-muted px-2.5 py-1 text-sm font-medium">Agent</div>
           <div className="flex items-center gap-0.5 text-muted-foreground">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              title="New chat"
-              onClick={() => setChatKey((k) => k + 1)}
-            >
+            <Button variant="ghost" size="icon" className="size-7" title="New session" onClick={() => newSession()}>
               <Plus className="size-4" />
             </Button>
+            <SessionHistory activeId={activeId} />
             <Button variant="ghost" size="icon" className="size-7" title="Collapse" onClick={() => setOpen(false)}>
               <ChevronsRight className="size-4" />
             </Button>
           </div>
         </header>
-        {hasOpened && <AgentChat key={chatKey} context={context} />}
+        {hasOpened && (
+          <AgentChat key={activeId} sessionId={activeId} initialMessages={initialMessages} context={context} />
+        )}
       </div>
     </aside>
   )

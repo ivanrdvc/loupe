@@ -1,16 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 'ai'
-import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/agent/chat-models'
-import { resolveChatModel } from '#/features/agent/server/models'
-import { type MentionRef, type PageContext, systemPrompt } from '#/features/agent/server/prompt'
-import { agentTelemetry } from '#/features/agent/server/telemetry'
-import { agentTools, resolveMentions } from '#/features/agent/server/tools'
+import { createAgentUIStreamResponse, type UIMessage } from 'ai'
+import { loupeAgent } from '#/features/agent/server/agent'
+import type { MentionRef, PageContext } from '#/features/agent/server/prompt'
 
 interface ChatRequest {
   messages: UIMessage[]
   model?: string
   context?: PageContext
-  conversationId?: string
+  sessionId?: string
   mentions?: MentionRef[]
 }
 
@@ -19,19 +16,15 @@ export const Route = createFileRoute('/api/chat')({
     handlers: {
       POST: async ({ request }) => {
         const body = (await request.json()) as ChatRequest
-        const modelId: ChatModelId = isChatModelId(body.model) ? body.model : DEFAULT_CHAT_MODEL
-        const mentions = body.mentions?.length ? await resolveMentions(body.mentions) : undefined
-        const result = streamText({
-          model: resolveChatModel(modelId),
-          system: systemPrompt(body.context ?? { pathname: '/' }, mentions),
-          messages: await convertToModelMessages(body.messages),
-          tools: agentTools,
-          stopWhen: stepCountIs(8),
-          // gpt-5 only streams a thinking summary when asked; keep effort low so it's quick.
-          providerOptions: { openai: { reasoningSummary: 'auto', reasoningEffort: 'low' } },
-          experimental_telemetry: agentTelemetry(body.conversationId),
-        })
-        return result.toUIMessageStreamResponse({
+        return createAgentUIStreamResponse({
+          agent: loupeAgent,
+          uiMessages: body.messages,
+          options: {
+            context: body.context,
+            mentions: body.mentions,
+            model: body.model,
+            sessionId: body.sessionId,
+          },
           sendReasoning: true,
           // Default masking hides the cause as "An error occurred."; log it and
           // surface a real message so missing keys / tool failures are diagnosable.
