@@ -357,23 +357,6 @@ export function configToHint(
   }
 }
 
-export type ScoreDraftShape = { value: number | null; label: string | null }
-
-// Whether an in-progress human score draft lands on the bad side of the dimension.
-export function draftIsBad(config: ScoreConfig, draft: ScoreDraftShape): boolean {
-  const scale = configToHint(config)
-  if (config.dataType === 'boolean') {
-    return scoreIsBad({ dataType: 'boolean', value: draft.value, label: null }, scale)
-  }
-  if (config.dataType === 'categorical') {
-    return scoreIsBad({ dataType: 'categorical', value: null, label: draft.label }, scale)
-  }
-  if (config.dataType === 'numeric') {
-    return scoreIsBad({ dataType: 'numeric', value: draft.value, label: null }, scale)
-  }
-  return false
-}
-
 export const SCORE_TONE_CLASS: Record<ScoreTone, string> = {
   good: ACCENT.emerald.status,
   warn: ACCENT.amber.status,

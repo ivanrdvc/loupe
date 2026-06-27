@@ -45,6 +45,7 @@ function toExample(row: typeof datasetExamples.$inferSelect): DatasetExample {
     expected: row.expected,
     metadata: (row.metadataJson as Record<string, string> | null) ?? {},
     sourceTraceId: row.sourceTraceId,
+    sourceSpanId: row.sourceSpanId,
   }
 }
 
@@ -68,6 +69,7 @@ function toRunItem(row: typeof datasetRunItems.$inferSelect, status: RunItemStat
     latencyMs: row.latencyMs,
     tokens: row.tokens,
     traceId: row.traceId,
+    errorText: row.errorText,
     scores: [],
   }
 }

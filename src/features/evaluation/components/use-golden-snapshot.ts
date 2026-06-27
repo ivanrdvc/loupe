@@ -4,8 +4,8 @@ import { traceSpansQuery } from '#/features/inspect'
 import type { ScoreTargetKind } from '#/lib/eval/evaluation'
 import { traceEvalSnapshot } from './span-snapshot'
 
-// Shared golden-capture wiring for both review surfaces (ReviewSheetButton + ReviewModeDialog):
-// resolve the target's trace, load its spans, and pick the eval-span snapshot.
+// Golden-capture wiring for ReviewModeDialog: resolve the target's trace, load
+// its spans, and pick the eval-span snapshot.
 export function useGoldenSnapshot({
   open,
   targetKind,

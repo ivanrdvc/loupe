@@ -1,20 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { CirclePlay, Download, Link as LinkIcon, MessageCircleQuestion, Plus, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import {
+  CircleAlert,
+  CircleCheck,
+  CirclePlay,
+  Download,
+  Link as LinkIcon,
+  MessageCircleQuestion,
+  Plus,
+  Trash2,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
-import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import {
@@ -24,23 +30,37 @@ import {
   type DatasetRun,
   type DatasetRunItem,
   definitionsQuery,
-  GLOBAL_DEFAULT_ENDPOINT,
   inputPreview,
   inputTurns,
   judgeDefaultsQuery,
 } from '#/features/evaluation'
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
-import { runDataset, updateDataset } from '#/features/evaluation/server/datasets'
+import { deleteExamples, runDataset, updateDataset } from '#/features/evaluation/server/datasets'
 import { downloadCsv } from '#/lib/csv'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
-import { errMessage } from '#/lib/format'
+import { errMessage, formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
-import { AgentOverridesDialog, countOverrides } from './-components/agent-overrides-dialog'
 import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
+import { NewRunSheet } from './-components/new-run-sheet'
 import { ResultDialog } from './-components/result-dialog'
-import { ScoreChip, ScoreChips, StatusIcon } from './-components/run-bits'
+import {
+  type CompareSummary,
+  CompareSummaryBar,
+  type Delta,
+  DeltaBadge,
+  NO_FILTER,
+  type RunFilter,
+  RunFilterChips,
+  runFilterMatches,
+  runItemDelta,
+  ScoreChip,
+  StatusBadge,
+  StatusIcon,
+  VerdictBadge,
+} from './-components/run-bits'
 import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
 
 export const Route = createFileRoute('/datasets/$datasetId')({
@@ -163,6 +183,23 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     onSettled: () => setRunningExampleId(null),
   })
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (exampleIds: string[]) => deleteExamples({ data: { datasetId: dataset.id, exampleIds } }),
+    onSuccess: async (_r, ids) => {
+      await invalidate()
+      toast.success(`Deleted ${ids.length} example${ids.length === 1 ? '' : 's'}`)
+    },
+    onError: (err) => toast.error(errMessage(err)),
+  })
+
+  const bulkRunMutation = useMutation({
+    mutationFn: (exampleIds: string[]) =>
+      runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds, overrides } }),
+    onMutate: () => ({ toastId: toast.loading('Running selected examples…') }),
+    onSuccess: ({ runId }, _ids, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
+    onError: (err, _ids, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
+  })
+
   const persistEndpoint = useMutation({
     mutationFn: (url: string) =>
       updateDataset({ data: { datasetId: dataset.id, endpointOverride: url.trim() || null } }),
@@ -193,6 +230,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               </Badge>
             ))}
           </div>
+          <DatasetStats exampleCount={examples.length} runs={runs} lastRunAt={dataset.lastRunAt} />
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => downloadDatasetCsv(dataset.name, examples)}>
               <Download data-icon="inline-start" />
@@ -228,6 +266,8 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
                 setActiveExample(null)
                 setCreating(true)
               }}
+              onBulkDelete={(ids) => bulkDeleteMutation.mutate(ids)}
+              onBulkRun={(ids) => bulkRunMutation.mutate(ids)}
             />
           </TabsContent>
 
@@ -282,6 +322,37 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   )
 }
 
+function DatasetStats({
+  exampleCount,
+  runs,
+  lastRunAt,
+}: {
+  exampleCount: number
+  runs: DatasetRun[]
+  lastRunAt: number | null
+}) {
+  const lastRun = runs[0] ?? null
+  const pass = lastRun?.passRate
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span>
+        {exampleCount} {exampleCount === 1 ? 'example' : 'examples'}
+      </span>
+      {runs.length > 0 && (
+        <span>
+          · {runs.length} {runs.length === 1 ? 'run' : 'runs'}
+        </span>
+      )}
+      {lastRun && (
+        <span>
+          · last run{pass != null ? ` ${Math.round(pass * 100)}% pass` : ''}
+          {lastRunAt ? ` · ${formatAgo(lastRunAt)}` : ''}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function ExamplesTab({
   examples,
   latestRunId,
@@ -290,6 +361,8 @@ function ExamplesTab({
   runningId,
   onOpen,
   onAdd,
+  onBulkDelete,
+  onBulkRun,
 }: {
   examples: DatasetExample[]
   latestRunId: string | null
@@ -298,9 +371,43 @@ function ExamplesTab({
   runningId: string | null
   onOpen: (e: DatasetExample) => void
   onAdd: () => void
+  onBulkDelete: (ids: string[]) => void
+  onBulkRun: (ids: string[]) => void
 }) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const toggle = useCallback(
+    (id: string) =>
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.has(id) ? next.delete(id) : next.add(id)
+        return next
+      }),
+    [],
+  )
+  const allSelected = examples.length > 0 && selected.size === examples.length
+  const clear = () => setSelected(new Set())
+
   const columns = useMemo<ColumnDef<DatasetExample, unknown>[]>(
     () => [
+      {
+        id: 'select',
+        header: () => (
+          <Checkbox
+            checked={allSelected ? true : selected.size > 0 ? 'indeterminate' : false}
+            onCheckedChange={(v) => setSelected(v ? new Set(examples.map((e) => e.id)) : new Set())}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selected.has(row.original.id)}
+            onCheckedChange={() => toggle(row.original.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Select example"
+          />
+        ),
+        meta: { headClassName: 'w-8' },
+      },
       {
         id: 'input',
         header: 'Input (question)',
@@ -333,17 +440,50 @@ function ExamplesTab({
         meta: { headClassName: 'w-40' },
       },
       {
+        id: 'origin',
+        header: 'Origin',
+        cell: ({ row }) => {
+          const traceId = row.original.sourceTraceId
+          if (!traceId) return <span className="text-xs italic text-muted-foreground/60">manual</span>
+          return (
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="h-auto justify-start gap-1 p-0 font-mono text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Link to="/traces/$traceId" params={{ traceId }}>
+                {traceId.slice(0, 8)}
+                <LinkIcon className="size-3" />
+              </Link>
+            </Button>
+          )
+        },
+        meta: { headClassName: 'w-28' },
+      },
+      {
         id: 'lastRun',
         header: 'Last run',
         cell: ({ row }) => {
+          if (runningId === row.original.id) {
+            return (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Spinner className="size-3.5" />
+                running…
+              </div>
+            )
+          }
           const last = latestRunId ? itemFor(latestRunId, row.original.id) : null
-          return last ? (
+          if (!last) return <span className="text-xs text-muted-foreground/60">—</span>
+          const errored = last.status === 'error'
+          return (
             <div className="flex min-w-0 items-center gap-1.5">
               <StatusIcon status={last.status} />
-              <span className="truncate text-xs text-muted-foreground">{last.output}</span>
+              <span className={cn('truncate text-xs', errored ? 'text-destructive' : 'text-muted-foreground')}>
+                {errored ? last.errorText?.trim() || 'failed' : last.output}
+              </span>
             </div>
-          ) : (
-            <span className="text-xs text-muted-foreground/60">—</span>
           )
         },
         meta: { headClassName: 'w-56', className: 'max-w-xs' },
@@ -364,7 +504,7 @@ function ExamplesTab({
                   onRun(row.original)
                 }}
               >
-                <CirclePlay />
+                {runningId === row.original.id ? <Spinner className="size-4" /> : <CirclePlay />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Run just this example</TooltipContent>
@@ -373,21 +513,46 @@ function ExamplesTab({
         meta: { headClassName: 'w-12' },
       },
     ],
-    [latestRunId, itemFor, onRun, runningId],
+    [latestRunId, itemFor, onRun, runningId, selected, allSelected, examples, toggle],
   )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {examples.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-          <p className="text-xs text-muted-foreground">
-            The questions. Edit input / expected / metadata here — that's what every run is graded against.
-          </p>
-          <Button size="sm" variant="outline" onClick={onAdd}>
-            <Plus data-icon="inline-start" />
-            Example
+      {selected.size > 0 ? (
+        <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2.5 lg:px-6">
+          <span className="text-xs font-medium">{selected.size} selected</span>
+          <Button size="sm" variant="outline" onClick={() => onBulkRun([...selected])}>
+            <CirclePlay data-icon="inline-start" />
+            Run
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => {
+              onBulkDelete([...selected])
+              clear()
+            }}
+          >
+            <Trash2 data-icon="inline-start" />
+            Delete
+          </Button>
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={clear}>
+            Clear
           </Button>
         </div>
+      ) : (
+        examples.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+            <p className="text-xs text-muted-foreground">
+              The questions. Edit input / expected / metadata here — that's what every run is graded against.
+            </p>
+            <Button size="sm" variant="outline" onClick={onAdd}>
+              <Plus data-icon="inline-start" />
+              Example
+            </Button>
+          </div>
+        )
       )}
       {examples.length === 0 ? (
         <div className="px-4 lg:px-6">
@@ -460,97 +625,59 @@ function RunsTab({
   onJudge: () => void
 }) {
   const { examples, runs } = detail
-  const [overridesOpen, setOverridesOpen] = useState(false)
-  const overrideCount = countOverrides(overrides)
+  const [filter, setFilter] = useState<RunFilter>(NO_FILTER)
 
   // Keep focus-first order so compare lays the second run beside it.
   const selectedRuns = selectedIds.map((id) => runs.find((r) => r.id === id)).filter((r): r is DatasetRun => !!r)
 
+  const runSheetProps = {
+    endpoint,
+    onEndpointChange,
+    onEndpointCommit,
+    overrides,
+    onOverridesChange,
+    evaluators,
+    judgeDefId,
+    onJudgeDefChange,
+    autoJudge,
+    onAutoJudgeChange,
+    judgeConfigured,
+    onRun,
+    running,
+    disabled: examples.length === 0,
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Call my agent bar */}
-      <div className="mx-4 mt-4 mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card/40 px-3 py-2 lg:mx-6">
-        <Label htmlFor="ds-endpoint" className="text-xs whitespace-nowrap text-muted-foreground">
-          Call my agent
-        </Label>
-        <Input
-          id="ds-endpoint"
-          value={endpoint}
-          onChange={(e) => onEndpointChange(e.target.value)}
-          onBlur={onEndpointCommit}
-          placeholder={GLOBAL_DEFAULT_ENDPOINT}
-          className="h-8 max-w-sm font-mono text-xs"
-        />
-        <Button variant="outline" size="sm" onClick={() => setOverridesOpen(true)}>
-          <SlidersHorizontal data-icon="inline-start" />
-          Overrides
-          {overrideCount > 0 && (
-            <Badge variant="secondary" className="ml-1 font-mono text-[10px]">
-              {overrideCount}
-            </Badge>
-          )}
-        </Button>
-        <Select value={judgeDefId} onValueChange={onJudgeDefChange}>
-          <SelectTrigger size="sm" className="w-44 text-xs" aria-label="Judge">
-            <SelectValue placeholder="Default correctness" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="default">Default correctness</SelectItem>
-            {evaluators
-              .filter((e) => e.source === 'llm')
-              .map((e) => (
-                <SelectItem key={e.id} value={String(e.id)}>
-                  {e.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!judgeRunId || !judgeConfigured || judging}
-                onClick={onJudge}
-              >
-                {judging ? 'Judging…' : 'Judge'}
-              </Button>
-            </span>
-          </TooltipTrigger>
-          {!judgeConfigured && (
-            <TooltipContent>Set OPENAI_API_KEY or ANTHROPIC_API_KEY to enable judging</TooltipContent>
-          )}
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <label
-              htmlFor="auto-judge"
-              className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground"
-            >
-              <Switch
-                id="auto-judge"
-                checked={autoJudge}
-                onCheckedChange={onAutoJudgeChange}
-                disabled={!judgeConfigured}
-              />
-              Auto-judge
-            </label>
-          </TooltipTrigger>
-          <TooltipContent>Judge automatically after each run</TooltipContent>
-        </Tooltip>
-        <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
-          {running ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
-          {running ? 'Running…' : 'Run on all'}
-        </Button>
+      <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+        <p className="text-xs text-muted-foreground">
+          {runs.length === 0
+            ? 'Run the dataset against your agent.'
+            : `${runs.length} run${runs.length === 1 ? '' : 's'}`}
+        </p>
+        {runs.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!judgeRunId || !judgeConfigured || judging}
+                    onClick={onJudge}
+                  >
+                    {judging ? 'Judging…' : 'Judge run'}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!judgeConfigured && (
+                <TooltipContent>Set OPENAI_API_KEY or ANTHROPIC_API_KEY to enable judging</TooltipContent>
+              )}
+            </Tooltip>
+            <NewRunSheet {...runSheetProps} />
+          </div>
+        )}
       </div>
-
-      <AgentOverridesDialog
-        open={overridesOpen}
-        onClose={() => setOverridesOpen(false)}
-        overrides={overrides}
-        onChange={onOverridesChange}
-      />
 
       {runs.length === 0 ? (
         <div className="px-4 lg:px-6">
@@ -560,21 +687,34 @@ function RunsTab({
                 <CirclePlay />
               </EmptyMedia>
               <EmptyTitle>No runs yet</EmptyTitle>
-              <EmptyDescription>Point at your agent and hit “Run on all” to fire every question.</EmptyDescription>
+              <EmptyDescription>Point the run sheet at your agent and fire every question.</EmptyDescription>
             </EmptyHeader>
+            <EmptyContent>
+              <NewRunSheet
+                {...runSheetProps}
+                trigger={
+                  <Button size="sm">
+                    <CirclePlay data-icon="inline-start" />
+                    Run this dataset
+                  </Button>
+                }
+              />
+            </EmptyContent>
           </Empty>
         </div>
       ) : (
         <>
-          <RunControls runs={runs} selectedIds={selectedIds} onSelectedChange={onSelectedChange} />
+          <RunList runs={runs} items={detail.items} selectedIds={selectedIds} onSelectedChange={onSelectedChange} />
           {selectedRuns.length > 1 ? (
-            <RunResultsGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
+            <CompareGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
           ) : (
             <SingleRunList
               run={selectedRuns[0] ?? null}
               examples={examples}
               itemFor={itemFor}
               onOpenItem={onOpenItem}
+              filter={filter}
+              onFilterChange={setFilter}
             />
           )}
         </>
@@ -583,101 +723,88 @@ function RunsTab({
   )
 }
 
-// One focused run (latest by default) + an optional second run to compare against.
-function RunControls({
+// One ticked → single run; two+ → compare (baseline=earliest, current=latest).
+function RunList({
   runs,
+  items,
   selectedIds,
   onSelectedChange,
 }: {
   runs: DatasetRun[]
+  items: DatasetRunItem[]
   selectedIds: string[]
   onSelectedChange: (ids: string[]) => void
 }) {
   const latestId = runs[0]?.id ?? null
-  const focusId = selectedIds[0] ?? latestId
-  const compareId = selectedIds[1] ?? null
-  const focus = runs.find((r) => r.id === focusId)
+  const selected = new Set(selectedIds)
 
-  const setFocus = (id: string) => onSelectedChange(compareId && compareId !== id ? [id, compareId] : [id])
-  const setCompare = (id: string) => onSelectedChange(id === 'none' || !focusId ? [focusId as string] : [focusId, id])
+  const errorCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const it of items) if (it.status === 'error') m.set(it.runId, (m.get(it.runId) ?? 0) + 1)
+    return m
+  }, [items])
 
-  const label = (run: DatasetRun) =>
-    `${run.label}${run.id === latestId ? ' · latest' : ''}${run.passRate != null ? ` · ${Math.round(run.passRate * 100)}%` : ''}`
+  // Never let the list empty out — unticking the last selected run is a no-op.
+  const toggle = (id: string) => {
+    if (selected.has(id)) {
+      if (selected.size === 1) return
+      onSelectedChange(selectedIds.filter((x) => x !== id))
+    } else {
+      onSelectedChange([...selectedIds, id])
+    }
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 pb-3 lg:px-6">
-      <span className="text-xs text-muted-foreground">Run</span>
-      <Select value={focusId ?? undefined} onValueChange={setFocus}>
-        <SelectTrigger size="sm" className="h-8 w-56 font-mono text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {runs.map((run) => (
-            <SelectItem key={run.id} value={run.id} className="font-mono text-xs">
-              {label(run)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={compareId ?? 'none'} onValueChange={setCompare}>
-        <SelectTrigger size="sm" className="h-8 w-48 text-xs">
-          <SelectValue placeholder="Compare…" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">No compare</SelectItem>
-          {runs
-            .filter((r) => r.id !== focusId)
-            .map((run) => (
-              <SelectItem key={run.id} value={run.id} className="font-mono text-xs">
-                vs {label(run)}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
-      {focus?.passRate != null && (
-        <span className="text-xs text-muted-foreground">{Math.round(focus.passRate * 100)}% pass</span>
-      )}
-    </div>
-  )
-}
-
-// Default single-run view: one readable row per example (question · answer · score).
-function SingleRunList({
-  run,
-  examples,
-  itemFor,
-  onOpenItem,
-}: {
-  run: DatasetRun | null
-  examples: DatasetExample[]
-  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
-  onOpenItem: (it: DatasetRunItem) => void
-}) {
-  return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 pb-4 lg:px-6">
+    <div className="px-4 pb-3 lg:px-6">
+      <p className="mb-1.5 text-[11px] text-muted-foreground">
+        Tick one run to inspect it, or two or more to compare them side by side.
+      </p>
       <ul className="flex flex-col divide-y rounded-lg border">
-        {examples.map((ex) => {
-          const it = run ? itemFor(run.id, ex.id) : null
+        {runs.map((run) => {
+          const isSelected = selected.has(run.id)
+          const errors = errorCounts.get(run.id) ?? 0
           return (
-            <li key={ex.id}>
+            <li key={run.id}>
               <button
                 type="button"
-                disabled={!it}
-                onClick={() => it && onOpenItem(it)}
-                className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+                onClick={() => toggle(run.id)}
+                className={cn(
+                  'flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50',
+                  isSelected && 'bg-muted/40',
+                )}
               >
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-1 text-sm">{inputPreview(ex.input)}</p>
-                  {it?.status === 'error' ? (
-                    <p className="text-xs text-destructive">⚠ run failed</p>
-                  ) : it ? (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{it.output}</p>
+                <Checkbox
+                  checked={isSelected}
+                  tabIndex={-1}
+                  aria-label={`Select ${run.label}`}
+                  className="pointer-events-none"
+                />
+                <span className="font-mono text-xs">{run.label}</span>
+                {run.id === latestId && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    latest
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground">{formatAgo(run.createdAt)}</span>
+                <div className="ml-auto flex items-center gap-2">
+                  {errors > 0 ? (
+                    <Badge variant="outline" className="gap-1 border-destructive/40 font-normal text-destructive">
+                      <CircleAlert className="size-3" />
+                      {errors} err
+                    </Badge>
                   ) : (
-                    <p className="text-xs text-muted-foreground/60">not in this run</p>
+                    <Badge
+                      variant="outline"
+                      className={cn('gap-1 border-emerald-600/40 font-normal', ACCENT.emerald.status)}
+                    >
+                      <CircleCheck className="size-3" />
+                      ok
+                    </Badge>
                   )}
+                  <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                    {run.passRate != null ? `${Math.round(run.passRate * 100)}%` : '—'}
+                  </span>
                 </div>
-                {it && <StatusIcon status={it.status} />}
-                <ScoreChips it={it} />
               </button>
             </li>
           )
@@ -687,8 +814,68 @@ function SingleRunList({
   )
 }
 
-// Results for the selected run(s): one Output column per run (1 = focus, 2+ = compare).
-function RunResultsGrid({
+function SingleRunList({
+  run,
+  examples,
+  itemFor,
+  onOpenItem,
+  filter,
+  onFilterChange,
+}: {
+  run: DatasetRun | null
+  examples: DatasetExample[]
+  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
+  onOpenItem: (it: DatasetRunItem) => void
+  filter: RunFilter
+  onFilterChange: (f: RunFilter) => void
+}) {
+  const rows = examples
+    .map((ex) => ({ ex, it: run ? itemFor(run.id, ex.id) : null }))
+    .filter(({ it }) => runFilterMatches(filter, it))
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 lg:px-6">
+      <RunFilterChips filter={filter} onChange={onFilterChange} />
+      <div className="min-h-0 flex-1 overflow-auto">
+        {rows.length === 0 ? (
+          <div className="rounded-lg border px-3 py-8 text-center text-xs text-muted-foreground">
+            No results match these filters.
+          </div>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-lg border">
+            {rows.map(({ ex, it }) => (
+              <li key={ex.id}>
+                <button
+                  type="button"
+                  disabled={!it}
+                  onClick={() => it && onOpenItem(it)}
+                  className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-sm">{inputPreview(ex.input)}</p>
+                    {it?.status === 'error' ? (
+                      <p className="text-xs text-destructive">{it.errorText?.trim() || 'run failed'}</p>
+                    ) : it ? (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{it.output}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground/60">not in this run</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusBadge it={it} />
+                    <VerdictBadge it={it} />
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CompareGrid({
   runs,
   examples,
   itemFor,
@@ -699,11 +886,35 @@ function RunResultsGrid({
   itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
   onOpenItem: (it: DatasetRunItem) => void
 }) {
+  const [onlyRegressions, setOnlyRegressions] = useState(false)
+  const chrono = [...runs].sort((a, b) => a.createdAt - b.createdAt || Number(a.id) - Number(b.id))
+  const baselineId = chrono[0].id
+  const currentId = chrono[chrono.length - 1].id
+
+  const deltaFor = useCallback(
+    (exampleId: string): Delta => runItemDelta(itemFor(baselineId, exampleId), itemFor(currentId, exampleId)),
+    [itemFor, baselineId, currentId],
+  )
+
+  const deltas = useMemo(() => new Map(examples.map((ex) => [ex.id, deltaFor(ex.id)])), [examples, deltaFor])
+  const summary = useMemo<CompareSummary>(() => {
+    const s = { regressed: 0, improved: 0, unchanged: 0 }
+    for (const d of deltas.values()) s[d] += 1
+    return s
+  }, [deltas])
+
+  const rows = onlyRegressions ? examples.filter((ex) => deltas.get(ex.id) === 'regressed') : examples
+
   const columns: ColumnDef<DatasetExample, unknown>[] = [
     {
       id: 'input',
       header: 'Input',
-      cell: ({ row }) => <InputCell example={row.original} />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1.5">
+          <DeltaBadge delta={deltas.get(row.original.id) ?? 'unchanged'} />
+          <InputCell example={row.original} />
+        </div>
+      ),
       meta: {
         headClassName: 'sticky left-0 z-20 w-64 bg-muted/40',
         className: 'sticky left-0 z-10 w-64 bg-background',
@@ -717,31 +928,56 @@ function RunResultsGrid({
       ),
       meta: { headClassName: 'w-56' },
     },
-    ...runs.map(
+    ...chrono.map(
       (run): ColumnDef<DatasetExample, unknown> => ({
         id: run.id,
         header: () => (
           <div className="flex flex-col gap-0.5 py-1">
-            <span className="font-mono text-xs text-foreground">{run.label}</span>
+            <span className="font-mono text-xs text-foreground">
+              {run.label}
+              {run.id === baselineId && <span className="ml-1 text-muted-foreground">· baseline</span>}
+              {run.id === currentId && <span className="ml-1 text-muted-foreground">· current</span>}
+            </span>
             {run.passRate != null && (
               <span className="text-[10px] text-muted-foreground">{Math.round(run.passRate * 100)}% pass</span>
             )}
           </div>
         ),
-        cell: ({ row }) => <OutputCell it={itemFor(run.id, row.original.id)} onOpenItem={onOpenItem} />,
+        cell: ({ row }) => {
+          const delta = run.id === currentId ? (deltas.get(row.original.id) ?? 'unchanged') : 'unchanged'
+          return (
+            <div className={cn('-m-2 p-2', delta === 'regressed' && 'bg-destructive/5')}>
+              <OutputCell it={itemFor(run.id, row.original.id)} onOpenItem={onOpenItem} />
+            </div>
+          )
+        },
         meta: { headClassName: 'w-80' },
       }),
     ),
   ]
 
   return (
-    <>
-      <DataGrid columns={columns} data={examples} getRowId={(e) => e.id} />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="px-4 pb-3 lg:px-6">
+        <CompareSummaryBar
+          summary={summary}
+          onlyRegressions={onlyRegressions}
+          onToggleRegressions={() => setOnlyRegressions((v) => !v)}
+        />
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-4 lg:px-6">
+          <div className="rounded-lg border px-3 py-8 text-center text-xs text-muted-foreground">
+            No regressions between these runs.
+          </div>
+        </div>
+      ) : (
+        <DataGrid columns={columns} data={rows} getRowId={(e) => e.id} />
+      )}
       <p className="px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
-        {runs.length > 1 && '⚠ = answer changed vs previous run · '}click any cell for the full answer + trace · use
-        Judge to score the selected run
+        Delta is current vs baseline (PASS→FAIL or ok→error = regression). Click any cell for the full answer + trace.
       </p>
-    </>
+    </div>
   )
 }
 
@@ -769,17 +1005,16 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
       onClick={() => onOpenItem(it)}
     >
       <span className="line-clamp-3 text-xs">{it.status === 'error' ? '⚠ run failed' : it.output}</span>
-      {it.scores.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          {it.scores.map((s) => (
-            <ScoreChip key={s.name} s={s} />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-1">
+        <StatusBadge it={it} />
+        <VerdictBadge it={it} />
+        {it.scores.map((s) => (
+          <ScoreChip key={s.name} s={s} />
+        ))}
+      </div>
       <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <StatusIcon status={it.status} />
         {it.status === 'changed' && <span className="text-warning">changed</span>}
-        <span>· {(it.latencyMs / 1000).toFixed(1)}s</span>
+        <span>{(it.latencyMs / 1000).toFixed(1)}s</span>
         {it.traceId && <LinkIcon className="size-3" />}
       </span>
     </button>

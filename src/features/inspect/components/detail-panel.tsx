@@ -7,7 +7,7 @@ import { StatusDot } from '#/components/status-dot'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent } from '#/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
-import { ReviewSheetButton } from '#/features/evaluation'
+import { AddToDatasetDialog, ReviewSheetButton } from '#/features/evaluation'
 import { useBreakdowns } from '#/features/inspect/components/use-breakdowns'
 import { type InspectorView, isChatSpan, type ToolCallResolution } from '#/features/inspect/logic'
 import { formatCost } from '#/lib/format'
@@ -63,6 +63,7 @@ export function DetailPanel({
             {display.purposeLabel}
           </span>
         )}
+        {isChatSpan(span) && <AddToDatasetDialog span={span} />}
         {span.operation !== 'http' && span.operation !== 'unknown' && (
           <ReviewSheetButton
             targetKind="span"

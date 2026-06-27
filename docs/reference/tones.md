@@ -53,5 +53,4 @@ Rules carried over from the accent scheme:
 - `indigo` and `fuchsia` are banned.
 
 Deliberate one-off exceptions (not in `tone.ts`): tree selection bar
-(`bg-violet-500`), eyebrow model dot, golden-capture highlight ring, dataset
-pass border, blessed star.
+(`bg-violet-500`), eyebrow model dot, dataset pass border, blessed star.

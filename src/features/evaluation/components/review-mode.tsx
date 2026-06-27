@@ -17,13 +17,12 @@ import { Progress } from '#/components/ui/progress'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
-import { GoldenCapturePanel } from '#/features/evaluation/components/golden-capture'
 import { scoreConfigsQuery } from '#/features/evaluation/components/queries'
 import { type ScoreDraft, ScoreInput } from '#/features/evaluation/components/score-input'
 import { useGoldenSnapshot } from '#/features/evaluation/components/use-golden-snapshot'
 import { listScoresForTarget, upsertHumanScore } from '#/features/evaluation/server/scores'
 import { useUser } from '#/hooks/use-user'
-import { draftIsBad, type ScoreTargetKind } from '#/lib/eval/evaluation'
+import type { ScoreTargetKind } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
@@ -53,7 +52,6 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
   const queryClient = useQueryClient()
   const [index, setIndex] = useState(0)
   const [dimension, setDimension] = useState<string | null>(null)
-  const [goldenHighlight, setGoldenHighlight] = useState(false)
 
   const { data: configs = [] } = useQuery({ ...scoreConfigsQuery, enabled: open })
   const activeConfigs = useMemo(() => configs.filter((c) => !c.archived), [configs])
@@ -61,7 +59,6 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
   useEffect(() => {
     if (!open) return
     setIndex(0)
-    setGoldenHighlight(false)
     if (!dimension && activeConfigs.length > 0) setDimension(activeConfigs[0]?.name ?? null)
   }, [open, activeConfigs, dimension])
 
@@ -119,29 +116,22 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
         },
       })
     },
-    onSuccess: async (_row, draft) => {
+    onSuccess: async () => {
       await invalidate()
-      if (config && draftIsBad(config, draft)) setGoldenHighlight(true)
       toast.success('Score saved')
     },
     onError: (e) => toast.error(errMessage(e)),
   })
 
   const advance = useCallback(() => {
-    setGoldenHighlight(false)
     setIndex((i) => Math.min(i + 1, Math.max(items.length - 1, 0)))
   }, [items.length])
 
-  // A bad mark stays put so golden capture can pulse; a good mark moves on.
   const saveAndAdvance = useCallback(
     (draft: ScoreDraft) => {
-      upsertMutation.mutate(draft, {
-        onSuccess: () => {
-          if (!(config && draftIsBad(config, draft))) advance()
-        },
-      })
+      upsertMutation.mutate(draft, { onSuccess: () => advance() })
     },
-    [upsertMutation, advance, config],
+    [upsertMutation, advance],
   )
 
   useEffect(() => {
@@ -154,7 +144,6 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
         setIndex((i) => Math.max(0, i - 1))
-        setGoldenHighlight(false)
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
         advance()
@@ -257,29 +246,12 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
                   <p className="text-xs text-muted-foreground">Define a score dimension first.</p>
                 )}
               </section>
-
-              {snapshot && (
-                <GoldenCapturePanel
-                  input={snapshot.input}
-                  sourceTraceId={snapshot.span.traceId}
-                  sourceSpanId={snapshot.span.id}
-                  highlighted={goldenHighlight}
-                />
-              )}
             </div>
           </ScrollArea>
         </div>
 
         <DialogFooter className="mx-0 mb-0 justify-between px-4 py-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={index <= 0}
-            onClick={() => {
-              setIndex((i) => Math.max(0, i - 1))
-              setGoldenHighlight(false)
-            }}
-          >
+          <Button size="sm" variant="outline" disabled={index <= 0} onClick={() => setIndex((i) => Math.max(0, i - 1))}>
             <ChevronLeft data-icon="inline-start" />
             Previous
           </Button>
