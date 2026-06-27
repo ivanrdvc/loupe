@@ -3,9 +3,10 @@ import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Tokens } from '#/features/inspect'
-import { SignalBadges, type ToolSignal } from '#/features/mcp'
+import { signalFacets, ToolFacetBadges, type ToolSignal } from '#/features/mcp'
 import { formatDuration, formatPercent } from '#/lib/format'
 import type { ToolRow } from '#/lib/telemetry'
+import { ACCENT } from '#/lib/tone'
 
 export function toolColumns(signalsByName: Record<string, ToolSignal[]>): ColumnDef<ToolRow>[] {
   return [
@@ -13,11 +14,14 @@ export function toolColumns(signalsByName: Record<string, ToolSignal[]>): Column
       accessorKey: 'name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tool" />,
       cell: ({ row }) => (
-        <span className="flex items-center gap-2">
-          <span className="font-medium">{row.original.name}</span>
-          <SignalBadges signals={signalsByName[row.original.name] ?? []} />
-        </span>
+        <span className={`font-mono text-xs font-medium ${ACCENT.violet.ident}`}>{row.original.name}</span>
       ),
+    },
+    {
+      id: 'facets',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Facets" />,
+      enableSorting: false,
+      cell: ({ row }) => <ToolFacetBadges facets={signalFacets(signalsByName[row.original.name] ?? [])} size="sm" />,
     },
     {
       accessorKey: 'calls',

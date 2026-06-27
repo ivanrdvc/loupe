@@ -49,7 +49,10 @@ export function ToolsDataTable({
   dimensions,
   onDimensionChange,
 }: ToolsDataTableProps) {
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    lastSeenMs: false,
+    totalTokensEst: false,
+  })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 })
 
@@ -133,7 +136,7 @@ export function ToolsDataTable({
                   <TableRow
                     key={row.id}
                     onClick={() => onRowClick(row.original)}
-                    className="h-12 cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                    className="cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>

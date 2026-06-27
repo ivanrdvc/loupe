@@ -6,12 +6,13 @@ import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
 import { Badge } from '#/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { facetOptions } from '#/features/mcp'
 import { mcpQuery } from './-data'
 import { LintFindings } from './-lint-findings'
 import { McpDataTable } from './-mcp-data-table'
 import { McpStats } from './-mcp-stats'
 import { serverColumns } from './-servers-columns'
-import { ToolsBrowser } from './-tools-browser'
+import { buildToolRows, toolColumns } from './-tools-columns'
 
 type TabValue = 'servers' | 'tools' | 'lint'
 
@@ -55,6 +56,11 @@ function McpPage() {
   const servers = data?.servers ?? []
   const findings = data?.findings ?? []
   const serverCols = useMemo(() => serverColumns(findings), [findings])
+  const toolRows = useMemo(() => buildToolRows(servers), [servers])
+  const toolFilters: FacetedFilterSpec[] = useMemo(
+    () => [{ columnId: 'facets', title: 'Facets', options: facetOptions(toolRows.map((r) => r.facets)) }],
+    [toolRows],
+  )
   const refresh = () => {
     void refetch()
   }
@@ -102,6 +108,7 @@ function McpPage() {
             searchColumnId="name"
             searchPlaceholder="Filter servers…"
             filters={SERVER_FILTERS}
+            initialColumnVisibility={{ transport: false }}
             emptyMessage="No MCP servers in the registry."
             isLoading={isLoading}
             onRefresh={refresh}
@@ -110,7 +117,20 @@ function McpPage() {
           />
         </TabsContent>
         <TabsContent value="tools" className="flex min-h-0 flex-1 flex-col">
-          <ToolsBrowser servers={servers} />
+          <McpDataTable
+            columns={toolColumns}
+            data={toolRows}
+            getRowId={(t) => t.name}
+            searchColumnId="name"
+            searchPlaceholder="Filter tools…"
+            filters={toolFilters}
+            initialSorting={[{ id: 'name', desc: false }]}
+            emptyMessage="No tools in the registry."
+            isLoading={isLoading}
+            onRefresh={refresh}
+            refreshing={isFetching}
+            toolbarActions={meta}
+          />
         </TabsContent>
         <TabsContent value="lint" className="flex min-h-0 flex-1 flex-col">
           <LintFindings findings={findings} />

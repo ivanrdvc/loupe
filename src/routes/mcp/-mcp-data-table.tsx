@@ -26,6 +26,7 @@ interface McpDataTableProps<TData> {
   searchPlaceholder?: string
   filters?: FacetedFilterSpec[]
   initialSorting?: SortingState
+  initialColumnVisibility?: VisibilityState
   emptyMessage: string
   isLoading?: boolean
   onRefresh?: () => void
@@ -41,6 +42,7 @@ export function McpDataTable<TData>({
   searchPlaceholder,
   filters,
   initialSorting = [],
+  initialColumnVisibility = {},
   emptyMessage,
   isLoading,
   onRefresh,
@@ -48,7 +50,7 @@ export function McpDataTable<TData>({
   toolbarActions,
 }: McpDataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting)
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility)
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 })
 
@@ -101,7 +103,7 @@ export function McpDataTable<TData>({
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                    className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>

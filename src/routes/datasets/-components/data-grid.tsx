@@ -18,7 +18,7 @@ declare module '@tanstack/react-table' {
 
 /**
  * Renders a TanStack table with the shared Table primitives, styled to match the
- * Traces & Sessions tables: full-bleed, border-t, sticky muted header, h-12 rows.
+ * Traces & Sessions tables: full-bleed, border-t, sticky muted header, padding-driven row height.
  * Takes a table instance so the caller can own filtering/sorting state.
  */
 export function DataGridBody<T>({ table, onRowClick }: { table: TanstackTable<T>; onRowClick?: (row: T) => void }) {
@@ -49,7 +49,7 @@ export function DataGridBody<T>({ table, onRowClick }: { table: TanstackTable<T>
               <TableRow
                 key={row.id}
                 className={cn(
-                  'h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
+                  '[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
                   onRowClick && 'cursor-pointer',
                 )}
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}

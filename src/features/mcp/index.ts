@@ -46,22 +46,25 @@ export async function listToolSignals(): Promise<Record<string, ToolSignal[]>> {
   return byName
 }
 
-export { SignalBadges } from './components/signal-badges'
+export { ToolFacetBadges } from './components/tool-facet-badges'
 export { BUILTIN_RULES, lintMcpRegistry } from './lint'
 export { aggregateTools, type UniqueTool } from './logic/aggregate-tools'
+export {
+  type FacetGroup,
+  type FacetTone,
+  facetOptions,
+  GROUP_ORDER,
+  signalFacets,
+  type ToolFacet,
+  toolFacets,
+} from './logic/facets'
 export {
   findingsForServer,
   groupFindingsByCategory,
   LINT_CATEGORY_LABELS,
   worstSeverity,
 } from './logic/lint-helpers'
-export {
-  deriveSignals,
-  mergeSignalsByName,
-  TOOL_SIGNAL_DESCRIPTIONS,
-  TOOL_SIGNALS,
-  type ToolSignal,
-} from './logic/signals'
+export { deriveSignals, mergeSignalsByName, TOOL_SIGNALS, type ToolSignal } from './logic/signals'
 export { TOOL_TAGS } from './tool-tags'
 export type {
   LintRule,

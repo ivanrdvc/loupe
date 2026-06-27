@@ -10,8 +10,32 @@ import {
   listTools,
 } from '#/lib/telemetry'
 import { lastNDaysWindow, summarize } from '../logic/summarize'
+import type { MentionRef, ResolvedMention } from './prompt'
 
 const window = (days: number | undefined) => lastNDaysWindow(days ?? 7, Date.now())
+
+async function traceSummary(traceId: string) {
+  const res = await getTrace(traceId)
+  if (!res?.spans.length) return null
+  return { link: `?trace=${traceId}`, truncated: res.truncated, ...summarize(res.spans) }
+}
+
+async function sessionSummary(sessionId: string) {
+  const res = await getSession(sessionId)
+  if (!res?.spans.length) return null
+  return { link: `?session=${sessionId}`, title: res.title, traceCount: res.traceIds.length, ...summarize(res.spans) }
+}
+
+/** Eagerly resolve @-mentioned runs to the same summaries the tools return, so
+ *  the agent has them in context without a tool round-trip. */
+export async function resolveMentions(mentions: MentionRef[]): Promise<ResolvedMention[]> {
+  return Promise.all(
+    mentions.map(async (m) => ({
+      ...m,
+      summary: m.kind === 'trace' ? await traceSummary(m.id) : await sessionSummary(m.id),
+    })),
+  )
+}
 
 export const agentTools = {
   get_trace: tool({
@@ -19,9 +43,8 @@ export const agentTools = {
       'Summarize one trace (end-to-end run) by id: duration, tokens, cost, errors (with exception type + trimmed stack), slowest steps, tools used, and the ordered step path. Use for "explain this trace", "what was slow", or "why did it fail". Returns metadata only — point the user at the link for raw messages and tool I/O.',
     inputSchema: z.object({ traceId: z.string().describe('The trace id.') }),
     execute: async ({ traceId }) => {
-      const res = await getTrace(traceId)
-      if (!res?.spans.length) return { found: false as const }
-      return { found: true as const, link: `?trace=${traceId}`, truncated: res.truncated, ...summarize(res.spans) }
+      const s = await traceSummary(traceId)
+      return s ? { found: true as const, ...s } : { found: false as const }
     },
   }),
 
@@ -30,15 +53,8 @@ export const agentTools = {
       'Summarize a session (conversation / multi-trace run) by id: title, trace count, duration, tokens, errors, agents, and slowest steps. Use for "what happened this session", "any errors", or "where did the tokens go".',
     inputSchema: z.object({ sessionId: z.string().describe('The session id.') }),
     execute: async ({ sessionId }) => {
-      const res = await getSession(sessionId)
-      if (!res?.spans.length) return { found: false as const }
-      return {
-        found: true as const,
-        link: `?session=${sessionId}`,
-        title: res.title,
-        traceCount: res.traceIds.length,
-        ...summarize(res.spans),
-      }
+      const s = await sessionSummary(sessionId)
+      return s ? { found: true as const, ...s } : { found: false as const }
     },
   }),
 

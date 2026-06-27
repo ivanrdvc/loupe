@@ -31,7 +31,7 @@ export function FiresTable({ data, onRowClick }: FiresTableProps) {
                 key={fire.id}
                 onClick={onRowClick ? () => onRowClick(fire) : undefined}
                 className={cn(
-                  'h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
+                  '[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
                   onRowClick && 'cursor-pointer',
                 )}
               >

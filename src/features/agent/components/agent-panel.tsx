@@ -1,6 +1,6 @@
 import { useRouterState, useSearch } from '@tanstack/react-router'
 import { ChevronsRight, Plus } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '#/components/ui/button.tsx'
 import { cn } from '#/lib/utils'
 import type { PageContext } from '../server/prompt'
@@ -15,6 +15,12 @@ export function AgentPanel() {
   const { enabled, open, setOpen } = useAgent()
   // Remount to reset the conversation.
   const [chatKey, setChatKey] = useState(0)
+  // Mount the chat on first open and keep it mounted, so the expensive mount
+  // never races the width animation and the conversation survives a collapse.
+  const [hasOpened, setHasOpened] = useState(false)
+  useEffect(() => {
+    if (open) setHasOpened(true)
+  }, [open])
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const search = useSearch({ strict: false }) as { trace?: string; session?: string }
 
@@ -33,7 +39,7 @@ export function AgentPanel() {
   return (
     <aside
       className={cn(
-        'shrink-0 overflow-hidden border-l bg-background transition-[width] duration-200 ease-linear',
+        'shrink-0 overflow-hidden border-l bg-background transition-[width] duration-200 ease-out [will-change:width]',
         open ? '' : 'border-l-0',
       )}
       style={{ width: open ? PANEL_WIDTH : 0 }}
@@ -57,7 +63,7 @@ export function AgentPanel() {
             </Button>
           </div>
         </header>
-        {open && <AgentChat key={chatKey} context={context} />}
+        {hasOpened && <AgentChat key={chatKey} context={context} />}
       </div>
     </aside>
   )
