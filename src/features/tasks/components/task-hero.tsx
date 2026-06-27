@@ -3,7 +3,8 @@ import { Bot, type LucideIcon, MessageSquare, Zap } from 'lucide-react'
 import { useMemo } from 'react'
 import { KIND_META } from '#/components/kind-badge'
 import { RelativeTime } from '#/components/relative-time'
-import type { TaskRow } from '#/features/tasks/rollup'
+import { formatTrigger } from '#/features/tasks/declared'
+import { type TaskRow, type TaskState, taskNextDueMs, taskState } from '#/features/tasks/rollup'
 import { formatDuration, shortId } from '#/lib/format'
 import type { TraceSummary } from '#/lib/telemetry'
 import { ACCENT } from '#/lib/tone'
@@ -28,8 +29,10 @@ export function TaskHero({ row, fires, fromMs, toMs, onFireClick }: TaskHeroProp
 
   return (
     <div className="border-b">
+      <StatusPill row={row} />
       <FlowChain row={row} errorRate={errorRate} />
       <StatusLine row={row} cadence={cadence} />
+      <DeclaredLine row={row} />
       <FireTimeline
         fires={fires}
         fromMs={fromMs}
@@ -254,6 +257,64 @@ interface Cadence {
   label: string
 }
 
+const STATE_META: Partial<Record<TaskState, { label: string; tone: string }>> = {
+  paused: { label: 'Paused', tone: ACCENT.amber.status },
+  archived: { label: 'Archived', tone: ACCENT.zinc.status },
+  'never-run': { label: 'Never run', tone: 'text-muted-foreground' },
+}
+
+function StatusPill({ row }: { row: TaskRow }) {
+  const meta = STATE_META[taskState(row)]
+  if (!meta) return null
+  return (
+    <div className="px-4 pt-4 lg:px-6">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+          meta.tone,
+        )}
+      >
+        <span className="size-1.5 rounded-full bg-current" aria-hidden />
+        {meta.label}
+      </span>
+    </div>
+  )
+}
+
+function DeclaredLine({ row }: { row: TaskRow }) {
+  const d = row.declared
+  if (!d) return null
+  const nextDueMs = taskNextDueMs(row)
+  const showNext = !!nextDueMs && nextDueMs > Date.now()
+  const lt = d.lifetime
+  const lastFailed = !!lt?.lastRunStatus && lt.lastRunStatus.toLowerCase() !== 'succeeded'
+  const succ = lt ? Math.min(lt.succeededRuns, lt.totalRuns) : 0
+  if (!showNext && !lt) return null
+
+  return (
+    <div className="flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1 px-4 pt-1.5 text-[11px] tabular-nums text-muted-foreground lg:px-6">
+      {showNext && (
+        <span>
+          next due <RelativeTime ts={nextDueMs} variant="relative" />
+        </span>
+      )}
+      {lt && lt.totalRuns > 0 && (
+        <span>
+          {lt.totalRuns.toLocaleString('en-US')} all-time ·{' '}
+          <span className={lastFailed ? ACCENT.rose.status : undefined}>
+            {Math.round((succ / lt.totalRuns) * 100)}%
+          </span>
+        </span>
+      )}
+      {lt?.lastRunAtMs && (
+        <span className={lastFailed ? ACCENT.rose.status : undefined} title={lt.lastRunError ?? undefined}>
+          last run {lastFailed ? lt.lastRunStatus : 'ok'} <RelativeTime ts={lt.lastRunAtMs} />
+        </span>
+      )}
+    </div>
+  )
+}
+
 function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefined }) {
   const { kind, fires, errored, lastFireMs, avgDurationMs } = row
   const errTone =
@@ -279,6 +340,9 @@ function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefin
   }
 
   // Cadence: cron / recurring / event / webhook / multi-fire — observed interval + last fire.
+  // lastFireMs is window-scoped (0 when nothing fired in-window); fall back to the
+  // registry's last-run time so a quiet task doesn't render as the Unix epoch.
+  const lastMs = lastFireMs || row.declared?.lifetime?.lastRunAtMs || 0
   return (
     <div className={wrap}>
       {cadence && (
@@ -288,7 +352,13 @@ function StatusLine({ row, cadence }: { row: TaskRow; cadence: Cadence | undefin
         </span>
       )}
       <span>
-        last fire <RelativeTime ts={lastFireMs} />
+        {lastMs > 0 ? (
+          <>
+            last fire <RelativeTime ts={lastMs} />
+          </>
+        ) : (
+          'never fired'
+        )}
       </span>
       <span className={errTone}>{errString(errored, fires)}</span>
     </div>
@@ -344,6 +414,9 @@ function buildExpectedMarkers(fires: TraceSummary[], medianMs: number | undefine
 }
 
 function computeTaskHint(row: TaskRow): { text: React.ReactNode; mono: boolean } {
+  // Declared trigger is authoritative when present (cron expr, event type, …).
+  const tv = formatTrigger(row.declared?.trigger)
+  if (tv) return { text: tv.detail ? `${tv.primary} · ${tv.detail}` : tv.primary, mono: tv.primary !== 'one-time' }
   // One-shot already fired — kind icon + status line carry the story; no chip hint.
   if (row.kind === 'one_shot') return { text: undefined, mono: false }
   // Event / webhook — source if known, else kind icon suffices.

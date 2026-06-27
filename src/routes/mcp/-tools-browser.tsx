@@ -6,22 +6,15 @@ import { Badge } from '#/components/ui/badge'
 import { Input } from '#/components/ui/input'
 import {
   aggregateTools,
-  deriveSignals,
+  facetOptions,
   type McpServer,
   type McpTool,
-  type McpToolAnnotations,
-  TOOL_SIGNAL_DESCRIPTIONS,
   TOOL_TAGS,
-  type ToolSignal,
+  type ToolFacet,
+  ToolFacetBadges,
+  toolFacets,
 } from '#/features/mcp'
 import { cn } from '#/lib/utils'
-
-const HINTS = [
-  { key: 'readOnlyHint', label: 'read-only' },
-  { key: 'destructiveHint', label: 'destructive' },
-  { key: 'idempotentHint', label: 'idempotent' },
-  { key: 'openWorldHint', label: 'open-world' },
-] as const
 
 export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
   const [query, setQuery] = useState('')
@@ -34,24 +27,15 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
     return m
   }, [servers])
 
-  const signalsFor = useMemo(() => {
-    const m = new Map<string, ToolSignal[]>()
-    for (const server of servers) for (const tool of server.tools) m.set(tool.id, deriveSignals(tool))
+  const facetsFor = useMemo(() => {
+    const m = new Map<string, ToolFacet[]>()
+    for (const server of servers)
+      for (const tool of server.tools) m.set(tool.id, toolFacets(tool, TOOL_TAGS[tool.id] ?? []))
     return m
   }, [servers])
 
-  const attrsFor = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const [id, signals] of signalsFor) m.set(id, [...signals, ...(TOOL_TAGS[id] ?? [])])
-    return m
-  }, [signalsFor])
-
-  // Available filter chips: every signal/tag present across the registry.
-  const facetOptions = useMemo(() => {
-    const set = new Set<string>()
-    for (const attrs of attrsFor.values()) for (const a of attrs) set.add(a)
-    return [...set].sort()
-  }, [attrsFor])
+  // Available filter chips: every facet present across the registry.
+  const chips = useMemo(() => facetOptions(facetsFor.values()), [facetsFor])
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -61,12 +45,12 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
         server,
         tools: server.tools.filter((t) => {
           if (q && !t.name.toLowerCase().includes(q) && !t.title?.toLowerCase().includes(q)) return false
-          const attrs = attrsFor.get(t.id) ?? []
-          return wanted.every((w) => attrs.includes(w))
+          const ids = facetsFor.get(t.id)?.map((f) => f.id) ?? []
+          return wanted.every((w) => ids.includes(w))
         }),
       }))
       .filter((g) => g.tools.length > 0)
-  }, [servers, query, facets, attrsFor])
+  }, [servers, query, facets, facetsFor])
 
   const visible = useMemo(() => groups.flatMap((g) => g.tools), [groups])
   const selected = visible.find((t) => t.id === selectedId) ?? visible[0] ?? null
@@ -103,12 +87,12 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
             className="h-8 border-border bg-transparent pl-7 dark:bg-input/30"
           />
         </div>
-        {facetOptions.length > 0 && (
+        {chips.length > 0 && (
           <div className="flex flex-wrap gap-1 px-3 pb-2">
-            {facetOptions.map((f) => (
-              <button key={f} type="button" onClick={() => toggleFacet(f)}>
-                <Badge variant={facets.has(f) ? 'default' : 'outline'} className="cursor-pointer font-normal">
-                  {f}
+            {chips.map((f) => (
+              <button key={f.value} type="button" onClick={() => toggleFacet(f.value)}>
+                <Badge variant={facets.has(f.value) ? 'default' : 'outline'} className="cursor-pointer font-normal">
+                  {f.label}
                 </Badge>
               </button>
             ))}
@@ -146,7 +130,6 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
                 {isOpen(g.server.id) &&
                   g.tools.map((t) => {
                     const f = flags.get(t.name)
-                    const signals = signalsFor.get(t.id) ?? []
                     return (
                       <button
                         key={t.id}
@@ -165,20 +148,7 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
                             <Badge variant="warning">dup</Badge>
                           ) : null}
                         </span>
-                        {signals.length > 0 && (
-                          <span className="flex flex-wrap gap-1">
-                            {signals.map((s) => (
-                              <Badge
-                                key={s}
-                                variant={s === 'unbounded' || s === 'bulk' ? 'warning' : 'outline'}
-                                className="font-normal"
-                                title={TOOL_SIGNAL_DESCRIPTIONS[s]}
-                              >
-                                {s}
-                              </Badge>
-                            ))}
-                          </span>
-                        )}
+                        <ToolFacetBadges facets={facetsFor.get(t.id) ?? []} size="sm" />
                         {t.description && (
                           <span className="line-clamp-1 text-xs text-muted-foreground">{t.description}</span>
                         )}
@@ -203,8 +173,6 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
 
 function ToolDetail({ tool, servers }: { tool: McpTool; servers: McpServer[] }) {
   const alsoOn = servers.filter((s) => s.id !== tool.serverId && s.tools.some((t) => t.name === tool.name))
-  const signals = deriveSignals(tool)
-  const tags = TOOL_TAGS[tool.id] ?? []
   return (
     <div className="flex flex-col gap-4 p-4 lg:p-6">
       <div>
@@ -212,31 +180,7 @@ function ToolDetail({ tool, servers }: { tool: McpTool; servers: McpServer[] }) 
         {tool.title && tool.title !== tool.name && <p className="text-sm text-muted-foreground">{tool.title}</p>}
       </div>
 
-      <Annotations annotations={tool.annotations} />
-
-      {signals.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {signals.map((s) => (
-            <Badge
-              key={s}
-              variant={s === 'unbounded' || s === 'bulk' ? 'warning' : 'outline'}
-              title={TOOL_SIGNAL_DESCRIPTIONS[s]}
-            >
-              {s}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="font-normal">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      )}
+      <ToolFacetBadges facets={toolFacets(tool, TOOL_TAGS[tool.id] ?? [])} className="gap-1.5" />
 
       <p className={cn('text-sm leading-relaxed', !tool.description && 'text-muted-foreground')}>
         {tool.description?.trim() || 'No description.'}
@@ -261,21 +205,6 @@ function ToolDetail({ tool, servers }: { tool: McpTool; servers: McpServer[] }) 
       )}
 
       <JsonBlock label="Input schema" value={tool.inputSchema ?? {}} />
-    </div>
-  )
-}
-
-function Annotations({ annotations }: { annotations?: McpToolAnnotations }) {
-  if (!annotations) return null
-  const active = HINTS.filter((h) => annotations[h.key])
-  if (active.length === 0) return null
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {active.map((h) => (
-        <Badge key={h.key} variant="outline" className="capitalize">
-          {h.label}
-        </Badge>
-      ))}
     </div>
   )
 }

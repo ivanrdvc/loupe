@@ -6,7 +6,7 @@ summary: What the Tasks page shows — machine-driven agent runs (scheduled, eve
 status: draft
 owner: "@ivan"
 audience: loupe-devs
-last-reviewed: 2026-05-23
+last-reviewed: 2026-06-27
 tags: [tasks, otel, telemetry]
 ---
 
@@ -59,6 +59,16 @@ Tasks rows are scheduling-identity by definition (`task.*`); the run-graph attrs
 2. **Root span operation name** — for fires emitted by cloud-native runtimes that don't stamp `task.id` (KEDA, Cloud Scheduler, etc.), the span name typically encodes the trigger source (e.g. `process queueitem`). loupe uses this as the cloud-semconv fallback identity. *Not a direct read of `cloud.scheduler.job.name` / `messaging.destination.name` / `http.route` today — those are the upstream attrs, but the span name is what reaches `TraceSummary.rootOperation`.*
 3. **Derived `(service.name, gen_ai.agent.name, trigger_type)`** — last resort. Lossy: all fires sharing the same service+agent+trigger collapse into one row. Flagged with a `derived` badge so you know the rollup isn't authoritative.
 
+## Cost
+
+Each fire's `totalCostUsd` (summed by the provider from `gen_ai.usage.*` cost on its chat spans) rolls up per task: `TaskRow.costUsd` is the window total, `RollupSummary.totalCostUsd` the fleet total (the Cost metric tile). `costUsd` is `undefined`, not `0`, when no fire carried usage — thin-schema spans (e.g. remote exporters) show `—` rather than a fake `$0`.
+
+## Declared overlay (registry enrichment)
+
+Telemetry only sees tasks that *fired*. A task that's **paused**, **never run**, or **due in the future** emits no spans, so the OTel rollup can't surface it. To cover that, `TaskRow` carries one optional `declared?: DeclaredTask` ([`declared.ts`](../../src/features/tasks/declared.ts)) — a provider-agnostic system-of-record view (status, trigger definition, owner, origin thread, lifetime run stats). Core ships the shape, the helpers (`taskState` → `paused`/`archived`/`never-run`/`failing`/`healthy`, `taskNextDueMs`, `formatTrigger`), and the rendering; **nothing upstream populates it** — `declared` is always absent in core, so the UI no-ops.
+
+A fork wires it **registry-primary**: the row set comes from the registry (`DeclaredTask[]`), and OTel activity attaches by `task.id` — the inverse of the telemetry-primary `rollupTasks`. The DB owns identity (no duplicate rows on a `task.id` miss); OTel owns window metrics. This stays a live fetch through a fork adapter, not a local mirror — extensions are fork-only, core never learns the registry exists.
+
 ## What the detail hero shows
 
 When you click a row, `/tasks/$key` renders three layers from the same fire data — no extra fetch:
@@ -84,9 +94,9 @@ In short: the **Task** chip is the *schedule registration* (the cron/event subsc
 
 ## Non-goals
 
-- Storing task definitions locally. Definitions live in the observed app.
-- Editing tasks from loupe (pause / cancel / re-run). Read-only.
-- Parsing `task.schedule` cron expressions to compute exact expected-fire times. We use empirical median interval instead — works for cron, interval, and event-driven cadences with one path.
+- Storing task definitions locally. Definitions live in the observed app; the declared overlay is a live fork-side fetch, not a mirror.
+- Editing tasks from loupe (pause / cancel / re-run). Read-only — we *show* paused/archived state, never mutate it.
+- Parsing `task.schedule` cron expressions to compute exact expected-fire times. We use empirical median interval instead — works for cron, interval, and event-driven cadences with one path. Exact next-due is read from `declared.trigger` (`taskNextDueMs`) when a registry supplies it, never computed.
 - Cross-provider identity normalization beyond the priority order above. Apps that emit `cloud.scheduler.job.name` and apps that emit `task.id` show up as separate rows even if they're conceptually the same job.
 
 Clicking a fire opens the trace as a drawer (via `?trace=`), not a full-page navigation.

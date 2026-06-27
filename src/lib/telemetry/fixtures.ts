@@ -374,6 +374,7 @@ const TRACES: TraceSummary[] = [
     taskName: 'Nightly Report',
     taskKind: 'cron',
     taskSchedule: '0 0 * * *',
+    totalCostUsd: 0.0123,
     hasError: false,
   },
 ]

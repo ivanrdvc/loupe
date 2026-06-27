@@ -27,7 +27,8 @@ import { Button } from '#/components/ui/button.tsx'
 import { createLocalStorageStore } from '#/lib/local-storage-store'
 import { cn } from '#/lib/utils'
 import { CHAT_MODELS, type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '../chat-models'
-import type { PageContext } from '../server/prompt'
+import type { MentionRef, PageContext } from '../server/prompt'
+import { MentionBackdrop, useMentionPicker } from './agent-mention'
 import { AgentMessage } from './agent-message'
 
 const MODEL_KEY = 'agent-chat-model'
@@ -69,15 +70,26 @@ export function AgentChat({ context }: { context: PageContext }) {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
   const [model, setModel] = useChatModel()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const picker = useMentionPicker(input, setInput, textareaRef)
 
   // Per vercel/ai-chatbot use-active-chat.tsx: the transport reads the latest
   // model/context from a ref inside prepareSendMessagesRequest.
   const live = useRef({ model, context })
   live.current = { model, context }
+  // The @-mentions for the message being sent; set at submit, then consumed
+  // (and cleared) inside prepareSendMessagesRequest — which runs async, so it
+  // must do the clearing, not submit().
+  const pendingMentions = useRef<MentionRef[]>([])
   const { messages, sendMessage, status, stop, regenerate, error } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      prepareSendMessagesRequest: ({ messages, id }) => ({ body: { messages, conversationId: id, ...live.current } }),
+      prepareSendMessagesRequest: ({ messages, id }) => {
+        const mentions = pendingMentions.current
+        pendingMentions.current = []
+        return { body: { messages, conversationId: id, mentions, ...live.current } }
+      },
     }),
   })
 
@@ -92,8 +104,10 @@ export function AgentChat({ context }: { context: PageContext }) {
   const submit = (message: PromptInputMessage) => {
     const text = message.text?.trim()
     if (!text) return
+    pendingMentions.current = picker.selected
     sendMessage({ text })
     setInput('')
+    picker.reset()
   }
 
   // Intercept the model's ?trace=/?session= deep-links so they open the
@@ -140,7 +154,7 @@ export function AgentChat({ context }: { context: PageContext }) {
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="shrink-0 px-3 pb-3">
+      <div className="relative shrink-0 px-3 pb-3">
         {error && (
           <div className="mb-2 flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <span>{error.message || 'Something went wrong.'}</span>
@@ -149,14 +163,28 @@ export function AgentChat({ context }: { context: PageContext }) {
             </button>
           </div>
         )}
+        {picker.menu}
         <PromptInput className="[&>div]:rounded-xl [&>div]:border [&>div]:bg-card" onSubmit={submit}>
           <PromptInputBody>
-            <PromptInputTextarea
-              className="min-h-14 px-3 pt-2.5 text-[13px] leading-relaxed"
-              value={input}
-              onChange={(e) => setInput(e.currentTarget.value)}
-              placeholder="Ask the agent — about this page, trace, or session"
-            />
+            <div className="relative w-full">
+              <MentionBackdrop
+                ref={backdropRef}
+                value={input}
+                tokens={picker.tokens}
+                className="px-3 pt-2.5 pb-2 text-[13px] leading-relaxed"
+              />
+              <PromptInputTextarea
+                ref={textareaRef}
+                className="relative min-h-14 bg-transparent px-3 pt-2.5 text-[13px] leading-relaxed dark:bg-transparent"
+                value={input}
+                onChange={picker.handleChange}
+                onKeyDown={picker.handleKeyDown}
+                onScroll={(e) => {
+                  if (backdropRef.current) backdropRef.current.scrollTop = e.currentTarget.scrollTop
+                }}
+                placeholder="Ask the agent — @ to reference a session or trace"
+              />
+            </div>
           </PromptInputBody>
           <PromptInputFooter className="px-2.5 pb-2.5">
             <PromptInputTools>

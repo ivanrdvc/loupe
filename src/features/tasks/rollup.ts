@@ -1,5 +1,7 @@
 import type { TraceCategory, TraceSummary } from '#/lib/telemetry'
 import { FIRE_TRIGGER_TYPES } from '#/lib/telemetry/trace-category'
+import type { DeclaredTask } from './declared'
+import { triggerNextDueMs } from './declared'
 
 const FIRE_CATEGORIES: ReadonlySet<TraceCategory> = new Set(FIRE_TRIGGER_TYPES)
 
@@ -51,9 +53,28 @@ export interface TaskRow {
   successRate: number
   avgDurationMs: number
   lastFireMs: number
+  costUsd?: number // undefined when no fire carried usage (thin spans) — not $0
   conversationId?: string // when all fires share one — surfaced as "Created by"
   spark: SparkPoint[]
   sampleTraceId: string
+  declared?: DeclaredTask // registry overlay; fed fork-side, never by core
+}
+
+export type TaskState = 'paused' | 'archived' | 'never-run' | 'failing' | 'healthy'
+
+// Status and fires are independent — a paused task may still have window fires.
+export function taskState(r: TaskRow): TaskState {
+  const s = r.declared?.status
+  if (s === 'paused') return 'paused'
+  if (s === 'archived') return 'archived'
+  const ranEver = r.fires > 0 || (r.declared?.lifetime?.totalRuns ?? 0) > 0
+  if (r.declared && !ranEver) return 'never-run'
+  return r.errored > 0 ? 'failing' : 'healthy'
+}
+
+export function taskNextDueMs(r: TaskRow): number | undefined {
+  if (r.declared && r.declared.status !== 'active') return undefined
+  return triggerNextDueMs(r.declared?.trigger)
 }
 
 interface SparkPoint {
@@ -98,6 +119,13 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
     const errored = group.reduce((n, t) => n + (t.hasError ? 1 : 0), 0)
     const totalDur = group.reduce((n, t) => n + t.durationMs, 0)
     const lastFireMs = group.reduce((m, t) => Math.max(m, t.startedAtMs), 0)
+    let costUsd = 0
+    let hasCost = false
+    for (const t of group)
+      if (t.totalCostUsd != null) {
+        costUsd += t.totalCostUsd
+        hasCost = true
+      }
     const spark: SparkPoint[] = Array.from({ length: buckets }, (_, i) => ({
       t: fromMs + i * bucketMs,
       fires: 0,
@@ -130,6 +158,7 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
       successRate: 1 - errored / group.length,
       avgDurationMs: Math.round(totalDur / group.length),
       lastFireMs,
+      costUsd: hasCost ? costUsd : undefined,
       conversationId: sharedConversation,
       spark,
       sampleTraceId: sample.id,
@@ -166,6 +195,9 @@ export interface RollupSummary {
   avgDurationMs: number
   taskCount: number
   healthyTasks: number
+  totalCostUsd?: number
+  pausedTasks: number // declared-aware — non-zero only with a registry overlay
+  neverRunTasks: number
 }
 
 export function summarizeRollup(rows: TaskRow[]): RollupSummary {
@@ -173,11 +205,22 @@ export function summarizeRollup(rows: TaskRow[]): RollupSummary {
   let errored = 0
   let weightedDur = 0
   let healthyTasks = 0
+  let cost = 0
+  let hasCost = false
+  let pausedTasks = 0
+  let neverRunTasks = 0
   for (const r of rows) {
     fires += r.fires
     errored += r.errored
     weightedDur += r.avgDurationMs * r.fires
-    if (r.errored === 0) healthyTasks += 1
+    if (r.fires > 0 && r.errored === 0) healthyTasks += 1
+    if (r.costUsd != null) {
+      cost += r.costUsd
+      hasCost = true
+    }
+    const state = taskState(r)
+    if (state === 'paused') pausedTasks += 1
+    else if (state === 'never-run') neverRunTasks += 1
   }
   const success = fires - errored
   return {
@@ -189,5 +232,8 @@ export function summarizeRollup(rows: TaskRow[]): RollupSummary {
     avgDurationMs: fires > 0 ? Math.round(weightedDur / fires) : 0,
     taskCount: rows.length,
     healthyTasks,
+    totalCostUsd: hasCost ? cost : undefined,
+    pausedTasks,
+    neverRunTasks,
   }
 }

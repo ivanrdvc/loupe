@@ -4,18 +4,22 @@ import { useMemo } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
-import { FiresTable, rollupTasks, TaskHero, taskIdentity, tasksTracesQuery } from '#/features/tasks'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { FiresTable, rollupTasks, TaskCost, TaskHero, taskIdentity, tasksTracesQuery } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import { useScopedUserId } from '#/hooks/use-user'
 import type { TraceSummary } from '#/lib/telemetry'
 import { windowMs } from '#/lib/time-range'
 
+type TabValue = 'fires' | 'cost'
+
 export const Route = createFileRoute('/tasks/$taskKey')({
-  validateSearch: (search: Record<string, unknown>): { trace?: string; session?: string } => {
+  validateSearch: (search: Record<string, unknown>): { tab?: TabValue; trace?: string; session?: string } => {
     const trace = typeof search.trace === 'string' ? search.trace.trim() : ''
     const session = typeof search.session === 'string' ? search.session.trim() : ''
     return {
+      ...(search.tab === 'cost' ? { tab: 'cost' as const } : {}),
       ...(trace ? { trace } : {}),
       ...(session ? { session } : {}),
     }
@@ -26,6 +30,8 @@ export const Route = createFileRoute('/tasks/$taskKey')({
 function TaskDetail() {
   const { taskKey: encoded } = Route.useParams()
   const taskKey = decodeURIComponent(encoded)
+  const { tab } = Route.useSearch()
+  const activeTab: TabValue = tab ?? 'fires'
   const navigate = useNavigate({ from: Route.fullPath })
   const [range] = useTimeRange()
   const [autoRefresh] = useAutoRefresh()
@@ -76,12 +82,43 @@ function TaskDetail() {
                 void navigate({ search: (prev) => ({ ...prev, trace: t.id }) })
               }}
             />
-            <FiresTable
-              data={fires}
-              onRowClick={(t) => {
-                void navigate({ search: (prev) => ({ ...prev, trace: t.id }) })
-              }}
-            />
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) =>
+                void navigate({
+                  search: (prev) => ({ ...prev, tab: v === 'cost' ? ('cost' as const) : undefined }),
+                  replace: true,
+                })
+              }
+              className="flex min-h-0 flex-1 flex-col gap-0"
+            >
+              <div className="border-t">
+                <TabsList variant="line" className="h-auto gap-x-4 px-4 lg:px-6">
+                  <TabsTrigger value="fires" className="flex-none px-3 pb-2">
+                    Fires
+                  </TabsTrigger>
+                  <TabsTrigger value="cost" className="flex-none px-3 pb-2">
+                    Cost
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="fires" className="flex min-h-0 flex-1 flex-col">
+                <FiresTable
+                  data={fires}
+                  onRowClick={(t) => {
+                    void navigate({ search: (prev) => ({ ...prev, trace: t.id }) })
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="cost" className="flex min-h-0 flex-1 flex-col">
+                <TaskCost
+                  fires={fires}
+                  onRowClick={(t) => {
+                    void navigate({ search: (prev) => ({ ...prev, trace: t.id }) })
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </Page>

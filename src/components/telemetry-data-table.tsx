@@ -133,7 +133,7 @@ export function TelemetryDataTable<TData>({
                   <TableRow
                     key={row.id}
                     className={cn(
-                      'h-12 [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
+                      '[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6',
                       onRowClick && 'cursor-pointer',
                       rowClassName?.(row.original),
                     )}

@@ -17,6 +17,7 @@ import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
+import type { ToolSignal } from '#/features/mcp'
 import { downloadCsv } from '#/lib/csv'
 import type { ToolRow } from '#/lib/telemetry'
 import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
@@ -25,6 +26,7 @@ import { toolColumns } from './-columns'
 
 interface ToolsDataTableProps {
   data: ToolRow[]
+  signalsByName: Record<string, ToolSignal[]>
   isLoading?: boolean
   sorting: SortingState
   onSortingChange: (next: SortingState) => void
@@ -37,6 +39,7 @@ interface ToolsDataTableProps {
 
 export function ToolsDataTable({
   data,
+  signalsByName,
   isLoading,
   sorting,
   onSortingChange,
@@ -46,13 +49,18 @@ export function ToolsDataTable({
   dimensions,
   onDimensionChange,
 }: ToolsDataTableProps) {
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    lastSeenMs: false,
+    totalTokensEst: false,
+  })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 })
 
+  const columns = React.useMemo(() => toolColumns(signalsByName), [signalsByName])
+
   const table = useReactTable({
     data,
-    columns: toolColumns,
+    columns,
     state: { sorting, columnVisibility, columnFilters, pagination },
     getRowId: (row) => row.name,
     onSortingChange: (updater) => {
@@ -128,7 +136,7 @@ export function ToolsDataTable({
                   <TableRow
                     key={row.id}
                     onClick={() => onRowClick(row.original)}
-                    className="h-12 cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
+                    className="cursor-pointer [&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
@@ -137,7 +145,7 @@ export function ToolsDataTable({
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={toolColumns.length} className="h-48">
+                  <TableCell colSpan={columns.length} className="h-48">
                     <div className="flex h-full items-center justify-center text-muted-foreground">
                       {isLoading ? (
                         <Spinner size="md" className="text-muted-foreground" />

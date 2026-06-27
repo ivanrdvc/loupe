@@ -2,15 +2,16 @@ import { createFileRoute } from '@tanstack/react-router'
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 'ai'
 import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/agent/chat-models'
 import { resolveChatModel } from '#/features/agent/server/models'
-import { type PageContext, systemPrompt } from '#/features/agent/server/prompt'
+import { type MentionRef, type PageContext, systemPrompt } from '#/features/agent/server/prompt'
 import { agentTelemetry } from '#/features/agent/server/telemetry'
-import { agentTools } from '#/features/agent/server/tools'
+import { agentTools, resolveMentions } from '#/features/agent/server/tools'
 
 interface ChatRequest {
   messages: UIMessage[]
   model?: string
   context?: PageContext
   conversationId?: string
+  mentions?: MentionRef[]
 }
 
 export const Route = createFileRoute('/api/chat')({
@@ -19,9 +20,10 @@ export const Route = createFileRoute('/api/chat')({
       POST: async ({ request }) => {
         const body = (await request.json()) as ChatRequest
         const modelId: ChatModelId = isChatModelId(body.model) ? body.model : DEFAULT_CHAT_MODEL
+        const mentions = body.mentions?.length ? await resolveMentions(body.mentions) : undefined
         const result = streamText({
           model: resolveChatModel(modelId),
-          system: systemPrompt(body.context ?? { pathname: '/' }),
+          system: systemPrompt(body.context ?? { pathname: '/' }, mentions),
           messages: await convertToModelMessages(body.messages),
           tools: agentTools,
           stopWhen: stepCountIs(8),
