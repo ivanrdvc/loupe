@@ -341,9 +341,11 @@ function SpanTreeRowImpl({
   const durationMs = span.endMs - span.startMs
   const isAgent = span.operation === 'invoke_agent'
   const isTool = span.operation === 'tool'
+  const isMemory = span.operation === 'memory'
   const tokenSum = (span.inputTokens ?? 0) + (span.outputTokens ?? 0)
-  // Tool spans don't consume tokens themselves; hide the 0→0 noise when present.
-  const showTokens = !isAgent && !(isTool && tokenSum === 0) && (span.inputTokens != null || span.outputTokens != null)
+  // Tool and memory spans don't consume tokens themselves; child model calls do.
+  const showTokens =
+    !isAgent && !isMemory && !(isTool && tokenSum === 0) && (span.inputTokens != null || span.outputTokens != null)
   const cached = span.cachedTokens ?? 0
   const finishReason = span.finishReasons?.[0]
   const showFinish = finishReason && !NORMAL_FINISH.has(finishReason)

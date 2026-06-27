@@ -58,6 +58,10 @@ export interface Classification {
   retrievalQuery?: string
   retrievalDocuments?: RetrievalDocument[]
   embeddingDimensions?: number
+  memoryOperation?: string
+  memoryStoreId?: string
+  memoryRecordCount?: number
+  memoryRecords?: JsonValue[]
   truncatedAttrs?: TruncatedAttrSet
 }
 
@@ -140,6 +144,18 @@ export function classifySpan(name: string, attrs: Record<string, unknown>, spanS
 
   const operationName = pickCanonical(attrs, 'llmPurpose')
   if (operationName) c.operationName = operationName
+
+  if (operation === 'memory') {
+    const memoryOperation = pickString(attrs, ['gen_ai.operation.name', 'gen_ai_operation_name'])
+    if (memoryOperation) c.memoryOperation = memoryOperation
+    const storeId = pickString(attrs, ['gen_ai.memory.store.id', 'gen_ai_memory_store_id'])
+    if (storeId) c.memoryStoreId = storeId
+    const recordCount = pickNumber(attrs, ['gen_ai.memory.record.count', 'gen_ai_memory_record_count'])
+    if (recordCount !== undefined) c.memoryRecordCount = recordCount
+    const recordsRaw = attrs['gen_ai.memory.records'] ?? attrs.gen_ai_memory_records
+    const records = typeof recordsRaw === 'string' ? parseJson(recordsRaw) : recordsRaw
+    if (Array.isArray(records)) c.memoryRecords = records as JsonValue[]
+  }
 
   const outputType = pickString(attrs, ['gen_ai.output.type', 'gen_ai_output_type'])
   if (outputType) c.outputType = outputType
@@ -322,6 +338,16 @@ function pickOperation(name: string, attrs: Record<string, unknown>): Operation 
   if (op === 'execute_tool') return 'tool'
   if (op === 'retrieval') return 'retrieval'
   if (op === 'embeddings') return 'embedding'
+  if (
+    op === 'create_memory_store' ||
+    op === 'search_memory' ||
+    op === 'create_memory' ||
+    op === 'update_memory' ||
+    op === 'upsert_memory' ||
+    op === 'delete_memory' ||
+    op === 'delete_memory_store'
+  )
+    return 'memory'
   if (name.startsWith('chat ')) return 'chat'
   if (name.startsWith('invoke_agent ')) return 'invoke_agent'
   if (name.startsWith('execute_tool ')) return 'tool'

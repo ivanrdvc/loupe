@@ -11,6 +11,7 @@
 #   "azure-monitor-opentelemetry-exporter==1.0.0b52",
 #   "python-dotenv",
 #   "mcp",
+#   "pydantic",
 # ]
 # ///
 """MAF sandbox: main agent + weather subagent + MCP + scheduled tasks. Serves OpenAI-compat endpoints via DevUI; emits OTel to local OpenObserve and (if APPLICATIONINSIGHTS_CONNECTION_STRING is set) App Insights. Run: uv run maf.py."""
@@ -20,6 +21,7 @@ import json
 import os
 import random
 import uuid
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -51,13 +53,16 @@ from agent_framework import (  # noqa: E402
     AgentMiddleware,
     ChatContext,
     ChatMiddleware,
+    ContextProvider,
     MCPStdioTool,
+    SupportsChatGetResponse,
     tool,
 )
 from agent_framework.devui import serve  # noqa: E402
 from agent_framework.observability import configure_otel_providers, get_tracer  # noqa: E402
 from agent_framework.openai import OpenAIChatClient  # noqa: E402
 from opentelemetry import context as otel_context  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
 configure_otel_providers(enable_sensitive_data=True)
 
@@ -84,6 +89,61 @@ if _AI_CONN:
 
 MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 PORT = int(os.environ.get("MAF_PORT", "4280"))
+
+
+class UserPreferences(BaseModel):
+    name: str | None = None
+    age: int | None = None
+    preference: str | None = None
+
+
+class UserPreferenceMemory(ContextProvider):
+    def __init__(self, client: SupportsChatGetResponse) -> None:
+        super().__init__("user-preference-memory")
+        self._chat_client = client
+
+    async def before_run(self, *, agent: Any, session: Any, context: Any, state: dict[str, Any]) -> None:
+        memories = state.get("memories", {})
+        records = [{"id": key, "content": value} for key, value in memories.items()]
+        with get_tracer().start_as_current_span("search_memory") as span:
+            span.set_attribute("gen_ai.operation.name", "search_memory")
+            span.set_attribute("gen_ai.memory.store.id", self.source_id)
+            span.set_attribute("gen_ai.memory.record.count", len(records))
+            span.set_attribute("gen_ai.memory.records", json.dumps(records))
+            if memories:
+                facts = "; ".join(f"{key}: {value}" for key, value in memories.items())
+                context.extend_instructions(self.source_id, f"Remembered user facts: {facts}")
+
+    async def after_run(self, *, agent: Any, session: Any, context: Any, state: dict[str, Any]) -> None:
+        memories = state.setdefault("memories", {})
+        learned: dict[str, str] = {}
+        if context.input_messages:
+            with suppress(Exception):
+                result = await self._chat_client.get_response(
+                    messages=context.input_messages,
+                    options={
+                        "instructions": (
+                            "Extract only user facts explicitly stated in the latest messages. "
+                            "Return the user's name, age, and general preference when present; "
+                            "return null for fields that are not stated. Do not infer values."
+                        ),
+                        "response_format": UserPreferences,
+                    },
+                )
+                extracted = result.value
+                if extracted.name is not None:
+                    learned["name"] = extracted.name
+                if extracted.age is not None:
+                    learned["age"] = str(extracted.age)
+                if extracted.preference is not None:
+                    learned["preference"] = extracted.preference
+        memories.update(learned)
+        records = [{"id": key, "content": value} for key, value in memories.items()]
+        with get_tracer().start_as_current_span("upsert_memory") as span:
+            span.set_attribute("gen_ai.operation.name", "upsert_memory")
+            span.set_attribute("gen_ai.memory.store.id", self.source_id)
+            span.set_attribute("gen_ai.memory.record.count", len(records))
+            span.set_attribute("gen_ai.memory.records", json.dumps(records))
 
 
 @tool(approval_mode="never_require")
@@ -490,8 +550,10 @@ class _DynamicToolGateMiddleware(ChatMiddleware):
         await call_next()
 
 
+main_chat_client = OpenAIChatClient(model=MODEL)
+
 main_agent = Agent(
-    client=OpenAIChatClient(model=MODEL),
+    client=main_chat_client,
     name="sandbox-agent",
     description="Multi-purpose test agent with function tools, an MCP server, a weather subagent, task scheduling, and dynamic mid-turn tool loading.",
     instructions=(
@@ -514,6 +576,7 @@ main_agent = Agent(
         *[t for tools in _DOMAIN_TOOLS.values() for t in tools],
     ],
     middleware=[_ResetLoadedDomainsMiddleware(), _DynamicToolGateMiddleware()],
+    context_providers=[UserPreferenceMemory(main_chat_client)],
 )
 
 

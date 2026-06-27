@@ -3,7 +3,16 @@ import type { JsonValue } from '#/lib/json'
 export type SpanKind = 'server' | 'client' | 'internal' | 'producer' | 'consumer'
 // `http` = real HTTP span (has the OTel http method attr); `unknown` = fallthrough
 // for everything else we can't classify. Both collapse by default.
-export type Operation = 'unknown' | 'http' | 'chat' | 'tool' | 'mcp' | 'invoke_agent' | 'retrieval' | 'embedding'
+export type Operation =
+  | 'unknown'
+  | 'http'
+  | 'chat'
+  | 'tool'
+  | 'mcp'
+  | 'invoke_agent'
+  | 'retrieval'
+  | 'embedding'
+  | 'memory'
 
 // `gen_ai.retrieval.documents` entry — spec guarantees only id + score.
 export interface RetrievalDocument {
@@ -91,6 +100,12 @@ export interface Span {
   retrievalQuery?: string
   retrievalDocuments?: RetrievalDocument[]
   embeddingDimensions?: number
+
+  // OTel GenAI memory operation fields. Record content is sensitive opt-in.
+  memoryOperation?: string
+  memoryStoreId?: string
+  memoryRecordCount?: number
+  memoryRecords?: JsonValue[]
 
   // All provider attributes for the raw-fields inspector view. JsonValue so it
   // survives the SSR serialization boundary.

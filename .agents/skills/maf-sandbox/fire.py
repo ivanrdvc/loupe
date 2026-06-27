@@ -22,6 +22,7 @@ from pathlib import Path
 PORT = os.environ.get("MAF_PORT", "4280")
 HERE = Path(__file__).resolve().parent
 LOG_PATH = os.environ.get("MAF_LOG", "/tmp/maf-sandbox.log")
+CONVERSATION_MAP = Path(os.environ.get("MAF_CONVERSATIONS", "/tmp/maf-sandbox-conversations.json"))
 BASE = f"http://localhost:{PORT}"
 
 
@@ -51,6 +52,35 @@ def wait_until_ready(name: str = "sandbox-agent", timeout: int = 60) -> str:
     sys.exit(f"sandbox not ready within {timeout}s; tail {LOG_PATH}")
 
 
+def resolve_conversation(label: str, eid: str) -> str:
+    try:
+        conversations = json.loads(CONVERSATION_MAP.read_text())
+    except (OSError, json.JSONDecodeError):
+        conversations = {}
+    conversation = conversations.get(label)
+    if conversation:
+        try:
+            urllib.request.urlopen(f"{BASE}/v1/conversations/{conversation}", timeout=2).close()
+            return conversation
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise
+    body = json.dumps({
+        "metadata": {"agent_id": eid, "entity_id": eid, "label": label},
+    }).encode()
+    req = urllib.request.Request(
+        f"{BASE}/v1/conversations",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=2) as response:
+        conversation = json.load(response)["id"]
+    conversations[label] = conversation
+    CONVERSATION_MAP.write_text(json.dumps(conversations))
+    return conversation
+
+
 def start() -> None:
     print(f"starting sandbox on :{PORT} (logs: {LOG_PATH})", file=sys.stderr)
     with open(LOG_PATH, "ab") as log:
@@ -62,7 +92,7 @@ def start() -> None:
         )
 
 
-def fire(prompt: str, eid: str, *, stream: bool, agent: str) -> None:
+def fire(prompt: str, eid: str, *, stream: bool, agent: str, conversation: str | None) -> None:
     body = json.dumps({
         "model": agent,
         "input": [{
@@ -71,6 +101,7 @@ def fire(prompt: str, eid: str, *, stream: bool, agent: str) -> None:
             "content": [{"type": "input_text", "text": prompt}],
         }],
         "metadata": {"entity_id": eid},
+        **({"conversation": conversation} if conversation else {}),
         "stream": stream,
     }).encode()
     req = urllib.request.Request(
@@ -104,11 +135,14 @@ def main() -> None:
     rest = args[1:]
     stream = "--stream" in rest
     agent = _arg_value(rest, "--agent", "sandbox-agent")
+    conversation = _arg_value(rest, "--conversation", "") or None
     eid = find_entity_id(agent)
     if eid is None:
         start()
         eid = wait_until_ready(agent)
-    fire(prompt, eid, stream=stream, agent=agent)
+    if conversation:
+        conversation = resolve_conversation(conversation, eid)
+    fire(prompt, eid, stream=stream, agent=agent, conversation=conversation)
 
 
 if __name__ == "__main__":
