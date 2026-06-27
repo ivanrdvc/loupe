@@ -10,7 +10,7 @@ import {
   type McpServer,
   type McpTool,
   type McpToolAnnotations,
-  TOOL_SIGNAL_DESCRIPTIONS,
+  SignalBadges,
   TOOL_TAGS,
   type ToolSignal,
 } from '#/features/mcp'
@@ -165,20 +165,7 @@ export function ToolsBrowser({ servers }: { servers: McpServer[] }) {
                             <Badge variant="warning">dup</Badge>
                           ) : null}
                         </span>
-                        {signals.length > 0 && (
-                          <span className="flex flex-wrap gap-1">
-                            {signals.map((s) => (
-                              <Badge
-                                key={s}
-                                variant={s === 'unbounded' || s === 'bulk' ? 'warning' : 'outline'}
-                                className="font-normal"
-                                title={TOOL_SIGNAL_DESCRIPTIONS[s]}
-                              >
-                                {s}
-                              </Badge>
-                            ))}
-                          </span>
-                        )}
+                        <SignalBadges signals={signals} />
                         {t.description && (
                           <span className="line-clamp-1 text-xs text-muted-foreground">{t.description}</span>
                         )}
@@ -214,19 +201,7 @@ function ToolDetail({ tool, servers }: { tool: McpTool; servers: McpServer[] }) 
 
       <Annotations annotations={tool.annotations} />
 
-      {signals.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {signals.map((s) => (
-            <Badge
-              key={s}
-              variant={s === 'unbounded' || s === 'bulk' ? 'warning' : 'outline'}
-              title={TOOL_SIGNAL_DESCRIPTIONS[s]}
-            >
-              {s}
-            </Badge>
-          ))}
-        </div>
-      )}
+      <SignalBadges signals={signals} className="gap-1.5" />
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

@@ -1,5 +1,4 @@
 import { SIGNAL_VOCAB } from '../signal-vocab'
-import type { McpTool } from '../types'
 
 // Cost/scale signals from a tool's name + schema — which tools won't bound their
 // result size as data grows (`get_all_employees`, no pagination → balloons context).
@@ -91,7 +90,11 @@ function compile(o: SignalVocabOverrides): CompiledVocab {
 
 const DEFAULT_VOCAB = compile(SIGNAL_VOCAB)
 
-export function deriveSignals(tool: McpTool, overrides: SignalVocabOverrides = SIGNAL_VOCAB): ToolSignal[] {
+// Name-only tools are allowed; without a schema only name-based signals fire.
+export function deriveSignals(
+  tool: { name: string; inputSchema?: unknown },
+  overrides: SignalVocabOverrides = SIGNAL_VOCAB,
+): ToolSignal[] {
   const vocab = overrides === SIGNAL_VOCAB ? DEFAULT_VOCAB : compile(overrides)
   const params = schemaParamNames(tool.inputSchema).map((p) => p.toLowerCase())
   const name = tool.name.toLowerCase()
@@ -111,6 +114,17 @@ export function deriveSignals(tool: McpTool, overrides: SignalVocabOverrides = S
   if (listLike && !paginated && !filterable && !selfScoped) signals.add('unbounded')
 
   return TOOL_SIGNALS.filter((s) => signals.has(s))
+}
+
+// Schema-accurate registry signals win per name; name-only derivation is the fallback
+// for tools seen in telemetry but absent from the registry.
+export function mergeSignalsByName(
+  names: Iterable<string>,
+  registrySignals?: Record<string, ToolSignal[]>,
+): Record<string, ToolSignal[]> {
+  const out: Record<string, ToolSignal[]> = {}
+  for (const name of names) out[name] = registrySignals?.[name] ?? deriveSignals({ name })
+  return out
 }
 
 function schemaParamNames(schema: unknown): string[] {

@@ -2,6 +2,7 @@ import { errMessage } from '#/lib/format'
 import { listServerTools } from './client'
 import { lintMcpRegistry } from './lint'
 import { LINT_CONFIG } from './lint-config'
+import { deriveSignals, TOOL_SIGNALS, type ToolSignal } from './logic/signals'
 import { getRegistrySource } from './registry'
 import type { McpRegistryResult, McpServer } from './types'
 
@@ -33,6 +34,19 @@ export async function listMcpRegistryWithLint() {
   return { ...registry, findings: lintMcpRegistry(registry.servers, { config: LINT_CONFIG }) }
 }
 
+// For name-keyed surfaces (e.g. /tools) that lack the input schema deriveSignals needs.
+export async function listToolSignals(): Promise<Record<string, ToolSignal[]>> {
+  const { servers } = await listMcpRegistry()
+  const byName: Record<string, ToolSignal[]> = {}
+  for (const server of servers)
+    for (const tool of server.tools) {
+      const merged = new Set([...(byName[tool.name] ?? []), ...deriveSignals(tool)])
+      byName[tool.name] = TOOL_SIGNALS.filter((s) => merged.has(s))
+    }
+  return byName
+}
+
+export { SignalBadges } from './components/signal-badges'
 export { BUILTIN_RULES, lintMcpRegistry } from './lint'
 export { aggregateTools, type UniqueTool } from './logic/aggregate-tools'
 export {
@@ -41,7 +55,13 @@ export {
   LINT_CATEGORY_LABELS,
   worstSeverity,
 } from './logic/lint-helpers'
-export { deriveSignals, TOOL_SIGNAL_DESCRIPTIONS, TOOL_SIGNALS, type ToolSignal } from './logic/signals'
+export {
+  deriveSignals,
+  mergeSignalsByName,
+  TOOL_SIGNAL_DESCRIPTIONS,
+  TOOL_SIGNALS,
+  type ToolSignal,
+} from './logic/signals'
 export { TOOL_TAGS } from './tool-tags'
 export type {
   LintRule,

@@ -4,9 +4,11 @@ import type { SortingState } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
 import { toolsCatalogQuery } from '#/features/inspect'
+import { mergeSignalsByName } from '#/features/mcp'
 import { useTimeRange } from '#/hooks/use-time-range'
 import type { ToolDimensionFilter } from '#/lib/telemetry'
 import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
+import { toolSignalsQuery } from './-signals'
 import { ToolsDataTable } from './-tools-data-table'
 
 const SORTABLE_COLUMNS = new Set([
@@ -52,6 +54,16 @@ function ToolsPage() {
   )
 
   const { data, isLoading } = useQuery(toolsCatalogQuery(range, dimensions))
+  const { data: registrySignals } = useQuery(toolSignalsQuery())
+
+  const signalsByName = useMemo(
+    () =>
+      mergeSignalsByName(
+        (data ?? []).map((r) => r.name),
+        registrySignals,
+      ),
+    [data, registrySignals],
+  )
 
   const sorting: SortingState = useMemo(
     () => (sort ? [{ id: sort, desc: desc ?? true }] : [{ id: 'calls', desc: true }]),
@@ -74,6 +86,7 @@ function ToolsPage() {
     <Page title="Tools">
       <ToolsDataTable
         data={data ?? []}
+        signalsByName={signalsByName}
         isLoading={isLoading}
         sorting={sorting}
         onSortingChange={setSorting}
