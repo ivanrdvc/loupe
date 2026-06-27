@@ -1,39 +1,15 @@
-import { readFileSync } from 'node:fs'
 import { tool } from 'ai'
 import { z } from 'zod'
 
-/** A named playbook/context the agent loads on demand. Descriptions are always in
- *  the prompt (cheap); full content is fetched via load_skill (progressive disclosure). */
+/** A named playbook the agent loads on demand: descriptions sit in the prompt,
+ *  full content is fetched via load_skill (progressive disclosure). */
 export interface Skill {
   name: string
   description: string
   load: () => string | null
 }
 
-// A fork (or user) describes the agent being observed in this file; reading it
-// grounds answers in the actual project, not generic telemetry-speak. Read fresh
-// each turn so edits apply without a restart; absent file → null.
-const PROFILE_PATH = process.env.AGENT_PROFILE_PATH ?? 'agent-profile.md'
-
-function projectProfile(): string | null {
-  try {
-    // HTML comments are editor guidance, not for the model — strip them so an
-    // unfilled template counts as empty.
-    const text = readFileSync(PROFILE_PATH, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
-    return text.trim() || null
-  } catch {
-    return null
-  }
-}
-
-export const skills: Skill[] = [
-  {
-    name: 'project-profile',
-    description:
-      "The observed project's profile: what its agents do, the tools they use, and known quirks. Load before answering anything specific to the user's own project.",
-    load: projectProfile,
-  },
-]
+export const skills: Skill[] = []
 
 /** Always-present skill index — names + descriptions only, no bodies. */
 export function skillsCatalog(): string {
