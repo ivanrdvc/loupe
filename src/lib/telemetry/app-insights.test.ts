@@ -1,6 +1,36 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toolError } from '#/lib/spans/conversation'
+import { countTokens } from '#/lib/tokens'
+import { fetchTools } from './analytics-app-insights'
 import { applyExceptionRows, createAppInsightsProvider, normalizeAiRow } from './app-insights'
+import type { AppInsightsProvider } from './types'
+
+// A non-ASCII result (Japanese tokenizes ~1 token/char) has fewer chars but more
+// tokens than the long ASCII one — the shape that made the old char-ordered max
+// under-report. Pinned: sparse 1621 tok, dense 1980.
+const SPARSE_BODY = 'the quick brown fox jumps over the lazy dog '.repeat(180)
+const DENSE_BODY = 'エラー: 注文の処理に失敗しました。再試行してください。'.repeat(110)
+
+describe('fetchTools maxTokens is the token-max, not the char-longest body tokenized', () => {
+  it('precondition: the shorter-by-chars body tokenizes to more tokens', () => {
+    expect(DENSE_BODY.length).toBeLessThan(SPARSE_BODY.length)
+    expect(countTokens(DENSE_BODY)).toBeGreaterThan(countTokens(SPARSE_BODY))
+  })
+
+  it('tokenizes all candidates and reports the densest, not the longest', async () => {
+    const p = {
+      name: 'app-insights',
+      fingerprint: 'f',
+      query: async (q: string) =>
+        /partition by name/.test(q)
+          ? [DENSE_BODY, SPARSE_BODY].map((body) => ({ name: 'execute_tool echo', body }))
+          : [{ name: 'execute_tool echo', calls: 2, calls_with_result: 2, max_chars: SPARSE_BODY.length }],
+    } as unknown as AppInsightsProvider
+    const [row] = await fetchTools(p)
+    expect(row.maxTokens).toBe(countTokens(DENSE_BODY))
+    expect(row.maxTokens).not.toBe(countTokens(SPARSE_BODY))
+  })
+})
 
 // Hand-built to the Azure Monitor row shape (no local Azure to capture from).
 const CHAT_ROW = {

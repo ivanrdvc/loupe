@@ -79,7 +79,6 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
         p50_chars = percentile(result_len_nz, 50),
         p95_chars = percentile(result_len_nz, 95),
         max_chars = max(result_len_nz),
-        max_body = arg_max(result_len, body),
         total_chars = sum(result_len),
         p50_ms = percentile(duration, 50),
         p95_ms = percentile(duration, 95),
@@ -91,6 +90,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
     | top ${limit} by calls desc
   `
   const rows = await p.query(q, opts ?? {})
+  const maxTokensByName = await maxResultTokensByName(p, `${nameFilter}\n    ${dimFilters}`, opts)
   return rows.map((r) => {
     const calls = Number(r.calls ?? 0)
     const errors = Number(r.errors ?? 0)
@@ -106,10 +106,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       avgTokensEst: tokensFromChars(toCount(r.avg_chars)),
       p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
-      maxTokens:
-        typeof r.max_body === 'string' && r.max_body.length > 0
-          ? countTokens(r.max_body)
-          : tokensFromChars(toCount(r.max_chars)),
+      maxTokens: maxTokensByName.get(raw) ?? tokensFromChars(toCount(r.max_chars)),
       totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
@@ -119,6 +116,35 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       ...(typeof session === 'string' && session ? { sampleSessionId: session } : {}),
     }
   })
+}
+
+// Token count isn't monotonic with char length, so tokenize the longest-by-chars
+// candidates (not just the single longest) and take the real max.
+const MAX_TOKEN_CANDIDATES = 12
+async function maxResultTokensByName(
+  p: AppInsightsProvider,
+  filters: string,
+  opts?: WindowOpts,
+): Promise<Map<string, number>> {
+  const q = `
+    union dependencies, requests
+    ${filters}
+    | extend body = tostring(customDimensions["${RESULT_ATTR}"])
+    | extend result_len = strlen(body)
+    | where result_len > 0
+    | partition by name (top ${MAX_TOKEN_CANDIDATES} by result_len desc | project name, body)
+    | project name, body
+  `
+  const rows = await p.query(q, opts ?? {})
+  const out = new Map<string, number>()
+  for (const r of rows) {
+    const nm = typeof r.name === 'string' ? r.name : ''
+    const body = typeof r.body === 'string' ? r.body : ''
+    if (!nm || body.length === 0) continue
+    const tokens = countTokens(body)
+    if (tokens > (out.get(nm) ?? 0)) out.set(nm, tokens)
+  }
+  return out
 }
 
 export async function fetchToolPayloadBody(p: AppInsightsProvider, spanId: string): Promise<RawPayloadBody | null> {

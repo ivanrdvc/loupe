@@ -129,13 +129,16 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
   })
 }
 
-// Longest result body per tool (one row each via ROW_NUMBER), tokenized.
+// Token count isn't monotonic with char length, so tokenize the longest-by-chars
+// candidates (not just the single longest) and take the real max.
+const MAX_TOKEN_CANDIDATES = 12
 async function maxResultTokensByOp(
   p: OpenObserveProvider,
   where: string,
   limit: number,
   opts?: WindowOpts,
 ): Promise<Map<string, number>> {
+  const size = limit * MAX_TOKEN_CANDIDATES
   const sql = `
     SELECT operation_name AS name, body FROM (
       SELECT
@@ -144,15 +147,17 @@ async function maxResultTokensByOp(
         ROW_NUMBER() OVER (PARTITION BY operation_name ORDER BY LENGTH(gen_ai_tool_call_result) DESC) AS rn
       FROM "${p.stream}"
       WHERE ${where} AND gen_ai_tool_call_result IS NOT NULL
-    ) WHERE rn = 1
-    LIMIT ${limit}
+    ) WHERE rn <= ${MAX_TOKEN_CANDIDATES}
+    LIMIT ${size}
   `
-  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
+  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size }))
   const out = new Map<string, number>()
   for (const h of hits) {
     const op = typeof h.name === 'string' ? h.name : ''
     const body = typeof h.body === 'string' ? h.body : ''
-    if (op && body.length > 0) out.set(op, countTokens(body))
+    if (!op || body.length === 0) continue
+    const tokens = countTokens(body)
+    if (tokens > (out.get(op) ?? 0)) out.set(op, tokens)
   }
   return out
 }
