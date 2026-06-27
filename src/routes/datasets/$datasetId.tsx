@@ -894,7 +894,7 @@ function CompareGrid({
   onOpenItem: (it: DatasetRunItem) => void
 }) {
   const [onlyRegressions, setOnlyRegressions] = useState(false)
-  const chrono = [...runs].sort((a, b) => a.createdAt - b.createdAt)
+  const chrono = [...runs].sort((a, b) => a.createdAt - b.createdAt || Number(a.id) - Number(b.id))
   const baselineId = chrono[0].id
   const currentId = chrono[chrono.length - 1].id
 

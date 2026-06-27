@@ -149,6 +149,8 @@ test('captures a golden (question + expected) from a span into a dataset', async
   await page.getByRole('button', { name: 'Add to dataset' }).click()
 
   const dialog = page.getByRole('dialog')
+  // The span carried a system prompt that replay drops → warning callout.
+  await expect(dialog.getByRole('alert')).toContainText(/system prompt that is being dropped/i)
   // Expected is prefilled from the span's actual output — no extra step needed.
   await expect(dialog.getByPlaceholder('What it should have been.')).toHaveValue(/18°C/)
   await dialog.getByRole('button', { name: 'New dataset' }).click()

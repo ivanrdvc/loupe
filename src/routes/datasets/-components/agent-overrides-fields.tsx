@@ -8,17 +8,6 @@ import { Field } from './run-bits'
 
 const OVERRIDE_MODELS = ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4-6']
 
-export function countOverrides(o: AgentOverrides): number {
-  return [
-    o.model,
-    o.temperature,
-    o.top_p,
-    o.max_tokens,
-    o.system_prompt?.trim(),
-    o.tools?.some((t) => t.name.trim()),
-  ].filter((v) => v != null && v !== '' && v !== false).length
-}
-
 // Per-run override fields (model / sampling / system / tools). Sampling/model/system map to
 // native Responses params; tools are AG-UI client-tool declarations the agent may call.
 export function AgentOverridesFields({

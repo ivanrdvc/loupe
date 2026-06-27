@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Database, Plus, RotateCcw } from 'lucide-react'
+import { Database, Plus, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
@@ -126,16 +126,25 @@ function CaptureBody({ span, onClose }: { span: Span; onClose: () => void }) {
       </DialogHeader>
 
       <div className="-mx-4 min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-1">
-        <Field
-          label="Input"
-          hint={droppedSystem ? 'System prompt dropped — the replay agent supplies its own.' : undefined}
-        >
+        <Field label="Input">
           <Textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             className="max-h-56 min-h-20"
             placeholder="The question / prior turns fed to the agent at replay."
           />
+          {droppedSystem && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:bg-amber-300/10 dark:text-amber-300"
+            >
+              <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+              <span>
+                This span carried a system prompt that is being dropped. Replay supplies its own (or none), so the
+                replayed run may behave differently from the captured one.
+              </span>
+            </div>
+          )}
         </Field>
 
         <Field
