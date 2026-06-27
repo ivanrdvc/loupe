@@ -10,9 +10,7 @@ import { NoteEditor } from '#/features/notes'
 import { latestScores, SCORE_TONE_DOT, type ScoreTargetKind, summarizeScores } from '#/lib/eval/evaluation'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { GoldenCapturePanel } from './golden-capture'
 import { ScoresSection } from './scores-section'
-import { useGoldenSnapshot } from './use-golden-snapshot'
 
 type Props = {
   targetKind: ScoreTargetKind
@@ -28,7 +26,8 @@ const KIND_DESCRIPTION: Record<ScoreTargetKind, string> = {
   span: 'Scores and notes attached to this span.',
 }
 
-// The inspector's main review surface: scores, notes, and golden capture — used together.
+// The inspector's review surface: scores + notes. Dataset capture is its own
+// first-class action (AddToDatasetDialog), no longer buried in here.
 export function ReviewSheetButton({ targetKind, targetId, parentTraceId, parentSessionId, label = 'Review' }: Props) {
   const [open, setOpen] = useState(false)
   const { data: scores } = useQuery({
@@ -39,8 +38,6 @@ export function ReviewSheetButton({ targetKind, targetId, parentTraceId, parentS
   const count = latestScores(scores ?? []).length
 
   const noteTargetKind = targetKind // NoteTargetKind is a superset of ScoreTargetKind
-
-  const { snapshot } = useGoldenSnapshot({ open, targetKind, targetId, parentTraceId })
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -81,16 +78,6 @@ export function ReviewSheetButton({ targetKind, targetId, parentTraceId, parentS
                 parentSessionId={parentSessionId}
               />
             </section>
-            {snapshot && (
-              <>
-                <Separator />
-                <GoldenCapturePanel
-                  input={snapshot.input}
-                  sourceTraceId={snapshot.span.traceId}
-                  sourceSpanId={snapshot.span.id}
-                />
-              </>
-            )}
           </div>
         </ScrollArea>
       </SheetContent>

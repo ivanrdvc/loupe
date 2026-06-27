@@ -17,6 +17,7 @@ export interface DatasetExample {
   expected: string | null
   metadata: Record<string, string>
   sourceTraceId: string | null
+  sourceSpanId: string | null
 }
 
 /** Single-line preview of an example input (last user turn for transcripts). */
@@ -48,6 +49,7 @@ export interface DatasetRunItem {
   latencyMs: number
   tokens: number
   traceId: string | null
+  errorText: string | null
   scores: ItemScore[]
 }
 

@@ -1,20 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { CirclePlay, Download, Link as LinkIcon, MessageCircleQuestion, Plus, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { CirclePlay, Download, Link as LinkIcon, MessageCircleQuestion, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
-import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import {
@@ -24,21 +22,20 @@ import {
   type DatasetRun,
   type DatasetRunItem,
   definitionsQuery,
-  GLOBAL_DEFAULT_ENDPOINT,
   inputPreview,
   inputTurns,
   judgeDefaultsQuery,
 } from '#/features/evaluation'
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
-import { runDataset, updateDataset } from '#/features/evaluation/server/datasets'
+import { deleteExamples, runDataset, updateDataset } from '#/features/evaluation/server/datasets'
 import { downloadCsv } from '#/lib/csv'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
-import { errMessage } from '#/lib/format'
+import { errMessage, formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
-import { AgentOverridesDialog, countOverrides } from './-components/agent-overrides-dialog'
 import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
+import { NewRunSheet } from './-components/new-run-sheet'
 import { ResultDialog } from './-components/result-dialog'
 import { ScoreChip, ScoreChips, StatusIcon } from './-components/run-bits'
 import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
@@ -163,6 +160,23 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     onSettled: () => setRunningExampleId(null),
   })
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (exampleIds: string[]) => deleteExamples({ data: { datasetId: dataset.id, exampleIds } }),
+    onSuccess: async (_r, ids) => {
+      await invalidate()
+      toast.success(`Deleted ${ids.length} example${ids.length === 1 ? '' : 's'}`)
+    },
+    onError: (err) => toast.error(errMessage(err)),
+  })
+
+  const bulkRunMutation = useMutation({
+    mutationFn: (exampleIds: string[]) =>
+      runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds, overrides } }),
+    onMutate: () => ({ toastId: toast.loading('Running selected examples…') }),
+    onSuccess: ({ runId }, _ids, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
+    onError: (err, _ids, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
+  })
+
   const persistEndpoint = useMutation({
     mutationFn: (url: string) =>
       updateDataset({ data: { datasetId: dataset.id, endpointOverride: url.trim() || null } }),
@@ -193,6 +207,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               </Badge>
             ))}
           </div>
+          <DatasetStats exampleCount={examples.length} runs={runs} lastRunAt={dataset.lastRunAt} />
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => downloadDatasetCsv(dataset.name, examples)}>
               <Download data-icon="inline-start" />
@@ -228,6 +243,8 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
                 setActiveExample(null)
                 setCreating(true)
               }}
+              onBulkDelete={(ids) => bulkDeleteMutation.mutate(ids)}
+              onBulkRun={(ids) => bulkRunMutation.mutate(ids)}
             />
           </TabsContent>
 
@@ -282,6 +299,37 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   )
 }
 
+function DatasetStats({
+  exampleCount,
+  runs,
+  lastRunAt,
+}: {
+  exampleCount: number
+  runs: DatasetRun[]
+  lastRunAt: number | null
+}) {
+  const lastRun = runs[0] ?? null
+  const pass = lastRun?.passRate
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span>
+        {exampleCount} {exampleCount === 1 ? 'example' : 'examples'}
+      </span>
+      {runs.length > 0 && (
+        <span>
+          · {runs.length} {runs.length === 1 ? 'run' : 'runs'}
+        </span>
+      )}
+      {lastRun && (
+        <span>
+          · last run{pass != null ? ` ${Math.round(pass * 100)}% pass` : ''}
+          {lastRunAt ? ` · ${formatAgo(lastRunAt)}` : ''}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function ExamplesTab({
   examples,
   latestRunId,
@@ -290,6 +338,8 @@ function ExamplesTab({
   runningId,
   onOpen,
   onAdd,
+  onBulkDelete,
+  onBulkRun,
 }: {
   examples: DatasetExample[]
   latestRunId: string | null
@@ -298,9 +348,43 @@ function ExamplesTab({
   runningId: string | null
   onOpen: (e: DatasetExample) => void
   onAdd: () => void
+  onBulkDelete: (ids: string[]) => void
+  onBulkRun: (ids: string[]) => void
 }) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const toggle = useCallback(
+    (id: string) =>
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.has(id) ? next.delete(id) : next.add(id)
+        return next
+      }),
+    [],
+  )
+  const allSelected = examples.length > 0 && selected.size === examples.length
+  const clear = () => setSelected(new Set())
+
   const columns = useMemo<ColumnDef<DatasetExample, unknown>[]>(
     () => [
+      {
+        id: 'select',
+        header: () => (
+          <Checkbox
+            checked={allSelected ? true : selected.size > 0 ? 'indeterminate' : false}
+            onCheckedChange={(v) => setSelected(v ? new Set(examples.map((e) => e.id)) : new Set())}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selected.has(row.original.id)}
+            onCheckedChange={() => toggle(row.original.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Select example"
+          />
+        ),
+        meta: { headClassName: 'w-8' },
+      },
       {
         id: 'input',
         header: 'Input (question)',
@@ -333,17 +417,50 @@ function ExamplesTab({
         meta: { headClassName: 'w-40' },
       },
       {
+        id: 'origin',
+        header: 'Origin',
+        cell: ({ row }) => {
+          const traceId = row.original.sourceTraceId
+          if (!traceId) return <span className="text-xs italic text-muted-foreground/60">manual</span>
+          return (
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="h-auto justify-start gap-1 p-0 font-mono text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Link to="/traces/$traceId" params={{ traceId }}>
+                {traceId.slice(0, 8)}
+                <LinkIcon className="size-3" />
+              </Link>
+            </Button>
+          )
+        },
+        meta: { headClassName: 'w-28' },
+      },
+      {
         id: 'lastRun',
         header: 'Last run',
         cell: ({ row }) => {
+          if (runningId === row.original.id) {
+            return (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Spinner className="size-3.5" />
+                running…
+              </div>
+            )
+          }
           const last = latestRunId ? itemFor(latestRunId, row.original.id) : null
-          return last ? (
+          if (!last) return <span className="text-xs text-muted-foreground/60">—</span>
+          const errored = last.status === 'error'
+          return (
             <div className="flex min-w-0 items-center gap-1.5">
               <StatusIcon status={last.status} />
-              <span className="truncate text-xs text-muted-foreground">{last.output}</span>
+              <span className={cn('truncate text-xs', errored ? 'text-destructive' : 'text-muted-foreground')}>
+                {errored ? last.errorText?.trim() || 'failed' : last.output}
+              </span>
             </div>
-          ) : (
-            <span className="text-xs text-muted-foreground/60">—</span>
           )
         },
         meta: { headClassName: 'w-56', className: 'max-w-xs' },
@@ -364,7 +481,7 @@ function ExamplesTab({
                   onRun(row.original)
                 }}
               >
-                <CirclePlay />
+                {runningId === row.original.id ? <Spinner className="size-4" /> : <CirclePlay />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Run just this example</TooltipContent>
@@ -373,21 +490,46 @@ function ExamplesTab({
         meta: { headClassName: 'w-12' },
       },
     ],
-    [latestRunId, itemFor, onRun, runningId],
+    [latestRunId, itemFor, onRun, runningId, selected, allSelected, examples, toggle],
   )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {examples.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-          <p className="text-xs text-muted-foreground">
-            The questions. Edit input / expected / metadata here — that's what every run is graded against.
-          </p>
-          <Button size="sm" variant="outline" onClick={onAdd}>
-            <Plus data-icon="inline-start" />
-            Example
+      {selected.size > 0 ? (
+        <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2.5 lg:px-6">
+          <span className="text-xs font-medium">{selected.size} selected</span>
+          <Button size="sm" variant="outline" onClick={() => onBulkRun([...selected])}>
+            <CirclePlay data-icon="inline-start" />
+            Run
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => {
+              onBulkDelete([...selected])
+              clear()
+            }}
+          >
+            <Trash2 data-icon="inline-start" />
+            Delete
+          </Button>
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={clear}>
+            Clear
           </Button>
         </div>
+      ) : (
+        examples.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+            <p className="text-xs text-muted-foreground">
+              The questions. Edit input / expected / metadata here — that's what every run is graded against.
+            </p>
+            <Button size="sm" variant="outline" onClick={onAdd}>
+              <Plus data-icon="inline-start" />
+              Example
+            </Button>
+          </div>
+        )
       )}
       {examples.length === 0 ? (
         <div className="px-4 lg:px-6">
@@ -460,97 +602,58 @@ function RunsTab({
   onJudge: () => void
 }) {
   const { examples, runs } = detail
-  const [overridesOpen, setOverridesOpen] = useState(false)
-  const overrideCount = countOverrides(overrides)
 
   // Keep focus-first order so compare lays the second run beside it.
   const selectedRuns = selectedIds.map((id) => runs.find((r) => r.id === id)).filter((r): r is DatasetRun => !!r)
 
+  const runSheetProps = {
+    endpoint,
+    onEndpointChange,
+    onEndpointCommit,
+    overrides,
+    onOverridesChange,
+    evaluators,
+    judgeDefId,
+    onJudgeDefChange,
+    autoJudge,
+    onAutoJudgeChange,
+    judgeConfigured,
+    onRun,
+    running,
+    disabled: examples.length === 0,
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Call my agent bar */}
-      <div className="mx-4 mt-4 mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card/40 px-3 py-2 lg:mx-6">
-        <Label htmlFor="ds-endpoint" className="text-xs whitespace-nowrap text-muted-foreground">
-          Call my agent
-        </Label>
-        <Input
-          id="ds-endpoint"
-          value={endpoint}
-          onChange={(e) => onEndpointChange(e.target.value)}
-          onBlur={onEndpointCommit}
-          placeholder={GLOBAL_DEFAULT_ENDPOINT}
-          className="h-8 max-w-sm font-mono text-xs"
-        />
-        <Button variant="outline" size="sm" onClick={() => setOverridesOpen(true)}>
-          <SlidersHorizontal data-icon="inline-start" />
-          Overrides
-          {overrideCount > 0 && (
-            <Badge variant="secondary" className="ml-1 font-mono text-[10px]">
-              {overrideCount}
-            </Badge>
-          )}
-        </Button>
-        <Select value={judgeDefId} onValueChange={onJudgeDefChange}>
-          <SelectTrigger size="sm" className="w-44 text-xs" aria-label="Judge">
-            <SelectValue placeholder="Default correctness" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="default">Default correctness</SelectItem>
-            {evaluators
-              .filter((e) => e.source === 'llm')
-              .map((e) => (
-                <SelectItem key={e.id} value={String(e.id)}>
-                  {e.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!judgeRunId || !judgeConfigured || judging}
-                onClick={onJudge}
-              >
-                {judging ? 'Judging…' : 'Judge'}
-              </Button>
-            </span>
-          </TooltipTrigger>
-          {!judgeConfigured && (
-            <TooltipContent>Set OPENAI_API_KEY or ANTHROPIC_API_KEY to enable judging</TooltipContent>
-          )}
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <label
-              htmlFor="auto-judge"
-              className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground"
-            >
-              <Switch
-                id="auto-judge"
-                checked={autoJudge}
-                onCheckedChange={onAutoJudgeChange}
-                disabled={!judgeConfigured}
-              />
-              Auto-judge
-            </label>
-          </TooltipTrigger>
-          <TooltipContent>Judge automatically after each run</TooltipContent>
-        </Tooltip>
-        <Button className="ml-auto" size="sm" onClick={onRun} disabled={running || examples.length === 0}>
-          {running ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
-          {running ? 'Running…' : 'Run on all'}
-        </Button>
+      <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+        <p className="text-xs text-muted-foreground">
+          {runs.length === 0
+            ? 'Run the dataset against your agent.'
+            : `${runs.length} run${runs.length === 1 ? '' : 's'}`}
+        </p>
+        {runs.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!judgeRunId || !judgeConfigured || judging}
+                    onClick={onJudge}
+                  >
+                    {judging ? 'Judging…' : 'Judge run'}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!judgeConfigured && (
+                <TooltipContent>Set OPENAI_API_KEY or ANTHROPIC_API_KEY to enable judging</TooltipContent>
+              )}
+            </Tooltip>
+            <NewRunSheet {...runSheetProps} />
+          </div>
+        )}
       </div>
-
-      <AgentOverridesDialog
-        open={overridesOpen}
-        onClose={() => setOverridesOpen(false)}
-        overrides={overrides}
-        onChange={onOverridesChange}
-      />
 
       {runs.length === 0 ? (
         <div className="px-4 lg:px-6">
@@ -560,8 +663,19 @@ function RunsTab({
                 <CirclePlay />
               </EmptyMedia>
               <EmptyTitle>No runs yet</EmptyTitle>
-              <EmptyDescription>Point at your agent and hit “Run on all” to fire every question.</EmptyDescription>
+              <EmptyDescription>Point the run sheet at your agent and fire every question.</EmptyDescription>
             </EmptyHeader>
+            <EmptyContent>
+              <NewRunSheet
+                {...runSheetProps}
+                trigger={
+                  <Button size="sm">
+                    <CirclePlay data-icon="inline-start" />
+                    Run this dataset
+                  </Button>
+                }
+              />
+            </EmptyContent>
           </Empty>
         </div>
       ) : (

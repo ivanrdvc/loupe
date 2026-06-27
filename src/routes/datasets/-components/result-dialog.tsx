@@ -49,11 +49,17 @@ export function ResultDialog({
               <Field label="Expected">
                 <p className="text-muted-foreground">{example?.expected ?? '—'}</p>
               </Field>
-              <Field label="Answer">
-                <p className="rounded-md border bg-card/40 p-2">
-                  {item.status === 'error' ? '— (run failed)' : item.output}
-                </p>
-              </Field>
+              {item.status === 'error' ? (
+                <Field label="Error">
+                  <pre className="whitespace-pre-wrap break-words rounded-md border border-destructive/40 bg-destructive/10 p-2 font-mono text-xs text-destructive">
+                    {item.errorText?.trim() || 'Run failed (no error detail captured).'}
+                  </pre>
+                </Field>
+              ) : (
+                <Field label="Answer">
+                  <p className="rounded-md border bg-card/40 p-2">{item.output}</p>
+                </Field>
+              )}
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <StatusIcon status={item.status} />
                 <span>{(item.latencyMs / 1000).toFixed(1)}s</span>

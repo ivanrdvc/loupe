@@ -109,18 +109,18 @@ test('saves a JSON expected criterion via the Expected JSON toggle', async ({ pa
   await expect(page.getByRole('dialog').getByPlaceholder(/criterion/)).toHaveValue(/30-day window/)
 })
 
-test('captures an example into a new dataset from a span review sheet', async ({ page }) => {
+test('captures an example into a new dataset from a span', async ({ page }) => {
   const dsName = `captured ${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-  // Fixtures span in the inspector → Review sheet → Add to dataset popover.
+  // Fixtures span in the inspector → first-class "Add to dataset" dialog.
   await page.goto('/sessions/e2e-session-chat?view=spans&span=sp-chat')
-  await page.getByRole('button', { name: 'Review' }).click()
+  await page.getByRole('button', { name: 'Add to dataset' }).click()
 
-  const review = page.getByRole('dialog')
-  await review.getByRole('button', { name: 'Add to dataset' }).click()
-  await page.getByPlaceholder('Find or create dataset…').fill(dsName)
-  await page.getByText(`Create “${dsName}”`).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: 'New dataset' }).click()
+  await dialog.getByPlaceholder('New dataset name…').fill(dsName)
+  await dialog.getByRole('button', { name: /Save row/ }).click()
 
-  await expect(page.getByText(/Created .* and added items|Added \d+ item/)).toBeVisible()
+  await expect(page.getByText(/Added to dataset|Row updated/)).toBeVisible()
 
   // The captured example carries the span's own question into the dataset.
   await page.goto('/datasets')
@@ -134,14 +134,15 @@ test('captures an example into a new dataset from a span review sheet', async ({
 test('captures a golden (question + expected) from a span into a dataset', async ({ page }) => {
   const dsName = `golden ${Date.now()}-${Math.floor(Math.random() * 1e6)}`
   await page.goto('/sessions/e2e-session-chat?view=spans&span=sp-chat')
-  await page.getByRole('button', { name: 'Review' }).click()
+  await page.getByRole('button', { name: 'Add to dataset' }).click()
 
-  const review = page.getByRole('dialog')
-  await review.getByRole('button', { name: 'Use as expected' }).click()
-  await review.getByRole('button', { name: 'Add to dataset' }).click()
-  await page.getByPlaceholder('Find or create dataset…').fill(dsName)
-  await page.getByText(`Create “${dsName}”`).click()
-  await expect(page.getByText(/Created .* and added items|Added \d+ item/)).toBeVisible()
+  const dialog = page.getByRole('dialog')
+  // Expected is prefilled from the span's actual output — no extra step needed.
+  await expect(dialog.getByPlaceholder('What it should have been.')).toHaveValue(/18°C/)
+  await dialog.getByRole('button', { name: 'New dataset' }).click()
+  await dialog.getByPlaceholder('New dataset name…').fill(dsName)
+  await dialog.getByRole('button', { name: /Save row/ }).click()
+  await expect(page.getByText(/Added to dataset|Row updated/)).toBeVisible()
 
   await page.goto('/datasets')
   await expect(async () => {
@@ -158,6 +159,7 @@ test('runs the dataset against the fake agent and renders the output', async ({ 
   await addExample(page, 'Ping?')
 
   await page.getByRole('tab', { name: /Runs/ }).click()
+  await page.getByRole('button', { name: 'Run this dataset' }).click()
   await page.getByRole('button', { name: 'Run on all' }).click()
 
   await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
@@ -168,10 +170,11 @@ test('compares two runs of the same dataset side by side', async ({ page }) => {
   await addExample(page, 'Ping?')
 
   await page.getByRole('tab', { name: /Runs/ }).click()
-  const runAll = page.getByRole('button', { name: 'Run on all' })
-  await runAll.click()
+  await page.getByRole('button', { name: 'Run this dataset' }).click()
+  await page.getByRole('button', { name: 'Run on all' }).click()
   await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
-  await runAll.click()
+  await page.getByRole('button', { name: 'New run' }).click()
+  await page.getByRole('button', { name: 'Run on all' }).click()
   await expect(page.getByRole('tab', { name: /Runs\s*2/ })).toBeVisible({ timeout: 20_000 })
 
   // Pick a second run in the compare selector → the grid lays both runs side by side.
@@ -186,13 +189,11 @@ test('sends agent overrides (system prompt + temperature) on a run', async ({ pa
   await addExample(page, 'Ping?')
 
   await page.getByRole('tab', { name: /Runs/ }).click()
-  await page.getByRole('button', { name: 'Overrides' }).click()
-  const drawer = page.getByRole('dialog')
-  await drawer.getByPlaceholder("Override the agent's system prompt…").fill('be terse')
-  await drawer.getByPlaceholder('default').first().fill('0.7')
-  await drawer.getByRole('button', { name: 'Done' }).click()
-
-  await page.getByRole('button', { name: 'Run on all' }).click()
+  await page.getByRole('button', { name: 'Run this dataset' }).click()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByPlaceholder("Override the agent's system prompt…").fill('be terse')
+  await sheet.getByPlaceholder('default').first().fill('0.7')
+  await sheet.getByRole('button', { name: 'Run on all' }).click()
 
   await expect(page.getByText('sys=be terse')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('temp=0.7')).toBeVisible()
@@ -203,10 +204,11 @@ test('judges a run with the fixtures judge and shows a pass rate', async ({ page
   await addExample(page, 'Ping?')
 
   await page.getByRole('tab', { name: /Runs/ }).click()
+  await page.getByRole('button', { name: 'Run this dataset' }).click()
   await page.getByRole('button', { name: 'Run on all' }).click()
   await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
 
-  await page.getByRole('button', { name: 'Judge', exact: true }).click()
+  await page.getByRole('button', { name: 'Judge run', exact: true }).click()
 
   await expect(page.getByText('100% pass', { exact: true })).toBeVisible({ timeout: 20_000 })
 })

@@ -62,6 +62,7 @@ export function ExampleDialog({
           expected: expected.trim() ? expected : null,
           metadata,
           sourceTraceId: example?.sourceTraceId ?? null,
+          sourceSpanId: example?.sourceSpanId ?? null,
         },
       })
     },
@@ -247,7 +248,7 @@ function InputEditor({
         onChange={(e) => commit(e.target.value)}
         onBlur={() => parsed && setText(JSON.stringify(parsed, null, 2))}
         rows={looksJson ? 8 : 3}
-        className={cn('text-xs', looksJson && 'font-mono')}
+        className={cn('text-sm', looksJson && 'font-mono text-xs')}
         placeholder={'Plain text, or JSON multi-turn:\n[{ "role": "user", "content": "…" }]'}
       />
       {looksJson &&
