@@ -38,7 +38,7 @@ the same call. The fix is to split them and bound the scan.
 ### Detection
 
 Detection finds new tools/agents and writes them to the `inventory` and
-`inbox_item` tables (`src/server/detection/index.ts`). **Reads never trigger a
+`inbox_item` tables (`src/features/inventory/detection/index.ts`). **Reads never trigger a
 scan** — the bell and widget only `SELECT` from SQLite.
 
 `runDetection(kind)` is the unit of work: idempotent, overlap-guarded (an
@@ -57,19 +57,13 @@ server fn piggybacking on dashboard reads, throttled to one bounded scan per
 interval. Net effect: at most one scan per interval while the app is in use,
 and zero provider traffic when nobody's looking.
 
-Where observations come from is pluggable (`src/server/detection/source.ts`):
-
-```ts
-import { registerDetectionSource } from '#/server/detection/source'
-registerDetectionSource({
-  name: 'cosmos',
-  discover: async (kind, window) => /* Observation[] (claims) | null (abstains) */,
-})
-```
-
-Forks register ahead of the default provider scan; the first source returning
-non-null wins. A Cosmos-backed fork claims every kind and loupe never queries
-the provider for it.
+Observations come from the active telemetry provider:
+`runDetection` calls `discoverInventory(kind, window)`
+(`src/lib/telemetry/index.ts`), which dispatches to the provider's
+`fetchInventory` (OpenObserve / App Insights / fixture). There is no separate
+detection-source registry — a Cosmos-backed fork adds a provider branch (or
+patches `fetchInventory`) so `discoverInventory` returns its rows, the same way
+the rest of the read path is provider-dispatched.
 
 ### Enrichment
 

@@ -285,15 +285,18 @@ export async function fetchInventory(
       | project parent_id = id, parent_is_tool = 1;
     union dependencies, requests
     | where name startswith "invoke_agent "
+    | extend agent_name = tostring(customDimensions["gen_ai.agent.name"])
     | join kind=leftouter (tool_parents) on $left.operation_ParentId == $right.parent_id
     | summarize
         first_seen = min(timestamp),
         last_seen  = max(timestamp),
         sample_trace_id = any(operation_Id),
+        agent_name = take_anyif(agent_name, isnotempty(agent_name)),
+        operation_name = take_any(name),
         description = take_anyif(tostring(customDimensions["gen_ai.agent.description"]), isnotempty(tostring(customDimensions["gen_ai.agent.description"]))),
         system_instructions = take_anyif(tostring(customDimensions["gen_ai.system_instructions"]), isnotempty(tostring(customDimensions["gen_ai.system_instructions"]))),
         ever_nested = max(iif(parent_is_tool == 1, 1, 0))
-      by operation_name = name
+      by agent_key = iif(isnotempty(agent_name), agent_name, name)
     | top 1000 by first_seen desc
   `
   const rows = await p.query(q, opts ?? {})
@@ -306,7 +309,10 @@ function rowToInventoryObservation(
 ): InventoryObservation | null {
   const operationName = String(row.operation_name ?? '')
   const isTool = kind === 'new_tool'
-  const name = isTool ? extractToolName(operationName) : extractAgentName(operationName)
+  // Agents: prefer the gen_ai.agent.name attribute; the span name only yields the
+  // model id under producers (e.g. @ai-sdk/otel) that name spans `invoke_agent <model>`.
+  const agentName = typeof row.agent_name === 'string' && row.agent_name ? row.agent_name : undefined
+  const name = isTool ? extractToolName(operationName) : (agentName ?? extractAgentName(operationName))
   if (!name) return null
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : firstSeen

@@ -355,7 +355,8 @@ export async function fetchInventory(
   `
     : `
     SELECT
-      a.operation_name AS operation_name,
+      COALESCE(NULLIF(a.gen_ai_agent_name, ''), a.operation_name) AS operation_name,
+      MAX(NULLIF(a.gen_ai_agent_name, '')) AS agent_name,
       MIN(a.start_time) AS first_seen,
       MAX(a.start_time) AS last_seen,
       MIN(a.trace_id) AS sample_trace_id,
@@ -365,7 +366,7 @@ export async function fetchInventory(
     FROM "${p.stream}" a
     LEFT JOIN "${p.stream}" pp ON a.reference_parent_span_id = pp.span_id
     WHERE a.operation_name LIKE 'invoke_agent %'${envFilter('a.deployment_environment')}
-    GROUP BY a.operation_name
+    GROUP BY COALESCE(NULLIF(a.gen_ai_agent_name, ''), a.operation_name)
     ORDER BY first_seen DESC
     LIMIT 1000
   `
@@ -379,7 +380,10 @@ function hitToInventoryObservation(
 ): InventoryObservation | null {
   const operationName = String(h.operation_name ?? '')
   const isTool = kind === 'new_tool'
-  const name = isTool ? extractToolName(operationName) : extractAgentName(operationName)
+  // Agents: prefer the gen_ai.agent.name attribute. @ai-sdk/otel names the span
+  // `invoke_agent <model>`, so the span name alone yields the model id, not the agent.
+  const agentName = typeof h.agent_name === 'string' && h.agent_name ? h.agent_name : undefined
+  const name = isTool ? extractToolName(operationName) : (agentName ?? extractAgentName(operationName))
   if (!name) return null
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? firstSeenNs)
