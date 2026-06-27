@@ -21,18 +21,27 @@ import { Route as InboxIndexRouteImport } from './routes/inbox/index'
 import { Route as EvalsIndexRouteImport } from './routes/evals/index'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
+import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as TracesTraceIdRouteImport } from './routes/traces/$traceId'
 import { Route as TasksTaskKeyRouteImport } from './routes/tasks/$taskKey'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as McpServerIdRouteImport } from './routes/mcp/$serverId'
 import { Route as EvalsEvalIdRouteImport } from './routes/evals/$evalId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as InventorySystemPromptsIndexRouteImport } from './routes/inventory/system-prompts/index'
 import { Route as InventoryAgentsIndexRouteImport } from './routes/inventory/agents/index'
+import { Route as ApiTracesIndexRouteImport } from './routes/api/traces/index'
 import { Route as InventorySystemPromptsPromptIdRouteImport } from './routes/inventory/system-prompts/$promptId'
 import { Route as EvalsRunsRunIdRouteImport } from './routes/evals/runs.$runId'
 import { Route as ApiEvalsIngestRouteImport } from './routes/api/evals/ingest'
+import { Route as ApiTracesTraceIdIndexRouteImport } from './routes/api/traces/$traceId/index'
+import { Route as ApiSessionsSessionIdIndexRouteImport } from './routes/api/sessions/$sessionId/index'
+import { Route as ApiTracesTraceIdConversationRouteImport } from './routes/api/traces/$traceId/conversation'
+import { Route as ApiTracesTraceIdBriefRouteImport } from './routes/api/traces/$traceId/brief'
+import { Route as ApiSessionsSessionIdBriefRouteImport } from './routes/api/sessions/$sessionId/brief'
+import { Route as ApiTracesTraceIdSpansSpanIdRouteImport } from './routes/api/traces/$traceId/spans/$spanId'
 
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
@@ -94,6 +103,11 @@ const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
   path: '/changelog/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIndexRoute = ApiIndexRouteImport.update({
+  id: '/api/',
+  path: '/api/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TracesTraceIdRoute = TracesTraceIdRouteImport.update({
   id: '/traces/$traceId',
   path: '/traces/$traceId',
@@ -124,6 +138,11 @@ const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
   path: '/datasets/$datasetId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSearchRoute = ApiSearchRouteImport.update({
+  id: '/api/search',
+  path: '/api/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -138,6 +157,11 @@ const InventorySystemPromptsIndexRoute =
 const InventoryAgentsIndexRoute = InventoryAgentsIndexRouteImport.update({
   id: '/inventory/agents/',
   path: '/inventory/agents/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTracesIndexRoute = ApiTracesIndexRouteImport.update({
+  id: '/api/traces/',
+  path: '/api/traces/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventorySystemPromptsPromptIdRoute =
@@ -156,17 +180,53 @@ const ApiEvalsIngestRoute = ApiEvalsIngestRouteImport.update({
   path: '/api/evals/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTracesTraceIdIndexRoute = ApiTracesTraceIdIndexRouteImport.update({
+  id: '/api/traces/$traceId/',
+  path: '/api/traces/$traceId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSessionsSessionIdIndexRoute =
+  ApiSessionsSessionIdIndexRouteImport.update({
+    id: '/api/sessions/$sessionId/',
+    path: '/api/sessions/$sessionId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiTracesTraceIdConversationRoute =
+  ApiTracesTraceIdConversationRouteImport.update({
+    id: '/api/traces/$traceId/conversation',
+    path: '/api/traces/$traceId/conversation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiTracesTraceIdBriefRoute = ApiTracesTraceIdBriefRouteImport.update({
+  id: '/api/traces/$traceId/brief',
+  path: '/api/traces/$traceId/brief',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSessionsSessionIdBriefRoute =
+  ApiSessionsSessionIdBriefRouteImport.update({
+    id: '/api/sessions/$sessionId/brief',
+    path: '/api/sessions/$sessionId/brief',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiTracesTraceIdSpansSpanIdRoute =
+  ApiTracesTraceIdSpansSpanIdRouteImport.update({
+    id: '/api/traces/$traceId/spans/$spanId',
+    path: '/api/traces/$traceId/spans/$spanId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/search': typeof ApiSearchRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/mcp/$serverId': typeof McpServerIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
+  '/api/': typeof ApiIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/evals/': typeof EvalsIndexRoute
@@ -180,19 +240,28 @@ export interface FileRoutesByFullPath {
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/api/traces/': typeof ApiTracesIndexRoute
   '/inventory/agents/': typeof InventoryAgentsIndexRoute
   '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
+  '/api/sessions/$sessionId/brief': typeof ApiSessionsSessionIdBriefRoute
+  '/api/traces/$traceId/brief': typeof ApiTracesTraceIdBriefRoute
+  '/api/traces/$traceId/conversation': typeof ApiTracesTraceIdConversationRoute
+  '/api/sessions/$sessionId/': typeof ApiSessionsSessionIdIndexRoute
+  '/api/traces/$traceId/': typeof ApiTracesTraceIdIndexRoute
+  '/api/traces/$traceId/spans/$spanId': typeof ApiTracesTraceIdSpansSpanIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/search': typeof ApiSearchRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/mcp/$serverId': typeof McpServerIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
+  '/api': typeof ApiIndexRoute
   '/changelog': typeof ChangelogIndexRoute
   '/datasets': typeof DatasetsIndexRoute
   '/evals': typeof EvalsIndexRoute
@@ -206,20 +275,29 @@ export interface FileRoutesByTo {
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/api/traces': typeof ApiTracesIndexRoute
   '/inventory/agents': typeof InventoryAgentsIndexRoute
   '/inventory/system-prompts': typeof InventorySystemPromptsIndexRoute
+  '/api/sessions/$sessionId/brief': typeof ApiSessionsSessionIdBriefRoute
+  '/api/traces/$traceId/brief': typeof ApiTracesTraceIdBriefRoute
+  '/api/traces/$traceId/conversation': typeof ApiTracesTraceIdConversationRoute
+  '/api/sessions/$sessionId': typeof ApiSessionsSessionIdIndexRoute
+  '/api/traces/$traceId': typeof ApiTracesTraceIdIndexRoute
+  '/api/traces/$traceId/spans/$spanId': typeof ApiTracesTraceIdSpansSpanIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/search': typeof ApiSearchRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/mcp/$serverId': typeof McpServerIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/tasks/$taskKey': typeof TasksTaskKeyRoute
   '/traces/$traceId': typeof TracesTraceIdRoute
+  '/api/': typeof ApiIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/evals/': typeof EvalsIndexRoute
@@ -233,8 +311,15 @@ export interface FileRoutesById {
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
+  '/api/traces/': typeof ApiTracesIndexRoute
   '/inventory/agents/': typeof InventoryAgentsIndexRoute
   '/inventory/system-prompts/': typeof InventorySystemPromptsIndexRoute
+  '/api/sessions/$sessionId/brief': typeof ApiSessionsSessionIdBriefRoute
+  '/api/traces/$traceId/brief': typeof ApiTracesTraceIdBriefRoute
+  '/api/traces/$traceId/conversation': typeof ApiTracesTraceIdConversationRoute
+  '/api/sessions/$sessionId/': typeof ApiSessionsSessionIdIndexRoute
+  '/api/traces/$traceId/': typeof ApiTracesTraceIdIndexRoute
+  '/api/traces/$traceId/spans/$spanId': typeof ApiTracesTraceIdSpansSpanIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -242,12 +327,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/api/chat'
+    | '/api/search'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
     | '/mcp/$serverId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
+    | '/api/'
     | '/changelog/'
     | '/datasets/'
     | '/evals/'
@@ -261,19 +348,28 @@ export interface FileRouteTypes {
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
+    | '/api/traces/'
     | '/inventory/agents/'
     | '/inventory/system-prompts/'
+    | '/api/sessions/$sessionId/brief'
+    | '/api/traces/$traceId/brief'
+    | '/api/traces/$traceId/conversation'
+    | '/api/sessions/$sessionId/'
+    | '/api/traces/$traceId/'
+    | '/api/traces/$traceId/spans/$spanId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/api/chat'
+    | '/api/search'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
     | '/mcp/$serverId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
+    | '/api'
     | '/changelog'
     | '/datasets'
     | '/evals'
@@ -287,19 +383,28 @@ export interface FileRouteTypes {
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
+    | '/api/traces'
     | '/inventory/agents'
     | '/inventory/system-prompts'
+    | '/api/sessions/$sessionId/brief'
+    | '/api/traces/$traceId/brief'
+    | '/api/traces/$traceId/conversation'
+    | '/api/sessions/$sessionId'
+    | '/api/traces/$traceId'
+    | '/api/traces/$traceId/spans/$spanId'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/api/chat'
+    | '/api/search'
     | '/datasets/$datasetId'
     | '/evals/$evalId'
     | '/mcp/$serverId'
     | '/sessions/$sessionId'
     | '/tasks/$taskKey'
     | '/traces/$traceId'
+    | '/api/'
     | '/changelog/'
     | '/datasets/'
     | '/evals/'
@@ -313,20 +418,29 @@ export interface FileRouteTypes {
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
+    | '/api/traces/'
     | '/inventory/agents/'
     | '/inventory/system-prompts/'
+    | '/api/sessions/$sessionId/brief'
+    | '/api/traces/$traceId/brief'
+    | '/api/traces/$traceId/conversation'
+    | '/api/sessions/$sessionId/'
+    | '/api/traces/$traceId/'
+    | '/api/traces/$traceId/spans/$spanId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiSearchRoute: typeof ApiSearchRoute
   DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRoute
   EvalsEvalIdRoute: typeof EvalsEvalIdRoute
   McpServerIdRoute: typeof McpServerIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   TasksTaskKeyRoute: typeof TasksTaskKeyRoute
   TracesTraceIdRoute: typeof TracesTraceIdRoute
+  ApiIndexRoute: typeof ApiIndexRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
   DatasetsIndexRoute: typeof DatasetsIndexRoute
   EvalsIndexRoute: typeof EvalsIndexRoute
@@ -340,8 +454,15 @@ export interface RootRouteChildren {
   ApiEvalsIngestRoute: typeof ApiEvalsIngestRoute
   EvalsRunsRunIdRoute: typeof EvalsRunsRunIdRoute
   InventorySystemPromptsPromptIdRoute: typeof InventorySystemPromptsPromptIdRoute
+  ApiTracesIndexRoute: typeof ApiTracesIndexRoute
   InventoryAgentsIndexRoute: typeof InventoryAgentsIndexRoute
   InventorySystemPromptsIndexRoute: typeof InventorySystemPromptsIndexRoute
+  ApiSessionsSessionIdBriefRoute: typeof ApiSessionsSessionIdBriefRoute
+  ApiTracesTraceIdBriefRoute: typeof ApiTracesTraceIdBriefRoute
+  ApiTracesTraceIdConversationRoute: typeof ApiTracesTraceIdConversationRoute
+  ApiSessionsSessionIdIndexRoute: typeof ApiSessionsSessionIdIndexRoute
+  ApiTracesTraceIdIndexRoute: typeof ApiTracesTraceIdIndexRoute
+  ApiTracesTraceIdSpansSpanIdRoute: typeof ApiTracesTraceIdSpansSpanIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -430,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChangelogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/': {
+      id: '/api/'
+      path: '/api'
+      fullPath: '/api/'
+      preLoaderRoute: typeof ApiIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/traces/$traceId': {
       id: '/traces/$traceId'
       path: '/traces/$traceId'
@@ -472,6 +600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsDatasetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -491,6 +626,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory/agents'
       fullPath: '/inventory/agents/'
       preLoaderRoute: typeof InventoryAgentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/traces/': {
+      id: '/api/traces/'
+      path: '/api/traces'
+      fullPath: '/api/traces/'
+      preLoaderRoute: typeof ApiTracesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory/system-prompts/$promptId': {
@@ -514,6 +656,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEvalsIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/traces/$traceId/': {
+      id: '/api/traces/$traceId/'
+      path: '/api/traces/$traceId'
+      fullPath: '/api/traces/$traceId/'
+      preLoaderRoute: typeof ApiTracesTraceIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sessions/$sessionId/': {
+      id: '/api/sessions/$sessionId/'
+      path: '/api/sessions/$sessionId'
+      fullPath: '/api/sessions/$sessionId/'
+      preLoaderRoute: typeof ApiSessionsSessionIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/traces/$traceId/conversation': {
+      id: '/api/traces/$traceId/conversation'
+      path: '/api/traces/$traceId/conversation'
+      fullPath: '/api/traces/$traceId/conversation'
+      preLoaderRoute: typeof ApiTracesTraceIdConversationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/traces/$traceId/brief': {
+      id: '/api/traces/$traceId/brief'
+      path: '/api/traces/$traceId/brief'
+      fullPath: '/api/traces/$traceId/brief'
+      preLoaderRoute: typeof ApiTracesTraceIdBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sessions/$sessionId/brief': {
+      id: '/api/sessions/$sessionId/brief'
+      path: '/api/sessions/$sessionId/brief'
+      fullPath: '/api/sessions/$sessionId/brief'
+      preLoaderRoute: typeof ApiSessionsSessionIdBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/traces/$traceId/spans/$spanId': {
+      id: '/api/traces/$traceId/spans/$spanId'
+      path: '/api/traces/$traceId/spans/$spanId'
+      fullPath: '/api/traces/$traceId/spans/$spanId'
+      preLoaderRoute: typeof ApiTracesTraceIdSpansSpanIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -521,12 +705,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiSearchRoute: ApiSearchRoute,
   DatasetsDatasetIdRoute: DatasetsDatasetIdRoute,
   EvalsEvalIdRoute: EvalsEvalIdRoute,
   McpServerIdRoute: McpServerIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   TasksTaskKeyRoute: TasksTaskKeyRoute,
   TracesTraceIdRoute: TracesTraceIdRoute,
+  ApiIndexRoute: ApiIndexRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
   DatasetsIndexRoute: DatasetsIndexRoute,
   EvalsIndexRoute: EvalsIndexRoute,
@@ -540,8 +726,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEvalsIngestRoute: ApiEvalsIngestRoute,
   EvalsRunsRunIdRoute: EvalsRunsRunIdRoute,
   InventorySystemPromptsPromptIdRoute: InventorySystemPromptsPromptIdRoute,
+  ApiTracesIndexRoute: ApiTracesIndexRoute,
   InventoryAgentsIndexRoute: InventoryAgentsIndexRoute,
   InventorySystemPromptsIndexRoute: InventorySystemPromptsIndexRoute,
+  ApiSessionsSessionIdBriefRoute: ApiSessionsSessionIdBriefRoute,
+  ApiTracesTraceIdBriefRoute: ApiTracesTraceIdBriefRoute,
+  ApiTracesTraceIdConversationRoute: ApiTracesTraceIdConversationRoute,
+  ApiSessionsSessionIdIndexRoute: ApiSessionsSessionIdIndexRoute,
+  ApiTracesTraceIdIndexRoute: ApiTracesTraceIdIndexRoute,
+  ApiTracesTraceIdSpansSpanIdRoute: ApiTracesTraceIdSpansSpanIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
