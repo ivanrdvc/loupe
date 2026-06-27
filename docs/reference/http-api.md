@@ -68,4 +68,4 @@ Returns `{ entity, provider, window: { since, scanned, capped }, page: { total, 
 
 ## Not in v1
 
-Auth / tokens / CORS / remote access · writes · free-text search across all traces · streaming for live runs · rate limiting · MCP (the HTTP API is the canonical surface). See [`plans/http-api.md`](../../plans/http-api.md).
+Auth / tokens / CORS / remote access · writes · free-text search across all traces · streaming for live runs · rate limiting · MCP (the HTTP API is the canonical surface).
