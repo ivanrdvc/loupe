@@ -1,7 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { CirclePlay, Download, Link as LinkIcon, MessageCircleQuestion, Plus, Trash2 } from 'lucide-react'
+import {
+  CircleAlert,
+  CircleCheck,
+  CirclePlay,
+  Download,
+  Link as LinkIcon,
+  MessageCircleQuestion,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
@@ -11,7 +20,6 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
@@ -32,12 +40,27 @@ import { downloadCsv } from '#/lib/csv'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { errMessage, formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
 import { NewRunSheet } from './-components/new-run-sheet'
 import { ResultDialog } from './-components/result-dialog'
-import { ScoreChip, ScoreChips, StatusIcon } from './-components/run-bits'
+import {
+  type CompareSummary,
+  CompareSummaryBar,
+  type Delta,
+  DeltaBadge,
+  NO_FILTER,
+  type RunFilter,
+  RunFilterChips,
+  runFilterMatches,
+  runItemDelta,
+  ScoreChip,
+  StatusBadge,
+  StatusIcon,
+  VerdictBadge,
+} from './-components/run-bits'
 import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
 
 export const Route = createFileRoute('/datasets/$datasetId')({
@@ -602,6 +625,7 @@ function RunsTab({
   onJudge: () => void
 }) {
   const { examples, runs } = detail
+  const [filter, setFilter] = useState<RunFilter>(NO_FILTER)
 
   // Keep focus-first order so compare lays the second run beside it.
   const selectedRuns = selectedIds.map((id) => runs.find((r) => r.id === id)).filter((r): r is DatasetRun => !!r)
@@ -680,15 +704,17 @@ function RunsTab({
         </div>
       ) : (
         <>
-          <RunControls runs={runs} selectedIds={selectedIds} onSelectedChange={onSelectedChange} />
+          <RunList runs={runs} items={detail.items} selectedIds={selectedIds} onSelectedChange={onSelectedChange} />
           {selectedRuns.length > 1 ? (
-            <RunResultsGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
+            <CompareGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
           ) : (
             <SingleRunList
               run={selectedRuns[0] ?? null}
               examples={examples}
               itemFor={itemFor}
               onOpenItem={onOpenItem}
+              filter={filter}
+              onFilterChange={setFilter}
             />
           )}
         </>
@@ -697,101 +723,90 @@ function RunsTab({
   )
 }
 
-// One focused run (latest by default) + an optional second run to compare against.
-function RunControls({
+// Checkbox run list: see the whole run timeline (newest first) and tick which to
+// view. One ticked → SingleRunList; two+ → CompareGrid (baseline=earliest,
+// current=latest among the ticked — honest now that chronology is on screen).
+function RunList({
   runs,
+  items,
   selectedIds,
   onSelectedChange,
 }: {
   runs: DatasetRun[]
+  items: DatasetRunItem[]
   selectedIds: string[]
   onSelectedChange: (ids: string[]) => void
 }) {
   const latestId = runs[0]?.id ?? null
-  const focusId = selectedIds[0] ?? latestId
-  const compareId = selectedIds[1] ?? null
-  const focus = runs.find((r) => r.id === focusId)
+  const selected = new Set(selectedIds)
 
-  const setFocus = (id: string) => onSelectedChange(compareId && compareId !== id ? [id, compareId] : [id])
-  const setCompare = (id: string) => onSelectedChange(id === 'none' || !focusId ? [focusId as string] : [focusId, id])
+  const errorCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const it of items) if (it.status === 'error') m.set(it.runId, (m.get(it.runId) ?? 0) + 1)
+    return m
+  }, [items])
 
-  const label = (run: DatasetRun) =>
-    `${run.label}${run.id === latestId ? ' · latest' : ''}${run.passRate != null ? ` · ${Math.round(run.passRate * 100)}%` : ''}`
+  // Never let the list empty out — unticking the last selected run is a no-op.
+  const toggle = (id: string) => {
+    if (selected.has(id)) {
+      if (selected.size === 1) return
+      onSelectedChange(selectedIds.filter((x) => x !== id))
+    } else {
+      onSelectedChange([...selectedIds, id])
+    }
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 pb-3 lg:px-6">
-      <span className="text-xs text-muted-foreground">Run</span>
-      <Select value={focusId ?? undefined} onValueChange={setFocus}>
-        <SelectTrigger size="sm" className="h-8 w-56 font-mono text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {runs.map((run) => (
-            <SelectItem key={run.id} value={run.id} className="font-mono text-xs">
-              {label(run)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={compareId ?? 'none'} onValueChange={setCompare}>
-        <SelectTrigger size="sm" className="h-8 w-48 text-xs">
-          <SelectValue placeholder="Compare…" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">No compare</SelectItem>
-          {runs
-            .filter((r) => r.id !== focusId)
-            .map((run) => (
-              <SelectItem key={run.id} value={run.id} className="font-mono text-xs">
-                vs {label(run)}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
-      {focus?.passRate != null && (
-        <span className="text-xs text-muted-foreground">{Math.round(focus.passRate * 100)}% pass</span>
-      )}
-    </div>
-  )
-}
-
-// Default single-run view: one readable row per example (question · answer · score).
-function SingleRunList({
-  run,
-  examples,
-  itemFor,
-  onOpenItem,
-}: {
-  run: DatasetRun | null
-  examples: DatasetExample[]
-  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
-  onOpenItem: (it: DatasetRunItem) => void
-}) {
-  return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 pb-4 lg:px-6">
+    <div className="px-4 pb-3 lg:px-6">
+      <p className="mb-1.5 text-[11px] text-muted-foreground">
+        Tick one run to inspect it, or two or more to compare them side by side.
+      </p>
       <ul className="flex flex-col divide-y rounded-lg border">
-        {examples.map((ex) => {
-          const it = run ? itemFor(run.id, ex.id) : null
+        {runs.map((run) => {
+          const isSelected = selected.has(run.id)
+          const errors = errorCounts.get(run.id) ?? 0
           return (
-            <li key={ex.id}>
+            <li key={run.id}>
               <button
                 type="button"
-                disabled={!it}
-                onClick={() => it && onOpenItem(it)}
-                className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+                onClick={() => toggle(run.id)}
+                className={cn(
+                  'flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50',
+                  isSelected && 'bg-muted/40',
+                )}
               >
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-1 text-sm">{inputPreview(ex.input)}</p>
-                  {it?.status === 'error' ? (
-                    <p className="text-xs text-destructive">⚠ run failed</p>
-                  ) : it ? (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{it.output}</p>
+                <Checkbox
+                  checked={isSelected}
+                  tabIndex={-1}
+                  aria-label={`Select ${run.label}`}
+                  className="pointer-events-none"
+                />
+                <span className="font-mono text-xs">{run.label}</span>
+                {run.id === latestId && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    latest
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground">{formatAgo(run.createdAt)}</span>
+                <div className="ml-auto flex items-center gap-2">
+                  {errors > 0 ? (
+                    <Badge variant="outline" className="gap-1 border-destructive/40 font-normal text-destructive">
+                      <CircleAlert className="size-3" />
+                      {errors} err
+                    </Badge>
                   ) : (
-                    <p className="text-xs text-muted-foreground/60">not in this run</p>
+                    <Badge
+                      variant="outline"
+                      className={cn('gap-1 border-emerald-600/40 font-normal', ACCENT.emerald.status)}
+                    >
+                      <CircleCheck className="size-3" />
+                      ok
+                    </Badge>
                   )}
+                  <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                    {run.passRate != null ? `${Math.round(run.passRate * 100)}%` : '—'}
+                  </span>
                 </div>
-                {it && <StatusIcon status={it.status} />}
-                <ScoreChips it={it} />
               </button>
             </li>
           )
@@ -801,8 +816,73 @@ function SingleRunList({
   )
 }
 
-// Results for the selected run(s): one Output column per run (1 = focus, 2+ = compare).
-function RunResultsGrid({
+// Default single-run view: one readable row per example. Status (execution) and
+// score (judge verdict) are two separate axes — two badges, two filters.
+function SingleRunList({
+  run,
+  examples,
+  itemFor,
+  onOpenItem,
+  filter,
+  onFilterChange,
+}: {
+  run: DatasetRun | null
+  examples: DatasetExample[]
+  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
+  onOpenItem: (it: DatasetRunItem) => void
+  filter: RunFilter
+  onFilterChange: (f: RunFilter) => void
+}) {
+  const rows = examples
+    .map((ex) => ({ ex, it: run ? itemFor(run.id, ex.id) : null }))
+    .filter(({ it }) => runFilterMatches(filter, it))
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 lg:px-6">
+      <RunFilterChips filter={filter} onChange={onFilterChange} />
+      <div className="min-h-0 flex-1 overflow-auto">
+        {rows.length === 0 ? (
+          <div className="rounded-lg border px-3 py-8 text-center text-xs text-muted-foreground">
+            No results match these filters.
+          </div>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-lg border">
+            {rows.map(({ ex, it }) => (
+              <li key={ex.id}>
+                <button
+                  type="button"
+                  disabled={!it}
+                  onClick={() => it && onOpenItem(it)}
+                  className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-sm">{inputPreview(ex.input)}</p>
+                    {it?.status === 'error' ? (
+                      <p className="text-xs text-destructive">{it.errorText?.trim() || 'run failed'}</p>
+                    ) : it ? (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{it.output}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground/60">not in this run</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusBadge it={it} />
+                    <VerdictBadge it={it} />
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Compare the selected runs side by side, surfacing regressions. Baseline is the
+// earliest-created run, current the latest — so the delta reads "did it get
+// worse since the baseline?" regardless of which slot the user picked first.
+function CompareGrid({
   runs,
   examples,
   itemFor,
@@ -813,11 +893,35 @@ function RunResultsGrid({
   itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
   onOpenItem: (it: DatasetRunItem) => void
 }) {
+  const [onlyRegressions, setOnlyRegressions] = useState(false)
+  const chrono = [...runs].sort((a, b) => a.createdAt - b.createdAt)
+  const baselineId = chrono[0].id
+  const currentId = chrono[chrono.length - 1].id
+
+  const deltaFor = useCallback(
+    (exampleId: string): Delta => runItemDelta(itemFor(baselineId, exampleId), itemFor(currentId, exampleId)),
+    [itemFor, baselineId, currentId],
+  )
+
+  const deltas = useMemo(() => new Map(examples.map((ex) => [ex.id, deltaFor(ex.id)])), [examples, deltaFor])
+  const summary = useMemo<CompareSummary>(() => {
+    const s = { regressed: 0, improved: 0, unchanged: 0 }
+    for (const d of deltas.values()) s[d] += 1
+    return s
+  }, [deltas])
+
+  const rows = onlyRegressions ? examples.filter((ex) => deltas.get(ex.id) === 'regressed') : examples
+
   const columns: ColumnDef<DatasetExample, unknown>[] = [
     {
       id: 'input',
       header: 'Input',
-      cell: ({ row }) => <InputCell example={row.original} />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1.5">
+          <DeltaBadge delta={deltas.get(row.original.id) ?? 'unchanged'} />
+          <InputCell example={row.original} />
+        </div>
+      ),
       meta: {
         headClassName: 'sticky left-0 z-20 w-64 bg-muted/40',
         className: 'sticky left-0 z-10 w-64 bg-background',
@@ -831,31 +935,56 @@ function RunResultsGrid({
       ),
       meta: { headClassName: 'w-56' },
     },
-    ...runs.map(
+    ...chrono.map(
       (run): ColumnDef<DatasetExample, unknown> => ({
         id: run.id,
         header: () => (
           <div className="flex flex-col gap-0.5 py-1">
-            <span className="font-mono text-xs text-foreground">{run.label}</span>
+            <span className="font-mono text-xs text-foreground">
+              {run.label}
+              {run.id === baselineId && <span className="ml-1 text-muted-foreground">· baseline</span>}
+              {run.id === currentId && <span className="ml-1 text-muted-foreground">· current</span>}
+            </span>
             {run.passRate != null && (
               <span className="text-[10px] text-muted-foreground">{Math.round(run.passRate * 100)}% pass</span>
             )}
           </div>
         ),
-        cell: ({ row }) => <OutputCell it={itemFor(run.id, row.original.id)} onOpenItem={onOpenItem} />,
+        cell: ({ row }) => {
+          const delta = run.id === currentId ? (deltas.get(row.original.id) ?? 'unchanged') : 'unchanged'
+          return (
+            <div className={cn('-m-2 p-2', delta === 'regressed' && 'bg-destructive/5')}>
+              <OutputCell it={itemFor(run.id, row.original.id)} onOpenItem={onOpenItem} />
+            </div>
+          )
+        },
         meta: { headClassName: 'w-80' },
       }),
     ),
   ]
 
   return (
-    <>
-      <DataGrid columns={columns} data={examples} getRowId={(e) => e.id} />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="px-4 pb-3 lg:px-6">
+        <CompareSummaryBar
+          summary={summary}
+          onlyRegressions={onlyRegressions}
+          onToggleRegressions={() => setOnlyRegressions((v) => !v)}
+        />
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-4 lg:px-6">
+          <div className="rounded-lg border px-3 py-8 text-center text-xs text-muted-foreground">
+            No regressions between these runs.
+          </div>
+        </div>
+      ) : (
+        <DataGrid columns={columns} data={rows} getRowId={(e) => e.id} />
+      )}
       <p className="px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
-        {runs.length > 1 && '⚠ = answer changed vs previous run · '}click any cell for the full answer + trace · use
-        Judge to score the selected run
+        Delta is current vs baseline (PASS→FAIL or ok→error = regression). Click any cell for the full answer + trace.
       </p>
-    </>
+    </div>
   )
 }
 
@@ -883,17 +1012,16 @@ function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem:
       onClick={() => onOpenItem(it)}
     >
       <span className="line-clamp-3 text-xs">{it.status === 'error' ? '⚠ run failed' : it.output}</span>
-      {it.scores.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          {it.scores.map((s) => (
-            <ScoreChip key={s.name} s={s} />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-1">
+        <StatusBadge it={it} />
+        <VerdictBadge it={it} />
+        {it.scores.map((s) => (
+          <ScoreChip key={s.name} s={s} />
+        ))}
+      </div>
       <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <StatusIcon status={it.status} />
         {it.status === 'changed' && <span className="text-warning">changed</span>}
-        <span>· {(it.latencyMs / 1000).toFixed(1)}s</span>
+        <span>{(it.latencyMs / 1000).toFixed(1)}s</span>
         {it.traceId && <LinkIcon className="size-3" />}
       </span>
     </button>

@@ -30,6 +30,18 @@ async function openExample(page: Page, text: string): Promise<void> {
   }).toPass()
 }
 
+// The run list ticks the latest run by default; tick every unchecked run so the
+// compare grid lays them side by side. Each run is a row button holding a
+// (pointer-events-none) checkbox indicator — click the row, read the box state.
+async function selectRunsForCompare(page: Page): Promise<void> {
+  const rows = page.getByRole('button').filter({ has: page.getByRole('checkbox', { name: /^Select run/ }) })
+  const count = await rows.count()
+  for (let i = 0; i < count; i++) {
+    const row = rows.nth(i)
+    if ((await row.getByRole('checkbox').getAttribute('data-state')) !== 'checked') await row.click()
+  }
+}
+
 test('creates a dataset and lands on its empty detail page', async ({ page }) => {
   await createDataset(page)
   await expect(page.getByText('No examples yet')).toBeVisible()
@@ -177,11 +189,43 @@ test('compares two runs of the same dataset side by side', async ({ page }) => {
   await page.getByRole('button', { name: 'Run on all' }).click()
   await expect(page.getByRole('tab', { name: /Runs\s*2/ })).toBeVisible({ timeout: 20_000 })
 
-  // Pick a second run in the compare selector → the grid lays both runs side by side.
-  await page.getByRole('combobox').filter({ hasText: 'No compare' }).click()
-  await page.getByRole('option').filter({ hasText: /^vs / }).click()
+  // Latest run is ticked by default; tick the older one too → compare grid.
+  await selectRunsForCompare(page)
 
   await expect(page.getByText('fake agent answer')).toHaveCount(2)
+})
+
+test('surfaces a regression when an example breaks between two compared runs', async ({ page }) => {
+  await createDataset(page)
+  await addExample(page, 'Ping?')
+
+  await page.getByRole('tab', { name: /Runs/ }).click()
+  // Run 1 succeeds against the fake agent.
+  await page.getByRole('button', { name: 'Run this dataset' }).click()
+  await page.getByRole('button', { name: 'Run on all' }).click()
+  await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
+
+  // Run 2 points at a dead endpoint → the example errors (ok→error = regression).
+  await page.getByRole('button', { name: 'New run' }).click()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByPlaceholder(/responses/).fill('http://127.0.0.1:1/v1/responses')
+  await sheet.getByRole('button', { name: 'Run on all' }).click()
+  await expect(page.getByRole('tab', { name: /Runs\s*2/ })).toBeVisible({ timeout: 20_000 })
+
+  // Compare the two runs side by side.
+  await selectRunsForCompare(page)
+
+  // The compare summary counts the ok→error flip as one regression, and the row
+  // carries a regressed delta badge (uppercased via CSS, so DOM text is lowercase).
+  const regressionChip = page.getByRole('button', { name: /1 regression/ })
+  await expect(regressionChip).toBeVisible()
+  await expect(page.getByText('regressed', { exact: true })).toBeVisible()
+
+  // The "1 regression" chip filters the grid down to just the regressed row,
+  // whose current-run column shows the failure.
+  await regressionChip.click()
+  await expect(page.getByText('Ping?')).toBeVisible()
+  await expect(page.getByText('run failed')).toBeVisible()
 })
 
 test('sends agent overrides (system prompt + temperature) on a run', async ({ page }) => {
@@ -208,7 +252,37 @@ test('judges a run with the fixtures judge and shows a pass rate', async ({ page
   await page.getByRole('button', { name: 'Run on all' }).click()
   await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
 
+  const list = page.getByRole('listitem').filter({ hasText: 'fake agent answer' })
   await page.getByRole('button', { name: 'Judge run', exact: true }).click()
+  // Verdict badge renders the verdict (uppercased via CSS, so DOM text is lowercase).
+  await expect(list.getByText('pass', { exact: true })).toBeVisible({ timeout: 20_000 })
+})
 
-  await expect(page.getByText('100% pass', { exact: true })).toBeVisible({ timeout: 20_000 })
+test('separates run status from judge score with independent filter chips', async ({ page }) => {
+  await createDataset(page)
+  await addExample(page, 'Ping?')
+
+  await page.getByRole('tab', { name: /Runs/ }).click()
+  await page.getByRole('button', { name: 'Run this dataset' }).click()
+  await page.getByRole('button', { name: 'Run on all' }).click()
+  await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
+
+  // Status (execution) badge shows even before judging; score reads "not judged".
+  const list = page.getByRole('listitem').filter({ hasText: 'fake agent answer' })
+  await expect(list.getByText('ok', { exact: true })).toBeVisible()
+  await expect(list.getByText('not judged')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Judge run', exact: true }).click()
+  // Verdict badge renders the verdict (uppercased via CSS, so DOM text is lowercase).
+  await expect(list.getByText('pass', { exact: true })).toBeVisible({ timeout: 20_000 })
+
+  // Filter by score=FAIL → the passing row drops out; clear it back.
+  await page.getByRole('button', { name: 'FAIL', exact: true }).click()
+  await expect(page.getByText('No results match these filters.')).toBeVisible()
+  await page.getByRole('button', { name: 'PASS', exact: true }).click()
+  await expect(page.getByText('fake agent answer')).toBeVisible()
+
+  // Filter by status=error → no errored rows, list empties out.
+  await page.getByRole('button', { name: 'error', exact: true }).click()
+  await expect(page.getByText('No results match these filters.')).toBeVisible()
 })
