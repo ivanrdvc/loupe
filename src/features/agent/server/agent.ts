@@ -15,25 +15,36 @@ const callOptionsSchema = z.object({
 })
 
 // Static identity here; per-request context, mentions, model, and telemetry come via prepareCall.
-export const loupeAgent = new ToolLoopAgent({
-  model: resolveChatModel(DEFAULT_CHAT_MODEL),
-  instructions: BASE,
-  tools: { ...agentTools, load_skill: loadSkillTool },
-  stopWhen: isStepCount(8),
-  // gpt-5 only streams a thinking summary when asked; keep effort low so it's quick.
-  providerOptions: { openai: { reasoningSummary: 'auto', reasoningEffort: 'low' } },
-  callOptionsSchema,
-  prepareCall: async ({ options, ...settings }) => {
-    const ctx = options.context ?? { pathname: '/' }
-    const mentions = options.mentions?.length ? await resolveMentions(options.mentions) : undefined
-    const modelId: ChatModelId = isChatModelId(options.model) ? options.model : DEFAULT_CHAT_MODEL
-    return {
-      ...settings,
-      model: resolveChatModel(modelId),
-      instructions: requestInstructions(ctx, mentions),
-      telemetry: agentTelemetry(options.sessionId),
-    }
-  },
-})
+function buildLoupeAgent() {
+  return new ToolLoopAgent({
+    model: resolveChatModel(DEFAULT_CHAT_MODEL),
+    instructions: BASE,
+    tools: { ...agentTools, load_skill: loadSkillTool },
+    stopWhen: isStepCount(8),
+    // gpt-5 only streams a thinking summary when asked; keep effort low so it's quick.
+    providerOptions: { openai: { reasoningSummary: 'auto', reasoningEffort: 'low' } },
+    callOptionsSchema,
+    prepareCall: async ({ options, ...settings }) => {
+      const ctx = options.context ?? { pathname: '/' }
+      const mentions = options.mentions?.length ? await resolveMentions(options.mentions) : undefined
+      const modelId: ChatModelId = isChatModelId(options.model) ? options.model : DEFAULT_CHAT_MODEL
+      return {
+        ...settings,
+        model: resolveChatModel(modelId),
+        instructions: requestInstructions(ctx, mentions),
+        telemetry: agentTelemetry(options.sessionId),
+      }
+    },
+  })
+}
 
-export type LoupeAgentUIMessage = InferAgentUIMessage<typeof loupeAgent>
+// Lazy + memoized: resolveChatModel throws without an API key, so constructing
+// at module load would 500 every SSR page (the route graph imports this). Defer
+// it to the first chat request.
+let cached: ReturnType<typeof buildLoupeAgent> | undefined
+export function getLoupeAgent() {
+  cached ??= buildLoupeAgent()
+  return cached
+}
+
+export type LoupeAgentUIMessage = InferAgentUIMessage<ReturnType<typeof buildLoupeAgent>>
