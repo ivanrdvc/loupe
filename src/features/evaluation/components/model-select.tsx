@@ -15,7 +15,7 @@ const PROVIDER_LABEL: Record<JudgeProvider, string> = {
   azure: 'Azure OpenAI',
 }
 
-const PROVIDERS: JudgeProvider[] = ['anthropic', 'openai', 'azure']
+const PROVIDERS = Object.keys(PROVIDER_LABEL) as JudgeProvider[]
 
 /** Judge-model picker backed by the canonical list in `logic/models`. */
 export function ModelSelect({

@@ -13,6 +13,14 @@ export const SESSION_SCAN_LIMIT = 10000
 // Hard cap on spans returned for one trace fetch. A trace exceeding this is
 // truncated and rendered partially.
 export const TRACE_FETCH_LIMIT = 5000
+// Default row cap for list queries (sessions/traces/spans) when no limit given.
+export const DEFAULT_LIST_LIMIT = 50
+// Bound stalled provider scans (else an infinite spinner with no error).
+export const PROVIDER_QUERY_TIMEOUT_MS = 120_000
+
+// Validate identifiers interpolated into provider queries.
+export const SPAN_ID_RE = /^[A-Za-z0-9_-]+$/
+export const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
 
 // Spans-tab classifier. Backends return rows matched by either a non-null
 // purpose attr (utility) or `invoke_agent` nested under `execute_tool`

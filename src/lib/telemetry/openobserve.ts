@@ -17,9 +17,11 @@ import {
   buildTraceSummary,
   classifyError,
   classifySpanRow,
+  DEFAULT_LIST_LIMIT,
   firstString,
   groupBy,
   num,
+  PROVIDER_QUERY_TIMEOUT_MS,
   pickIdentityValue,
   SESSION_SCAN_LIMIT,
   sqlString,
@@ -47,11 +49,8 @@ export interface OpenObserveConfig {
   logsStream?: string
 }
 
-const DEFAULT_LIST_LIMIT = 50
 // Last 30 days — OO scans local Parquet, cost ~free.
 const DEFAULT_WINDOW_US = 30 * 24 * 60 * 60 * 1_000_000
-// Bound stalled scans (else an infinite spinner with no error).
-const FETCH_TIMEOUT_MS = 120_000
 
 // OO-specific column quirks: alternate `_o2_*` forms exist when an attribute
 // collided with a reserved name at ingest. Not OTel attributes — kept here
@@ -105,7 +104,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
     if (schemaCache && Date.now() - schemaCache.at < SCHEMA_TTL_MS) return schemaCache.cols
     const resp = await fetch(`${cfg.baseUrl}/api/${cfg.org}/streams/${cfg.stream}/schema?type=traces`, {
       headers: { Authorization: `Basic ${auth}` },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(PROVIDER_QUERY_TIMEOUT_MS),
     })
     const cols = new Set<string>()
     if (resp.ok) {
@@ -133,7 +132,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
       method: 'POST',
       headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
       body,
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(PROVIDER_QUERY_TIMEOUT_MS),
     })
     if (!resp.ok) {
       const text = await resp.text()

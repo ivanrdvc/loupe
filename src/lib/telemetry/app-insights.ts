@@ -21,8 +21,10 @@ import {
   buildTraceSummary,
   classifyError,
   classifySpanRow,
+  DEFAULT_LIST_LIMIT,
   groupBy,
   num,
+  PROVIDER_QUERY_TIMEOUT_MS,
   pickIdentityValue,
   SESSION_SCAN_LIMIT,
   TRACE_FETCH_LIMIT,
@@ -49,10 +51,7 @@ import type {
 export type AppInsightsConfig = { resourceId: string } | { appId: string; apiKey: string; baseUrl?: string }
 
 const DEFAULT_BASE = 'https://api.applicationinsights.io'
-const DEFAULT_LIST_LIMIT = 50
 const DEFAULT_DURATION = 'P30D'
-// REST path needs its own bound (the SDK path uses serverTimeoutInSeconds).
-const REST_TIMEOUT_MS = 120_000
 
 // Collapses duplicate spans (same operation_Id + id) to their latest copy.
 const DEDUPE_SPANS_BY_ID_KQL = '| summarize arg_max(timestamp, *) by operation_Id, id'
@@ -115,7 +114,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         method: 'POST',
         headers: { 'x-api-key': cfg.apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, timespan: ts }),
-        signal: AbortSignal.timeout(REST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(PROVIDER_QUERY_TIMEOUT_MS),
       })
       if (!resp.ok) throw new Error(`App Insights ${resp.status}: ${await resp.text()}`)
       const data = (await resp.json()) as {

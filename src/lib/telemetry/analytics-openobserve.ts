@@ -2,7 +2,7 @@ import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { countTokens } from '#/lib/tokens'
 import { ooCol, ooColumns } from './conventions'
-import { mapToolErrorRow, num, sqlString, toCount } from './shared'
+import { mapToolErrorRow, num, SPAN_ID_RE, sqlString, TOOL_NAME_RE, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
 import type {
   AgentMetrics,
@@ -21,10 +21,6 @@ import type {
   TopOpts,
   WindowOpts,
 } from './types'
-
-const SPAN_ID_RE = /^[A-Za-z0-9_-]+$/
-
-const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
 
 // 20004 = column not in stream yet (fresh ingest). Treat as empty.
 async function emptyIfColumnMissing<T>(run: () => Promise<T[]>): Promise<T[]> {
