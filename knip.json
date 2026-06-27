@@ -4,8 +4,8 @@
   "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
   "ignore": ["src/components/ui/**"],
   "ignoreDependencies": [
+    "@fontsource-variable/fira-code",
     "@fontsource-variable/inter",
-    "@fontsource-variable/jetbrains-mono",
     "@tailwindcss/typography",
     "@tanstack/router-plugin",
     "tailwindcss",
