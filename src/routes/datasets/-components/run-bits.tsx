@@ -20,15 +20,13 @@ export function StatusIcon({ status }: { status: RunItemStatus }) {
   return <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
 }
 
-// Execution outcome: did the run complete, or did the agent call error out?
-// 'changed' is still an ok execution — the answer just differs from a prior run.
+// 'changed' is still a successful execution — the answer just differs from a prior run.
 export type RunStatus = 'ok' | 'error'
 export function runStatus(it: DatasetRunItem): RunStatus {
   return it.status === 'error' ? 'error' : 'ok'
 }
 
-// Judge verdict for the whole item: fail if any score failed, else pass if any
-// passed, else null (not judged / numeric-only).
+// fail if any score failed, else pass if any passed, else null (numeric-only / not judged).
 export type ScoreVerdict = 'pass' | 'fail'
 export function scoreVerdict(it: DatasetRunItem): ScoreVerdict | null {
   if (it.scores.some((s) => s.pass === false)) return 'fail'
@@ -36,7 +34,6 @@ export function scoreVerdict(it: DatasetRunItem): ScoreVerdict | null {
   return null
 }
 
-// Execution-outcome badge (axis 1). Distinct from the judge verdict.
 export function StatusBadge({ it }: { it: DatasetRunItem | null }) {
   if (!it) return <span className="text-[10px] text-muted-foreground">—</span>
   const status = runStatus(it)
@@ -59,7 +56,6 @@ export function StatusBadge({ it }: { it: DatasetRunItem | null }) {
   )
 }
 
-// Aggregate judge verdict badge (axis 2): PASS / FAIL / not judged.
 export function VerdictBadge({ it }: { it: DatasetRunItem | null }) {
   if (!it) return null
   if (it.status === 'error') return null
@@ -112,7 +108,6 @@ export function ScoreChips({ it }: { it: DatasetRunItem | null }) {
   )
 }
 
-// Two independent filter axes: execution status and judge verdict. null = no filter.
 export interface RunFilter {
   status: RunStatus | null
   score: ScoreVerdict | null
@@ -148,8 +143,6 @@ function FilterChip({
   )
 }
 
-// Filter chips for the runs list: status (ok / error) and score (pass / fail),
-// toggled independently. Clicking an active chip clears that axis.
 export function RunFilterChips({ filter, onChange }: { filter: RunFilter; onChange: (f: RunFilter) => void }) {
   const toggleStatus = (s: RunStatus) => onChange({ ...filter, status: filter.status === s ? null : s })
   const toggleScore = (s: ScoreVerdict) => onChange({ ...filter, score: filter.score === s ? null : s })
@@ -179,16 +172,10 @@ export function RunFilterChips({ filter, onChange }: { filter: RunFilter; onChan
   )
 }
 
-// Per-example outcome when comparing two runs. A regression is the case that
-// matters: the example got worse between runs (its judge verdict flipped
-// PASS→FAIL, or the run itself broke ok→error). 'unchanged' covers same-outcome
-// and the cases where there's nothing to compare (missing in one run).
 export type Delta = 'regressed' | 'improved' | 'unchanged'
 
-// Compare a baseline item against the current item along the same two axes as
-// the rest of the slice: execution status first (ok↔error is the louder flip),
-// then judge verdict (pass↔fail). A pass↔unjudged shift carries no verdict, so
-// it's left unchanged rather than manufacturing a regression from noise.
+// Status flip wins over verdict (ok↔error is the louder signal); a pass↔unjudged
+// shift carries no verdict, so it stays unchanged rather than faking a regression.
 export function runItemDelta(baseline: DatasetRunItem | null, current: DatasetRunItem | null): Delta {
   if (!baseline || !current) return 'unchanged'
   const bStatus = runStatus(baseline)
@@ -226,7 +213,6 @@ export function DeltaBadge({ delta }: { delta: Delta }) {
   )
 }
 
-// Compact summary for the compare header: N regressions, M improvements.
 export function CompareSummaryBar({
   summary,
   onlyRegressions,

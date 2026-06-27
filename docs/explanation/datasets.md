@@ -7,7 +7,7 @@ summary: Named, versioned sets of questions fired at the user's agent over HTTP;
 status: draft
 owner: "@ivan"
 audience: loupe-devs
-last-reviewed: 2026-06-01
+last-reviewed: 2026-06-27
 tags: [datasets, evaluation, traces]
 ---
 
@@ -44,8 +44,10 @@ Two objects, deliberately separate:
 
 The grid is Examples (rows) × Runs (columns). In the UI these are two tabs on the
 dataset detail page (`src/routes/datasets/$datasetId.tsx`): an **Examples** tab to
-edit questions, and a **Runs** tab that shows the latest run by default with prior
-runs as a quiet pill switcher (tap to view, tap more to compare).
+edit questions, and a **Runs** tab listing every run as a checkbox list — tick one
+to read it, tick two or more to compare them side by side. A RunItem's execution
+status (ok / error) and its judge verdict (pass / fail) are two independent axes,
+and compare highlights what regressed or improved between baseline and current.
 
 **Trace linkage reuses existing session grouping.** loupe already groups traces by
 `gen_ai.conversation.id` / `ag_ui.thread_id`. A run mints a unique id per
@@ -62,8 +64,8 @@ harness.
 
 - **Dumb-target first.** The first cut POSTs `{input}` to one agent endpoint
   (global default + per-dataset override) and records what comes back. Agent-behavior
-  **overrides** (model / system-prompt / tools / sampling) are sent as extra request
-  fields that only opt-in agents honor — UI is mocked, wired later.
+  **overrides** (model / system-prompt / tools / sampling) are set in the New run
+  sheet and sent as extra request fields that only opt-in agents honor.
 - **Tool grading reads a snapshot, not the live trace.** A run snapshots each
   trace's tool calls into `dataset_run_item.tool_calls_json`, so a `tool_selection`
   judge (or an `expected` like `{"tool":"multiply"}`) grades real behavior even

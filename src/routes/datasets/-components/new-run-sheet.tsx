@@ -21,7 +21,6 @@ import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { AgentOverridesFields } from './agent-overrides-fields'
 import { Field } from './run-bits'
 
-// Everything needed to fire a run, in one Sheet — replaces the old controls bar.
 export function NewRunSheet({
   endpoint,
   onEndpointChange,

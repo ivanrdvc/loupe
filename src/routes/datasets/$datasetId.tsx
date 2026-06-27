@@ -723,9 +723,7 @@ function RunsTab({
   )
 }
 
-// Checkbox run list: see the whole run timeline (newest first) and tick which to
-// view. One ticked → SingleRunList; two+ → CompareGrid (baseline=earliest,
-// current=latest among the ticked — honest now that chronology is on screen).
+// One ticked → single run; two+ → compare (baseline=earliest, current=latest).
 function RunList({
   runs,
   items,
@@ -816,8 +814,6 @@ function RunList({
   )
 }
 
-// Default single-run view: one readable row per example. Status (execution) and
-// score (judge verdict) are two separate axes — two badges, two filters.
 function SingleRunList({
   run,
   examples,
@@ -879,9 +875,6 @@ function SingleRunList({
   )
 }
 
-// Compare the selected runs side by side, surfacing regressions. Baseline is the
-// earliest-created run, current the latest — so the delta reads "did it get
-// worse since the baseline?" regardless of which slot the user picked first.
 function CompareGrid({
   runs,
   examples,
