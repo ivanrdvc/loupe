@@ -48,7 +48,7 @@ export function RunIconButton({
           disabled={disabled || running}
           onClick={onClick}
           className={cn(
-            'group relative grid size-7 place-items-center overflow-hidden rounded-full',
+            'group relative isolate grid size-7 place-items-center overflow-hidden rounded-full',
             'text-muted-foreground transition-all duration-200',
             'hover:text-white hover:shadow-[0_3px_16px_-4px_rgba(168,85,247,0.75)]',
             'disabled:pointer-events-none disabled:opacity-40',

@@ -177,6 +177,43 @@ describe('listTraces pushes filters into the query before LIMIT', () => {
   })
 })
 
+describe('listTraces names the agent from the gen_ai.agent.name attr, not the model in the span name', () => {
+  const cfg = { baseUrl: 'http://oo', org: 'o', stream: 's', user: 'u', password: 'p' }
+  const provider = (hits: Record<string, unknown>[], cap: { sql?: string } = {}) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: string }) => {
+        if (String(url).includes('/schema')) {
+          return { ok: true, json: async () => ({ schema: [{ name: 'gen_ai_agent_name' }] }) }
+        }
+        cap.sql = JSON.parse(String(init?.body)).query.sql
+        return { ok: true, json: async () => ({ hits }) }
+      }),
+    )
+    return createOpenObserveProvider(cfg)
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('prefers the attribute when the span name carries only the model', async () => {
+    const cap: { sql?: string } = {}
+    const traces =
+      (await provider(
+        [{ trace_id: 't1', sample_agent: 'invoke_agent gpt-5-nano', sample_agent_name: 'loupe agent' }],
+        cap,
+      ).listTraces?.({})) ?? []
+    expect(traces[0]?.agent).toBe('loupe agent')
+    expect(cap.sql).toContain('gen_ai_agent_name')
+  })
+
+  it('falls back to parsing the span name when no attribute is present', async () => {
+    const traces =
+      (await provider([{ trace_id: 't2', sample_agent: 'invoke_agent Reviewer', sample_agent_name: '' }]).listTraces?.(
+        {},
+      )) ?? []
+    expect(traces[0]?.agent).toBe('Reviewer')
+  })
+})
+
 describe('listSessions re-probes a stale schema missing session columns', () => {
   const cfg = { baseUrl: 'http://oo', org: 'o', stream: 's', user: 'u', password: 'p' }
   afterEach(() => vi.unstubAllGlobals())

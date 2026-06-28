@@ -154,7 +154,11 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 
 // A saved agent under test. `config` holds the static auth handshake; an identity adds
 // credentials on top. Opaque to core's schema (fork-safe).
+// Wire protocol an adapter speaks to the agent under test. Add a protocol in agent-run.ts.
+export type AgentProtocol = 'openai-responses' | 'vercel-ai-stream'
+
 export interface AgentTargetConfig {
+  adapter?: AgentProtocol // wire protocol to the agent; default 'openai-responses'
   authEndpoint?: string // omitted = no auth / static-header-only
   tokenPath?: string // dot-path into the mint response (default 'access_token')
   headers?: Record<string, string>

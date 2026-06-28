@@ -68,6 +68,7 @@ const SESSION_ID_COALESCE = aiCoalesce('sessionId')
 const SESSION_TITLE_COALESCE = aiCoalesce('sessionTitle')
 const USER_NAME_COALESCE = aiCoalesce('userName')
 const USER_ID_COALESCE = aiCoalesce('userId')
+const AGENT_NAME_COALESCE = aiCoalesce('agentName')
 // cloud_RoleName is an AppInsights-specific column, not a custom dimension —
 // stitched on as a final fallback.
 const HOST_COALESCE = `coalesce(${aiCoalesce('host')}, tostring(cloud_RoleName))`
@@ -211,7 +212,9 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         summarizeFilter.push(`| where root_trigger_type in (${opts.triggerTypes.map(kqlString).join(', ')})`)
       }
       if (opts?.agentName)
-        summarizeFilter.push(`| where agent_name startswith ${kqlString(`invoke_agent ${opts.agentName}`)}`)
+        summarizeFilter.push(
+          `| where agent_display_name == ${kqlString(opts.agentName)} or agent_name startswith ${kqlString(`invoke_agent ${opts.agentName}`)}`,
+        )
       const q = `
         ${userCte}
         union dependencies, requests
@@ -235,6 +238,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             task_name = tostring(customDimensions["task.name"]),
             task_source = tostring(customDimensions["task.source"]),
             llm_purpose = tostring(customDimensions["gen_ai.operation.purpose"]),
+            agent_attr = ${AGENT_NAME_COALESCE},
             u_id = ${USER_ID_COALESCE},
             u_name = ${USER_NAME_COALESCE}
         | summarize
@@ -243,6 +247,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             span_count = count(),
             total_tokens = sum(iff(gen_op == "chat", coalesce(in_tok, 0) + coalesce(out_tok, 0), 0)),
             agent_name = take_anyif(name, name startswith "invoke_agent "),
+            agent_display_name = take_anyif(agent_attr, name startswith "invoke_agent " and isnotempty(agent_attr)),
             has_error   = countif(success == false and (isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool ")) > 0,
             session_id  = take_any(sess),
             service_name = take_any(cloud_RoleName),
@@ -320,6 +325,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             cache_tok = toint(customDimensions["gen_ai.usage.cache_read.input_tokens"]),
             model_id = ${aiCoalesce('model')},
             provider = tostring(customDimensions["gen_ai.provider.name"]),
+            agent_name = ${AGENT_NAME_COALESCE},
             u_id = ${USER_ID_COALESCE},
             u_name = ${USER_NAME_COALESCE}
         | project
@@ -327,6 +333,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
             trace_id = operation_Id,
             span_name = name,
             purpose,
+            agent_name,
             first_seen = timestamp,
             duration_ms = duration,
             in_tok, out_tok, cache_tok,
@@ -366,6 +373,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
                                       + toint(customDimensions["gen_ai.usage.output_tokens"]),
             gen_ai_usage_cost_total = todouble(customDimensions["gen_ai.usage.cost_total"]),
             gen_ai_input_messages = tostring(customDimensions["gen_ai.input.messages"]),
+            gen_ai_agent_name = ${AGENT_NAME_COALESCE},
             span_status = iff(success == false, "ERROR", "OK"),
             trigger_type = tostring(customDimensions["session.trigger_type"]),
             ag_ui_thread_id = ${SESSION_ID_COALESCE},
@@ -634,7 +642,8 @@ function rowToSpanSummary(row: Record<string, unknown>): SpanSummary {
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const spanName = String(row.span_name ?? '')
   const purpose = typeof row.purpose === 'string' ? row.purpose : ''
-  const { kind, label } = classifySpanRow(spanName, purpose)
+  const agentName = typeof row.agent_name === 'string' ? row.agent_name : ''
+  const { kind, label } = classifySpanRow(spanName, purpose, agentName)
   const summary: SpanSummary = {
     spanId: String(row.span_id ?? ''),
     traceId: String(row.trace_id ?? ''),
@@ -658,12 +667,14 @@ function rowToSpanSummary(row: Record<string, unknown>): SpanSummary {
 function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
   const firstSeen = typeof row.first_seen === 'string' ? Date.parse(row.first_seen) : 0
   const lastSeen = typeof row.last_seen === 'string' ? Date.parse(row.last_seen) : 0
+  const agentName =
+    typeof row.agent_display_name === 'string' && row.agent_display_name ? row.agent_display_name : undefined
   return buildTraceSummary(row, {
     id: String(row.operation_Id ?? ''),
     startedAtMs: firstSeen,
     durationMs: Math.max(0, lastSeen - firstSeen),
     hasError: Boolean(row.has_error),
-    agent: extractAgentName(typeof row.agent_name === 'string' ? row.agent_name : '') || undefined,
+    agent: agentName ?? extractAgentName(typeof row.agent_name === 'string' ? row.agent_name : ''),
   })
 }
 

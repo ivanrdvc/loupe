@@ -7,7 +7,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
-import { type AgentTargetSummary, agentTargetsQuery, GLOBAL_DEFAULT_ENDPOINT } from '#/features/evaluation'
+import {
+  type AgentProtocol,
+  type AgentTargetSummary,
+  agentTargetsQuery,
+  GLOBAL_DEFAULT_ENDPOINT,
+} from '#/features/evaluation'
 import { deleteAgentTarget, upsertAgentTarget } from '#/features/evaluation/server/agent-targets'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -110,6 +115,7 @@ function ManageTargetsDialog({
   const [url, setUrl] = useState('')
   const [authEndpoint, setAuthEndpoint] = useState('')
   const [tokenPath, setTokenPath] = useState('')
+  const [adapter, setAdapter] = useState<AgentProtocol>('openai-responses')
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.datasets.targets() })
 
   const addMutation = useMutation({
@@ -119,6 +125,7 @@ function ManageTargetsDialog({
           label: label.trim(),
           endpointUrl: url.trim(),
           config: {
+            ...(adapter !== 'openai-responses' ? { adapter } : {}),
             ...(authEndpoint.trim() ? { authEndpoint: authEndpoint.trim() } : {}),
             ...(tokenPath.trim() ? { tokenPath: tokenPath.trim() } : {}),
           },
@@ -130,6 +137,7 @@ function ManageTargetsDialog({
       setUrl('')
       setAuthEndpoint('')
       setTokenPath('')
+      setAdapter('openai-responses')
       toast.success('Target added')
       onOpenChange(false)
     },
@@ -207,6 +215,18 @@ function ManageTargetsDialog({
                 placeholder={GLOBAL_DEFAULT_ENDPOINT}
                 className="h-8 font-mono text-xs"
               />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1">
+              <Label className="text-xs">Protocol</Label>
+              <Select value={adapter} onValueChange={(v) => setAdapter(v as AgentProtocol)}>
+                <SelectTrigger className="h-8 text-xs" aria-label="Protocol">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai-responses">OpenAI Responses</SelectItem>
+                  <SelectItem value="vercel-ai-stream">Vercel AI stream</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="target-auth" className="text-xs">

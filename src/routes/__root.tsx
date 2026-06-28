@@ -10,6 +10,7 @@ import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import { AgentLauncher, AgentPanel, AgentProvider } from '#/features/agent'
 import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
+import { useAppTheme } from '#/hooks/use-app-theme'
 import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
 
@@ -83,6 +84,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loupe';if(['tremor','neutral'].indexOf(t)<0){t='loupe';localStorage.setItem('color-theme',t);}document.documentElement.dataset.theme=t;}catch(e){}`
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  useAppTheme()
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

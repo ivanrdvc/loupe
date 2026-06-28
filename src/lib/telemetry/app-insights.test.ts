@@ -168,4 +168,51 @@ describe('listTraces pushes filters into the KQL before top', () => {
     expect(q).not.toBe('')
     expect(q.indexOf('cloud_RoleName == "svc-x"')).toBeLessThan(q.indexOf('summarize'))
   })
+
+  it('agentName → matches the agent-name attribute, not just the span name', async () => {
+    const queries: string[] = []
+    await provider(queries).listTraces?.({ agentName: 'loupe agent', limit: 50 })
+    const q = queries.find((s) => s.includes('agent_display_name ==')) ?? ''
+    expect(q).not.toBe('')
+  })
+})
+
+describe('listTraces names the agent from the gen_ai.agent.name attr, not the model in the span name', () => {
+  const provider = (row: Record<string, unknown>) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          tables: [
+            {
+              name: 'PrimaryResult',
+              columns: Object.keys(row).map((name) => ({ name })),
+              rows: [Object.values(row)],
+            },
+          ],
+        }),
+      })),
+    )
+    return createAppInsightsProvider({ appId: 'app', apiKey: 'k' })
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('prefers the attribute when the span name carries only the model', async () => {
+    const traces =
+      (await provider({
+        operation_Id: 't1',
+        agent_name: 'invoke_agent gpt-5-nano',
+        agent_display_name: 'loupe agent',
+      }).listTraces?.({})) ?? []
+    expect(traces[0]?.agent).toBe('loupe agent')
+  })
+
+  it('falls back to parsing the span name when no attribute is present', async () => {
+    const traces =
+      (await provider({ operation_Id: 't2', agent_name: 'invoke_agent Reviewer', agent_display_name: '' }).listTraces?.(
+        {},
+      )) ?? []
+    expect(traces[0]?.agent).toBe('Reviewer')
+  })
 })

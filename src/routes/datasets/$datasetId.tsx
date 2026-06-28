@@ -317,7 +317,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader className="sticky top-0 z-10 bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
                 <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
                   <TableHead>Question</TableHead>
@@ -443,7 +443,7 @@ function ExampleRow({
         </TableCell>
       </TableRow>
       {expanded && (
-        <TableRow className="hover:bg-transparent">
+        <TableRow className="hover:bg-transparent has-aria-expanded:bg-transparent">
           <TableCell colSpan={5} className="px-4 pb-4 pt-0 lg:px-6">
             <ExampleDetail
               item={item}
@@ -477,12 +477,13 @@ function ExampleDetail({
 }) {
   const turns = inputTurns(example.input)
   const metadata = Object.entries(example.metadata)
-  const previous = history.slice(1)
+  const previous = history.slice(1, 11)
   const isError = item?.status === 'error'
   return (
     <div className="flex flex-col gap-4 py-2 text-sm">
       <Field
         label="Question"
+        emphasis
         action={
           <div className="flex items-center gap-2">
             {example.sourceTraceId && <SourceTraceLink traceId={example.sourceTraceId} />}
@@ -545,18 +546,18 @@ function ExampleDetail({
       </Field>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Expected">
+        <Field label="Expected" emphasis>
           <ExampleValue value={example.expected ?? '—'} muted />
         </Field>
         {item && !isError && (
-          <Field label="Score">
+          <Field label="Score" emphasis>
             <ScoreChips it={item} align="start" />
           </Field>
         )}
       </div>
 
       {metadata.length > 0 && (
-        <Field label="Metadata">
+        <Field label="Metadata" emphasis>
           <div className="flex flex-wrap gap-1">
             {metadata.map(([k, v]) => (
               <Badge key={k} variant="secondary" className="font-mono text-[10px]">
@@ -579,7 +580,7 @@ function ExampleDetail({
                 <li key={it.runId} className="flex items-start gap-2 px-2.5 py-2 text-xs">
                   <span className="w-14 shrink-0 text-muted-foreground">{formatAgo(at)}</span>
                   <StatusIcon status={it.status} />
-                  <span className="min-w-0 flex-1 line-clamp-2">
+                  <span className="min-w-0 flex-1 truncate">
                     {it.status === 'error' ? <span className="text-destructive">run failed</span> : it.output}
                   </span>
                   <VerdictBadge it={it} />

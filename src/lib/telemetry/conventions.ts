@@ -25,6 +25,7 @@ const ATTRS = {
   outputTokens: ['gen_ai.usage.output_tokens', 'llm.usage.tokens_output'],
   costUsd: ['gen_ai.usage.cost_total', 'gen_ai.usage.cost', 'llm.usage.cost_total'],
   provider: ['gen_ai.provider.name', 'gen_ai.system'],
+  agentName: ['gen_ai.agent.name'],
   cacheReadTokens: [
     'gen_ai.usage.cache_read.input_tokens',
     'gen_ai.usage.cache_read_input_tokens',

@@ -1,4 +1,4 @@
-import { AgentCallError, type AgentCallInput, type AgentCallResult, callAgent } from './agent-run'
+import { type AgentAdapter, AgentCallError, type AgentCallInput, type AgentCallResult, callAgent } from './agent-run'
 
 // expiresAt is epoch ms. Refresh a hair early so a token never expires mid-flight.
 const REFRESH_AHEAD_MS = 30_000
@@ -99,11 +99,12 @@ export function resolveAgentEndpoint(requested: string | null, saved: string | n
 
 export function createAuthenticatedAgentCaller(
   ctx: AuthContext,
-  options: { useIdentity: boolean; adHocToken?: string | null },
+  options: { useIdentity: boolean; adHocToken?: string | null; adapter?: AgentAdapter },
 ): {
   call: (input: Omit<AgentCallInput, 'headers'>) => Promise<AgentCallResult>
   secrets: () => Array<string | undefined>
 } {
+  const adapter = options.adapter ?? callAgent
   const staticSecrets = Object.values(ctx.staticHeaders)
   let resolvedSecrets: Array<string | undefined> = [
     ...staticSecrets,
@@ -124,11 +125,11 @@ export function createAuthenticatedAgentCaller(
 
   const call = async (input: Omit<AgentCallInput, 'headers'>): Promise<AgentCallResult> => {
     try {
-      return await callAgent({ ...input, headers: await headers() })
+      return await adapter({ ...input, headers: await headers() })
     } catch (err) {
       if (!options.useIdentity || !(err instanceof AgentCallError) || err.status !== 401) throw err
       invalidateToken(ctx.cacheKey)
-      return callAgent({ ...input, headers: await headers() })
+      return adapter({ ...input, headers: await headers() })
     }
   }
 

@@ -14,46 +14,77 @@ import type { MentionRef, ResolvedMention } from './prompt'
 
 const window = (days: number | undefined) => lastNDaysWindow(days ?? 7, Date.now())
 
-async function traceSummary(traceId: string) {
+// Finished markdown link with origin + the right param baked in, so the model drops it in as-is.
+const traceLink = (traceId: string, origin?: string) => `[open trace](${origin ?? ''}?trace=${traceId})`
+const sessionLink = (sessionId: string, origin?: string) => `[open session](${origin ?? ''}?session=${sessionId})`
+
+// Concise by default: ship the headline only. The verbose `detail` (slowest, steps, tokens,
+// cost) is withheld unless asked for — what the model never receives, it can't recite.
+async function traceSummary(traceId: string, origin?: string, detail = false) {
   const res = await getTrace(traceId)
   if (!res?.spans.length) return null
-  return { link: `?trace=${traceId}`, truncated: res.truncated, ...summarize(res.spans) }
+  const { detail: d, ...head } = summarize(res.spans)
+  return { link: traceLink(traceId, origin), truncated: res.truncated, ...head, ...(detail ? { detail: d } : {}) }
 }
 
-async function sessionSummary(sessionId: string) {
+async function sessionSummary(sessionId: string, origin?: string, detail = false) {
   const res = await getSession(sessionId)
   if (!res?.spans.length) return null
-  return { link: `?session=${sessionId}`, title: res.title, traceCount: res.traceIds.length, ...summarize(res.spans) }
+  const { detail: d, ...head } = summarize(res.spans)
+  return {
+    link: sessionLink(sessionId, origin),
+    title: res.title,
+    traceCount: res.traceIds.length,
+    ...head,
+    ...(detail ? { detail: d } : {}),
+  }
 }
 
 /** Eagerly resolve @-mentioned runs to the same summaries the tools return, so
  *  the agent has them in context without a tool round-trip. */
-export async function resolveMentions(mentions: MentionRef[]): Promise<ResolvedMention[]> {
+export async function resolveMentions(mentions: MentionRef[], origin?: string): Promise<ResolvedMention[]> {
   return Promise.all(
     mentions.map(async (m) => ({
       ...m,
-      summary: m.kind === 'trace' ? await traceSummary(m.id) : await sessionSummary(m.id),
+      summary: m.kind === 'trace' ? await traceSummary(m.id, origin) : await sessionSummary(m.id, origin),
     })),
   )
 }
 
-export const agentTools = {
+// origin is bound per request (agent.ts prepareCall) so links come back ready to emit.
+export const makeAgentTools = (origin?: string) => ({
   get_trace: tool({
     description:
-      'Summarize one trace (end-to-end run) by id: duration, tokens, cost, errors (with exception type + trimmed stack), slowest steps, tools used, and the ordered step path. Use for "explain this trace", "what was slow", or "why did it fail". Returns metadata only — point the user at the link for raw messages and tool I/O.',
-    inputSchema: z.object({ traceId: z.string().describe('The trace id.') }),
-    execute: async ({ traceId }) => {
-      const s = await traceSummary(traceId)
+      'Summarize one trace (end-to-end run) by id. Returns a headline (duration, errors with exception type + trimmed stack, agents, models). Use for "explain this trace" or "why did it fail". Metadata only — point the user at the link for raw messages and tool I/O.',
+    inputSchema: z.object({
+      traceId: z.string().describe('The trace id.'),
+      detail: z
+        .boolean()
+        .optional()
+        .describe(
+          'Set true only for "what was slow", "where did the tokens go", or to walk the step path — adds tokens, cost, slowest spans, and the ordered steps. Omit for a normal summary.',
+        ),
+    }),
+    execute: async ({ traceId, detail }) => {
+      const s = await traceSummary(traceId, origin, detail)
       return s ? { found: true as const, ...s } : { found: false as const }
     },
   }),
 
   get_session: tool({
     description:
-      'Summarize a session (conversation / multi-trace run) by id: title, trace count, duration, tokens, errors, agents, and slowest steps. Use for "what happened this session", "any errors", or "where did the tokens go".',
-    inputSchema: z.object({ sessionId: z.string().describe('The session id.') }),
-    execute: async ({ sessionId }) => {
-      const s = await sessionSummary(sessionId)
+      'Summarize a session (conversation / multi-trace run) by id: title, trace count, duration, errors, agents, models. Use for "what happened this session" or "any errors".',
+    inputSchema: z.object({
+      sessionId: z.string().describe('The session id.'),
+      detail: z
+        .boolean()
+        .optional()
+        .describe(
+          'Set true only for "what was slow" or "where did the tokens go" — adds tokens, cost, slowest spans, and the step path. Omit for a normal summary.',
+        ),
+    }),
+    execute: async ({ sessionId, detail }) => {
+      const s = await sessionSummary(sessionId, origin, detail)
       return s ? { found: true as const, ...s } : { found: false as const }
     },
   }),
@@ -135,4 +166,4 @@ export const agentTools = {
       return { tools: rows }
     },
   }),
-}
+})

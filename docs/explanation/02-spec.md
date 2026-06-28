@@ -35,6 +35,7 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 | AG-UI thread id | `ag_ui.thread_id` | string | AG-UI | read (alias for conversation.id) |
 | User id | `user.id` | string | OTel | read |
 | Utility purpose tag | `gen_ai.operation.purpose` | e.g. `title_generation` | proposed in OTel | read |
+| Agent display name | `gen_ai.agent.name` | string | OTel GenAI semconv | read (`invoke_agent` spans). Preferred over the span name for the trace-list label |
 | Operation kind | `gen_ai.operation.name` | `chat` \| `embeddings` \| `retrieval` \| `invoke_agent` \| `execute_tool` \| memory operations (`search_memory`, `upsert_memory`, etc.; future: `rerank`) | OTel GenAI semconv | read. For retrieval, embeddings, and memory loupe reads **only** `gen_ai.operation.name` — not `openinference.span.kind` |
 | Data source (RAG) | `gen_ai.data_source.id` | string | OTel GenAI semconv | read (retrieval spans) |
 | Retrieval query | `gen_ai.retrieval.query.text` | string (opt-in) | OTel GenAI semconv | read (retrieval spans) |

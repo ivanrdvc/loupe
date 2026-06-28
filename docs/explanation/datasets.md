@@ -94,10 +94,33 @@ injects it. The reasons it's shaped this way:
   `errorText`, and `endpointUrl` are scrubbed of token / header secrets / URL userinfo
   before write; a run stamps only the `identityLabel`, for audit.
 
+## Protocol adapters
+
+A Target's agent doesn't have to speak the same wire protocol as the next one, so the
+transport is pluggable per Target (`src/features/evaluation/server/agent-run.ts`):
+
+- **`openai-responses` (default)** — POST the OpenAI Responses shape (`input`,
+  `conversation_id`, `tools`), read `output_text` + `usage`. This is what `callAgent`
+  has always done; any Responses-compatible agent needs zero code, just a Target URL.
+- **`vercel-ai-stream`** — POST `{ messages }` and read the AI SDK UI-message stream,
+  accumulating `text-delta` parts into the answer. This is the protocol loupe's *own*
+  `/api/chat` emits, so loupe can run its own agent as the agent-under-test (dogfooding).
+  Token usage isn't in that stream — it lands in OTel — so the run records `tokens: 0`
+  and you read usage back from the resolved trace.
+
+An adapter is just a function `(AgentCallInput) => AgentCallResult`. Selection is a single
+field on the Target's config (`AgentTargetConfig.adapter`, default omitted =
+`openai-responses`), surfaced as a **Protocol** dropdown in *Manage targets*. Adding a
+third protocol is one function plus one entry in the `ADAPTERS` map (`resolveAdapter`) —
+the same fork philosophy as `mintToken`: a lookup of pure functions, **not** a registry or
+plugin table. The auth wrapper (`createAuthenticatedAgentCaller`) calls the chosen adapter,
+so minting / retry / scrubbing are unchanged regardless of protocol.
+
 ## Trade-offs and non-goals
 
-- **Dumb-target core, auth in the runner.** loupe POSTs `{input}` to an endpoint
-  (saved Target → per-dataset override → global default) and records what comes back.
+- **Dumb-target core, auth in the runner.** loupe POSTs the input to an endpoint
+  (saved Target → per-dataset override → global default) over the Target's protocol
+  adapter, and records what comes back.
   Auth is layered on without touching that transport (see Targeting and auth).
   Agent-behavior **overrides** (model / system-prompt / tools / sampling) live behind
   the Run settings sheet's **Config** disclosure and are sent as extra request fields

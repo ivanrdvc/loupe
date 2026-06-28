@@ -36,7 +36,7 @@ import {
   createAuthenticatedAgentCaller,
   resolveAgentEndpoint,
 } from '#/features/evaluation/server/agent-auth'
-import { redactSecrets } from '#/features/evaluation/server/agent-run'
+import { redactSecrets, resolveAdapter } from '#/features/evaluation/server/agent-run'
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
@@ -524,6 +524,7 @@ export const runDataset = createServerFn({ method: 'POST' })
     const agentCaller = createAuthenticatedAgentCaller(authCtx, {
       useIdentity: !!identity,
       adHocToken: data.adHocToken,
+      adapter: resolveAdapter(target?.config.adapter),
     })
 
     const conversationIds = new Map<number, string>()
@@ -641,6 +642,7 @@ export const testAgentConnection = createServerFn({ method: 'POST' })
       const agentCaller = createAuthenticatedAgentCaller(ctx, {
         useIdentity: !!identity,
         adHocToken: data.adHocToken,
+        adapter: resolveAdapter(target?.config.adapter),
       })
       secrets = agentCaller.secrets
       const agentName = identity?.config.entityId ?? defaultAgentName()
