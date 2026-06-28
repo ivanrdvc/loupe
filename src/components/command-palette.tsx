@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { Search } from 'lucide-react'
 import { createContext, Fragment, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useEventListener } from 'usehooks-ts'
 import { NAV_ITEMS } from '#/components/nav-items'
 import { Button } from '#/components/ui/button'
 import {
@@ -71,16 +72,12 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setOpen((prev) => !prev)
-      }
+  useEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault()
+      setOpen((prev) => !prev)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  })
 
   const value = useMemo<PaletteCtx>(() => ({ open, setOpen, registerProvider }), [open, registerProvider])
 

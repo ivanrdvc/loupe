@@ -2,7 +2,6 @@ import { CirclePlay } from 'lucide-react'
 import { useState } from 'react'
 import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import {
@@ -16,15 +15,22 @@ import {
 } from '#/components/ui/sheet'
 import { Switch } from '#/components/ui/switch'
 import type { AgentOverrides } from '#/features/evaluation'
-import { GLOBAL_DEFAULT_ENDPOINT } from '#/features/evaluation'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { AgentOverridesFields } from './agent-overrides-fields'
+import { type IdentitySelection, IdentitySwitcher } from './identity-switcher'
 import { Field } from './run-bits'
+import { TargetPicker } from './target-picker'
 
 export function NewRunSheet({
   endpoint,
   onEndpointChange,
   onEndpointCommit,
+  targetId,
+  onTargetChange,
+  selection,
+  onSelectionChange,
+  onTest,
+  testing,
   overrides,
   onOverridesChange,
   evaluators,
@@ -41,6 +47,12 @@ export function NewRunSheet({
   endpoint: string
   onEndpointChange: (v: string) => void
   onEndpointCommit: () => void
+  targetId: string | null
+  onTargetChange: (id: string | null) => void
+  selection: IdentitySelection
+  onSelectionChange: (s: IdentitySelection) => void
+  onTest: () => void
+  testing: boolean
   overrides: AgentOverrides
   onOverridesChange: (o: AgentOverrides) => void
   evaluators: EvalDefinition[]
@@ -73,15 +85,29 @@ export function NewRunSheet({
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-4 px-4 pb-6">
-            <Field label="Target endpoint">
-              <Input
-                value={endpoint}
-                onChange={(e) => onEndpointChange(e.target.value)}
-                onBlur={onEndpointCommit}
-                placeholder={GLOBAL_DEFAULT_ENDPOINT}
-                className="h-8 font-mono text-xs"
-              />
+            <TargetPicker
+              targetId={targetId}
+              onTargetChange={onTargetChange}
+              endpoint={endpoint}
+              onEndpointChange={onEndpointChange}
+              onEndpointCommit={onEndpointCommit}
+            />
+            <Field label="As">
+              <IdentitySwitcher selection={selection} onSelect={onSelectionChange} />
             </Field>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 justify-self-start self-start px-2 text-xs text-muted-foreground"
+              disabled={testing}
+              onClick={() => {
+                onEndpointCommit()
+                onTest()
+              }}
+            >
+              {testing ? <Spinner data-icon="inline-start" /> : null}
+              Test connection
+            </Button>
 
             <AgentOverridesFields overrides={overrides} onChange={onOverridesChange} />
 

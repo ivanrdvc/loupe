@@ -1,4 +1,5 @@
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, type ReactNode, useContext, useMemo, useState } from 'react'
+import { useEventListener } from 'usehooks-ts'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { CommandShortcut } from '#/components/ui/command'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog'
@@ -49,21 +50,17 @@ export function ShortcutsDialogProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const isMac = useIsMac()
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '?') return
-      // Skip while typing in an input so '?' stays usable as text.
-      const target = e.target as HTMLElement | null
-      if (target) {
-        const tag = target.tagName
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
-      }
-      e.preventDefault()
-      setOpen((prev) => !prev)
+  useEventListener('keydown', (e) => {
+    if (e.key !== '?') return
+    // Skip while typing in an input so '?' stays usable as text.
+    const target = e.target as HTMLElement | null
+    if (target) {
+      const tag = target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+    e.preventDefault()
+    setOpen((prev) => !prev)
+  })
 
   const groups = useMemo(() => buildGroups(isMac), [isMac])
   const value = useMemo<ShortcutsCtx>(() => ({ open, setOpen }), [open])

@@ -2,7 +2,7 @@ import { tokensFromChars } from '#/lib/format'
 import { extractAgentName, extractToolName, parseSystemInstructions } from '#/lib/spans/classify-span'
 import { countTokens } from '#/lib/tokens'
 import { aiCoalesce } from './conventions'
-import { mapToolErrorRow, num, toCount } from './shared'
+import { mapToolErrorRow, num, SPAN_ID_RE, TOOL_NAME_RE, toCount } from './shared'
 import { bucketSecondsFor, zeroFillBucketedAt } from './time-series'
 import type {
   AgentMetrics,
@@ -22,8 +22,6 @@ import type {
   WindowOpts,
 } from './types'
 
-const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
-const SPAN_ID_RE = /^[A-Za-z0-9_-]+$/
 const RESULT_ATTR = 'gen_ai.tool.call.result'
 // App Insights caps a customDimensions value near here; a body at the cap is
 // presumed truncated (the full value lives in a fork's store).

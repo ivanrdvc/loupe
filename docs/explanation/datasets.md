@@ -3,11 +3,12 @@ title: Datasets
 type: explanation
 summary: Named, versioned sets of questions fired at the user's agent over HTTP;
          answers link back to their traces and are compared across runs. Why the
-         data model splits Examples from Runs and reuses session-id trace linkage.
+         data model splits Examples from Runs, reuses session-id trace linkage, and
+         splits a saved Target (server + auth) from an Identity (dev-user credentials).
 status: draft
 owner: "@ivan"
 audience: loupe-devs
-last-reviewed: 2026-06-27
+last-reviewed: 2026-06-28
 tags: [datasets, evaluation, traces]
 ---
 
@@ -60,12 +61,41 @@ trace-native, every answer in the grid is one click from its full trace, and a
 dataset grows directly out of real traffic (capture-from-trace) rather than an SDK
 harness.
 
+## Targeting and auth
+
+The agent under test is usually authenticated, and the driving use case is fast
+dev-user switching — a tester re-runs as *Company A / User B*, then another. So two
+saved objects, split on purpose (`src/db/schema.ts`):
+
+- **Target** — a saved server: `endpointUrl` plus the *static* auth handshake
+  (`authEndpoint`, `tokenPath`, tenant headers). The Run sheet picks one from a
+  dropdown, or "Custom URL" for a one-off endpoint.
+- **Identity** — a dev-user: normally just `credentials` (username/password). The
+  handshake comes from the Target, so adding a user is two fields, not a full config.
+  A "Full config" toggle exposes raw JSON to override the Target's handshake.
+
+A run resolves `(Target, Identity)` into one `AuthContext`, mints a bearer token, and
+injects it. The reasons it's shaped this way:
+
+- **`mintToken` is a fork seam, not a registry.** Core ships a naive default (POST
+  `credentials` to `authEndpoint`, read `tokenPath`); a fork patches that one function
+  in its own tree for a real IdP. No `src/extensions/`, no plugin table
+  (`src/features/evaluation/server/agent-auth.ts`).
+- **`callAgent` stays auth-dumb.** Minting, the per-`(target,identity)` token cache
+  (expiry from the token's own `expires_in`, refresh-ahead, single-flight), and the
+  401→re-mint-once retry all live in the runner — the caller just takes `headers`.
+- **A token is never persisted.** Dev creds in local `dev.db` are fine (test envs),
+  but the minted token must not leak into a run record. The stored `rawJson`,
+  `errorText`, and `endpointUrl` are scrubbed of token / header secrets / URL userinfo
+  before write; a run stamps only the `identityLabel`, for audit.
+
 ## Trade-offs and non-goals
 
-- **Dumb-target first.** The first cut POSTs `{input}` to one agent endpoint
-  (global default + per-dataset override) and records what comes back. Agent-behavior
-  **overrides** (model / system-prompt / tools / sampling) are set in the New run
-  sheet and sent as extra request fields that only opt-in agents honor.
+- **Dumb-target core, auth in the runner.** loupe POSTs `{input}` to an endpoint
+  (saved Target → per-dataset override → global default) and records what comes back.
+  Auth is layered on without touching that transport (see Targeting and auth).
+  Agent-behavior **overrides** (model / system-prompt / tools / sampling) are set in
+  the New run sheet and sent as extra request fields that only opt-in agents honor.
 - **Tool grading reads a snapshot, not the live trace.** A run snapshots each
   trace's tool calls into `dataset_run_item.tool_calls_json`, so a `tool_selection`
   judge (or an `expected` like `{"tool":"multiply"}`) grades real behavior even

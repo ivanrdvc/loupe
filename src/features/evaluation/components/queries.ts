@@ -1,4 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
+import { listAgentIdentities } from '#/features/evaluation/server/agent-identities'
+import { listAgentTargets } from '#/features/evaluation/server/agent-targets'
 import { getEvalDefinition, getJudgeDefaults, listEvalDefinitions } from '#/features/evaluation/server/evals'
 import { listScoreConfigs, listScoreSummaries } from '#/features/evaluation/server/scores'
 import type { ScoreTargetKind } from '#/lib/eval/evaluation'
@@ -24,6 +26,18 @@ export const judgeDefaultsQuery = queryOptions({
   queryKey: queryKeys.evals.judgeDefaults(),
   queryFn: () => getJudgeDefaults(),
   staleTime: STALE_TELEMETRY_MS,
+})
+
+export const agentIdentitiesQuery = queryOptions({
+  queryKey: queryKeys.datasets.identities(),
+  queryFn: () => listAgentIdentities(),
+  staleTime: STALE_LIVE_MS,
+})
+
+export const agentTargetsQuery = queryOptions({
+  queryKey: queryKeys.datasets.targets(),
+  queryFn: () => listAgentTargets(),
+  staleTime: STALE_LIVE_MS,
 })
 
 export const definitionsQuery = queryOptions({

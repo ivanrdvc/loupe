@@ -60,6 +60,7 @@ export interface DatasetRun {
   createdAt: number // epoch ms
   version: number // dataset version this run was pinned to
   passRate: number | null
+  identityLabel: string | null // dev-user this run was fired as, or null
 }
 
 export interface Dataset {
@@ -117,4 +118,60 @@ export interface CreateDatasetInput {
   name: string
   description?: string | null
   tags?: string[]
+}
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+// A saved agent under test. `config` holds the static auth handshake; an identity adds
+// credentials on top. Opaque to core's schema (fork-safe).
+export interface AgentTargetConfig {
+  authEndpoint?: string // omitted = no auth / static-header-only
+  tokenPath?: string // dot-path into the mint response (default 'access_token')
+  headers?: Record<string, string>
+  [key: string]: JsonValue | undefined
+}
+
+export interface AgentTarget {
+  id: string
+  label: string
+  endpointUrl: string
+  config: AgentTargetConfig
+}
+
+export type AgentTargetSummary = Pick<AgentTarget, 'id' | 'label' | 'endpointUrl'>
+
+export interface UpsertAgentTargetInput {
+  id?: string | null
+  label: string
+  endpointUrl: string
+  config: AgentTargetConfig
+}
+
+// A dev-user. Normally just `credentials`; the handshake comes from the target. The rest
+// are overrides set only in Full-config mode.
+export interface AgentIdentityConfig {
+  credentials?: Record<string, JsonValue> // mint request body (e.g. { username, password })
+  entityId?: string // sent as metadata.entity_id — the dev user the agent routes as
+  authEndpoint?: string
+  tokenPath?: string
+  headers?: Record<string, string>
+  [key: string]: JsonValue | undefined
+}
+
+export interface AgentIdentity {
+  id: string
+  label: string
+  config: AgentIdentityConfig
+}
+
+export interface AgentIdentitySummary {
+  id: string
+  label: string
+  username?: string
+}
+
+export interface UpsertAgentIdentityInput {
+  id?: string | null
+  label: string
+  config: AgentIdentityConfig
 }

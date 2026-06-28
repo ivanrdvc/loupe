@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
-import { loupeAgent } from '#/features/agent/server/agent'
+import { getLoupeAgent } from '#/features/agent/server/agent'
 import type { MentionRef, PageContext } from '#/features/agent/server/prompt'
 
 interface ChatRequest {
@@ -17,7 +17,7 @@ export const Route = createFileRoute('/api/chat')({
       POST: async ({ request }) => {
         const body = (await request.json()) as ChatRequest
         return createAgentUIStreamResponse({
-          agent: loupeAgent,
+          agent: getLoupeAgent(),
           uiMessages: body.messages,
           options: {
             context: body.context,

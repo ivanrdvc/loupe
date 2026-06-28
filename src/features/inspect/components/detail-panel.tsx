@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { JsonBlock, PanelSection } from '#/components/ai-elements/json-block'
 import { JsonTree } from '#/components/ai-elements/json-tree'
 import { JsonView } from '#/components/ai-elements/json-view'
@@ -446,7 +446,7 @@ function RetrievalBlock({ query, docs }: { query?: string; docs?: RetrievalDocum
 function MemoryRecordsBlock({ label, records }: { label: string; records: JsonValue[] }) {
   return (
     <PanelSection label={label} copyText={prettyJson(records)} raw={<JsonTree value={records} />}>
-      <div className="min-w-0 divide-y divide-border/60">
+      <dl className="grid min-w-0 grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-xs">
         {records.map((record, index) => {
           const value = record && typeof record === 'object' && !Array.isArray(record) ? record : null
           const id = value && typeof value.id === 'string' ? value.id : undefined
@@ -454,34 +454,27 @@ function MemoryRecordsBlock({ label, records }: { label: string; records: JsonVa
           const content = value && 'content' in value ? value.content : record
           const metadata = value && 'metadata' in value ? value.metadata : undefined
           return (
-            <article key={id ?? index} className="min-w-0 py-2.5 first:pt-0 last:pb-0">
-              <div className="mb-1.5 flex min-w-0 items-center gap-2">
-                <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${ACCENT.pink.badge}`}>
-                  {id ?? `record ${index + 1}`}
-                </span>
-                {score != null && (
-                  <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-                    score {score.toFixed(3)}
-                  </span>
+            <Fragment key={id ?? index}>
+              <dt className="min-w-0 break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
+                {id ?? `record ${index + 1}`}
+                {score != null && <span className="block tabular-nums text-[10px]">score {score.toFixed(3)}</span>}
+              </dt>
+              <dd className="min-w-0">
+                {typeof content === 'string' ? (
+                  <p className="whitespace-pre-wrap break-words leading-relaxed text-foreground">{content}</p>
+                ) : (
+                  <JsonView value={content} className="border-0 bg-transparent p-0" />
                 )}
-              </div>
-              {typeof content === 'string' ? (
-                <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">{content}</p>
-              ) : (
-                <JsonView value={content} className="border-0 bg-transparent p-0" />
-              )}
-              {metadata != null && (
-                <div className="mt-2 border-t border-dashed border-border/70 pt-2">
-                  <div className="mb-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Metadata
+                {metadata != null && (
+                  <div className="mt-1.5 text-[10px] text-muted-foreground">
+                    <JsonView value={metadata} className="border-0 bg-transparent p-0" />
                   </div>
-                  <JsonView value={metadata} className="border-0 bg-transparent p-0" />
-                </div>
-              )}
-            </article>
+                )}
+              </dd>
+            </Fragment>
           )
         })}
-      </div>
+      </dl>
     </PanelSection>
   )
 }

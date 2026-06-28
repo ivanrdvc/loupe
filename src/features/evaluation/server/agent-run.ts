@@ -13,6 +13,27 @@ export type AgentCallInput = {
   instructions?: string | null
   tools?: { name: string; description?: string }[]
   sampling?: { temperature?: number | null; maxTokens?: number | null; topP?: number | null }
+  // Merged over Content-Type. callAgent stays auth-dumb — mint/refresh/retry live in the runner.
+  headers?: Record<string, string>
+}
+
+// Carries the HTTP status so the runner can re-mint once on a 401.
+export class AgentCallError extends Error {
+  status?: number
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'AgentCallError'
+    this.status = status
+  }
+}
+
+// Replace token/credential values with [REDACTED] before anything is persisted to dev.db.
+export function redactSecrets(text: string, secrets: Array<string | undefined>): string {
+  let out = text
+  for (const s of secrets) if (s) out = out.split(s).join('[REDACTED]')
+  return out
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
+    .replace(/("?authorization"?\s*[:=]\s*")([^"]*)(")/gi, '$1[REDACTED]$3')
 }
 
 export type AgentCallResult = {
@@ -103,7 +124,7 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...input.headers },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(60_000),
     })
@@ -116,7 +137,7 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
   const durationMs = Math.round(performance.now() - start)
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
-    throw new Error(`Run failed (${response.status}): ${errorText || response.statusText}`)
+    throw new AgentCallError(`Run failed (${response.status}): ${errorText || response.statusText}`, response.status)
   }
   const raw = (await response.json()) as unknown
   const usage = extractUsage(raw)
