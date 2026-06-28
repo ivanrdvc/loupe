@@ -2,15 +2,14 @@ import { createServerFn } from '@tanstack/react-start'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { agentTargets } from '#/db/schema'
-import type { AgentTarget, AgentTargetConfig, UpsertAgentTargetInput } from '#/features/evaluation/dataset-types'
+import type { AgentTargetConfig, AgentTargetSummary, UpsertAgentTargetInput } from '#/features/evaluation/dataset-types'
 import { invalidateTarget } from '#/features/evaluation/server/agent-auth'
 
-function toTarget(row: typeof agentTargets.$inferSelect): AgentTarget {
+function toTargetSummary(row: typeof agentTargets.$inferSelect): AgentTargetSummary {
   return {
     id: String(row.id),
     label: row.label,
     endpointUrl: row.endpointUrl,
-    config: (row.configJson as AgentTargetConfig | null) ?? {},
   }
 }
 
@@ -18,9 +17,9 @@ function asConfig(value: unknown): AgentTargetConfig {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as AgentTargetConfig) : {}
 }
 
-export const listAgentTargets = createServerFn({ method: 'GET' }).handler(async (): Promise<AgentTarget[]> => {
+export const listAgentTargets = createServerFn({ method: 'GET' }).handler(async (): Promise<AgentTargetSummary[]> => {
   const rows = await db.select().from(agentTargets).orderBy(agentTargets.label)
-  return rows.map(toTarget)
+  return rows.map(toTargetSummary)
 })
 
 export const upsertAgentTarget = createServerFn({ method: 'POST' })
@@ -30,7 +29,7 @@ export const upsertAgentTarget = createServerFn({ method: 'POST' })
     endpointUrl: String(input.endpointUrl).trim(),
     config: asConfig(input.config),
   }))
-  .handler(async ({ data }): Promise<AgentTarget> => {
+  .handler(async ({ data }): Promise<AgentTargetSummary> => {
     if (!data.label) throw new Error('Target label is required')
     if (!data.endpointUrl) throw new Error('Target endpoint is required')
     const now = new Date()
@@ -42,7 +41,7 @@ export const upsertAgentTarget = createServerFn({ method: 'POST' })
         .returning()
       if (!row) throw new Error('upsertAgentTarget: target not found')
       invalidateTarget(String(row.id))
-      return toTarget(row)
+      return toTargetSummary(row)
     }
     const [row] = await db
       .insert(agentTargets)
@@ -55,7 +54,7 @@ export const upsertAgentTarget = createServerFn({ method: 'POST' })
       })
       .returning()
     if (!row) throw new Error('upsertAgentTarget: insert failed')
-    return toTarget(row)
+    return toTargetSummary(row)
   })
 
 export const deleteAgentTarget = createServerFn({ method: 'POST' })

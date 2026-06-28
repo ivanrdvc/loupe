@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
-import { type AgentTarget, agentTargetsQuery, GLOBAL_DEFAULT_ENDPOINT } from '#/features/evaluation'
+import { type AgentTargetSummary, agentTargetsQuery, GLOBAL_DEFAULT_ENDPOINT } from '#/features/evaluation'
 import { deleteAgentTarget, upsertAgentTarget } from '#/features/evaluation/server/agent-targets'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -97,7 +97,7 @@ function ManageTargetsDialog({
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  targets: AgentTarget[]
+  targets: AgentTargetSummary[]
 }) {
   const queryClient = useQueryClient()
   const [label, setLabel] = useState('')
@@ -125,6 +125,7 @@ function ManageTargetsDialog({
       setAuthEndpoint('')
       setTokenPath('')
       toast.success('Target added')
+      onOpenChange(false)
     },
     onError: (err) => toast.error(errMessage(err)),
   })

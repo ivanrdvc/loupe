@@ -15,7 +15,7 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '#/components/ui/popover'
 import { Textarea } from '#/components/ui/textarea'
-import { type AgentIdentity, type AgentIdentityConfig, agentIdentitiesQuery } from '#/features/evaluation'
+import { type AgentIdentityConfig, type AgentIdentitySummary, agentIdentitiesQuery } from '#/features/evaluation'
 import { deleteAgentIdentity, upsertAgentIdentity } from '#/features/evaluation/server/agent-identities'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -178,7 +178,8 @@ function AdHocDialog({
             <KeyRound className="size-4" /> Ad-hoc token
           </DialogTitle>
           <DialogDescription>
-            Sent as <code>Authorization: Bearer …</code> for this run only. Never saved or written to a run record.
+            Sent as <code>Authorization: Bearer …</code> until changed or the page reloads. Never saved or written to a
+            run record.
           </DialogDescription>
         </DialogHeader>
         <Textarea
@@ -221,7 +222,7 @@ function ManageDialog({
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  identities: AgentIdentity[]
+  identities: AgentIdentitySummary[]
 }) {
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<'simple' | 'full'>('simple')
@@ -240,6 +241,7 @@ function ManageDialog({
       setPassword('')
       setConfig('')
       toast.success('Identity added')
+      onOpenChange(false)
     },
     onError: (err) => toast.error(errMessage(err)),
   })
@@ -288,7 +290,7 @@ function ManageDialog({
                 <Dot family={dotFamily(i.id)} />
                 <span className="flex-1 truncate text-sm">{i.label}</span>
                 <span className="truncate font-mono text-[11px] text-muted-foreground">
-                  {typeof i.config.credentials?.username === 'string' ? i.config.credentials.username : 'custom config'}
+                  {i.username ?? 'custom config'}
                 </span>
                 <Button
                   variant="ghost"

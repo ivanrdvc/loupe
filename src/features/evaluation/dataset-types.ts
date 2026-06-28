@@ -138,6 +138,8 @@ export interface AgentTarget {
   config: AgentTargetConfig
 }
 
+export type AgentTargetSummary = Pick<AgentTarget, 'id' | 'label' | 'endpointUrl'>
+
 export interface UpsertAgentTargetInput {
   id?: string | null
   label: string
@@ -160,6 +162,12 @@ export interface AgentIdentity {
   id: string
   label: string
   config: AgentIdentityConfig
+}
+
+export interface AgentIdentitySummary {
+  id: string
+  label: string
+  username?: string
 }
 
 export interface UpsertAgentIdentityInput {

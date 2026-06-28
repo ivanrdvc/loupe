@@ -1,3 +1,5 @@
+import { AgentCallError, type AgentCallInput, type AgentCallResult, callAgent } from './agent-run'
+
 // expiresAt is epoch ms. Refresh a hair early so a token never expires mid-flight.
 const REFRESH_AHEAD_MS = 30_000
 const FALLBACK_TTL_MS = 5 * 60_000
@@ -88,4 +90,47 @@ export async function authHeadersFor(ctx: AuthContext): Promise<{ headers: Recor
   if (!ctx.authEndpoint) return { headers }
   const { token } = await tokenFor(ctx)
   return { headers: { ...headers, Authorization: `Bearer ${token}` }, token }
+}
+
+export function resolveAgentEndpoint(requested: string | null, saved: string | null, fallback: string): string {
+  if (saved && requested) throw new Error('A saved target cannot be combined with a custom endpoint URL')
+  return saved ?? requested ?? fallback
+}
+
+export function createAuthenticatedAgentCaller(
+  ctx: AuthContext,
+  options: { useIdentity: boolean; adHocToken?: string | null },
+): {
+  call: (input: Omit<AgentCallInput, 'headers'>) => Promise<AgentCallResult>
+  secrets: () => Array<string | undefined>
+} {
+  const staticSecrets = Object.values(ctx.staticHeaders)
+  let resolvedSecrets: Array<string | undefined> = [
+    ...staticSecrets,
+    ...(options.adHocToken ? [options.adHocToken] : []),
+  ]
+
+  const headers = async (): Promise<Record<string, string>> => {
+    if (options.useIdentity) {
+      const auth = await authHeadersFor(ctx)
+      resolvedSecrets = [...staticSecrets, auth.token]
+      return auth.headers
+    }
+    if (options.adHocToken) {
+      return { ...ctx.staticHeaders, Authorization: `Bearer ${options.adHocToken}` }
+    }
+    return ctx.staticHeaders
+  }
+
+  const call = async (input: Omit<AgentCallInput, 'headers'>): Promise<AgentCallResult> => {
+    try {
+      return await callAgent({ ...input, headers: await headers() })
+    } catch (err) {
+      if (!options.useIdentity || !(err instanceof AgentCallError) || err.status !== 401) throw err
+      invalidateToken(ctx.cacheKey)
+      return callAgent({ ...input, headers: await headers() })
+    }
+  }
+
+  return { call, secrets: () => resolvedSecrets }
 }

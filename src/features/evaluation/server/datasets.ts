@@ -30,8 +30,12 @@ import {
   type RunItemStatus,
   type UpsertExampleInput,
 } from '#/features/evaluation/dataset-types'
-import { type AuthContext, authHeadersFor, invalidateToken } from '#/features/evaluation/server/agent-auth'
-import { AgentCallError, type AgentCallResult, callAgent, redactSecrets } from '#/features/evaluation/server/agent-run'
+import {
+  type AuthContext,
+  createAuthenticatedAgentCaller,
+  resolveAgentEndpoint,
+} from '#/features/evaluation/server/agent-auth'
+import { redactSecrets } from '#/features/evaluation/server/agent-run'
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
@@ -470,10 +474,11 @@ export const runDataset = createServerFn({ method: 'POST' })
 
     const target = await loadTarget(data.targetId)
     const identity = await loadIdentity(data.identityId)
-    const endpointUrl =
-      data.endpointUrl && data.endpointUrl.length > 0
-        ? data.endpointUrl
-        : (target?.endpointUrl ?? effectiveEndpoint(ds.endpointOverride))
+    const endpointUrl = resolveAgentEndpoint(
+      data.endpointUrl,
+      target?.endpointUrl ?? null,
+      effectiveEndpoint(ds.endpointOverride),
+    )
 
     let exRows = await db
       .select()
@@ -510,21 +515,11 @@ export const runDataset = createServerFn({ method: 'POST' })
       ? { temperature: ov.temperature ?? undefined, maxTokens: ov.max_tokens ?? undefined, topP: ov.top_p ?? undefined }
       : undefined
 
-    // Mint/refresh/401-retry live here; callAgent stays auth-dumb. authSecrets are scrubbed
-    // from anything persisted — header values can be secrets too, not just the bearer token.
     const authCtx = authContextFrom(target, identity)
-    const adHocToken = data.adHocToken
-    const staticSecrets = Object.values(authCtx.staticHeaders)
-    let authSecrets: Array<string | undefined> = [...staticSecrets, ...(adHocToken ? [adHocToken] : [])]
-    const authHeaders = async (): Promise<Record<string, string>> => {
-      if (identity) {
-        const { headers, token } = await authHeadersFor(authCtx)
-        authSecrets = [...staticSecrets, token]
-        return headers
-      }
-      if (adHocToken) return { ...authCtx.staticHeaders, Authorization: `Bearer ${adHocToken}` }
-      return authCtx.staticHeaders
-    }
+    const agentCaller = createAuthenticatedAgentCaller(authCtx, {
+      useIdentity: !!identity,
+      adHocToken: data.adHocToken,
+    })
 
     const conversationIds = new Map<number, string>()
     let errorCount = 0
@@ -543,15 +538,7 @@ export const runDataset = createServerFn({ method: 'POST' })
         sampling,
       }
       try {
-        let res: AgentCallResult
-        try {
-          res = await callAgent({ ...callArgs, headers: await authHeaders() })
-        } catch (err) {
-          if (identity && err instanceof AgentCallError && err.status === 401) {
-            invalidateToken(authCtx.cacheKey)
-            res = await callAgent({ ...callArgs, headers: await authHeaders() })
-          } else throw err
-        }
+        const res = await agentCaller.call(callArgs)
         await db.insert(datasetRunItems).values({
           runId: run.id,
           exampleId: ex.id,
@@ -560,7 +547,7 @@ export const runDataset = createServerFn({ method: 'POST' })
           latencyMs: res.durationMs,
           tokens: res.tokens,
           conversationId,
-          rawJson: redactSecrets(res.rawJson, authSecrets),
+          rawJson: redactSecrets(res.rawJson, agentCaller.secrets()),
           createdAt: new Date(),
         })
       } catch (err) {
@@ -571,7 +558,7 @@ export const runDataset = createServerFn({ method: 'POST' })
           output: '',
           status: 'error',
           conversationId,
-          errorText: redactSecrets(errMessage(err), authSecrets),
+          errorText: redactSecrets(errMessage(err), agentCaller.secrets()),
           createdAt: new Date(),
         })
       }
@@ -630,7 +617,7 @@ export const testAgentConnection = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message: string; durationMs: number | null }> => {
-    let secrets: Array<string | undefined> = data.adHocToken ? [data.adHocToken] : []
+    let secrets: () => Array<string | undefined> = () => (data.adHocToken ? [data.adHocToken] : [])
     try {
       const target = await loadTarget(data.targetId)
       const identity = await loadIdentity(data.identityId)
@@ -639,25 +626,22 @@ export const testAgentConnection = createServerFn({ method: 'POST' })
         const [ds] = await db.select().from(datasets).where(eq(datasets.id, data.datasetId)).limit(1)
         override = ds?.endpointOverride ?? null
       }
-      const endpointUrl =
-        data.endpointUrl && data.endpointUrl.length > 0
-          ? data.endpointUrl
-          : (target?.endpointUrl ?? effectiveEndpoint(override))
+      const endpointUrl = resolveAgentEndpoint(
+        data.endpointUrl,
+        target?.endpointUrl ?? null,
+        effectiveEndpoint(override),
+      )
 
       const ctx = authContextFrom(target, identity)
-      secrets = [...Object.values(ctx.staticHeaders), ...secrets]
-      let headers = ctx.staticHeaders
-      if (identity) {
-        const auth = await authHeadersFor(ctx)
-        headers = auth.headers
-        secrets = [...Object.values(ctx.staticHeaders), auth.token]
-      } else if (data.adHocToken) {
-        headers = { ...ctx.staticHeaders, Authorization: `Bearer ${data.adHocToken}` }
-      }
+      const agentCaller = createAuthenticatedAgentCaller(ctx, {
+        useIdentity: !!identity,
+        adHocToken: data.adHocToken,
+      })
+      secrets = agentCaller.secrets
       const agentName = identity?.config.entityId ?? defaultAgentName()
-      const res = await callAgent({ endpointUrl, input: 'ping', conversationId: randomUUID(), agentName, headers })
+      const res = await agentCaller.call({ endpointUrl, input: 'ping', conversationId: randomUUID(), agentName })
       return { ok: true, message: 'Agent reachable and authenticated', durationMs: res.durationMs }
     } catch (err) {
-      return { ok: false, message: redactSecrets(errMessage(err), secrets), durationMs: null }
+      return { ok: false, message: redactSecrets(errMessage(err), secrets()), durationMs: null }
     }
   })
