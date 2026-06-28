@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { JsonView } from '#/components/ai-elements/json-view'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Spinner } from '#/components/spinner'
@@ -38,6 +39,7 @@ import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
 import { deleteExamples, runDataset, testAgentConnection, updateDataset } from '#/features/evaluation/server/datasets'
 import { downloadCsv } from '#/lib/csv'
 import { errMessage, formatAgo } from '#/lib/format'
+import { parseJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import { ExampleDialog } from './-components/example-dialog'
@@ -314,7 +316,6 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
                 <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
-                  <TableHead className="w-8" />
                   <TableHead>Question</TableHead>
                   <TableHead>Answer</TableHead>
                   <TableHead className="w-48">Expected</TableHead>
@@ -418,19 +419,16 @@ function ExampleRow({
   const pad = '[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6'
   return (
     <>
-      <TableRow className={cn('cursor-pointer', pad)} onClick={onToggle}>
-        <TableCell>
-          <ChevronRight className={cn('size-4 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
-        </TableCell>
+      <TableRow className={cn('cursor-pointer', pad, expanded && 'bg-muted/20 hover:bg-muted/20')} onClick={onToggle}>
         <TableCell className="max-w-xs">
-          <QuestionCell example={example} />
+          <QuestionCell example={example} expanded={expanded} />
         </TableCell>
         <TableCell className="max-w-sm">
           <AnswerCell item={item} running={running} />
         </TableCell>
         <TableCell className="max-w-48">
           {example.expected ? (
-            <span className="line-clamp-2 text-muted-foreground">{example.expected}</span>
+            <span className="block truncate text-muted-foreground">{example.expected}</span>
           ) : (
             <span className="text-xs italic text-muted-foreground/60">—</span>
           )}
@@ -455,8 +453,8 @@ function ExampleRow({
         </TableCell>
       </TableRow>
       {expanded && (
-        <TableRow className="bg-muted/20 hover:bg-muted/20">
-          <TableCell colSpan={6} className="px-4 lg:px-6">
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={5} className="px-4 pb-4 pt-0 lg:px-6">
             <ExampleDetail
               item={item}
               example={example}
@@ -490,32 +488,82 @@ function ExampleDetail({
   const turns = inputTurns(example.input)
   const metadata = Object.entries(example.metadata)
   const previous = history.slice(1)
+  const isError = item?.status === 'error'
   return (
-    <div className="flex flex-col gap-4 py-3 text-sm">
-      <Field label="Question">{turns ? <Transcript turns={turns} /> : <p>{inputPreview(example.input)}</p>}</Field>
-      <Field label="Expected">
-        <p className="text-muted-foreground">{example.expected ?? '—'}</p>
+    <div className="flex max-w-5xl flex-col gap-4 py-2 text-sm">
+      <Field
+        label="Question"
+        action={
+          <div className="flex items-center gap-1">
+            {example.sourceTraceId && <SourceTraceLink traceId={example.sourceTraceId} />}
+            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-muted-foreground" onClick={onEdit}>
+              <SquarePen className="size-3.5" />
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-muted-foreground hover:text-destructive"
+              onClick={onDelete}
+            >
+              <Trash2 className="size-3.5" />
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        {turns ? <Transcript turns={turns} /> : <ExampleValue value={inputPreview(example.input)} />}
       </Field>
-      {item ? (
-        item.status === 'error' ? (
-          <Field label="Error">
-            <pre className="whitespace-pre-wrap break-words rounded-md border border-destructive/40 bg-destructive/10 p-2 font-mono text-xs text-destructive">
-              {item.errorText?.trim() || 'Run failed (no error detail captured).'}
-            </pre>
-          </Field>
-        ) : (
-          <>
-            <Field label="Answer">
-              <p className="rounded-md border bg-card/40 p-2">{item.output}</p>
-            </Field>
-            <Field label="Score">
-              <ScoreChips it={item} />
-            </Field>
-          </>
-        )
-      ) : (
-        <p className="text-xs text-muted-foreground/60">Not run yet — hit the run button to call your agent.</p>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field
+          label={isError ? 'Error' : 'Answer'}
+          action={
+            <div className="flex items-center gap-2">
+              {item && !isError && (
+                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <StatusIcon status={item.status} />
+                  {(item.latencyMs / 1000).toFixed(1)}s · {item.tokens} tok
+                </span>
+              )}
+              {!isError && item?.traceId && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto gap-1 p-0 font-mono text-[11px] text-muted-foreground"
+                  onClick={() => onOpenTrace(item.traceId as string)}
+                >
+                  answer trace <LinkIcon className="size-3" />
+                </Button>
+              )}
+            </div>
+          }
+        >
+          {item ? (
+            isError ? (
+              <pre className="whitespace-pre-wrap break-words rounded-md bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
+                {item.errorText?.trim() || 'Run failed (no error detail captured).'}
+              </pre>
+            ) : (
+              <ExampleValue value={item.output} />
+            )
+          ) : (
+            <p className="rounded-md bg-background/50 px-3 py-2 italic text-muted-foreground/60">
+              Not run yet — hit the run button to call your agent.
+            </p>
+          )}
+        </Field>
+        <Field label="Expected">
+          <ExampleValue value={example.expected ?? '—'} muted />
+        </Field>
+      </div>
+
+      {item && !isError && (
+        <Field label="Score">
+          <ScoreChips it={item} align="start" />
+        </Field>
       )}
+
       {metadata.length > 0 && (
         <Field label="Metadata">
           <div className="flex flex-wrap gap-1">
@@ -559,55 +607,52 @@ function ExampleDetail({
           </CollapsibleContent>
         </Collapsible>
       )}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        {item && (
-          <span className="flex items-center gap-1.5">
-            <StatusIcon status={item.status} />
-            {(item.latencyMs / 1000).toFixed(1)}s · {item.tokens} tok
-          </span>
-        )}
-        {item?.traceId && (
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto gap-1 p-0 font-mono text-xs"
-            onClick={() => onOpenTrace(item.traceId as string)}
-          >
-            answer trace <LinkIcon className="size-3" />
-          </Button>
-        )}
-        {example.sourceTraceId && (
-          <Button asChild variant="link" size="sm" className="h-auto gap-1 p-0 font-mono text-xs">
-            <Link to="/traces/$traceId" params={{ traceId: example.sourceTraceId }}>
-              source trace <LinkIcon className="size-3" />
-            </Link>
-          </Button>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            <SquarePen data-icon="inline-start" />
-            Edit
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={onDelete}>
-            <Trash2 data-icon="inline-start" />
-            Delete
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }
 
-function QuestionCell({ example }: { example: DatasetExample }) {
+function SourceTraceLink({ traceId }: { traceId: string }) {
+  return (
+    <Button asChild variant="link" size="sm" className="h-auto gap-1 p-0 font-mono text-[11px] text-muted-foreground">
+      <Link to="/traces/$traceId" params={{ traceId }}>
+        source trace <LinkIcon className="size-3" />
+      </Link>
+    </Button>
+  )
+}
+
+function ExampleValue({ value, muted }: { value: string; muted?: boolean }) {
+  const parsed = parseJson(value)
+  if (parsed != null && typeof parsed === 'object') return <JsonView value={parsed} className="max-h-80" />
+  return (
+    <p
+      className={cn(
+        'whitespace-pre-wrap break-words rounded-md bg-background/50 px-3 py-2 leading-relaxed',
+        muted && 'text-muted-foreground',
+      )}
+    >
+      {value}
+    </p>
+  )
+}
+
+function QuestionCell({ example, expanded }: { example: DatasetExample; expanded: boolean }) {
   const turns = inputTurns(example.input)
   return (
-    <div className="flex flex-col gap-1">
-      {turns && (
-        <Badge variant="secondary" className="w-fit text-[10px]">
-          {turns.length} turns
-        </Badge>
-      )}
-      <span className="line-clamp-2 text-sm">{inputPreview(example.input)}</span>
+    <div className="flex min-w-0 items-start gap-1.5">
+      <ChevronRight
+        aria-hidden
+        className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform data-[open=true]:rotate-90"
+        data-open={expanded}
+      />
+      <div className="flex min-w-0 flex-col gap-1">
+        {turns && (
+          <Badge variant="secondary" className="w-fit text-[10px]">
+            {turns.length} turns
+          </Badge>
+        )}
+        <span className="block truncate text-sm">{inputPreview(example.input)}</span>
+      </div>
     </div>
   )
 }
@@ -622,7 +667,7 @@ function AnswerCell({ item, running }: { item: DatasetRunItem | null; running: b
     )
   if (!item) return <span className="text-xs italic text-muted-foreground/60">not run yet</span>
   if (item.status === 'error') return <span className="text-xs text-destructive">run failed</span>
-  return <span className="line-clamp-2 text-sm">{item.output}</span>
+  return <span className="block truncate text-sm">{item.output}</span>
 }
 
 function Dash() {

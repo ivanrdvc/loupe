@@ -4,10 +4,21 @@ import type { DatasetRunItem, ItemScore, RunItemStatus } from '#/features/evalua
 import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  action,
+  children,
+}: {
+  label: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex min-h-5 items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+        {action}
+      </div>
       {children}
     </div>
   )
@@ -95,12 +106,12 @@ export function ScoreChip({ s }: { s: ItemScore }) {
   )
 }
 
-export function ScoreChips({ it }: { it: DatasetRunItem | null }) {
+export function ScoreChips({ it, align = 'end' }: { it: DatasetRunItem | null; align?: 'start' | 'end' }) {
   if (!it) return null
   if (it.scores.length === 0)
     return <span className="text-[10px] text-muted-foreground">{it.status === 'error' ? '—' : 'not judged'}</span>
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1">
+    <div className={cn('flex flex-wrap items-center gap-1', align === 'end' ? 'justify-end' : 'justify-start')}>
       {it.scores.map((s) => (
         <ScoreChip key={s.name} s={s} />
       ))}
