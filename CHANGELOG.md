@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.6.0...loupe-v0.7.0) (2026-06-28)
+
+
+### Features
+
+* **agent:** build datasets from traces, split tool modules ([#84](https://github.com/ivanrdvc/loupe/issues/84)) ([5e8cfb5](https://github.com/ivanrdvc/loupe/commit/5e8cfb533c13ad9c5db160099f69793985b62bd8))
+* **assistant:** page-aware chat panel ([#77](https://github.com/ivanrdvc/loupe/issues/77)) ([a7e2e8b](https://github.com/ivanrdvc/loupe/commit/a7e2e8bbc7feaf56788f46811205458dfdf3005d))
+* **datasets:** rework dataset run flow and comparison ([#82](https://github.com/ivanrdvc/loupe/issues/82)) ([0b6362f](https://github.com/ivanrdvc/loupe/commit/0b6362fc0b6ca8c9f98900074bb441c6e3866c65))
+* **mcp,tasks:** tool facets, scale signals, task cost overlay ([#80](https://github.com/ivanrdvc/loupe/issues/80)) ([a3efbdb](https://github.com/ivanrdvc/loupe/commit/a3efbdb45f87e2c955791c74e6d0fd920cc4b79f))
+* **mcp:** tool scale signals, tags, and configurable lint ([#72](https://github.com/ivanrdvc/loupe/issues/72)) ([f4dc6e4](https://github.com/ivanrdvc/loupe/commit/f4dc6e429808ccc2fd17a2d15fd4fce27f2a9d85))
+* **spans:** classify and render memory-operation spans ([#81](https://github.com/ivanrdvc/loupe/issues/81)) ([952f02c](https://github.com/ivanrdvc/loupe/commit/952f02cc2a9242c2886894e3237194fc4c108833))
+* **tools:** tool payload capacity in tokens ([#74](https://github.com/ivanrdvc/loupe/issues/74)) ([a6fce0d](https://github.com/ivanrdvc/loupe/commit/a6fce0d9b73b01e292944d1e96d718783d3de808))
+
+
+### Bug Fixes
+
+* **telemetry,inspect,tasks:** token-count honesty, tool sort, tasks tiles, system-prompt pagination ([#76](https://github.com/ivanrdvc/loupe/issues/76)) ([5ebe45d](https://github.com/ivanrdvc/loupe/commit/5ebe45d800782adfa16d49f0714c0de8e2df5305))
+* **ui:** use month_grid classNames key in calendar (react-day-picker v10-ready) ([#78](https://github.com/ivanrdvc/loupe/issues/78)) ([27cf622](https://github.com/ivanrdvc/loupe/commit/27cf6222caedc4046d118a734da07431acc175b0))
+
 ## [0.6.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.5.0...loupe-v0.6.0) (2026-06-15)
 
 
