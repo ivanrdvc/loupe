@@ -444,6 +444,20 @@ export const deleteExamples = createServerFn({ method: 'POST' })
     await bumpVersion(data.datasetId, new Date())
   })
 
+export const deleteDataset = createServerFn({ method: 'POST' })
+  .inputValidator((input: { datasetId: string | number }) => ({ datasetId: Number(input.datasetId) }))
+  .handler(async ({ data }): Promise<void> => {
+    const runRows = await db
+      .select({ id: datasetRuns.id })
+      .from(datasetRuns)
+      .where(eq(datasetRuns.datasetId, data.datasetId))
+    const runIds = runRows.map((r) => r.id)
+    if (runIds.length > 0) await db.delete(datasetRunItems).where(inArray(datasetRunItems.runId, runIds))
+    await db.delete(datasetRuns).where(eq(datasetRuns.datasetId, data.datasetId))
+    await db.delete(datasetExamples).where(eq(datasetExamples.datasetId, data.datasetId))
+    await db.delete(datasets).where(eq(datasets.id, data.datasetId))
+  })
+
 const TRACE_RESOLVE_DELAY_MS = 1_500
 const TRACE_RESOLVE_ATTEMPTS = 4
 const TRACE_RESOLVE_WINDOW_MS = 10 * 60_000

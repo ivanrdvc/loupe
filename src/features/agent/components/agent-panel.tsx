@@ -3,8 +3,8 @@ import { ChevronsRight, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button } from '#/components/ui/button.tsx'
 import { cn } from '#/lib/utils'
+import type { PageContext } from '../logic/request'
 import { loadSession, newSession, sessionStore } from '../logic/sessions'
-import type { PageContext } from '../server/prompt'
 import { AgentChat } from './agent-chat'
 import { useAgent } from './agent-provider'
 import { SessionHistory } from './agent-sessions'
@@ -12,7 +12,9 @@ import { SessionHistory } from './agent-sessions'
 const PANEL_WIDTH = '26rem'
 const ORIGIN = typeof window === 'undefined' ? undefined : window.location.origin
 
-/** Right-side push panel — a flex sibling of SidebarInset, so content shrinks rather than overlays. */
+/**
+ * Right-side push panel — a flex sibling of SidebarInset, so content shrinks rather than overlays.
+ */
 export function AgentPanel() {
   const { enabled, open, setOpen } = useAgent()
   const { activeId } = useSyncExternalStore(

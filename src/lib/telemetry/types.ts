@@ -129,6 +129,7 @@ export interface InventoryObservation {
 
 export interface AgentMetrics {
   name: string
+  model?: string
   calls: number
   errorRate: number
   p50Ms: number
@@ -150,11 +151,12 @@ export interface ToolRow {
   callsWithResult: number // denominator for the size stats (non-empty results)
   errors: number
   errorRate: number
-  // chars÷4 estimates; maxTokens is real (the one biggest body, tokenized).
+  // chars÷4 estimates. maxTokens is exact only when maxTokensEst is false.
   avgTokensEst: number
   p50TokensEst: number
   p95TokensEst: number
   maxTokens: number
+  maxTokensEst?: boolean
   totalTokensEst: number
   p50Ms: number
   p95Ms: number

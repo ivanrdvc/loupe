@@ -30,6 +30,26 @@ describe('fetchTools maxTokens is the token-max, not the char-longest body token
     expect(row.maxTokens).toBe(countTokens(DENSE_BODY))
     expect(row.maxTokens).not.toBe(countTokens(SPARSE_BODY))
   })
+
+  it('uses a direct candidate query for a single tool', async () => {
+    const queries: string[] = []
+    const p = {
+      name: 'app-insights',
+      fingerprint: 'f',
+      query: async (q: string) => {
+        queries.push(q)
+        return /\| project name, body\s*\| project name, body/.test(q)
+          ? [DENSE_BODY, SPARSE_BODY].map((body) => ({ name: 'execute_tool echo', body }))
+          : [{ name: 'execute_tool echo', calls: 2, calls_with_result: 2, max_chars: SPARSE_BODY.length }]
+      },
+    } as unknown as AppInsightsProvider
+
+    const [row] = await fetchTools(p, { name: 'echo' })
+
+    expect(row.maxTokens).toBe(countTokens(DENSE_BODY))
+    expect(queries.some((q) => /partition by name/.test(q))).toBe(false)
+    expect(queries.some((q) => /top 12 by result_len/.test(q))).toBe(false)
+  })
 })
 
 // Hand-built to the Azure Monitor row shape (no local Azure to capture from).

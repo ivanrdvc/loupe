@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { traceSpansQuery } from '#/features/inspect'
 import type { ScoreTargetKind } from '#/lib/eval/evaluation'
-import { traceEvalSnapshot } from './span-snapshot'
+import { traceEvalSnapshot } from '../logic/dataset-input'
 
 // Golden-capture wiring for ReviewModeDialog: resolve the target's trace, load
 // its spans, and pick the eval-span snapshot.

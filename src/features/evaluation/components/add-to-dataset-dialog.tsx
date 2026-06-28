@@ -16,7 +16,7 @@ import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
 import type { ExampleInput } from '#/features/evaluation/dataset-types'
-import { datasetInputFromSnapshot } from '#/features/evaluation/logic/dataset-input'
+import { datasetInputFromSnapshot, defaultExpectedFromSnapshot } from '#/features/evaluation/logic/dataset-input'
 import { spanEvalSnapshot } from '#/features/evaluation/logic/span-eval-snapshot'
 import { createDataset, getDatasetDetail, listDatasets, upsertExample } from '#/features/evaluation/server/datasets'
 import { errMessage } from '#/lib/format'
@@ -24,7 +24,6 @@ import { prettyJson } from '#/lib/json'
 import { queryKeys } from '#/lib/query-keys'
 import type { Span } from '#/lib/spans'
 import { asMessages } from '#/lib/spans/conversation'
-import { defaultExpectedFromSnapshot } from './span-snapshot'
 
 // Serialise an ExampleInput to the editable text representation: a transcript
 // becomes pretty JSON (so the turns are visible), a single turn stays a string.

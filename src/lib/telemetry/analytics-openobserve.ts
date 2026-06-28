@@ -94,7 +94,7 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
   const maxTokensByOp = known.has('gen_ai_tool_call_result')
-    ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, opts)
+    ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, name !== undefined, opts)
     : new Map<string, number>()
   return hits.map((h) => {
     const calls = Number(h.calls ?? 0)
@@ -114,6 +114,8 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       p50TokensEst: tokensFromChars(toCount(h.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
       maxTokens: maxTokensByOp.get(raw) ?? tokensFromChars(toCount(h.max_chars)),
+      maxTokensEst:
+        name === undefined || !maxTokensByOp.has(raw) || Number(h.calls_with_result ?? 0) > MAX_EXACT_TOOL_RESULTS,
       totalTokensEst: tokensFromChars(toCount(h.total_chars)),
       p50Ms: Math.round(num(h.p50_ms) ?? 0),
       p95Ms: Math.round(num(h.p95_ms) ?? 0),
@@ -128,14 +130,22 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
 // Token count isn't monotonic with char length, so tokenize the longest-by-chars
 // candidates (not just the single longest) and take the real max.
 const MAX_TOKEN_CANDIDATES = 12
+const MAX_EXACT_TOOL_RESULTS = 100_000
 async function maxResultTokensByOp(
   p: OpenObserveProvider,
   where: string,
   limit: number,
+  singleTool: boolean,
   opts?: WindowOpts,
 ): Promise<Map<string, number>> {
   const size = limit * MAX_TOKEN_CANDIDATES
-  const sql = `
+  const sql = singleTool
+    ? `
+    SELECT operation_name AS name, gen_ai_tool_call_result AS body
+    FROM "${p.stream}"
+    WHERE ${where} AND gen_ai_tool_call_result IS NOT NULL
+  `
+    : `
     SELECT operation_name AS name, body FROM (
       SELECT
         operation_name,
@@ -146,7 +156,9 @@ async function maxResultTokensByOp(
     ) WHERE rn <= ${MAX_TOKEN_CANDIDATES}
     LIMIT ${size}
   `
-  const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size }))
+  const hits = await emptyIfColumnMissing(() =>
+    p.query(sql, { ...opts, size: singleTool ? MAX_EXACT_TOOL_RESULTS : size }),
+  )
   const out = new Map<string, number>()
   for (const h of hits) {
     const op = typeof h.name === 'string' ? h.name : ''
@@ -409,6 +421,7 @@ export async function fetchAgentMetrics(p: OpenObserveProvider, opts?: TopOpts):
   const sql = `
     SELECT
       gen_ai_agent_name AS name,
+      last_value(gen_ai_request_model ORDER BY start_time) AS model,
       COUNT(*) AS calls,
       SUM(CASE WHEN span_status = 'ERROR' THEN 1 ELSE 0 END) AS errors,
       approx_percentile_cont(duration, 0.5) / 1000 AS p50_ms,
@@ -425,6 +438,7 @@ export async function fetchAgentMetrics(p: OpenObserveProvider, opts?: TopOpts):
     const errors = Number(h.errors ?? 0)
     return {
       name: String(h.name ?? ''),
+      model: h.model ? String(h.model) : undefined,
       calls,
       errorRate: calls > 0 ? errors / calls : 0,
       p50Ms: Math.round(num(h.p50_ms) ?? 0),

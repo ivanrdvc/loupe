@@ -11,6 +11,7 @@ export interface AgentRow {
   kind: 'main' | 'sub'
   description: string | null
   systemPrompt: string | null
+  model: string | null
   calls: number
   errorRate: number
   p50Ms: number
@@ -36,6 +37,7 @@ export const listAgents = createServerFn({ method: 'GET' }).handler(async (): Pr
       kind: row.nested ? 'sub' : 'main',
       description: row.description,
       systemPrompt: row.systemPrompt,
+      model: m?.model ?? null,
       calls: m?.calls ?? 0,
       errorRate: m?.errorRate ?? 0,
       p50Ms: m?.p50Ms ?? 0,

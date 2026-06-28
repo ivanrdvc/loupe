@@ -10,8 +10,8 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table'
-import { ChevronRight, Search } from 'lucide-react'
-import { Fragment, useMemo, useState } from 'react'
+import { Bot, ChevronRight, Search } from 'lucide-react'
+import { Fragment, type ReactNode, useMemo, useState } from 'react'
 import { CopyButton } from '#/components/copy-button'
 import { DataTableColumnHeader } from '#/components/data-table-column-header'
 import { Page } from '#/components/page'
@@ -23,6 +23,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { type AgentRow, listAgents } from '#/features/inventory/agents/server'
 import { formatDuration, formatPercent } from '#/lib/format'
+import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 
 const agentsQuery = queryOptions({
@@ -231,17 +232,36 @@ function AgentsPage() {
 
 function AgentPrompt({ agent }: { agent: AgentRow }) {
   return (
-    <div className="flex flex-col gap-2 py-1">
-      {agent.systemPrompt ? (
-        <div className="relative max-h-80 overflow-auto rounded-md bg-background p-3 pr-9 ring-1 ring-foreground/10">
-          <CopyButton value={agent.systemPrompt} className="absolute right-2 top-2" label="Copy prompt" />
-          <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground">
-            {agent.systemPrompt}
-          </pre>
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground italic">No system prompt captured.</p>
-      )}
+    <div className="flex flex-col gap-4 rounded-lg bg-background p-4 ring-1 ring-foreground/10">
+      <div className="flex items-center gap-2">
+        <Bot aria-hidden className={cn('size-4 shrink-0', ACCENT.emerald.text)} />
+        <span className={cn('font-mono text-sm font-medium', ACCENT.emerald.ident)}>{agent.name}</span>
+        {agent.model && (
+          <span className={cn('rounded-md px-1.5 py-0.5 font-mono text-[11px]', ACCENT.violet.badge)}>
+            {agent.model}
+          </span>
+        )}
+      </div>
+
+      <Section label="Instructions">
+        {agent.systemPrompt ? (
+          <div className="relative max-h-80 overflow-auto rounded-md bg-muted/40 p-3 pr-9 ring-1 ring-foreground/10">
+            <CopyButton value={agent.systemPrompt} className="absolute right-2 top-2" label="Copy prompt" />
+            <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground">
+              {agent.systemPrompt}
+            </pre>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No system prompt captured.</p>
+        )}
+      </Section>
+
+      <Section label="Tools">
+        <p className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground italic ring-1 ring-foreground/10">
+          Tool inventory per agent — coming soon.
+        </p>
+      </Section>
+
       {agent.firstSeenTraceId && (
         <Link
           to="/traces/$traceId"
@@ -252,6 +272,15 @@ function AgentPrompt({ agent }: { agent: AgentRow }) {
           First seen in trace ↗
         </Link>
       )}
+    </div>
+  )
+}
+
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
     </div>
   )
 }

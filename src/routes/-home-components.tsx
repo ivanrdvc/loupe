@@ -184,7 +184,7 @@ export function ToolPayloadTable({ rows }: { rows: ToolRow[] }) {
         <ToolStatRow
           key={row.name}
           name={row.name}
-          value={`${formatTokens(row.maxTokens)} tok`}
+          value={`${row.maxTokensEst ? '≈' : ''}${formatTokens(row.maxTokens)} tok`}
           valueTone={budgetTextTone(row.maxTokens)}
           meta={`${row.calls.toLocaleString('en-US')} calls · p95 ≈${formatTokens(row.p95TokensEst)}`}
           bar={{ ratio: row.maxTokens / CONTEXT_BUDGET_TOKENS, tone: budgetBarTone(row.maxTokens) }}

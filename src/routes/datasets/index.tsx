@@ -55,13 +55,14 @@ function makeColumns(
       accessorFn: (d) => d.name,
       filterFn: 'includesString',
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-medium">{row.original.name}</span>
+        <div className="flex max-w-md flex-col gap-0.5">
+          <span className="truncate font-medium">{row.original.name}</span>
           {row.original.description && (
             <span className="line-clamp-1 text-xs text-muted-foreground">{row.original.description}</span>
           )}
         </div>
       ),
+      meta: { className: 'max-w-md' },
     },
     {
       id: 'examples',

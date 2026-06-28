@@ -20,6 +20,15 @@ import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import {
@@ -35,7 +44,13 @@ import {
   judgeDefaultsQuery,
 } from '#/features/evaluation'
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
-import { deleteExamples, runDataset, testAgentConnection, updateDataset } from '#/features/evaluation/server/datasets'
+import {
+  deleteDataset,
+  deleteExamples,
+  runDataset,
+  testAgentConnection,
+  updateDataset,
+} from '#/features/evaluation/server/datasets'
 import { downloadCsv } from '#/lib/csv'
 import { errMessage, formatAgo } from '#/lib/format'
 import { parseJson } from '#/lib/json'
@@ -99,6 +114,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const [creating, setCreating] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [runningId, setRunningId] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? runDefaults.endpointUrl ?? '')
   const [overrides, setOverrides] = useState<AgentOverrides>({})
@@ -203,6 +219,16 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     onError: (err) => toast.error(errMessage(err)),
   })
 
+  const deleteDatasetMutation = useMutation({
+    mutationFn: () => deleteDataset({ data: { datasetId: dataset.id } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list() })
+      toast.success('Dataset deleted')
+      void navigate({ to: '/datasets' })
+    },
+    onError: (err) => toast.error(errMessage(err)),
+  })
+
   const persistEndpoint = useMutation({
     mutationFn: (url: string) =>
       updateDataset({ data: { datasetId: dataset.id, endpointOverride: url.trim() || null } }),
@@ -258,6 +284,15 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
             <Button variant="ghost" size="sm" onClick={() => downloadDatasetCsv(dataset.name, examples)}>
               <Download data-icon="inline-start" />
               CSV
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 data-icon="inline-start" />
+              Delete
             </Button>
             <Button
               variant="outline"
@@ -354,6 +389,33 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           </div>
         )}
       </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete dataset?</DialogTitle>
+            <DialogDescription>
+              Permanently deletes “{dataset.name}” and its {examples.length}{' '}
+              {examples.length === 1 ? 'question' : 'questions'}, runs, and answers. This can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={deleteDatasetMutation.isPending}
+              onClick={() => deleteDatasetMutation.mutate()}
+            >
+              {deleteDatasetMutation.isPending && <Spinner data-icon="inline-start" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {(activeExample || creating) && (
         <ExampleDialog

@@ -74,7 +74,7 @@ export function toolColumns(signalsByName: Record<string, ToolSignal[]>): Column
       header: ({ column }) => <DataTableColumnHeader column={column} title="Max tokens" className="justify-end" />,
       cell: ({ row }) => (
         <div className="text-right tabular-nums">
-          <Tokens tokens={row.original.maxTokens} severity />
+          <Tokens tokens={row.original.maxTokens} severity estimate={row.original.maxTokensEst} />
         </div>
       ),
     },

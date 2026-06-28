@@ -1,8 +1,9 @@
 import { type InferAgentUIMessage, isStepCount, ToolLoopAgent } from 'ai'
 import { z } from 'zod'
 import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/agent/chat-models'
+import type { MentionRef, PageContext } from '../logic/request'
 import { resolveChatModel } from './models'
-import { BASE, type MentionRef, type PageContext, requestInstructions } from './prompt'
+import { BASE, requestInstructions } from './prompt'
 import { loadSkillTool } from './skills'
 import { agentTelemetry } from './telemetry'
 import { makeAgentTools, resolveMentions } from './tools'
@@ -14,7 +15,9 @@ const callOptionsSchema = z.object({
   sessionId: z.string().optional(),
 })
 
-// Static identity here; per-request context, mentions, model, and telemetry come via prepareCall.
+/**
+ * Static identity here; per-request context, mentions, model, and telemetry come via prepareCall.
+ */
 function buildLoupeAgent() {
   return new ToolLoopAgent({
     model: resolveChatModel(DEFAULT_CHAT_MODEL),
@@ -39,9 +42,11 @@ function buildLoupeAgent() {
   })
 }
 
-// Lazy + memoized: resolveChatModel throws without an API key, so constructing
-// at module load would 500 every SSR page (the route graph imports this). Defer
-// it to the first chat request.
+/**
+ * Lazy + memoized: resolveChatModel throws without an API key, so constructing at
+ * module load would 500 every SSR page (the route graph imports this). Defer it to
+ * the first chat request.
+ */
 let cached: ReturnType<typeof buildLoupeAgent> | undefined
 export function getLoupeAgent() {
   cached ??= buildLoupeAgent()

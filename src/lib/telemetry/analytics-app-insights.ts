@@ -88,7 +88,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
     | top ${limit} by calls desc
   `
   const rows = await p.query(q, opts ?? {})
-  const maxTokensByName = await maxResultTokensByName(p, `${nameFilter}\n    ${dimFilters}`, opts)
+  const maxTokensByName = await maxResultTokensByName(p, `${nameFilter}\n    ${dimFilters}`, name !== undefined, opts)
   return rows.map((r) => {
     const calls = Number(r.calls ?? 0)
     const errors = Number(r.errors ?? 0)
@@ -105,6 +105,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
       maxTokens: maxTokensByName.get(raw) ?? tokensFromChars(toCount(r.max_chars)),
+      maxTokensEst: name === undefined || !maxTokensByName.has(raw) || toCount(r.max_chars) >= APP_INSIGHTS_DIM_CAP,
       totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),
@@ -122,15 +123,17 @@ const MAX_TOKEN_CANDIDATES = 12
 async function maxResultTokensByName(
   p: AppInsightsProvider,
   filters: string,
+  singleTool: boolean,
   opts?: WindowOpts,
 ): Promise<Map<string, number>> {
+  const candidates = `top ${MAX_TOKEN_CANDIDATES} by result_len desc | project name, body`
   const q = `
     union dependencies, requests
     ${filters}
     | extend body = tostring(customDimensions["${RESULT_ATTR}"])
     | extend result_len = strlen(body)
     | where result_len > 0
-    | partition by name (top ${MAX_TOKEN_CANDIDATES} by result_len desc | project name, body)
+    | ${singleTool ? 'project name, body' : `partition by name (${candidates})`}
     | project name, body
   `
   const rows = await p.query(q, opts ?? {})
@@ -367,7 +370,8 @@ export async function fetchAgentMetrics(p: AppInsightsProvider, opts?: TopOpts):
         calls = count(),
         errors = countif(success == false),
         p50_ms = percentile(duration, 50),
-        p95_ms = percentile(duration, 95)
+        p95_ms = percentile(duration, 95),
+        (model_at, model) = arg_max(timestamp, tostring(customDimensions["gen_ai.request.model"]))
       by agent_name
     | top ${limit} by calls desc
   `
@@ -377,6 +381,7 @@ export async function fetchAgentMetrics(p: AppInsightsProvider, opts?: TopOpts):
     const errors = Number(r.errors ?? 0)
     return {
       name: String(r.agent_name ?? ''),
+      model: r.model ? String(r.model) : undefined,
       calls,
       errorRate: calls > 0 ? errors / calls : 0,
       p50Ms: Math.round(num(r.p50_ms) ?? 0),

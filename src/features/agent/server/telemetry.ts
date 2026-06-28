@@ -5,7 +5,9 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
 
-// Cached on a global symbol so vite SSR's HMR re-evaluation reuses one BatchSpanProcessor.
+/**
+ * Cached on a global symbol so vite SSR's HMR re-evaluation reuses one BatchSpanProcessor.
+ */
 const TRACER = Symbol.for('loupe.agent.otel.tracer')
 
 function agentTracer(): Tracer {
@@ -32,8 +34,10 @@ function agentTracer(): Tracer {
   return tracer
 }
 
-// @ai-sdk/otel emits OTel GenAI semconv natively; enrichSpan adds the session key
-// loupe groups by, which the AI SDK has no native concept of.
+/**
+ * @ai-sdk/otel emits OTel GenAI semconv natively; enrichSpan adds the session key
+ * loupe groups by, which the AI SDK has no native concept of.
+ */
 export function agentTelemetry(sessionId?: string) {
   return {
     isEnabled: true,

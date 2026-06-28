@@ -6,7 +6,9 @@ const store = createLocalStorageStore(STORAGE_KEY)
 const readEnabled = () => typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY) === '1'
 
 type AgentContextValue = {
-  /** Feature flag; persisted per browser. Toggle from /admin (temp, see TODO.md). */
+  /**
+   * Feature flag; persisted per browser. Toggle from /admin (temp, see TODO.md).
+   */
   enabled: boolean
   setEnabled: (enabled: boolean) => void
   open: boolean
