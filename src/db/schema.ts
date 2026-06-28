@@ -135,6 +135,8 @@ export const datasetRuns = sqliteTable(
     label: text().notNull(),
     // the agent endpoint this run hit (resolved override ?? global default at run time)
     endpointUrl: text('endpoint_url').notNull(),
+    // identity this run was fired as (null = unauthenticated / ad-hoc); audit only, no secret.
+    identityLabel: text('identity_label'),
     status: text({ enum: ['running', 'complete', 'error'] })
       .notNull()
       .default('complete'),
@@ -177,6 +179,27 @@ export const datasetRunItems = sqliteTable(
     uniqueIndex('dataset_run_item_run_example_idx').on(table.runId, table.exampleId),
   ],
 )
+
+// A saved agent under test: where to call + the static auth config (authEndpoint / tokenPath
+// / headers), so an identity only carries credentials. `configJson` is opaque (fork-safe).
+export const agentTargets = sqliteTable('agent_target', {
+  id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+  label: text().notNull(),
+  endpointUrl: text('endpoint_url').notNull(),
+  configJson: text('config_json', { mode: 'json' }).notNull().default(sql`'{}'`),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})
+
+// Dev-user roster for replaying as different users — just credentials; the handshake comes
+// from the target. Plaintext dev creds are fine (test envs); the minted token is never stored.
+export const agentIdentities = sqliteTable('agent_identity', {
+  id: integer({ mode: 'number' }).primaryKey({ autoIncrement: true }),
+  label: text().notNull(),
+  configJson: text('config_json', { mode: 'json' }).notNull().default(sql`'{}'`),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})
 
 // Evaluation — scores, evaluators, experiments (see docs/explanation/evaluation.md).
 // One primitive (`score`) shared by human / llm / code writers. `eval_definition`

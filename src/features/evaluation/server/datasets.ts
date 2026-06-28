@@ -2,9 +2,21 @@ import { randomUUID } from 'node:crypto'
 import { createServerFn } from '@tanstack/react-start'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
-import { datasetExamples, datasetRunItems, datasetRuns, datasets, scores } from '#/db/schema'
 import {
+  agentIdentities,
+  agentTargets,
+  datasetExamples,
+  datasetRunItems,
+  datasetRuns,
+  datasets,
+  scores,
+} from '#/db/schema'
+import {
+  type AgentIdentity,
+  type AgentIdentityConfig,
   type AgentOverrides,
+  type AgentTarget,
+  type AgentTargetConfig,
   type CreateDatasetInput,
   type Dataset,
   type DatasetDetail,
@@ -18,7 +30,8 @@ import {
   type RunItemStatus,
   type UpsertExampleInput,
 } from '#/features/evaluation/dataset-types'
-import { callAgent } from '#/features/evaluation/server/agent-run'
+import { type AuthContext, authHeadersFor, invalidateToken } from '#/features/evaluation/server/agent-auth'
+import { AgentCallError, type AgentCallResult, callAgent, redactSecrets } from '#/features/evaluation/server/agent-run'
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
@@ -57,6 +70,7 @@ function toRun(row: typeof datasetRuns.$inferSelect): DatasetRun {
     createdAt: row.createdAt.getTime(),
     version: row.datasetVersion,
     passRate: null,
+    identityLabel: row.identityLabel,
   }
 }
 
@@ -87,6 +101,51 @@ function defaultAgentName(): string | null {
 function effectiveEndpoint(override: string | null): string {
   const o = override?.trim()
   return o && o.length > 0 ? o : globalDefaultEndpoint()
+}
+
+// Drop any embedded credentials (https://user:pass@host) before persisting the URL.
+function auditUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    u.username = ''
+    u.password = ''
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
+async function loadTarget(targetId: number | null): Promise<AgentTarget | null> {
+  if (targetId == null || !Number.isFinite(targetId)) return null
+  const [row] = await db.select().from(agentTargets).where(eq(agentTargets.id, targetId)).limit(1)
+  if (!row) throw new Error('Agent target not found')
+  return {
+    id: String(row.id),
+    label: row.label,
+    endpointUrl: row.endpointUrl,
+    config: (row.configJson as AgentTargetConfig | null) ?? {},
+  }
+}
+
+async function loadIdentity(identityId: number | null): Promise<AgentIdentity | null> {
+  if (identityId == null || !Number.isFinite(identityId)) return null
+  const [row] = await db.select().from(agentIdentities).where(eq(agentIdentities.id, identityId)).limit(1)
+  if (!row) throw new Error('Agent identity not found')
+  return { id: String(row.id), label: row.label, config: (row.configJson as AgentIdentityConfig | null) ?? {} }
+}
+
+// Merge a target's static handshake with an identity's credentials (identity may override).
+function authContextFrom(target: AgentTarget | null, identity: AgentIdentity | null): AuthContext {
+  const tc = target?.config ?? {}
+  const ic = identity?.config ?? {}
+  return {
+    cacheKey: `${target?.id ?? 'none'}:${identity?.id ?? 'none'}`,
+    label: identity?.label ?? target?.label ?? 'agent',
+    authEndpoint: ic.authEndpoint ?? tc.authEndpoint,
+    credentials: ic.credentials,
+    tokenPath: ic.tokenPath ?? tc.tokenPath,
+    staticHeaders: { ...(tc.headers ?? {}), ...(ic.headers ?? {}) },
+  }
 }
 
 function asTags(value: unknown): string[] {
@@ -389,6 +448,9 @@ export const runDataset = createServerFn({ method: 'POST' })
       endpointUrl?: string
       exampleIds?: Array<string | number>
       overrides?: AgentOverrides
+      targetId?: string | number | null
+      identityId?: string | number | null
+      adHocToken?: string | null
     }) => ({
       datasetId: Number(input.datasetId),
       endpointUrl: input.endpointUrl == null ? null : String(input.endpointUrl).trim(),
@@ -397,14 +459,21 @@ export const runDataset = createServerFn({ method: 'POST' })
           ? null
           : (Array.isArray(input.exampleIds) ? input.exampleIds : []).map(Number).filter(Number.isFinite),
       overrides: input.overrides && typeof input.overrides === 'object' ? input.overrides : null,
+      targetId: input.targetId == null ? null : Number(input.targetId),
+      identityId: input.identityId == null ? null : Number(input.identityId),
+      adHocToken: input.adHocToken == null ? null : String(input.adHocToken).trim() || null,
     }),
   )
   .handler(async ({ data }): Promise<{ runId: string }> => {
     const [ds] = await db.select().from(datasets).where(eq(datasets.id, data.datasetId)).limit(1)
     if (!ds) throw new Error('runDataset: dataset not found')
 
+    const target = await loadTarget(data.targetId)
+    const identity = await loadIdentity(data.identityId)
     const endpointUrl =
-      data.endpointUrl && data.endpointUrl.length > 0 ? data.endpointUrl : effectiveEndpoint(ds.endpointOverride)
+      data.endpointUrl && data.endpointUrl.length > 0
+        ? data.endpointUrl
+        : (target?.endpointUrl ?? effectiveEndpoint(ds.endpointOverride))
 
     let exRows = await db
       .select()
@@ -424,7 +493,8 @@ export const runDataset = createServerFn({ method: 'POST' })
         datasetId: data.datasetId,
         datasetVersion: ds.version,
         label: runLabel(now),
-        endpointUrl,
+        endpointUrl: auditUrl(endpointUrl),
+        identityLabel: identity?.label ?? null,
         status: 'running',
         createdAt: now,
       })
@@ -432,29 +502,56 @@ export const runDataset = createServerFn({ method: 'POST' })
     if (!run) throw new Error('runDataset: run insert failed')
 
     // conversation_id is the key loupe groups traces on; the agent echoes it onto its spans.
-    const agentName = defaultAgentName()
+    // entityId routes the agent to a specific dev user, overriding the env default.
+    const agentName = identity?.config.entityId ?? defaultAgentName()
     const ov = data.overrides
     const overrideTools = ov?.tools?.filter((t) => t.name.trim())
     const sampling = ov
       ? { temperature: ov.temperature ?? undefined, maxTokens: ov.max_tokens ?? undefined, topP: ov.top_p ?? undefined }
       : undefined
+
+    // Mint/refresh/401-retry live here; callAgent stays auth-dumb. authSecrets are scrubbed
+    // from anything persisted — header values can be secrets too, not just the bearer token.
+    const authCtx = authContextFrom(target, identity)
+    const adHocToken = data.adHocToken
+    const staticSecrets = Object.values(authCtx.staticHeaders)
+    let authSecrets: Array<string | undefined> = [...staticSecrets, ...(adHocToken ? [adHocToken] : [])]
+    const authHeaders = async (): Promise<Record<string, string>> => {
+      if (identity) {
+        const { headers, token } = await authHeadersFor(authCtx)
+        authSecrets = [...staticSecrets, token]
+        return headers
+      }
+      if (adHocToken) return { ...authCtx.staticHeaders, Authorization: `Bearer ${adHocToken}` }
+      return authCtx.staticHeaders
+    }
+
     const conversationIds = new Map<number, string>()
     let errorCount = 0
     for (const ex of exRows) {
       const conversationId = randomUUID()
       conversationIds.set(ex.id, conversationId)
       const input = (ex.inputJson as ExampleInput | null) ?? ''
+      const callArgs = {
+        endpointUrl,
+        input,
+        conversationId,
+        agentName,
+        model: ov?.model ?? undefined,
+        instructions: ov?.system_prompt ?? undefined,
+        tools: overrideTools?.length ? overrideTools : undefined,
+        sampling,
+      }
       try {
-        const res = await callAgent({
-          endpointUrl,
-          input,
-          conversationId,
-          agentName,
-          model: ov?.model ?? undefined,
-          instructions: ov?.system_prompt ?? undefined,
-          tools: overrideTools?.length ? overrideTools : undefined,
-          sampling,
-        })
+        let res: AgentCallResult
+        try {
+          res = await callAgent({ ...callArgs, headers: await authHeaders() })
+        } catch (err) {
+          if (identity && err instanceof AgentCallError && err.status === 401) {
+            invalidateToken(authCtx.cacheKey)
+            res = await callAgent({ ...callArgs, headers: await authHeaders() })
+          } else throw err
+        }
         await db.insert(datasetRunItems).values({
           runId: run.id,
           exampleId: ex.id,
@@ -463,7 +560,7 @@ export const runDataset = createServerFn({ method: 'POST' })
           latencyMs: res.durationMs,
           tokens: res.tokens,
           conversationId,
-          rawJson: res.rawJson,
+          rawJson: redactSecrets(res.rawJson, authSecrets),
           createdAt: new Date(),
         })
       } catch (err) {
@@ -474,7 +571,7 @@ export const runDataset = createServerFn({ method: 'POST' })
           output: '',
           status: 'error',
           conversationId,
-          errorText: errMessage(err),
+          errorText: redactSecrets(errMessage(err), authSecrets),
           createdAt: new Date(),
         })
       }
@@ -513,4 +610,54 @@ export const runDataset = createServerFn({ method: 'POST' })
     )
 
     return { runId: String(run.id) }
+  })
+
+// One-shot dry-run through the same callAgent transport (not a bespoke probe), without a run.
+export const testAgentConnection = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (input: {
+      datasetId?: string | number
+      endpointUrl?: string
+      targetId?: string | number | null
+      identityId?: string | number | null
+      adHocToken?: string | null
+    }) => ({
+      datasetId: input.datasetId == null ? null : Number(input.datasetId),
+      endpointUrl: input.endpointUrl == null ? null : String(input.endpointUrl).trim(),
+      targetId: input.targetId == null ? null : Number(input.targetId),
+      identityId: input.identityId == null ? null : Number(input.identityId),
+      adHocToken: input.adHocToken == null ? null : String(input.adHocToken).trim() || null,
+    }),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message: string; durationMs: number | null }> => {
+    let secrets: Array<string | undefined> = data.adHocToken ? [data.adHocToken] : []
+    try {
+      const target = await loadTarget(data.targetId)
+      const identity = await loadIdentity(data.identityId)
+      let override: string | null = null
+      if (data.datasetId != null && Number.isFinite(data.datasetId)) {
+        const [ds] = await db.select().from(datasets).where(eq(datasets.id, data.datasetId)).limit(1)
+        override = ds?.endpointOverride ?? null
+      }
+      const endpointUrl =
+        data.endpointUrl && data.endpointUrl.length > 0
+          ? data.endpointUrl
+          : (target?.endpointUrl ?? effectiveEndpoint(override))
+
+      const ctx = authContextFrom(target, identity)
+      secrets = [...Object.values(ctx.staticHeaders), ...secrets]
+      let headers = ctx.staticHeaders
+      if (identity) {
+        const auth = await authHeadersFor(ctx)
+        headers = auth.headers
+        secrets = [...Object.values(ctx.staticHeaders), auth.token]
+      } else if (data.adHocToken) {
+        headers = { ...ctx.staticHeaders, Authorization: `Bearer ${data.adHocToken}` }
+      }
+      const agentName = identity?.config.entityId ?? defaultAgentName()
+      const res = await callAgent({ endpointUrl, input: 'ping', conversationId: randomUUID(), agentName, headers })
+      return { ok: true, message: 'Agent reachable and authenticated', durationMs: res.durationMs }
+    } catch (err) {
+      return { ok: false, message: redactSecrets(errMessage(err), secrets), durationMs: null }
+    }
   })

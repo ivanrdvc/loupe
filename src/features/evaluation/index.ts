@@ -1,6 +1,8 @@
 export { AddToDatasetDialog } from './components/add-to-dataset-dialog'
 export { ListScoreActions } from './components/list-score-actions'
 export {
+  agentIdentitiesQuery,
+  agentTargetsQuery,
   definitionQuery,
   definitionsQuery,
   judgeDefaultsQuery,

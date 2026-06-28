@@ -10,6 +10,7 @@ import {
   MessageCircleQuestion,
   Plus,
   Trash2,
+  UserRound,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -35,7 +36,7 @@ import {
   judgeDefaultsQuery,
 } from '#/features/evaluation'
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
-import { deleteExamples, runDataset, updateDataset } from '#/features/evaluation/server/datasets'
+import { deleteExamples, runDataset, testAgentConnection, updateDataset } from '#/features/evaluation/server/datasets'
 import { downloadCsv } from '#/lib/csv'
 import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { errMessage, formatAgo } from '#/lib/format'
@@ -44,6 +45,7 @@ import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
 import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
+import { type IdentitySelection, loadIdentitySelection, saveIdentitySelection } from './-components/identity-switcher'
 import { NewRunSheet } from './-components/new-run-sheet'
 import { ResultDialog } from './-components/result-dialog'
 import {
@@ -61,6 +63,7 @@ import {
   StatusIcon,
   VerdictBadge,
 } from './-components/run-bits'
+import { loadTargetSelection, saveTargetSelection } from './-components/target-picker'
 import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
 
 export const Route = createFileRoute('/datasets/$datasetId')({
@@ -120,6 +123,27 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const [activeItem, setActiveItem] = useState<DatasetRunItem | null>(null)
   const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? runDefaults?.endpointUrl ?? '')
   const [overrides, setOverrides] = useState<AgentOverrides>({})
+  const [selection, setSelection] = useState<IdentitySelection>({ kind: 'none' })
+  const [targetId, setTargetId] = useState<string | null>(null)
+  useEffect(() => {
+    setSelection(loadIdentitySelection())
+    setTargetId(loadTargetSelection())
+  }, [])
+  const changeSelection = (s: IdentitySelection) => {
+    setSelection(s)
+    saveIdentitySelection(s)
+  }
+  const changeTarget = (id: string | null) => {
+    setTargetId(id)
+    saveTargetSelection(id)
+  }
+  // A saved target supplies its own endpoint; only send the custom URL box when none is picked.
+  const targetingArgs = () => ({
+    targetId: targetId ?? undefined,
+    endpointUrl: targetId ? undefined : endpoint.trim() || undefined,
+    identityId: selection.kind === 'identity' ? selection.id : undefined,
+    adHocToken: selection.kind === 'adhoc' ? selection.token : undefined,
+  })
   const latestId = runs[0]?.id ?? null
   const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
 
@@ -164,19 +188,26 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   }
 
   const runMutation = useMutation({
-    mutationFn: () =>
-      runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, overrides } }),
+    mutationFn: () => runDataset({ data: { datasetId: dataset.id, overrides, ...targetingArgs() } }),
     onMutate: () => ({ toastId: toast.loading('Running on every example…') }),
     onSuccess: ({ runId }, _vars, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
+    onError: (err, _vars, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
+  })
+
+  const testMutation = useMutation({
+    mutationFn: () => testAgentConnection({ data: { datasetId: dataset.id, ...targetingArgs() } }),
+    onMutate: () => ({ toastId: toast.loading('Testing connection…') }),
+    onSuccess: (res, _vars, ctx) =>
+      res.ok
+        ? toast.success(`${res.message}${res.durationMs != null ? ` · ${res.durationMs}ms` : ''}`, { id: ctx?.toastId })
+        : toast.error(res.message, { id: ctx?.toastId }),
     onError: (err, _vars, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
   })
 
   const [runningExampleId, setRunningExampleId] = useState<string | null>(null)
   const runExampleMutation = useMutation({
     mutationFn: (exampleId: string) =>
-      runDataset({
-        data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds: [exampleId], overrides },
-      }),
+      runDataset({ data: { datasetId: dataset.id, exampleIds: [exampleId], overrides, ...targetingArgs() } }),
     onMutate: (exampleId) => setRunningExampleId(exampleId),
     onSuccess: ({ runId }) => onRunSuccess(runId, 'Example run complete'),
     onError: (err) => toast.error(errMessage(err)),
@@ -194,7 +225,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
 
   const bulkRunMutation = useMutation({
     mutationFn: (exampleIds: string[]) =>
-      runDataset({ data: { datasetId: dataset.id, endpointUrl: endpoint.trim() || undefined, exampleIds, overrides } }),
+      runDataset({ data: { datasetId: dataset.id, exampleIds, overrides, ...targetingArgs() } }),
     onMutate: () => ({ toastId: toast.loading('Running selected examples…') }),
     onSuccess: ({ runId }, _ids, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
     onError: (err, _ids, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
@@ -277,6 +308,12 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               endpoint={endpoint}
               onEndpointChange={setEndpoint}
               onEndpointCommit={commitEndpoint}
+              targetId={targetId}
+              onTargetChange={changeTarget}
+              selection={selection}
+              onSelectionChange={changeSelection}
+              onTest={() => testMutation.mutate()}
+              testing={testMutation.isPending}
               selectedIds={selectedIds}
               onSelectedChange={setSelectedIds}
               itemFor={itemFor}
@@ -584,6 +621,12 @@ function RunsTab({
   endpoint,
   onEndpointChange,
   onEndpointCommit,
+  targetId,
+  onTargetChange,
+  selection,
+  onSelectionChange,
+  onTest,
+  testing,
   selectedIds,
   onSelectedChange,
   itemFor,
@@ -606,6 +649,12 @@ function RunsTab({
   endpoint: string
   onEndpointChange: (v: string) => void
   onEndpointCommit: () => void
+  targetId: string | null
+  onTargetChange: (id: string | null) => void
+  selection: IdentitySelection
+  onSelectionChange: (s: IdentitySelection) => void
+  onTest: () => void
+  testing: boolean
   selectedIds: string[]
   onSelectedChange: (ids: string[]) => void
   itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
@@ -634,6 +683,12 @@ function RunsTab({
     endpoint,
     onEndpointChange,
     onEndpointCommit,
+    targetId,
+    onTargetChange,
+    selection,
+    onSelectionChange,
+    onTest,
+    testing,
     overrides,
     onOverridesChange,
     evaluators,
@@ -786,6 +841,12 @@ function RunList({
                   </Badge>
                 )}
                 <span className="text-xs text-muted-foreground">{formatAgo(run.createdAt)}</span>
+                {run.identityLabel && (
+                  <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
+                    <UserRound className="size-3" />
+                    {run.identityLabel}
+                  </Badge>
+                )}
                 <div className="ml-auto flex items-center gap-2">
                   {errors > 0 ? (
                     <Badge variant="outline" className="gap-1 border-destructive/40 font-normal text-destructive">

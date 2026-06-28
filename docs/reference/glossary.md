@@ -7,7 +7,7 @@ summary: One-line definitions for loupe's core nouns — dataset, example,
 status: stable
 owner: "@ivan"
 audience: anyone touching evals, datasets, or scoring
-last-reviewed: 2026-06-04
+last-reviewed: 2026-06-28
 tags: [evals, datasets, domain, vocabulary]
 ---
 
@@ -25,6 +25,8 @@ The eval/datasets nouns, defined once. Types live in
 | **Run** | One execution of a whole dataset against an agent endpoint, pinned to the dataset `version` at the time. Produces one run item per example and an aggregate `passRate`. |
 | **Run item** | The result of a single example within a run: the agent's `output`, a `status` (`ok` / `changed` / `error` / `pending`), latency, token count, the resulting `traceId`, and a `pass` verdict once judged. |
 | **Endpoint** | The agent URL a run fires each example at. Falls back per-dataset override → env default → `GLOBAL_DEFAULT_ENDPOINT`. |
+| **Target** | A saved agent under test: an `endpointUrl` plus the static auth handshake (`authEndpoint`, `tokenPath`, headers). Picked per run, or "Custom URL" for a one-off. |
+| **Identity** | A saved dev-user a run authenticates as — normally just credentials (username/password); the handshake comes from the chosen Target. The minted token is never persisted. |
 | **Evaluator** | A reusable scoring definition (`EvalDefinition`) applied to run outputs — e.g. an LLM-as-judge template. Lives in `src/lib/eval/`. |
 | **Judge** | Running an evaluator over a run's items to assign pass/fail and a pass rate. Can run automatically after a run (auto-judge) or on demand. |
 | **Score** | A persisted grade attached to a run item or span. Stored in `dev.db`; references telemetry by id (no local mirror). |
