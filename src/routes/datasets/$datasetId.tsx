@@ -456,8 +456,7 @@ function ExampleRow({
       </TableRow>
       {expanded && (
         <TableRow className="bg-muted/20 hover:bg-muted/20">
-          <TableCell />
-          <TableCell colSpan={5} className="pr-4 lg:pr-6">
+          <TableCell colSpan={6} className="px-4 lg:px-6">
             <ExampleDetail
               item={item}
               example={example}
