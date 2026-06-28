@@ -1,9 +1,13 @@
 import { useRouterState } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { cn } from '#/lib/utils'
 
 /** Thin brand-gradient bar that slides across the top while the router resolves a navigation. */
 export function RouteProgress() {
-  const loading = useRouterState({ select: (s) => s.status === 'pending' })
+  // Status can be 'pending' at hydration; gate on mount so first render matches the server.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const loading = useRouterState({ select: (s) => s.status === 'pending' }) && mounted
   return (
     <div
       aria-hidden
