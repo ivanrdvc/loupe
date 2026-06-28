@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   ChevronRight,
-  CirclePlay,
   Download,
   Link as LinkIcon,
   MessageCircleQuestion,
@@ -16,13 +15,13 @@ import { toast } from 'sonner'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
+import { RunButton, RunIconButton } from '#/components/run-button'
 import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import {
   type AgentOverrides,
   type ChatMessage,
@@ -276,14 +275,19 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               trigger={
                 <Button variant="outline" size="sm">
                   <Settings2 data-icon="inline-start" />
-                  Run settings
+                  New run
                 </Button>
               }
             />
-            <Button size="sm" disabled={examples.length === 0 || runAll.isPending} onClick={() => runAll.mutate()}>
-              {runAll.isPending ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
+            <RunButton
+              size="sm"
+              disabled={examples.length === 0}
+              running={runAll.isPending}
+              loadingText="Running…"
+              onClick={() => runAll.mutate()}
+            >
               Run all
-            </Button>
+            </RunButton>
           </div>
         </div>
 
@@ -435,21 +439,7 @@ function ExampleRow({
         </TableCell>
         <TableCell>{item && item.status !== 'error' ? <ScoreChips it={item} /> : <Dash />}</TableCell>
         <TableCell onClick={(e) => e.stopPropagation()}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Run this question"
-                className="size-7 text-muted-foreground hover:text-foreground"
-                disabled={running}
-                onClick={onRun}
-              >
-                {running ? <Spinner className="size-4" /> : <CirclePlay />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Run this question</TooltipContent>
-          </Tooltip>
+          <RunIconButton running={running} onClick={onRun} tooltip="Run this question" />
         </TableCell>
       </TableRow>
       {expanded && (
@@ -490,11 +480,11 @@ function ExampleDetail({
   const previous = history.slice(1)
   const isError = item?.status === 'error'
   return (
-    <div className="flex max-w-5xl flex-col gap-4 py-2 text-sm">
+    <div className="flex flex-col gap-4 py-2 text-sm">
       <Field
         label="Question"
         action={
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {example.sourceTraceId && <SourceTraceLink traceId={example.sourceTraceId} />}
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-muted-foreground" onClick={onEdit}>
               <SquarePen className="size-3.5" />
@@ -515,18 +505,17 @@ function ExampleDetail({
         {turns ? <Transcript turns={turns} /> : <ExampleValue value={inputPreview(example.input)} />}
       </Field>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field
-          label={isError ? 'Error' : 'Answer'}
-          action={
-            <div className="flex items-center gap-2">
-              {item && !isError && (
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <StatusIcon status={item.status} />
-                  {(item.latencyMs / 1000).toFixed(1)}s · {item.tokens} tok
-                </span>
-              )}
-              {!isError && item?.traceId && (
+      <Field
+        label={isError ? 'Error' : 'Answer'}
+        emphasis
+        meta={
+          item && !isError ? (
+            <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <StatusIcon status={item.status} />
+                {(item.latencyMs / 1000).toFixed(1)}s · {item.tokens} tok
+              </span>
+              {item.traceId && (
                 <Button
                   variant="link"
                   size="sm"
@@ -536,33 +525,35 @@ function ExampleDetail({
                   answer trace <LinkIcon className="size-3" />
                 </Button>
               )}
-            </div>
-          }
-        >
-          {item ? (
-            isError ? (
-              <pre className="whitespace-pre-wrap break-words rounded-md bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
-                {item.errorText?.trim() || 'Run failed (no error detail captured).'}
-              </pre>
-            ) : (
-              <ExampleValue value={item.output} />
-            )
+            </span>
+          ) : undefined
+        }
+      >
+        {item ? (
+          isError ? (
+            <pre className="whitespace-pre-wrap break-words rounded-md bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
+              {item.errorText?.trim() || 'Run failed (no error detail captured).'}
+            </pre>
           ) : (
-            <p className="rounded-md bg-background/50 px-3 py-2 italic text-muted-foreground/60">
-              Not run yet — hit the run button to call your agent.
-            </p>
-          )}
-        </Field>
+            <ExampleValue value={item.output} />
+          )
+        ) : (
+          <p className="rounded-md bg-background/50 px-3 py-2 italic text-muted-foreground/60">
+            Not run yet — hit the run button to call your agent.
+          </p>
+        )}
+      </Field>
+
+      <div className="grid gap-4 md:grid-cols-2">
         <Field label="Expected">
           <ExampleValue value={example.expected ?? '—'} muted />
         </Field>
+        {item && !isError && (
+          <Field label="Score">
+            <ScoreChips it={item} align="start" />
+          </Field>
+        )}
       </div>
-
-      {item && !isError && (
-        <Field label="Score">
-          <ScoreChips it={item} align="start" />
-        </Field>
-      )}
 
       {metadata.length > 0 && (
         <Field label="Metadata">
@@ -613,7 +604,12 @@ function ExampleDetail({
 
 function SourceTraceLink({ traceId }: { traceId: string }) {
   return (
-    <Button asChild variant="link" size="sm" className="h-auto gap-1 p-0 font-mono text-[11px] text-muted-foreground">
+    <Button
+      asChild
+      variant="link"
+      size="sm"
+      className="h-7 gap-1 whitespace-nowrap px-2 font-mono text-[11px] text-muted-foreground"
+    >
       <Link to="/traces/$traceId" params={{ traceId }}>
         source trace <LinkIcon className="size-3" />
       </Link>

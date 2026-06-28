@@ -1,5 +1,6 @@
 import { ChevronDown, CirclePlay } from 'lucide-react'
 import { useState } from 'react'
+import { RunButton } from '#/components/run-button'
 import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -192,19 +193,20 @@ export function NewRunSheet({
             {testing ? <Spinner data-icon="inline-start" /> : null}
             Test
           </Button>
-          <Button
+          <RunButton
             size="sm"
             className="ml-auto"
-            disabled={running || disabled}
+            disabled={disabled}
+            running={running}
+            loadingText="Running…"
             onClick={() => {
               onEndpointCommit()
               onRun()
               setOpen(false)
             }}
           >
-            {running ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
-            {running ? 'Running…' : 'Run all'}
-          </Button>
+            Run all
+          </RunButton>
         </SheetFooter>
       </SheetContent>
     </Sheet>

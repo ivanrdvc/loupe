@@ -3,6 +3,7 @@ import { createRootRouteWithContext, HeadContent, Link, Scripts, useNavigate, us
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
+import { RouteProgress } from '#/components/route-progress'
 import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
@@ -90,6 +91,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: APPLY_THEME_SCRIPT }} />
       </head>
       <body className="bg-sidebar font-sans text-foreground antialiased">
+        <RouteProgress />
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
           <TooltipProvider delayDuration={0}>
             <SidebarProvider className="bg-sidebar">

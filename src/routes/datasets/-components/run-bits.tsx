@@ -6,17 +6,31 @@ import { cn } from '#/lib/utils'
 
 export function Field({
   label,
+  meta,
   action,
+  emphasis,
   children,
 }: {
   label: string
+  meta?: React.ReactNode
   action?: React.ReactNode
+  emphasis?: boolean
   children: React.ReactNode
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex min-h-5 items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              'font-semibold uppercase tracking-wider',
+              emphasis ? 'text-xs text-foreground' : 'text-[11px] text-muted-foreground',
+            )}
+          >
+            {label}
+          </span>
+          {meta}
+        </div>
         {action}
       </div>
       {children}
