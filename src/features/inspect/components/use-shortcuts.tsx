@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
+import { useEventListener } from 'usehooks-ts'
 import { type SearchProvider, useRegisterSearchProvider } from '#/components/command-palette'
 import { CommandShortcut } from '#/components/ui/command'
 import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
@@ -32,22 +33,18 @@ export function useInspectShortcuts({ entityId, link, enabled = true }: Options)
     else toast.error('Could not copy')
   }, [link, copy])
 
-  useEffect(() => {
+  useEventListener('keydown', (e) => {
     if (!enabled) return
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return
-      const key = e.key.toLowerCase()
-      if (key === 'y' && hasId) {
-        e.preventDefault()
-        void copyId()
-      } else if (key === 'l' && hasLink) {
-        e.preventDefault()
-        void copyLink()
-      }
+    if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return
+    const key = e.key.toLowerCase()
+    if (key === 'y' && hasId) {
+      e.preventDefault()
+      void copyId()
+    } else if (key === 'l' && hasLink) {
+      e.preventDefault()
+      void copyLink()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [enabled, hasId, hasLink, copyId, copyLink])
+  })
 
   const provider = useMemo<SearchProvider | null>(() => {
     if (!enabled || !hasId) return null

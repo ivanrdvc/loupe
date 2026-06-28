@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { type ChatStatus, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
-import { Copy, RefreshCcw } from 'lucide-react'
+import { Check, Copy, RefreshCcw } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import {
   Message,
@@ -10,6 +10,7 @@ import {
   MessageResponse,
 } from '#/components/ai-elements/message'
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '#/components/ai-elements/reasoning'
+import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 
 function messageText(message: UIMessage): string {
   return message.parts
@@ -68,6 +69,7 @@ export function AgentMessage({
   onRegenerate: () => void
 }) {
   const isGenerating = isLast && (status === 'streaming' || status === 'submitted')
+  const { copied, copy } = useCopyToClipboard()
 
   const reasoning = message.parts
     .filter(isReasoningUIPart)
@@ -100,12 +102,8 @@ export function AgentMessage({
               <RefreshCcw className="size-3" />
             </MessageAction>
           )}
-          <MessageAction
-            label="Copy"
-            onClick={() => navigator.clipboard.writeText(messageText(message))}
-            tooltip="Copy"
-          >
-            <Copy className="size-3" />
+          <MessageAction label="Copy" onClick={() => copy(text)} tooltip="Copy">
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
           </MessageAction>
         </MessageActions>
       )}
