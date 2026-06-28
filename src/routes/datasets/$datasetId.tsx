@@ -1,31 +1,30 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
-  CircleAlert,
-  CircleCheck,
+  ChevronRight,
   CirclePlay,
   Download,
   Link as LinkIcon,
   MessageCircleQuestion,
   Plus,
+  Settings2,
+  SquarePen,
   Trash2,
-  UserRound,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#/components/ui/collapsible'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/components/ui/empty'
-import { Skeleton } from '#/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import {
   type AgentOverrides,
+  type ChatMessage,
   type DatasetDetail,
   type DatasetExample,
   type DatasetRun,
@@ -38,31 +37,13 @@ import {
 import { judgeDatasetRun } from '#/features/evaluation/server/dataset-judge'
 import { deleteExamples, runDataset, testAgentConnection, updateDataset } from '#/features/evaluation/server/datasets'
 import { downloadCsv } from '#/lib/csv'
-import type { EvalDefinition } from '#/lib/eval/evaluation'
 import { errMessage, formatAgo } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
-import { ACCENT } from '#/lib/tone'
 import { cn } from '#/lib/utils'
-import { DataGrid } from './-components/data-grid'
 import { ExampleDialog } from './-components/example-dialog'
 import { type IdentitySelection, loadIdentitySelection, saveIdentitySelection } from './-components/identity-switcher'
 import { NewRunSheet } from './-components/new-run-sheet'
-import { ResultDialog } from './-components/result-dialog'
-import {
-  type CompareSummary,
-  CompareSummaryBar,
-  type Delta,
-  DeltaBadge,
-  NO_FILTER,
-  type RunFilter,
-  RunFilterChips,
-  runFilterMatches,
-  runItemDelta,
-  ScoreChip,
-  StatusBadge,
-  StatusIcon,
-  VerdictBadge,
-} from './-components/run-bits'
+import { Field, ScoreChips, StatusIcon, VerdictBadge } from './-components/run-bits'
 import { loadTargetSelection, saveTargetSelection } from './-components/target-picker'
 import { datasetDetailQuery, datasetRunDefaultsQuery } from './-data'
 
@@ -77,18 +58,7 @@ export const Route = createFileRoute('/datasets/$datasetId')({
 
 function DatasetDetailPage() {
   const { datasetId } = Route.useParams()
-  const { data: detail, isLoading } = useQuery(datasetDetailQuery(datasetId))
-
-  if (isLoading) {
-    return (
-      <Page title={<DatasetBreadcrumb />}>
-        <div className="flex flex-col gap-4 px-4 py-4 lg:px-6">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      </Page>
-    )
-  }
+  const { data: detail } = useSuspenseQuery(datasetDetailQuery(datasetId))
 
   if (!detail) {
     return (
@@ -113,21 +83,32 @@ function DatasetBreadcrumb({ name }: { name?: string }) {
   return <PageBreadcrumb crumbs={[{ label: 'Datasets', to: '/datasets' }, { label: name ?? '—' }]} />
 }
 
+interface ItemEntry {
+  item: DatasetRunItem
+  at: number
+}
+
 function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
   const { dataset, examples, runs, items } = detail
   const queryClient = useQueryClient()
-  const { data: runDefaults } = useQuery(datasetRunDefaultsQuery())
-  const [tab, setTab] = useState('examples')
+  const navigate = useNavigate()
+  const { data: runDefaults } = useSuspenseQuery(datasetRunDefaultsQuery())
+
   const [activeExample, setActiveExample] = useState<DatasetExample | null>(null)
   const [creating, setCreating] = useState(false)
-  const [activeItem, setActiveItem] = useState<DatasetRunItem | null>(null)
-  const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? runDefaults?.endpointUrl ?? '')
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [runningId, setRunningId] = useState<string | null>(null)
+
+  const [endpoint, setEndpoint] = useState(dataset.endpointOverride ?? runDefaults.endpointUrl ?? '')
   const [overrides, setOverrides] = useState<AgentOverrides>({})
   const [selection, setSelection] = useState<IdentitySelection>({ kind: 'none' })
   const [targetId, setTargetId] = useState<string | null>(null)
+  const [judgeDefId, setJudgeDefId] = useState('default')
+  const [autoJudge, setAutoJudge] = useState(false)
   useEffect(() => {
     setSelection(loadIdentitySelection())
     setTargetId(loadTargetSelection())
+    setAutoJudge(window.localStorage.getItem('datasets:autoJudge') === '1')
   }, [])
   const changeSelection = (s: IdentitySelection) => {
     setSelection(s)
@@ -137,28 +118,33 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
     setTargetId(id)
     saveTargetSelection(id)
   }
-  // A saved target supplies its own endpoint; only send the custom URL box when none is picked.
+  const changeAutoJudge = (v: boolean) => {
+    setAutoJudge(v)
+    window.localStorage.setItem('datasets:autoJudge', v ? '1' : '0')
+  }
+
+  const { data: judgeDefaults } = useQuery(judgeDefaultsQuery)
+  const { data: evaluators = [] } = useQuery(definitionsQuery)
+
   const targetingArgs = () => ({
     targetId: targetId ?? undefined,
     endpointUrl: targetId ? undefined : endpoint.trim() || undefined,
     identityId: selection.kind === 'identity' ? selection.id : undefined,
     adHocToken: selection.kind === 'adhoc' ? selection.token : undefined,
   })
-  const latestId = runs[0]?.id ?? null
-  const [selectedIds, setSelectedIds] = useState<string[]>(latestId ? [latestId] : [])
 
-  const [judgeDefId, setJudgeDefId] = useState('default')
-  const [autoJudge, setAutoJudge] = useState(false)
-  useEffect(() => {
-    setAutoJudge(window.localStorage.getItem('datasets:autoJudge') === '1')
-  }, [])
-  const changeAutoJudge = (v: boolean) => {
-    setAutoJudge(v)
-    window.localStorage.setItem('datasets:autoJudge', v ? '1' : '0')
-  }
-  const { data: judgeDefaults } = useQuery(judgeDefaultsQuery)
-  const { data: evaluators = [] } = useQuery(definitionsQuery)
-  const judgeRunId = selectedIds[0] ?? latestId
+  // Every answer per example, newest run first (head = the current answer shown in the row).
+  const historyFor = useMemo(() => {
+    const createdAt = new Map(runs.map((r) => [r.id, r.createdAt]))
+    const byEx = new Map<string, ItemEntry[]>()
+    for (const it of items) {
+      const list = byEx.get(it.exampleId) ?? []
+      list.push({ item: it, at: createdAt.get(it.runId) ?? 0 })
+      byEx.set(it.exampleId, list)
+    }
+    for (const list of byEx.values()) list.sort((a, b) => b.at - a.at || Number(b.item.runId) - Number(a.item.runId))
+    return (exampleId: string) => byEx.get(exampleId) ?? []
+  }, [runs, items])
 
   const invalidate = () =>
     Promise.all([
@@ -171,169 +157,197 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
       judgeDatasetRun({
         data: { runId: Number(runId), definitionId: judgeDefId !== 'default' ? Number(judgeDefId) : undefined },
       }),
-    onSuccess: async (result) => {
-      await invalidate()
-      const rate = result.passRate != null ? `${Math.round(result.passRate * 100)}% pass` : `${result.judged} judged`
-      toast.success(`Scored ${result.judged} answers · ${rate}`)
-    },
+    onSuccess: invalidate,
     onError: (err) => toast.error(errMessage(err)),
   })
 
-  const onRunSuccess = async (runId: string, message: string, toastId?: string | number) => {
+  const afterRun = async (runId: string, message: string, toastId?: string | number) => {
     await invalidate()
-    setSelectedIds([runId])
-    setTab('runs')
     toast.success(message, toastId != null ? { id: toastId } : undefined)
     if (autoJudge && judgeDefaults?.configured) judgeMutation.mutate(runId)
   }
 
-  const runMutation = useMutation({
+  const runAll = useMutation({
     mutationFn: () => runDataset({ data: { datasetId: dataset.id, overrides, ...targetingArgs() } }),
-    onMutate: () => ({ toastId: toast.loading('Running on every example…') }),
-    onSuccess: ({ runId }, _vars, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
-    onError: (err, _vars, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
+    onMutate: () => ({ toastId: toast.loading('Running every question…') }),
+    onSuccess: ({ runId }, _v, ctx) => afterRun(runId, 'Run complete', ctx?.toastId),
+    onError: (err, _v, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
+  })
+
+  const runOne = useMutation({
+    mutationFn: (exampleId: string) =>
+      runDataset({ data: { datasetId: dataset.id, exampleIds: [exampleId], overrides, ...targetingArgs() } }),
+    onMutate: (exampleId) => setRunningId(exampleId),
+    onSuccess: ({ runId }) => afterRun(runId, 'Answer updated'),
+    onError: (err) => toast.error(errMessage(err)),
+    onSettled: () => setRunningId(null),
   })
 
   const testMutation = useMutation({
     mutationFn: () => testAgentConnection({ data: { datasetId: dataset.id, ...targetingArgs() } }),
     onMutate: () => ({ toastId: toast.loading('Testing connection…') }),
-    onSuccess: (res, _vars, ctx) =>
+    onSuccess: (res, _v, ctx) =>
       res.ok
         ? toast.success(`${res.message}${res.durationMs != null ? ` · ${res.durationMs}ms` : ''}`, { id: ctx?.toastId })
         : toast.error(res.message, { id: ctx?.toastId }),
-    onError: (err, _vars, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
+    onError: (err, _v, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
   })
 
-  const [runningExampleId, setRunningExampleId] = useState<string | null>(null)
-  const runExampleMutation = useMutation({
-    mutationFn: (exampleId: string) =>
-      runDataset({ data: { datasetId: dataset.id, exampleIds: [exampleId], overrides, ...targetingArgs() } }),
-    onMutate: (exampleId) => setRunningExampleId(exampleId),
-    onSuccess: ({ runId }) => onRunSuccess(runId, 'Example run complete'),
-    onError: (err) => toast.error(errMessage(err)),
-    onSettled: () => setRunningExampleId(null),
-  })
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: (exampleIds: string[]) => deleteExamples({ data: { datasetId: dataset.id, exampleIds } }),
-    onSuccess: async (_r, ids) => {
+  const deleteMutation = useMutation({
+    mutationFn: (exampleId: string) => deleteExamples({ data: { datasetId: dataset.id, exampleIds: [exampleId] } }),
+    onSuccess: async () => {
       await invalidate()
-      toast.success(`Deleted ${ids.length} example${ids.length === 1 ? '' : 's'}`)
+      toast.success('Example deleted')
     },
     onError: (err) => toast.error(errMessage(err)),
-  })
-
-  const bulkRunMutation = useMutation({
-    mutationFn: (exampleIds: string[]) =>
-      runDataset({ data: { datasetId: dataset.id, exampleIds, overrides, ...targetingArgs() } }),
-    onMutate: () => ({ toastId: toast.loading('Running selected examples…') }),
-    onSuccess: ({ runId }, _ids, ctx) => onRunSuccess(runId, 'Run complete', ctx?.toastId),
-    onError: (err, _ids, ctx) => toast.error(errMessage(err), { id: ctx?.toastId }),
   })
 
   const persistEndpoint = useMutation({
     mutationFn: (url: string) =>
       updateDataset({ data: { datasetId: dataset.id, endpointOverride: url.trim() || null } }),
-    onSuccess: () => invalidate(),
+    onSuccess: invalidate,
   })
   const commitEndpoint = () => {
     if ((dataset.endpointOverride ?? '') !== endpoint.trim()) persistEndpoint.mutate(endpoint)
   }
 
-  const itemFor = (runId: string, exampleId: string) =>
-    items.find((it) => it.runId === runId && it.exampleId === exampleId) ?? null
+  const openTrace = (traceId: string) =>
+    void navigate({ to: '.', search: (prev) => ({ ...(prev as object), trace: traceId }) as never })
 
-  const closeSheet = () => {
+  const closeDialog = () => {
     setActiveExample(null)
     setCreating(false)
+  }
+
+  const settingsProps = {
+    endpoint,
+    onEndpointChange: setEndpoint,
+    onEndpointCommit: commitEndpoint,
+    targetId,
+    onTargetChange: changeTarget,
+    selection,
+    onSelectionChange: changeSelection,
+    onTest: () => testMutation.mutate(),
+    testing: testMutation.isPending,
+    overrides,
+    onOverridesChange: setOverrides,
+    evaluators,
+    judgeDefId,
+    onJudgeDefChange: setJudgeDefId,
+    autoJudge,
+    onAutoJudgeChange: changeAutoJudge,
+    judgeConfigured: !!judgeDefaults?.configured,
+    onRun: () => runAll.mutate(),
+    running: runAll.isPending,
+    disabled: examples.length === 0,
   }
 
   return (
     <Page title={<DatasetBreadcrumb name={dataset.name} />}>
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* header meta row */}
         <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{dataset.name}</span>
-            {dataset.tags.map((t) => (
-              <Badge key={t} variant="outline">
-                {t}
-              </Badge>
-            ))}
-          </div>
+          <span className="text-sm font-medium">{dataset.name}</span>
+          {dataset.tags.map((t) => (
+            <Badge key={t} variant="outline">
+              {t}
+            </Badge>
+          ))}
           <DatasetStats exampleCount={examples.length} runs={runs} lastRunAt={dataset.lastRunAt} />
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => downloadDatasetCsv(dataset.name, examples)}>
+            <Button variant="ghost" size="sm" onClick={() => downloadDatasetCsv(dataset.name, examples)}>
               <Download data-icon="inline-start" />
               CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setActiveExample(null)
+                setCreating(true)
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              Example
+            </Button>
+            <NewRunSheet
+              {...settingsProps}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Settings2 data-icon="inline-start" />
+                  Run settings
+                </Button>
+              }
+            />
+            <Button size="sm" disabled={examples.length === 0 || runAll.isPending} onClick={() => runAll.mutate()}>
+              {runAll.isPending ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
+              Run all
             </Button>
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
-          <div className="border-b pt-3">
-            <TabsList variant="line" className="h-auto gap-x-4 px-4 lg:px-6">
-              <TabsTrigger value="examples" className="flex-none px-3 pb-2">
-                Examples <span className="ml-1 font-mono text-muted-foreground">{examples.length}</span>
-              </TabsTrigger>
-              <TabsTrigger value="runs" className="flex-none px-3 pb-2">
-                Runs <span className="ml-1 font-mono text-muted-foreground">{runs.length}</span>
-              </TabsTrigger>
-            </TabsList>
+        {examples.length === 0 ? (
+          <div className="px-4 lg:px-6">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <MessageCircleQuestion />
+                </EmptyMedia>
+                <EmptyTitle>No questions yet</EmptyTitle>
+                <EmptyDescription>Add a question by hand, or capture one from a trace.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setActiveExample(null)
+                    setCreating(true)
+                  }}
+                >
+                  <Plus data-icon="inline-start" />
+                  Add question
+                </Button>
+              </EmptyContent>
+            </Empty>
           </div>
-
-          <TabsContent value="examples" className="min-h-0 flex-1">
-            <ExamplesTab
-              examples={examples}
-              latestRunId={latestId}
-              itemFor={itemFor}
-              onRun={(e) => runExampleMutation.mutate(e.id)}
-              runningId={runningExampleId}
-              onOpen={(e) => {
-                setCreating(false)
-                setActiveExample(e)
-              }}
-              onAdd={() => {
-                setActiveExample(null)
-                setCreating(true)
-              }}
-              onBulkDelete={(ids) => bulkDeleteMutation.mutate(ids)}
-              onBulkRun={(ids) => bulkRunMutation.mutate(ids)}
-            />
-          </TabsContent>
-
-          <TabsContent value="runs" className="min-h-0 flex-1">
-            <RunsTab
-              detail={detail}
-              endpoint={endpoint}
-              onEndpointChange={setEndpoint}
-              onEndpointCommit={commitEndpoint}
-              targetId={targetId}
-              onTargetChange={changeTarget}
-              selection={selection}
-              onSelectionChange={changeSelection}
-              onTest={() => testMutation.mutate()}
-              testing={testMutation.isPending}
-              selectedIds={selectedIds}
-              onSelectedChange={setSelectedIds}
-              itemFor={itemFor}
-              onOpenItem={setActiveItem}
-              onRun={() => runMutation.mutate()}
-              running={runMutation.isPending}
-              overrides={overrides}
-              onOverridesChange={setOverrides}
-              evaluators={evaluators}
-              judgeDefId={judgeDefId}
-              onJudgeDefChange={setJudgeDefId}
-              autoJudge={autoJudge}
-              onAutoJudgeChange={changeAutoJudge}
-              judgeConfigured={!!judgeDefaults?.configured}
-              judgeRunId={judgeRunId}
-              judging={judgeMutation.isPending}
-              onJudge={() => judgeRunId && judgeMutation.mutate(judgeRunId)}
-            />
-          </TabsContent>
-        </Tabs>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-auto">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-muted/40 [&_th]:font-normal [&_th]:text-muted-foreground">
+                <TableRow className="[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6">
+                  <TableHead className="w-8" />
+                  <TableHead>Question</TableHead>
+                  <TableHead>Answer</TableHead>
+                  <TableHead className="w-48">Expected</TableHead>
+                  <TableHead className="w-40">Score</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {examples.map((ex) => {
+                  const history = historyFor(ex.id)
+                  return (
+                    <ExampleRow
+                      key={ex.id}
+                      example={ex}
+                      item={history[0]?.item ?? null}
+                      history={history}
+                      running={runningId === ex.id}
+                      expanded={expanded === ex.id}
+                      onToggle={() => setExpanded((e) => (e === ex.id ? null : ex.id))}
+                      onRun={() => runOne.mutate(ex.id)}
+                      onEdit={() => {
+                        setCreating(false)
+                        setActiveExample(ex)
+                      }}
+                      onDelete={() => deleteMutation.mutate(ex.id)}
+                      onOpenTrace={openTrace}
+                    />
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {(activeExample || creating) && (
@@ -341,20 +355,13 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
           key={activeExample?.id ?? 'new'}
           datasetId={dataset.id}
           example={activeExample}
-          onClose={closeSheet}
+          onClose={closeDialog}
           onSaved={() => {
-            // Close first: holding the modal open through the invalidate
-            // roundtrip swallows clicks landing on the page behind it.
-            closeSheet()
+            closeDialog()
             invalidate()
           }}
         />
       )}
-      <ResultDialog
-        item={activeItem}
-        example={activeItem ? (examples.find((e) => e.id === activeItem.exampleId) ?? null) : null}
-        onClose={() => setActiveItem(null)}
-      />
     </Page>
   )
 }
@@ -373,13 +380,8 @@ function DatasetStats({
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span>
-        {exampleCount} {exampleCount === 1 ? 'example' : 'examples'}
+        {exampleCount} {exampleCount === 1 ? 'question' : 'questions'}
       </span>
-      {runs.length > 0 && (
-        <span>
-          · {runs.length} {runs.length === 1 ? 'run' : 'runs'}
-        </span>
-      )}
       {lastRun && (
         <span>
           · last run{pass != null ? ` ${Math.round(pass * 100)}% pass` : ''}
@@ -390,695 +392,264 @@ function DatasetStats({
   )
 }
 
-function ExamplesTab({
-  examples,
-  latestRunId,
-  itemFor,
+function ExampleRow({
+  example,
+  item,
+  history,
+  running,
+  expanded,
+  onToggle,
   onRun,
-  runningId,
-  onOpen,
-  onAdd,
-  onBulkDelete,
-  onBulkRun,
+  onEdit,
+  onDelete,
+  onOpenTrace,
 }: {
-  examples: DatasetExample[]
-  latestRunId: string | null
-  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
-  onRun: (e: DatasetExample) => void
-  runningId: string | null
-  onOpen: (e: DatasetExample) => void
-  onAdd: () => void
-  onBulkDelete: (ids: string[]) => void
-  onBulkRun: (ids: string[]) => void
+  example: DatasetExample
+  item: DatasetRunItem | null
+  history: ItemEntry[]
+  running: boolean
+  expanded: boolean
+  onToggle: () => void
+  onRun: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onOpenTrace: (traceId: string) => void
 }) {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set())
-  const toggle = useCallback(
-    (id: string) =>
-      setSelected((prev) => {
-        const next = new Set(prev)
-        next.has(id) ? next.delete(id) : next.add(id)
-        return next
-      }),
-    [],
-  )
-  const allSelected = examples.length > 0 && selected.size === examples.length
-  const clear = () => setSelected(new Set())
-
-  const columns = useMemo<ColumnDef<DatasetExample, unknown>[]>(
-    () => [
-      {
-        id: 'select',
-        header: () => (
-          <Checkbox
-            checked={allSelected ? true : selected.size > 0 ? 'indeterminate' : false}
-            onCheckedChange={(v) => setSelected(v ? new Set(examples.map((e) => e.id)) : new Set())}
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={selected.has(row.original.id)}
-            onCheckedChange={() => toggle(row.original.id)}
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Select example"
-          />
-        ),
-        meta: { headClassName: 'w-8' },
-      },
-      {
-        id: 'input',
-        header: 'Input (question)',
-        cell: ({ row }) => <InputCell example={row.original} clamp={2} />,
-        meta: { className: 'max-w-xs' },
-      },
-      {
-        id: 'expected',
-        header: 'Expected',
-        cell: ({ row }) =>
-          row.original.expected ? (
-            <span className="line-clamp-2 text-muted-foreground">{row.original.expected}</span>
+  const pad = '[&>:first-child]:pl-4 [&>:last-child]:pr-4 lg:[&>:first-child]:pl-6 lg:[&>:last-child]:pr-6'
+  return (
+    <>
+      <TableRow className={cn('cursor-pointer', pad)} onClick={onToggle}>
+        <TableCell>
+          <ChevronRight className={cn('size-4 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+        </TableCell>
+        <TableCell className="max-w-xs">
+          <QuestionCell example={example} />
+        </TableCell>
+        <TableCell className="max-w-sm">
+          <AnswerCell item={item} running={running} />
+        </TableCell>
+        <TableCell className="max-w-48">
+          {example.expected ? (
+            <span className="line-clamp-2 text-muted-foreground">{example.expected}</span>
           ) : (
-            <span className="text-xs italic text-muted-foreground/60">click to add</span>
-          ),
-        meta: { className: 'max-w-xs' },
-      },
-      {
-        id: 'metadata',
-        header: 'Metadata',
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            {Object.entries(row.original.metadata).map(([k, v]) => (
-              <Badge key={k} variant="secondary" className="font-mono text-[10px]">
-                {k}:{v}
-              </Badge>
-            ))}
-          </div>
-        ),
-        meta: { headClassName: 'w-40' },
-      },
-      {
-        id: 'origin',
-        header: 'Origin',
-        cell: ({ row }) => {
-          const traceId = row.original.sourceTraceId
-          if (!traceId) return <span className="text-xs italic text-muted-foreground/60">manual</span>
-          return (
-            <Button
-              asChild
-              variant="link"
-              size="sm"
-              className="h-auto justify-start gap-1 p-0 font-mono text-xs"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Link to="/traces/$traceId" params={{ traceId }}>
-                {traceId.slice(0, 8)}
-                <LinkIcon className="size-3" />
-              </Link>
-            </Button>
-          )
-        },
-        meta: { headClassName: 'w-28' },
-      },
-      {
-        id: 'lastRun',
-        header: 'Last run',
-        cell: ({ row }) => {
-          if (runningId === row.original.id) {
-            return (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Spinner className="size-3.5" />
-                running…
-              </div>
-            )
-          }
-          const last = latestRunId ? itemFor(latestRunId, row.original.id) : null
-          if (!last) return <span className="text-xs text-muted-foreground/60">—</span>
-          const errored = last.status === 'error'
-          return (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <StatusIcon status={last.status} />
-              <span className={cn('truncate text-xs', errored ? 'text-destructive' : 'text-muted-foreground')}>
-                {errored ? last.errorText?.trim() || 'failed' : last.output}
-              </span>
-            </div>
-          )
-        },
-        meta: { headClassName: 'w-56', className: 'max-w-xs' },
-      },
-      {
-        id: 'run',
-        header: 'Run',
-        cell: ({ row }) => (
+            <span className="text-xs italic text-muted-foreground/60">—</span>
+          )}
+        </TableCell>
+        <TableCell>{item && item.status !== 'error' ? <ScoreChips it={item} /> : <Dash />}</TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Run this question"
                 className="size-7 text-muted-foreground hover:text-foreground"
-                disabled={runningId === row.original.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRun(row.original)
-                }}
+                disabled={running}
+                onClick={onRun}
               >
-                {runningId === row.original.id ? <Spinner className="size-4" /> : <CirclePlay />}
+                {running ? <Spinner className="size-4" /> : <CirclePlay />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Run just this example</TooltipContent>
+            <TooltipContent>Run this question</TooltipContent>
           </Tooltip>
-        ),
-        meta: { headClassName: 'w-12' },
-      },
-    ],
-    [latestRunId, itemFor, onRun, runningId, selected, allSelected, examples, toggle],
-  )
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {selected.size > 0 ? (
-        <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2.5 lg:px-6">
-          <span className="text-xs font-medium">{selected.size} selected</span>
-          <Button size="sm" variant="outline" onClick={() => onBulkRun([...selected])}>
-            <CirclePlay data-icon="inline-start" />
-            Run
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-destructive hover:text-destructive"
-            onClick={() => {
-              onBulkDelete([...selected])
-              clear()
-            }}
-          >
-            <Trash2 data-icon="inline-start" />
-            Delete
-          </Button>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={clear}>
-            Clear
-          </Button>
-        </div>
-      ) : (
-        examples.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-            <p className="text-xs text-muted-foreground">
-              The questions. Edit input / expected / metadata here — that's what every run is graded against.
-            </p>
-            <Button size="sm" variant="outline" onClick={onAdd}>
-              <Plus data-icon="inline-start" />
-              Example
-            </Button>
-          </div>
-        )
-      )}
-      {examples.length === 0 ? (
-        <div className="px-4 lg:px-6">
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <MessageCircleQuestion />
-              </EmptyMedia>
-              <EmptyTitle>No examples yet</EmptyTitle>
-              <EmptyDescription>Add a question by hand, or capture one from a trace.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button size="sm" onClick={onAdd}>
-                <Plus data-icon="inline-start" />
-                Add example
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </div>
-      ) : (
-        <DataGrid columns={columns} data={examples} getRowId={(e) => e.id} onRowClick={onOpen} />
-      )}
-    </div>
-  )
-}
-
-function RunsTab({
-  detail,
-  endpoint,
-  onEndpointChange,
-  onEndpointCommit,
-  targetId,
-  onTargetChange,
-  selection,
-  onSelectionChange,
-  onTest,
-  testing,
-  selectedIds,
-  onSelectedChange,
-  itemFor,
-  onOpenItem,
-  onRun,
-  running,
-  overrides,
-  onOverridesChange,
-  evaluators,
-  judgeDefId,
-  onJudgeDefChange,
-  autoJudge,
-  onAutoJudgeChange,
-  judgeConfigured,
-  judgeRunId,
-  judging,
-  onJudge,
-}: {
-  detail: DatasetDetail
-  endpoint: string
-  onEndpointChange: (v: string) => void
-  onEndpointCommit: () => void
-  targetId: string | null
-  onTargetChange: (id: string | null) => void
-  selection: IdentitySelection
-  onSelectionChange: (s: IdentitySelection) => void
-  onTest: () => void
-  testing: boolean
-  selectedIds: string[]
-  onSelectedChange: (ids: string[]) => void
-  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
-  onOpenItem: (it: DatasetRunItem) => void
-  onRun: () => void
-  running: boolean
-  overrides: AgentOverrides
-  onOverridesChange: (o: AgentOverrides) => void
-  evaluators: EvalDefinition[]
-  judgeDefId: string
-  onJudgeDefChange: (v: string) => void
-  autoJudge: boolean
-  onAutoJudgeChange: (v: boolean) => void
-  judgeConfigured: boolean
-  judgeRunId: string | null
-  judging: boolean
-  onJudge: () => void
-}) {
-  const { examples, runs } = detail
-  const [filter, setFilter] = useState<RunFilter>(NO_FILTER)
-
-  // Keep focus-first order so compare lays the second run beside it.
-  const selectedRuns = selectedIds.map((id) => runs.find((r) => r.id === id)).filter((r): r is DatasetRun => !!r)
-
-  const runSheetProps = {
-    endpoint,
-    onEndpointChange,
-    onEndpointCommit,
-    targetId,
-    onTargetChange,
-    selection,
-    onSelectionChange,
-    onTest,
-    testing,
-    overrides,
-    onOverridesChange,
-    evaluators,
-    judgeDefId,
-    onJudgeDefChange,
-    autoJudge,
-    onAutoJudgeChange,
-    judgeConfigured,
-    onRun,
-    running,
-    disabled: examples.length === 0,
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-        <p className="text-xs text-muted-foreground">
-          {runs.length === 0
-            ? 'Run the dataset against your agent.'
-            : `${runs.length} run${runs.length === 1 ? '' : 's'}`}
-        </p>
-        {runs.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!judgeRunId || !judgeConfigured || judging}
-                    onClick={onJudge}
-                  >
-                    {judging ? 'Judging…' : 'Judge run'}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!judgeConfigured && (
-                <TooltipContent>Set OPENAI_API_KEY or ANTHROPIC_API_KEY to enable judging</TooltipContent>
-              )}
-            </Tooltip>
-            <NewRunSheet {...runSheetProps} />
-          </div>
-        )}
-      </div>
-
-      {runs.length === 0 ? (
-        <div className="px-4 lg:px-6">
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CirclePlay />
-              </EmptyMedia>
-              <EmptyTitle>No runs yet</EmptyTitle>
-              <EmptyDescription>Point the run sheet at your agent and fire every question.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <NewRunSheet
-                {...runSheetProps}
-                trigger={
-                  <Button size="sm">
-                    <CirclePlay data-icon="inline-start" />
-                    Run this dataset
-                  </Button>
-                }
-              />
-            </EmptyContent>
-          </Empty>
-        </div>
-      ) : (
-        <>
-          <RunList runs={runs} items={detail.items} selectedIds={selectedIds} onSelectedChange={onSelectedChange} />
-          {selectedRuns.length > 1 ? (
-            <CompareGrid runs={selectedRuns} examples={examples} itemFor={itemFor} onOpenItem={onOpenItem} />
-          ) : (
-            <SingleRunList
-              run={selectedRuns[0] ?? null}
-              examples={examples}
-              itemFor={itemFor}
-              onOpenItem={onOpenItem}
-              filter={filter}
-              onFilterChange={setFilter}
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="bg-muted/20 hover:bg-muted/20">
+          <TableCell />
+          <TableCell colSpan={5} className="pr-4 lg:pr-6">
+            <ExampleDetail
+              item={item}
+              example={example}
+              history={history}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onOpenTrace={onOpenTrace}
             />
-          )}
-        </>
+          </TableCell>
+        </TableRow>
       )}
-    </div>
-  )
-}
-
-// One ticked → single run; two+ → compare (baseline=earliest, current=latest).
-function RunList({
-  runs,
-  items,
-  selectedIds,
-  onSelectedChange,
-}: {
-  runs: DatasetRun[]
-  items: DatasetRunItem[]
-  selectedIds: string[]
-  onSelectedChange: (ids: string[]) => void
-}) {
-  const latestId = runs[0]?.id ?? null
-  const selected = new Set(selectedIds)
-
-  const errorCounts = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const it of items) if (it.status === 'error') m.set(it.runId, (m.get(it.runId) ?? 0) + 1)
-    return m
-  }, [items])
-
-  // Never let the list empty out — unticking the last selected run is a no-op.
-  const toggle = (id: string) => {
-    if (selected.has(id)) {
-      if (selected.size === 1) return
-      onSelectedChange(selectedIds.filter((x) => x !== id))
-    } else {
-      onSelectedChange([...selectedIds, id])
-    }
-  }
-
-  return (
-    <div className="px-4 pb-3 lg:px-6">
-      <p className="mb-1.5 text-[11px] text-muted-foreground">
-        Tick one run to inspect it, or two or more to compare them side by side.
-      </p>
-      <ul className="flex flex-col divide-y rounded-lg border">
-        {runs.map((run) => {
-          const isSelected = selected.has(run.id)
-          const errors = errorCounts.get(run.id) ?? 0
-          return (
-            <li key={run.id}>
-              <button
-                type="button"
-                onClick={() => toggle(run.id)}
-                className={cn(
-                  'flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50',
-                  isSelected && 'bg-muted/40',
-                )}
-              >
-                <Checkbox
-                  checked={isSelected}
-                  tabIndex={-1}
-                  aria-label={`Select ${run.label}`}
-                  className="pointer-events-none"
-                />
-                <span className="font-mono text-xs">{run.label}</span>
-                {run.id === latestId && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    latest
-                  </Badge>
-                )}
-                <span className="text-xs text-muted-foreground">{formatAgo(run.createdAt)}</span>
-                {run.identityLabel && (
-                  <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
-                    <UserRound className="size-3" />
-                    {run.identityLabel}
-                  </Badge>
-                )}
-                <div className="ml-auto flex items-center gap-2">
-                  {errors > 0 ? (
-                    <Badge variant="outline" className="gap-1 border-destructive/40 font-normal text-destructive">
-                      <CircleAlert className="size-3" />
-                      {errors} err
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className={cn('gap-1 border-emerald-600/40 font-normal', ACCENT.emerald.status)}
-                    >
-                      <CircleCheck className="size-3" />
-                      ok
-                    </Badge>
-                  )}
-                  <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
-                    {run.passRate != null ? `${Math.round(run.passRate * 100)}%` : '—'}
-                  </span>
-                </div>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-function SingleRunList({
-  run,
-  examples,
-  itemFor,
-  onOpenItem,
-  filter,
-  onFilterChange,
-}: {
-  run: DatasetRun | null
-  examples: DatasetExample[]
-  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
-  onOpenItem: (it: DatasetRunItem) => void
-  filter: RunFilter
-  onFilterChange: (f: RunFilter) => void
-}) {
-  const rows = examples
-    .map((ex) => ({ ex, it: run ? itemFor(run.id, ex.id) : null }))
-    .filter(({ it }) => runFilterMatches(filter, it))
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 lg:px-6">
-      <RunFilterChips filter={filter} onChange={onFilterChange} />
-      <div className="min-h-0 flex-1 overflow-auto">
-        {rows.length === 0 ? (
-          <div className="rounded-lg border px-3 py-8 text-center text-xs text-muted-foreground">
-            No results match these filters.
-          </div>
-        ) : (
-          <ul className="flex flex-col divide-y rounded-lg border">
-            {rows.map(({ ex, it }) => (
-              <li key={ex.id}>
-                <button
-                  type="button"
-                  disabled={!it}
-                  onClick={() => it && onOpenItem(it)}
-                  className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-1 text-sm">{inputPreview(ex.input)}</p>
-                    {it?.status === 'error' ? (
-                      <p className="text-xs text-destructive">{it.errorText?.trim() || 'run failed'}</p>
-                    ) : it ? (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">{it.output}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground/60">not in this run</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <StatusBadge it={it} />
-                    <VerdictBadge it={it} />
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CompareGrid({
-  runs,
-  examples,
-  itemFor,
-  onOpenItem,
-}: {
-  runs: DatasetRun[]
-  examples: DatasetExample[]
-  itemFor: (runId: string, exampleId: string) => DatasetRunItem | null
-  onOpenItem: (it: DatasetRunItem) => void
-}) {
-  const [onlyRegressions, setOnlyRegressions] = useState(false)
-  const chrono = [...runs].sort((a, b) => a.createdAt - b.createdAt || Number(a.id) - Number(b.id))
-  const baselineId = chrono[0].id
-  const currentId = chrono[chrono.length - 1].id
-
-  const deltaFor = useCallback(
-    (exampleId: string): Delta => runItemDelta(itemFor(baselineId, exampleId), itemFor(currentId, exampleId)),
-    [itemFor, baselineId, currentId],
-  )
-
-  const deltas = useMemo(() => new Map(examples.map((ex) => [ex.id, deltaFor(ex.id)])), [examples, deltaFor])
-  const summary = useMemo<CompareSummary>(() => {
-    const s = { regressed: 0, improved: 0, unchanged: 0 }
-    for (const d of deltas.values()) s[d] += 1
-    return s
-  }, [deltas])
-
-  const rows = onlyRegressions ? examples.filter((ex) => deltas.get(ex.id) === 'regressed') : examples
-
-  const columns: ColumnDef<DatasetExample, unknown>[] = [
-    {
-      id: 'input',
-      header: 'Input',
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1.5">
-          <DeltaBadge delta={deltas.get(row.original.id) ?? 'unchanged'} />
-          <InputCell example={row.original} />
-        </div>
-      ),
-      meta: {
-        headClassName: 'sticky left-0 z-20 w-64 bg-muted/40',
-        className: 'sticky left-0 z-10 w-64 bg-background',
-      },
-    },
-    {
-      id: 'expected',
-      header: 'Expected',
-      cell: ({ row }) => (
-        <span className="line-clamp-3 text-xs text-muted-foreground">{row.original.expected ?? '—'}</span>
-      ),
-      meta: { headClassName: 'w-56' },
-    },
-    ...chrono.map(
-      (run): ColumnDef<DatasetExample, unknown> => ({
-        id: run.id,
-        header: () => (
-          <div className="flex flex-col gap-0.5 py-1">
-            <span className="font-mono text-xs text-foreground">
-              {run.label}
-              {run.id === baselineId && <span className="ml-1 text-muted-foreground">· baseline</span>}
-              {run.id === currentId && <span className="ml-1 text-muted-foreground">· current</span>}
-            </span>
-            {run.passRate != null && (
-              <span className="text-[10px] text-muted-foreground">{Math.round(run.passRate * 100)}% pass</span>
-            )}
-          </div>
-        ),
-        cell: ({ row }) => {
-          const delta = run.id === currentId ? (deltas.get(row.original.id) ?? 'unchanged') : 'unchanged'
-          return (
-            <div className={cn('-m-2 p-2', delta === 'regressed' && 'bg-destructive/5')}>
-              <OutputCell it={itemFor(run.id, row.original.id)} onOpenItem={onOpenItem} />
-            </div>
-          )
-        },
-        meta: { headClassName: 'w-80' },
-      }),
-    ),
-  ]
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pb-3 lg:px-6">
-        <CompareSummaryBar
-          summary={summary}
-          onlyRegressions={onlyRegressions}
-          onToggleRegressions={() => setOnlyRegressions((v) => !v)}
-        />
-      </div>
-      {rows.length === 0 ? (
-        <div className="px-4 lg:px-6">
-          <div className="rounded-lg border px-3 py-8 text-center text-xs text-muted-foreground">
-            No regressions between these runs.
-          </div>
-        </div>
-      ) : (
-        <DataGrid columns={columns} data={rows} getRowId={(e) => e.id} />
-      )}
-      <p className="px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
-        Delta is current vs baseline (PASS→FAIL or ok→error = regression). Click any cell for the full answer + trace.
-      </p>
-    </div>
-  )
-}
-
-function InputCell({ example, clamp = 3 }: { example: DatasetExample; clamp?: 2 | 3 }) {
-  return (
-    <>
-      {inputTurns(example.input) && (
-        <Badge variant="secondary" className="mb-1 text-[10px]">
-          {inputTurns(example.input)?.length} turns
-        </Badge>
-      )}
-      <span className={cn('text-sm', clamp === 2 ? 'line-clamp-2' : 'line-clamp-3')}>
-        {inputPreview(example.input)}
-      </span>
     </>
   )
 }
 
-function OutputCell({ it, onOpenItem }: { it: DatasetRunItem | null; onOpenItem: (it: DatasetRunItem) => void }) {
-  if (!it) return <span className="text-xs text-muted-foreground/50">—</span>
+function ExampleDetail({
+  item,
+  example,
+  history,
+  onEdit,
+  onDelete,
+  onOpenTrace,
+}: {
+  item: DatasetRunItem | null
+  example: DatasetExample
+  history: ItemEntry[]
+  onEdit: () => void
+  onDelete: () => void
+  onOpenTrace: (traceId: string) => void
+}) {
+  const turns = inputTurns(example.input)
+  const metadata = Object.entries(example.metadata)
+  const previous = history.slice(1)
   return (
-    <button
-      type="button"
-      className="flex w-full flex-col gap-1 rounded-md p-1 text-left hover:bg-muted/50"
-      onClick={() => onOpenItem(it)}
-    >
-      <span className="line-clamp-3 text-xs">{it.status === 'error' ? '⚠ run failed' : it.output}</span>
-      <div className="flex flex-wrap items-center gap-1">
-        <StatusBadge it={it} />
-        <VerdictBadge it={it} />
-        {it.scores.map((s) => (
-          <ScoreChip key={s.name} s={s} />
-        ))}
+    <div className="flex flex-col gap-4 py-3 text-sm">
+      <Field label="Question">{turns ? <Transcript turns={turns} /> : <p>{inputPreview(example.input)}</p>}</Field>
+      <Field label="Expected">
+        <p className="text-muted-foreground">{example.expected ?? '—'}</p>
+      </Field>
+      {item ? (
+        item.status === 'error' ? (
+          <Field label="Error">
+            <pre className="whitespace-pre-wrap break-words rounded-md border border-destructive/40 bg-destructive/10 p-2 font-mono text-xs text-destructive">
+              {item.errorText?.trim() || 'Run failed (no error detail captured).'}
+            </pre>
+          </Field>
+        ) : (
+          <>
+            <Field label="Answer">
+              <p className="rounded-md border bg-card/40 p-2">{item.output}</p>
+            </Field>
+            <Field label="Score">
+              <ScoreChips it={item} />
+            </Field>
+          </>
+        )
+      ) : (
+        <p className="text-xs text-muted-foreground/60">Not run yet — hit the run button to call your agent.</p>
+      )}
+      {metadata.length > 0 && (
+        <Field label="Metadata">
+          <div className="flex flex-wrap gap-1">
+            {metadata.map(([k, v]) => (
+              <Badge key={k} variant="secondary" className="font-mono text-[10px]">
+                {k}:{v}
+              </Badge>
+            ))}
+          </div>
+        </Field>
+      )}
+      {previous.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger className="group flex items-center gap-2 rounded-md py-1 text-left text-xs text-muted-foreground hover:text-foreground">
+            <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+            <span className="font-semibold uppercase tracking-wider">Previous answers</span>
+            <span className="text-muted-foreground/60">{previous.length}</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <ul className="flex flex-col divide-y rounded-md border">
+              {previous.map(({ item: it, at }) => (
+                <li key={it.runId} className="flex items-start gap-2 px-2.5 py-2 text-xs">
+                  <span className="w-14 shrink-0 text-muted-foreground">{formatAgo(at)}</span>
+                  <StatusIcon status={it.status} />
+                  <span className="min-w-0 flex-1 line-clamp-2">
+                    {it.status === 'error' ? <span className="text-destructive">run failed</span> : it.output}
+                  </span>
+                  <VerdictBadge it={it} />
+                  {it.traceId && (
+                    <button
+                      type="button"
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => onOpenTrace(it.traceId as string)}
+                    >
+                      <LinkIcon className="size-3" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {item && (
+          <span className="flex items-center gap-1.5">
+            <StatusIcon status={item.status} />
+            {(item.latencyMs / 1000).toFixed(1)}s · {item.tokens} tok
+          </span>
+        )}
+        {item?.traceId && (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto gap-1 p-0 font-mono text-xs"
+            onClick={() => onOpenTrace(item.traceId as string)}
+          >
+            answer trace <LinkIcon className="size-3" />
+          </Button>
+        )}
+        {example.sourceTraceId && (
+          <Button asChild variant="link" size="sm" className="h-auto gap-1 p-0 font-mono text-xs">
+            <Link to="/traces/$traceId" params={{ traceId: example.sourceTraceId }}>
+              source trace <LinkIcon className="size-3" />
+            </Link>
+          </Button>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            <SquarePen data-icon="inline-start" />
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={onDelete}>
+            <Trash2 data-icon="inline-start" />
+            Delete
+          </Button>
+        </div>
       </div>
-      <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        {it.status === 'changed' && <span className="text-warning">changed</span>}
-        <span>{(it.latencyMs / 1000).toFixed(1)}s</span>
-        {it.traceId && <LinkIcon className="size-3" />}
+    </div>
+  )
+}
+
+function QuestionCell({ example }: { example: DatasetExample }) {
+  const turns = inputTurns(example.input)
+  return (
+    <div className="flex flex-col gap-1">
+      {turns && (
+        <Badge variant="secondary" className="w-fit text-[10px]">
+          {turns.length} turns
+        </Badge>
+      )}
+      <span className="line-clamp-2 text-sm">{inputPreview(example.input)}</span>
+    </div>
+  )
+}
+
+function AnswerCell({ item, running }: { item: DatasetRunItem | null; running: boolean }) {
+  if (running)
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Spinner className="size-3.5" />
+        running…
       </span>
-    </button>
+    )
+  if (!item) return <span className="text-xs italic text-muted-foreground/60">not run yet</span>
+  if (item.status === 'error') return <span className="text-xs text-destructive">run failed</span>
+  return <span className="line-clamp-2 text-sm">{item.output}</span>
+}
+
+function Dash() {
+  return <span className="text-xs text-muted-foreground/60">—</span>
+}
+
+const ROLE_STYLE: Record<ChatMessage['role'], string> = {
+  system: 'text-muted-foreground',
+  user: 'text-foreground',
+  assistant: 'text-primary',
+  tool: 'text-warning',
+}
+
+function Transcript({ turns }: { turns: ChatMessage[] }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {turns.map((m, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static transcript view
+        <div key={i} className="text-sm">
+          <span className={cn('mr-1.5 font-mono text-[10px] uppercase tracking-wider', ROLE_STYLE[m.role])}>
+            {m.role}
+          </span>
+          {m.content}
+        </div>
+      ))}
+    </div>
   )
 }
 

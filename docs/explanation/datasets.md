@@ -2,7 +2,7 @@
 title: Datasets
 type: explanation
 summary: Named, versioned sets of questions fired at the user's agent over HTTP;
-         answers link back to their traces and are compared across runs. Why the
+         each question shows its latest answer inline, linked back to its trace. Why the
          data model splits Examples from Runs, reuses session-id trace linkage, and
          splits a saved Target (server + auth) from an Identity (dev-user credentials).
 status: draft
@@ -38,17 +38,21 @@ Two objects, deliberately separate:
   optional `expected` (a reference answer, a tool-call assertion, or a judge rubric),
   `metadata`, and an optional `sourceTraceId` backlink to the trace it was captured
   from. Examples are the editable questions.
-- **Run** — one firing of every example against the agent at a moment in time. A
-  **RunItem** is the answer to one example in one run, carrying the agent's output,
-  status, latency, and the `traceId` of the trace that call produced. Runs are
-  immutable snapshots; comparing runs is how you spot regressions.
+- **Run** — one firing of one-or-more examples against the agent at a moment in time
+  (a "Run all" hits every question; a per-row run hits one). A **RunItem** is the
+  answer to one example in one run, carrying the agent's output, status, latency, and
+  the `traceId` of the trace that call produced. Runs are immutable snapshots and a
+  run records the config it used (agent, overrides), so history stays self-describing.
 
-The grid is Examples (rows) × Runs (columns). In the UI these are two tabs on the
-dataset detail page (`src/routes/datasets/$datasetId.tsx`): an **Examples** tab to
-edit questions, and a **Runs** tab listing every run as a checkbox list — tick one
-to read it, tick two or more to compare them side by side. A RunItem's execution
-status (ok / error) and its judge verdict (pass / fail) are two independent axes,
-and compare highlights what regressed or improved between baseline and current.
+The dataset detail page (`src/routes/datasets/$datasetId.tsx`) is a **single table of
+questions** — no tabs. Each row shows the question, its **latest** answer, the
+expected, and the score, all inline; run a row with its ▸ button or **Run all** up
+top, and the answer fills in place (latest run wins). Clicking a row expands it
+inline to the full question / answer / expected / score / metadata, the **source**
+and **answer** trace links, and an optional, collapsed **Previous answers** disclosure
+listing that question's earlier runs (time · verdict · answer) — history is opt-in per
+question, never a separate tab or list. A RunItem's execution status (ok / error) and
+its judge verdict (pass / fail) remain two independent axes.
 
 **Trace linkage reuses existing session grouping.** loupe already groups traces by
 `gen_ai.conversation.id` / `ag_ui.thread_id`. A run mints a unique id per
@@ -57,7 +61,7 @@ it onto its spans, exactly like any normal request. loupe then links each answer
 its trace by the id it *already* groups on — no bespoke `loupe_*` metadata namespace.
 
 This is the load-bearing difference from Arize/Braintrust: because loupe is
-trace-native, every answer in the grid is one click from its full trace, and a
+trace-native, every answer in the table is one click from its full trace, and a
 dataset grows directly out of real traffic (capture-from-trace) rather than an SDK
 harness.
 
@@ -68,11 +72,12 @@ dev-user switching — a tester re-runs as *Company A / User B*, then another. S
 saved objects, split on purpose (`src/db/schema.ts`):
 
 - **Target** — a saved server: `endpointUrl` plus the *static* auth handshake
-  (`authEndpoint`, `tokenPath`, tenant headers). The Run sheet picks one from a
-  dropdown, or "Custom URL" for a one-off endpoint.
+  (`authEndpoint`, `tokenPath`, tenant headers). The **Run settings** sheet picks one
+  (labelled **Agent**) from a dropdown, or "Custom URL" for a one-off endpoint.
 - **Identity** — a dev-user: normally just `credentials` (username/password). The
   handshake comes from the Target, so adding a user is two fields, not a full config.
-  A "Full config" toggle exposes raw JSON to override the Target's handshake.
+  A "Full config" toggle exposes raw JSON to override the Target's handshake. Picked in
+  Run settings as **Run as**.
 
 A run resolves `(Target, Identity)` into one `AuthContext`, mints a bearer token, and
 injects it. The reasons it's shaped this way:
@@ -94,8 +99,10 @@ injects it. The reasons it's shaped this way:
 - **Dumb-target core, auth in the runner.** loupe POSTs `{input}` to an endpoint
   (saved Target → per-dataset override → global default) and records what comes back.
   Auth is layered on without touching that transport (see Targeting and auth).
-  Agent-behavior **overrides** (model / system-prompt / tools / sampling) are set in
-  the New run sheet and sent as extra request fields that only opt-in agents honor.
+  Agent-behavior **overrides** (model / system-prompt / tools / sampling) live behind
+  the Run settings sheet's **Config** disclosure and are sent as extra request fields
+  that only opt-in agents honor. The **Score** setting there picks an evaluator to
+  auto-grade after each run (or "Don't score"); grading itself is in [evaluation.md](evaluation.md).
 - **Tool grading reads a snapshot, not the live trace.** A run snapshots each
   trace's tool calls into `dataset_run_item.tool_calls_json`, so a `tool_selection`
   judge (or an `expected` like `{"tool":"multiply"}`) grades real behavior even
@@ -103,8 +110,10 @@ injects it. The reasons it's shaped this way:
   reconstructed at judge time. See [evaluation.md](evaluation.md) for the judge path.
 - **Not a playground.** loupe does not author prompts (Arize's Playground model); the
   agent owns its prompt and tools. We only hand it inputs and optional overrides.
-- **Run-comparison here, trace-diff elsewhere.** Comparing dataset runs lives in this
-  feature; diffing two arbitrary trace trees is a separate concern.
+- **Latest-wins, history opt-in.** The page shows each question's latest answer, not a
+  runs list or a side-by-side baseline/compare grid — that machinery was dropped to keep
+  the surface simple. Earlier runs are still recorded and reachable per question via the
+  row's **Previous answers** disclosure; run-over-run comparison is a non-goal here.
 
 ## Open questions
 

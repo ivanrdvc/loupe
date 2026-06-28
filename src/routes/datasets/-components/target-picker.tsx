@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Server, Settings2, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog'
@@ -45,12 +45,18 @@ export function TargetPicker({
   onEndpointChange: (v: string) => void
   onEndpointCommit: () => void
 }) {
-  const { data: targets = [] } = useQuery(agentTargetsQuery)
+  const { data: targets } = useQuery(agentTargetsQuery)
   const [manageOpen, setManageOpen] = useState(false)
   const isCustom = targetId == null
 
+  useEffect(() => {
+    if (targets && targetId && !targets.some((target) => target.id === targetId)) onTargetChange(null)
+  }, [onTargetChange, targetId, targets])
+
+  const availableTargets = targets ?? []
+
   return (
-    <Field label="Target">
+    <Field label="Agent">
       <div className="flex gap-1.5">
         <Select value={targetId ?? CUSTOM} onValueChange={(v) => onTargetChange(v === CUSTOM ? null : v)}>
           <SelectTrigger className="h-8 flex-1 text-xs" aria-label="Target">
@@ -58,7 +64,7 @@ export function TargetPicker({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={CUSTOM}>Custom URL…</SelectItem>
-            {targets.map((t) => (
+            {availableTargets.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.label}
               </SelectItem>
@@ -84,7 +90,7 @@ export function TargetPicker({
           className="h-8 font-mono text-xs"
         />
       )}
-      <ManageTargetsDialog open={manageOpen} onOpenChange={setManageOpen} targets={targets} />
+      <ManageTargetsDialog open={manageOpen} onOpenChange={setManageOpen} targets={availableTargets} />
     </Field>
   )
 }

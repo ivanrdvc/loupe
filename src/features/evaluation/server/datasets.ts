@@ -18,6 +18,7 @@ import {
   type AgentTarget,
   type AgentTargetConfig,
   type CreateDatasetInput,
+  compactOverrides,
   type Dataset,
   type DatasetDetail,
   type DatasetExample,
@@ -74,7 +75,9 @@ function toRun(row: typeof datasetRuns.$inferSelect): DatasetRun {
     createdAt: row.createdAt.getTime(),
     version: row.datasetVersion,
     passRate: null,
+    agentLabel: row.agentLabel,
     identityLabel: row.identityLabel,
+    config: (row.configJson as AgentOverrides | null) ?? null,
   }
 }
 
@@ -499,7 +502,9 @@ export const runDataset = createServerFn({ method: 'POST' })
         datasetVersion: ds.version,
         label: runLabel(now),
         endpointUrl: auditUrl(endpointUrl),
+        agentLabel: target?.label ?? null,
         identityLabel: identity?.label ?? null,
+        configJson: compactOverrides(data.overrides),
         status: 'running',
         createdAt: now,
       })
@@ -542,7 +547,7 @@ export const runDataset = createServerFn({ method: 'POST' })
         await db.insert(datasetRunItems).values({
           runId: run.id,
           exampleId: ex.id,
-          output: res.text,
+          output: redactSecrets(res.text, agentCaller.secrets()),
           status: 'ok',
           latencyMs: res.durationMs,
           tokens: res.tokens,

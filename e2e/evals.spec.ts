@@ -43,7 +43,11 @@ async function createDataset(page: Page): Promise<void> {
 }
 
 async function addExample(page: Page, text: string): Promise<void> {
-  await page.getByRole('button', { name: 'Add example' }).click()
+  await page
+    .getByRole('button', { name: 'Add question' })
+    .or(page.getByRole('button', { name: 'Example', exact: true }))
+    .first()
+    .click()
   const sheet = page.getByRole('dialog')
   await sheet.getByRole('textbox').first().fill(text)
   await sheet.getByRole('button', { name: 'Save' }).click()
@@ -58,14 +62,16 @@ test('grades a dataset run with a named evaluator and the score lands on the eva
   await createDataset(page)
   await addExample(page, 'Ping?')
 
-  await page.getByRole('tab', { name: /Runs/ }).click()
-  await page.getByRole('button', { name: 'Run on all' }).click()
-  await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
-
-  await page.getByRole('combobox', { name: 'Judge' }).click()
+  // Pick the named evaluator as the Score in run settings → Run all auto-grades with it.
+  await page.getByRole('button', { name: 'Run settings' }).click()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByRole('button', { name: /Score/ }).click()
+  await sheet.getByRole('combobox', { name: 'Score' }).click()
   await page.getByRole('option', { name: evalName }).click()
-  await page.getByRole('button', { name: 'Judge', exact: true }).click()
-  await expect(page.getByText(/Scored \d+ answers/)).toBeVisible({ timeout: 20_000 })
+  await sheet.getByRole('button', { name: 'Run all' }).click()
+  await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
+  // Auto-judge stamps the score; the header pass rate confirms grading finished.
+  await expect(page.getByText(/last run \d+% pass/)).toBeVisible({ timeout: 20_000 })
 
   await page.goto('/evals')
   await page.getByRole('link', { name: evalName }).click()

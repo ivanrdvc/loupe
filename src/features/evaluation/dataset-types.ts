@@ -60,7 +60,9 @@ export interface DatasetRun {
   createdAt: number // epoch ms
   version: number // dataset version this run was pinned to
   passRate: number | null
+  agentLabel: string | null // saved agent this run hit, or null for a custom URL
   identityLabel: string | null // dev-user this run was fired as, or null
+  config: AgentOverrides | null // the overrides this run used; null = agent defaults
 }
 
 export interface Dataset {
@@ -102,6 +104,34 @@ export interface AgentOverrides {
   max_tokens?: number | null
   system_prompt?: string | null
   tools?: ToolDecl[]
+}
+
+/** Short chips describing a run's config (empty = agent defaults). Reused for the sheet summary and run labels. */
+export function configSummary(config: AgentOverrides | null | undefined): string[] {
+  if (!config) return []
+  const bits: string[] = []
+  if (config.model) bits.push(config.model)
+  if (config.temperature != null) bits.push(`temp ${config.temperature}`)
+  if (config.top_p != null) bits.push(`top_p ${config.top_p}`)
+  if (config.max_tokens != null) bits.push(`${config.max_tokens} tok`)
+  if (config.system_prompt) bits.push('custom system')
+  const tools = config.tools?.filter((t) => t.name.trim()) ?? []
+  if (tools.length) bits.push(`${tools.length} tool${tools.length === 1 ? '' : 's'}`)
+  return bits
+}
+
+/** Strip empty fields so a run stores only the overrides that actually applied (or null). */
+export function compactOverrides(ov: AgentOverrides | null | undefined): AgentOverrides | null {
+  if (!ov) return null
+  const out: AgentOverrides = {}
+  if (ov.model) out.model = ov.model
+  if (ov.temperature != null) out.temperature = ov.temperature
+  if (ov.top_p != null) out.top_p = ov.top_p
+  if (ov.max_tokens != null) out.max_tokens = ov.max_tokens
+  if (ov.system_prompt) out.system_prompt = ov.system_prompt
+  const tools = ov.tools?.filter((t) => t.name.trim())
+  if (tools?.length) out.tools = tools
+  return Object.keys(out).length ? out : null
 }
 
 export interface UpsertExampleInput {
