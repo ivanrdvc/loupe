@@ -135,8 +135,13 @@ export const datasetRuns = sqliteTable(
     label: text().notNull(),
     // the agent endpoint this run hit (resolved override ?? global default at run time)
     endpointUrl: text('endpoint_url').notNull(),
+    // saved agent (target) this run hit, or null for a custom URL; audit only.
+    agentLabel: text('agent_label'),
     // identity this run was fired as (null = unauthenticated / ad-hoc); audit only, no secret.
     identityLabel: text('identity_label'),
+    // the AgentOverrides this run used (model / sampling / system / tools); null = agent defaults.
+    // makes a run self-describing so comparison can show which config produced each column.
+    configJson: text('config_json', { mode: 'json' }),
     status: text({ enum: ['running', 'complete', 'error'] })
       .notNull()
       .default('complete'),

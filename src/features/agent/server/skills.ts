@@ -1,8 +1,10 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-/** A named playbook the agent loads on demand: descriptions sit in the prompt,
- *  full content is fetched via load_skill (progressive disclosure). */
+/**
+ * A named playbook the agent loads on demand: descriptions sit in the prompt,
+ * full content is fetched via load_skill (progressive disclosure).
+ */
 export interface Skill {
   name: string
   description: string
@@ -11,7 +13,9 @@ export interface Skill {
 
 export const skills: Skill[] = []
 
-/** Always-present skill index — names + descriptions only, no bodies. */
+/**
+ * Always-present skill index — names + descriptions only, no bodies.
+ */
 export function skillsCatalog(): string {
   if (!skills.length) return ''
   return `\n\nSkills — load the full content with load_skill before relying on one:${skills

@@ -100,8 +100,12 @@ function StatsGrid({ detail, loading }: { detail: ToolRow | null; loading: boole
       />
       <Stat
         label="max result"
-        hint="Largest single result in this window — the worst case that can blow the context window at scale. Tokenized exactly from the result body."
-        value={<Tokens tokens={detail.maxTokens} severity />}
+        hint={
+          detail.maxTokensEst
+            ? 'Largest result in this window, estimated because the provider did not retain enough data for an exact token count.'
+            : 'Largest single result in this window. Every captured result body was tokenized and compared.'
+        }
+        value={<Tokens tokens={detail.maxTokens} severity estimate={detail.maxTokensEst} />}
       />
       <Stat
         label="total returned"

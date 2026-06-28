@@ -34,6 +34,45 @@ describe('fetchTools maxTokens is the token-max, not the char-longest body token
     expect(row.maxTokens).toBe(countTokens(DENSE_BODY))
     expect(row.maxTokens).not.toBe(countTokens(SPARSE_BODY))
   })
+
+  it('uses a direct candidate query for a single tool', async () => {
+    const queries: string[] = []
+    const p = {
+      name: 'openobserve',
+      stream: 's',
+      fingerprint: 'f',
+      getKnownColumns: async () => new Set(['gen_ai_tool_call_result']),
+      query: async (sql: string) => {
+        queries.push(sql)
+        return /SELECT operation_name AS name, gen_ai_tool_call_result AS body/.test(sql)
+          ? [DENSE_BODY, SPARSE_BODY].map((body) => ({ name: 'execute_tool echo', body }))
+          : [{ name: 'execute_tool echo', calls: 2, calls_with_result: 2, max_chars: SPARSE_BODY.length }]
+      },
+    } as unknown as OpenObserveProvider
+
+    const [row] = await fetchTools(p, { name: 'echo' })
+
+    expect(row.maxTokens).toBe(countTokens(DENSE_BODY))
+    expect(queries.some((sql) => /ROW_NUMBER/.test(sql))).toBe(false)
+    expect(queries.some((sql) => /LIMIT 12/.test(sql))).toBe(false)
+  })
+
+  it('marks max as estimated when not every result body was returned', async () => {
+    const p = {
+      name: 'openobserve',
+      stream: 's',
+      fingerprint: 'f',
+      getKnownColumns: async () => new Set(['gen_ai_tool_call_result']),
+      query: async (sql: string) =>
+        /SELECT operation_name AS name, gen_ai_tool_call_result AS body/.test(sql)
+          ? [{ name: 'execute_tool echo', body: SPARSE_BODY }]
+          : [{ name: 'execute_tool echo', calls: 2, calls_with_result: 2, max_chars: SPARSE_BODY.length }],
+    } as unknown as OpenObserveProvider
+
+    const [row] = await fetchTools(p, { name: 'echo' })
+
+    expect(row.maxTokensEst).toBe(true)
+  })
 })
 
 // Real recorded OO hits → Span, pinning the OO-specific extraction seam.
@@ -174,6 +213,43 @@ describe('listTraces pushes filters into the query before LIMIT', () => {
     const sql = cap.sql ?? ''
     expect(sql).toContain("service_name = 'svc-x'")
     expect(sql.indexOf("service_name = 'svc-x'")).toBeLessThan(sql.indexOf('GROUP BY'))
+  })
+})
+
+describe('listTraces names the agent from the gen_ai.agent.name attr, not the model in the span name', () => {
+  const cfg = { baseUrl: 'http://oo', org: 'o', stream: 's', user: 'u', password: 'p' }
+  const provider = (hits: Record<string, unknown>[], cap: { sql?: string } = {}) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: string }) => {
+        if (String(url).includes('/schema')) {
+          return { ok: true, json: async () => ({ schema: [{ name: 'gen_ai_agent_name' }] }) }
+        }
+        cap.sql = JSON.parse(String(init?.body)).query.sql
+        return { ok: true, json: async () => ({ hits }) }
+      }),
+    )
+    return createOpenObserveProvider(cfg)
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('prefers the attribute when the span name carries only the model', async () => {
+    const cap: { sql?: string } = {}
+    const traces =
+      (await provider(
+        [{ trace_id: 't1', sample_agent: 'invoke_agent gpt-5-nano', sample_agent_name: 'loupe agent' }],
+        cap,
+      ).listTraces?.({})) ?? []
+    expect(traces[0]?.agent).toBe('loupe agent')
+    expect(cap.sql).toContain('gen_ai_agent_name')
+  })
+
+  it('falls back to parsing the span name when no attribute is present', async () => {
+    const traces =
+      (await provider([{ trace_id: 't2', sample_agent: 'invoke_agent Reviewer', sample_agent_name: '' }]).listTraces?.(
+        {},
+      )) ?? []
+    expect(traces[0]?.agent).toBe('Reviewer')
   })
 })
 

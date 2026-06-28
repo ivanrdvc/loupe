@@ -26,9 +26,13 @@ export const TOOL_NAME_RE = /^[A-Za-z0-9_./:-]+$/
 // purpose attr (utility) or `invoke_agent` nested under `execute_tool`
 // (sub-agent). Two providers feed the same UI, so the row → display fields
 // mapping lives here.
-export function classifySpanRow(spanName: string, purpose: string): { kind: SpansViewKind; label: string } {
+export function classifySpanRow(
+  spanName: string,
+  purpose: string,
+  agentName?: string,
+): { kind: SpansViewKind; label: string } {
   if (purpose) return { kind: 'utility', label: purpose }
-  return { kind: 'sub-agent', label: extractAgentName(spanName) || spanName }
+  return { kind: 'sub-agent', label: agentName || extractAgentName(spanName) || spanName }
 }
 
 export function pickIdentityValue(
@@ -178,10 +182,9 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
     const e = Number(h.end_ms ?? 0)
     if (s && s < startMs) startMs = s
     if (e > endMs) endMs = e
-    if (typeof h.operation_name === 'string') {
-      const agent = extractAgentName(h.operation_name)
-      if (agent) agents.add(agent)
-    }
+    const agent =
+      pickCanonical(h, 'agentName') ?? extractAgentName(typeof h.operation_name === 'string' ? h.operation_name : '')
+    if (agent) agents.add(agent)
     if (!title) title = pickCanonical(h, 'sessionTitle')
     if (!userName) userName = pickCanonical(h, 'userName')
     if (!userId) userId = pickCanonical(h, 'userId')

@@ -1,5 +1,4 @@
 import { expect, type Page, test } from '@playwright/test'
-import { addExample, createDataset } from './helpers'
 
 async function createEvaluator(page: Page): Promise<string> {
   const name = `e2e eval ${Date.now()}-${Math.floor(Math.random() * 1e6)}`
@@ -33,6 +32,28 @@ test('shows a not-found state for an unknown evaluator id', async ({ page }) => 
   await expect(page.getByText('Evaluator not found')).toBeVisible()
 })
 
+async function createDataset(page: Page): Promise<void> {
+  const name = `e2e ds ${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+  await page.goto('/datasets')
+  await page.getByRole('button', { name: 'New dataset' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Name', { exact: true }).fill(name)
+  await dialog.getByRole('button', { name: 'Create' }).click()
+  await expect(page).toHaveURL(/\/datasets\/\d+/)
+}
+
+async function addExample(page: Page, text: string): Promise<void> {
+  await page
+    .getByRole('button', { name: 'Add question' })
+    .or(page.getByRole('button', { name: 'Example', exact: true }))
+    .first()
+    .click()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByRole('textbox').first().fill(text)
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText(text)).toBeVisible()
+}
+
 // Grading a dataset run with a named evaluator stamps each score with that
 // evaluator's definitionId — so it surfaces in the evaluator's Scores table.
 // (No evalRun is created; the Runs table / /evals/runs/$runId stay empty.)
@@ -41,14 +62,16 @@ test('grades a dataset run with a named evaluator and the score lands on the eva
   await createDataset(page)
   await addExample(page, 'Ping?')
 
-  await page.getByRole('tab', { name: /Runs/ }).click()
-  await page.getByRole('button', { name: 'Run on all' }).click()
-  await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
-
-  await page.getByRole('combobox', { name: 'Judge' }).click()
+  // Pick the named evaluator as the Score in run settings → Run all auto-grades with it.
+  await page.getByRole('button', { name: 'Run settings' }).click()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByRole('button', { name: /Score/ }).click()
+  await sheet.getByRole('combobox', { name: 'Score' }).click()
   await page.getByRole('option', { name: evalName }).click()
-  await page.getByRole('button', { name: 'Judge', exact: true }).click()
-  await expect(page.getByText(/Scored \d+ answers/)).toBeVisible({ timeout: 20_000 })
+  await sheet.getByRole('button', { name: 'Run all' }).click()
+  await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
+  // Auto-judge stamps the score; the header pass rate confirms grading finished.
+  await expect(page.getByText(/last run \d+% pass/)).toBeVisible({ timeout: 20_000 })
 
   await page.goto('/evals')
   await page.getByRole('link', { name: evalName }).click()

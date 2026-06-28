@@ -1,13 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Server, Settings2, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
-import { type AgentTargetSummary, agentTargetsQuery, GLOBAL_DEFAULT_ENDPOINT } from '#/features/evaluation'
+import {
+  type AgentProtocol,
+  type AgentTargetSummary,
+  agentTargetsQuery,
+  GLOBAL_DEFAULT_ENDPOINT,
+} from '#/features/evaluation'
 import { deleteAgentTarget, upsertAgentTarget } from '#/features/evaluation/server/agent-targets'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -45,12 +50,18 @@ export function TargetPicker({
   onEndpointChange: (v: string) => void
   onEndpointCommit: () => void
 }) {
-  const { data: targets = [] } = useQuery(agentTargetsQuery)
+  const { data: targets } = useQuery(agentTargetsQuery)
   const [manageOpen, setManageOpen] = useState(false)
   const isCustom = targetId == null
 
+  useEffect(() => {
+    if (targets && targetId && !targets.some((target) => target.id === targetId)) onTargetChange(null)
+  }, [onTargetChange, targetId, targets])
+
+  const availableTargets = targets ?? []
+
   return (
-    <Field label="Target">
+    <Field label="Agent">
       <div className="flex gap-1.5">
         <Select value={targetId ?? CUSTOM} onValueChange={(v) => onTargetChange(v === CUSTOM ? null : v)}>
           <SelectTrigger className="h-8 flex-1 text-xs" aria-label="Target">
@@ -58,7 +69,7 @@ export function TargetPicker({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={CUSTOM}>Custom URL…</SelectItem>
-            {targets.map((t) => (
+            {availableTargets.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.label}
               </SelectItem>
@@ -84,7 +95,7 @@ export function TargetPicker({
           className="h-8 font-mono text-xs"
         />
       )}
-      <ManageTargetsDialog open={manageOpen} onOpenChange={setManageOpen} targets={targets} />
+      <ManageTargetsDialog open={manageOpen} onOpenChange={setManageOpen} targets={availableTargets} />
     </Field>
   )
 }
@@ -104,6 +115,7 @@ function ManageTargetsDialog({
   const [url, setUrl] = useState('')
   const [authEndpoint, setAuthEndpoint] = useState('')
   const [tokenPath, setTokenPath] = useState('')
+  const [adapter, setAdapter] = useState<AgentProtocol>('openai-responses')
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.datasets.targets() })
 
   const addMutation = useMutation({
@@ -113,6 +125,7 @@ function ManageTargetsDialog({
           label: label.trim(),
           endpointUrl: url.trim(),
           config: {
+            ...(adapter !== 'openai-responses' ? { adapter } : {}),
             ...(authEndpoint.trim() ? { authEndpoint: authEndpoint.trim() } : {}),
             ...(tokenPath.trim() ? { tokenPath: tokenPath.trim() } : {}),
           },
@@ -124,6 +137,7 @@ function ManageTargetsDialog({
       setUrl('')
       setAuthEndpoint('')
       setTokenPath('')
+      setAdapter('openai-responses')
       toast.success('Target added')
       onOpenChange(false)
     },
@@ -201,6 +215,18 @@ function ManageTargetsDialog({
                 placeholder={GLOBAL_DEFAULT_ENDPOINT}
                 className="h-8 font-mono text-xs"
               />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1">
+              <Label className="text-xs">Protocol</Label>
+              <Select value={adapter} onValueChange={(v) => setAdapter(v as AgentProtocol)}>
+                <SelectTrigger className="h-8 text-xs" aria-label="Protocol">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai-responses">OpenAI Responses</SelectItem>
+                  <SelectItem value="vercel-ai-stream">Vercel AI stream</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="target-auth" className="text-xs">

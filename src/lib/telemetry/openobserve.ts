@@ -223,6 +223,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${ooCoalesceAs('userName', 'user_name', { known })},
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('host', 'host_name', { known })},
+          ${ooCoalesceAs('agentName', 'gen_ai_agent_name', { known })},
           start_time / 1000000 AS start_ms,
           end_time / 1000000 AS end_ms,
           gen_ai_operation_name,
@@ -297,6 +298,8 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         const uidCols = ooColumns('userId', { known })
         const unameCols = ooColumns('userName', { known })
         const agentExpr = `MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN operation_name END)`
+        // AI SDK names the invoke_agent span by model, so prefer the agent-name attr.
+        const agentNameExpr = `MAX(CASE WHEN operation_name LIKE 'invoke_agent %' THEN ${ooCol('agentName', known)} END)`
         const rootTriggerExpr = `COALESCE(
             MAX(CASE WHEN reference_parent_span_id IS NULL THEN ${ooCol('triggerType', known)} END),
             MAX(CASE WHEN operation_name LIKE 'invoke_agent %' AND ${ooCol('triggerType', known)} IS NOT NULL THEN ${ooCol('triggerType', known)} END)
@@ -306,7 +309,10 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
         if (opts?.triggerTypes?.length) {
           having.push(`${rootTriggerExpr} IN (${opts.triggerTypes.map(sqlString).join(', ')})`)
         }
-        if (opts?.agentName) having.push(`${agentExpr} LIKE ${sqlString(`invoke_agent ${opts.agentName}%`)}`)
+        if (opts?.agentName)
+          having.push(
+            `(${agentNameExpr} = ${sqlString(opts.agentName)} OR ${agentExpr} LIKE ${sqlString(`invoke_agent ${opts.agentName}%`)})`,
+          )
         return `
         SELECT
           trace_id,
@@ -316,6 +322,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           SUM(CASE WHEN gen_ai_operation_name = 'chat' THEN ${chatTokensExpr(known)} ELSE 0 END) AS total_tokens,
           ${sumChatOf(costCols)} AS total_cost,
           ${agentExpr} AS sample_agent,
+          ${agentNameExpr} AS sample_agent_name,
           MAX(CASE WHEN span_status = 'ERROR' AND (gen_ai_operation_name IS NOT NULL OR operation_name LIKE 'invoke_agent %' OR operation_name LIKE 'execute_tool %') THEN 1 ELSE 0 END) AS has_error,
           ${maxOf(sessionCols)} AS session_id,
           MAX(service_name)    AS service_name,
@@ -378,6 +385,7 @@ export function createOpenObserveProvider(cfg: OpenObserveConfig): OpenObservePr
           ${ooCoalesceAs('totalTokens', 'total_tokens', { known })},
           ${ooCoalesceAs('costUsd', 'cost_usd', { known, extras: LLM_COST_EXTRAS })},
           ${ooCoalesceAs('model', 'model_id', { known })},
+          ${ooCoalesceAs('agentName', 'agent_name', { known })},
           span_status,
           ${ooCoalesceAs('userId', 'user_id', { known })},
           ${ooCoalesceAs('userName', 'user_name', { known })}
@@ -430,7 +438,8 @@ function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {
   const endNs = Number(h.end_time ?? 0)
   const spanName = String(h.span_name ?? '')
   const purpose = typeof h.purpose === 'string' ? h.purpose : ''
-  const { kind, label } = classifySpanRow(spanName, purpose)
+  const agentName = typeof h.agent_name === 'string' ? h.agent_name : ''
+  const { kind, label } = classifySpanRow(spanName, purpose, agentName)
   const summary: SpanSummary = {
     spanId: String(h.span_id ?? ''),
     traceId: String(h.trace_id ?? ''),
@@ -454,12 +463,13 @@ function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {
 function hitToSummary(h: Record<string, unknown>): ReturnType<typeof buildTraceSummary> {
   const firstSeenNs = Number(h.first_seen ?? 0)
   const lastSeenNs = Number(h.last_seen ?? 0)
+  const agentName = typeof h.sample_agent_name === 'string' && h.sample_agent_name ? h.sample_agent_name : undefined
   return buildTraceSummary(h, {
     id: String(h.trace_id),
     startedAtMs: Math.floor(firstSeenNs / 1_000_000),
     durationMs: Math.max(0, Math.floor((lastSeenNs - firstSeenNs) / 1_000_000)),
     hasError: Number(h.has_error ?? 0) === 1,
-    agent: extractAgentName(String(h.sample_agent ?? '')) || undefined,
+    agent: agentName ?? extractAgentName(String(h.sample_agent ?? '')),
     totalCostUsd: num(h.total_cost),
   })
 }

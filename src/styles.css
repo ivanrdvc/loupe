@@ -395,6 +395,26 @@
     background-position: 100% 50%;
   }
 }
+/* Brand violet→pink→cyan fill for run actions; drifts on hover (shares grad-shift). */
+.run-grad {
+  background: linear-gradient(120deg, #7c3aed, #ec4899, #06b6d4);
+  background-size: 200% 200%;
+}
+.run-grad:hover {
+  animation: grad-shift 6s ease infinite;
+}
+/* Indeterminate top bar for route navigations. */
+.animate-route-progress {
+  animation: route-progress 1.1s ease-in-out infinite;
+}
+@keyframes route-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
 /* Twinkling ✦ glyph (ported from performative-ui's pui-twinkle). */
 .animate-twinkle {
   animation: twinkle 2.4s ease-in-out infinite;

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
+import type { MentionRef, PageContext } from '#/features/agent/logic/request'
 import { getLoupeAgent } from '#/features/agent/server/agent'
-import type { MentionRef, PageContext } from '#/features/agent/server/prompt'
 
 interface ChatRequest {
   messages: UIMessage[]

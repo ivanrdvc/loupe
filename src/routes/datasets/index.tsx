@@ -9,12 +9,14 @@ import {
   getFilteredRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { CirclePlay, Database, Plus, Search } from 'lucide-react'
+import { Database, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { Page } from '#/components/page'
 import { RelativeTime } from '#/components/relative-time'
+import { RunIconButton } from '#/components/run-button'
+import { Spinner } from '#/components/spinner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -30,7 +32,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '#/
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Textarea } from '#/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import type { DatasetListItem } from '#/features/evaluation'
 import { createDataset, runDataset } from '#/features/evaluation/server/datasets'
 import { errMessage } from '#/lib/format'
@@ -54,13 +55,14 @@ function makeColumns(
       accessorFn: (d) => d.name,
       filterFn: 'includesString',
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-medium">{row.original.name}</span>
+        <div className="flex max-w-md flex-col gap-0.5">
+          <span className="truncate font-medium">{row.original.name}</span>
           {row.original.description && (
             <span className="line-clamp-1 text-xs text-muted-foreground">{row.original.description}</span>
           )}
         </div>
       ),
+      meta: { className: 'max-w-md' },
     },
     {
       id: 'examples',
@@ -111,25 +113,15 @@ function makeColumns(
       id: 'run',
       header: 'Run',
       cell: ({ row }) => (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-muted-foreground hover:text-foreground"
-              disabled={running === row.original.id || row.original.exampleCount === 0}
-              onClick={(e) => {
-                e.stopPropagation()
-                onRun(row.original)
-              }}
-            >
-              <CirclePlay />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {row.original.exampleCount === 0 ? 'No examples to run' : 'Run on default agent'}
-          </TooltipContent>
-        </Tooltip>
+        <RunIconButton
+          running={running === row.original.id}
+          disabled={row.original.exampleCount === 0}
+          tooltip={row.original.exampleCount === 0 ? 'No examples to run' : 'Run on default agent'}
+          onClick={(e) => {
+            e.stopPropagation()
+            onRun(row.original)
+          }}
+        />
       ),
       meta: { headClassName: 'w-12' },
     },
@@ -291,48 +283,55 @@ function NewDatasetDialog({
           <DialogTitle>New dataset</DialogTitle>
           <DialogDescription>Name it now; add example questions on the next screen.</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ds-name">Name</Label>
-            <Input
-              id="ds-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Regression set"
-              className="text-xs"
-              autoFocus
-            />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (name.trim() && !createMutation.isPending) createMutation.mutate()
+          }}
+        >
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ds-name">Name</Label>
+              <Input
+                id="ds-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Regression set"
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ds-desc">Description</Label>
+              <Textarea
+                id="ds-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                placeholder="What this set covers…"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ds-tags">Tags</Label>
+              <Input
+                id="ds-tags"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="regression, billing"
+              />
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ds-desc">Description</Label>
-            <Textarea
-              id="ds-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              placeholder="What this set covers…"
-              className="text-xs"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ds-tags">Tags</Label>
-            <Input
-              id="ds-tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="regression, billing"
-              className="text-xs"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}>
-            Create
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={!name.trim() || createMutation.isPending}>
+              {createMutation.isPending && <Spinner data-icon="inline-start" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

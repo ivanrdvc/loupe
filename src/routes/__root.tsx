@@ -3,12 +3,14 @@ import { createRootRouteWithContext, HeadContent, Link, Scripts, useNavigate, us
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
+import { RouteProgress } from '#/components/route-progress'
 import { ShortcutsDialogProvider } from '#/components/shortcuts-dialog'
 import { SidebarInset, SidebarProvider } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import { AgentLauncher, AgentPanel, AgentProvider } from '#/features/agent'
 import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
+import { useAppTheme } from '#/hooks/use-app-theme'
 import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
 
@@ -82,6 +84,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loupe';if(['tremor','neutral'].indexOf(t)<0){t='loupe';localStorage.setItem('color-theme',t);}document.documentElement.dataset.theme=t;}catch(e){}`
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  useAppTheme()
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -90,6 +93,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: APPLY_THEME_SCRIPT }} />
       </head>
       <body className="bg-sidebar font-sans text-foreground antialiased">
+        <RouteProgress />
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
           <TooltipProvider delayDuration={0}>
             <SidebarProvider className="bg-sidebar">

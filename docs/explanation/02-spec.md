@@ -6,7 +6,7 @@ summary: The curated subset of OTel + extensions loupe operates on.
 status: stable
 owner: "@ivan"
 audience: agent-instrumentation authors, loupe-devs
-last-reviewed: 2026-05-24
+last-reviewed: 2026-06-28
 tags: [convention, spec, ingest, attributes]
 ---
 
@@ -35,6 +35,7 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 | AG-UI thread id | `ag_ui.thread_id` | string | AG-UI | read (alias for conversation.id) |
 | User id | `user.id` | string | OTel | read |
 | Utility purpose tag | `gen_ai.operation.purpose` | e.g. `title_generation` | proposed in OTel | read |
+| Agent display name | `gen_ai.agent.name` | string | OTel GenAI semconv | read (`invoke_agent` spans). Preferred over the span name for the trace-list label |
 | Operation kind | `gen_ai.operation.name` | `chat` \| `embeddings` \| `retrieval` \| `invoke_agent` \| `execute_tool` \| memory operations (`search_memory`, `upsert_memory`, etc.; future: `rerank`) | OTel GenAI semconv | read. For retrieval, embeddings, and memory loupe reads **only** `gen_ai.operation.name` — not `openinference.span.kind` |
 | Data source (RAG) | `gen_ai.data_source.id` | string | OTel GenAI semconv | read (retrieval spans) |
 | Retrieval query | `gen_ai.retrieval.query.text` | string (opt-in) | OTel GenAI semconv | read (retrieval spans) |
@@ -46,6 +47,8 @@ No new vendor namespace. Where an existing convention covers a concept, use it.
 | Run-graph node id | `gen_ai.task.id` | string (often the span_id) | external convention | read; stamped consumer-side when absent |
 | Run-graph parent id | `gen_ai.task.parent.id` | string (null on top-level) | external convention | read; stamped consumer-side when absent |
 | User-supplied tags | `tag.tags` | list of strings | external convention | not yet read; for filter chips / faceted grouping |
+| Tool arguments | `gen_ai.tool.call.arguments` | any | OTel GenAI semconv | read on `execute_tool` spans |
+| Tool result | `gen_ai.tool.call.result` | any | OTel GenAI semconv | read on `execute_tool` spans |
 
 The orchestrator/subagent/utility distinction is **derived**, not stored:
 - `subagent` ⇔ `gen_ai.task.parent.id` is set
@@ -57,6 +60,22 @@ The orchestrator/subagent/utility distinction is **derived**, not stored:
 Aliases the normaliser accepts on ingest: `graph.node.id` / `graph.node.parent_id` map to `gen_ai.task.id` / `gen_ai.task.parent.id`.
 
 **Tool-call I/O has two forms.** On `execute_tool` spans loupe reads args/result from the scalar keys `gen_ai.tool.call.arguments` / `gen_ai.tool.call.result` (App Insights, MAF). When those are absent it falls back to the chat-message form `gen_ai.input.messages` / `gen_ai.output.messages` — a `[{role,content}]` array whose last entry's `content` is the payload. Producers like `@tanstack/ai` emit only the message form, and OpenObserve renames it on ingest to `llm_input` / `llm_output`; the canonical `llmInput` alias already covers `llm.input`. The scalar keys win when both are present, so this never alters a MAF/App-Insights span.
+
+### Tool-result size and tokens
+
+`gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` belong to the model operation. They describe the complete prompt and completion; they do not attribute a portion of model input to one tool result. OTel defines the tool result body but no standard per-tool-result token-count attribute. This matches the major observability systems: tool runs retain input/output, while exact provider usage is attached to generation runs or supplied explicitly by instrumentation ([OTel GenAI attributes](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/), [LangSmith cost tracking](https://docs.langchain.com/langsmith/cost-tracking), [Langfuse token tracking](https://langfuse.com/docs/observability/features/token-and-cost-tracking)).
+
+Loupe therefore treats these as different measurements:
+
+- Model tokens are exact when the model provider emitted usage.
+- A tool result's serialized character length is exact when the complete body was retained.
+- A tool result's token count is derived by tokenizing its retained body. It is exact only for the chosen tokenizer and only while the body is complete.
+- Model input usage cannot be subtracted to recover a tool-result count because that input also contains instructions, history, tool definitions, and framing overhead.
+- Provider truncation is irreversible. App Insights may truncate large custom-dimension values, so Loupe must mark derived sizes from those values as estimates.
+
+For a selected tool, “max result” means the maximum tokenized size across the retained individual result bodies in the active time window. Results are compared individually, never concatenated. Catalog-wide character-derived values remain estimates and must render with `≈`; they must not be presented as exact token maxima.
+
+Do not put tool-result counts in `gen_ai.usage.*`: that would change the standard meaning of model usage and corrupt trace rollups. If exact, scalable per-tool token accounting becomes a producer requirement, define a separate extension carrying both the count and tokenizer identity; a bare count is ambiguous because the same result can tokenize differently for different target models.
 
 ## Two `task.*` namespaces — disambiguation
 

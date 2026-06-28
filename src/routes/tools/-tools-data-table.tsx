@@ -165,7 +165,7 @@ export function ToolsDataTable({
   )
 }
 
-const CSV_COLUMNS: (keyof ToolRow)[] = [
+const CSV_COLUMNS = [
   'name',
   'calls',
   'callsWithResult',
@@ -180,4 +180,4 @@ const CSV_COLUMNS: (keyof ToolRow)[] = [
   'p95Ms',
   'firstSeenMs',
   'lastSeenMs',
-]
+] satisfies (keyof ToolRow)[]

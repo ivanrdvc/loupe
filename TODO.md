@@ -3,6 +3,7 @@
 <!-- Keep it simple: no sections, one line per item. -->
 
 - Monitoring loop — background scheduler for online evals + outbound alerting on score/cost/latency/error thresholds (`src/lib/alerts/kinds.ts`, `src/features/inbox/server.ts`); also unblocks async `runDataset`
+- Async `runDataset` — today it's one long-held POST (`src/features/evaluation/server/datasets.ts`): examples fire sequentially, then a ~6s sleep + 4 retry rounds resolve trace ids inline, so a big dataset risks proxy/request timeouts with only a spinner for feedback. Move to a job + status polling. Two couplings the rework must preserve: (1) the trace-linkage tail also snapshots `toolCallsJson`, which auto-judge (`$datasetId.tsx` onRunSuccess → `judgeDatasetRun`) reads — detaching it would make auto-judged runs grade with no tool calls; (2) can't just parallelize the example loop — concurrent inserts into sqlite `dev.db` risk lock errors
 - Judge calibration — LLM-vs-human alignment score + tuning loop (`src/lib/eval/evaluation.ts`)
 - Version snapshots — store judge prompt/model + example set per version so old versions can be viewed and re-run
 - Compare two runs side-by-side — `plans/compare-traces.md`

@@ -4,12 +4,10 @@
 // Provider routing is `judgeModelProvider`'s registry lookup (azure/* prefixed
 // deployments → Azure OpenAI, unknown ids → OpenAI).
 
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { createAzure } from '@ai-sdk/azure'
-import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError, generateObject, generateText, jsonSchema, type LanguageModel, NoObjectGeneratedError } from 'ai'
 import { DEFAULT_JUDGE_MODEL, type JudgeProvider, judgeModelProvider } from '#/features/evaluation/logic/models'
 import type { JsonValue } from '#/lib/json'
+import { anthropicModel, azureResponses, openaiResponses } from '#/lib/llm-providers'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
 
 const JUDGE_TIMEOUT_MS = 60_000
@@ -41,30 +39,9 @@ export function resolveJudgeDefaults(): JudgeDefaults {
 
 function modelFor(model: string): LanguageModel {
   const provider = judgeModelProvider(model)
-  if (provider === 'anthropic') {
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to use a Claude judge model.')
-    return createAnthropic({ apiKey })(model)
-  }
-  if (provider === 'azure') {
-    const apiKey = process.env.AZURE_OPENAI_API_KEY
-    if (!apiKey) throw new Error('Set AZURE_OPENAI_API_KEY to use an Azure OpenAI judge model.')
-    const resourceName = process.env.AZURE_OPENAI_RESOURCE_NAME
-    const baseURL = process.env.AZURE_OPENAI_ENDPOINT
-    if (!resourceName && !baseURL) {
-      throw new Error('Set AZURE_OPENAI_RESOURCE_NAME (or AZURE_OPENAI_ENDPOINT) to use an Azure OpenAI judge model.')
-    }
-    const azure = createAzure({
-      apiKey,
-      resourceName,
-      baseURL,
-      apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-    })
-    return azure.responses(model.replace(/^azure\//i, ''))
-  }
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('Set OPENAI_API_KEY to use an OpenAI judge model.')
-  return createOpenAI({ apiKey }).responses(model)
+  if (provider === 'anthropic') return anthropicModel(model)
+  if (provider === 'azure') return azureResponses(model.replace(/^azure\//i, ''))
+  return openaiResponses(model)
 }
 
 // A snapshot of the normalized Span fields the rubric reads.

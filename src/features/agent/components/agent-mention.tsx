@@ -6,7 +6,7 @@ import { DEFAULT } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 import { sessionsQuery } from '#/routes/sessions/-data'
 import { tracesQuery } from '#/routes/traces/-data'
-import type { MentionRef } from '../server/prompt'
+import type { MentionRef } from '../logic/request'
 
 interface MentionItem extends MentionRef {
   haystack: string
@@ -29,9 +29,13 @@ export interface MentionPicker {
   menu: React.ReactNode
   handleChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void
-  /** Active references whose inserted token is still present in the input. */
+  /**
+   * Active references whose inserted token is still present in the input.
+   */
   selected: MentionRef[]
-  /** The `@label` tokens to tint inline behind the textarea. */
+  /**
+   * The `@label` tokens to tint inline behind the textarea.
+   */
   tokens: string[]
   reset: () => void
 }

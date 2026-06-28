@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateSessions, findSessionKey, pickIdentityValue } from './shared'
+import { aggregateSessions, classifySpanRow, findSessionKey, pickIdentityValue } from './shared'
 
 type Row = Record<string, unknown>
 
@@ -100,6 +100,21 @@ describe('aggregateSessions', () => {
     expect(out[0]).toMatchObject({ sessionId: 'thread-1', source: 'attribute', traceCount: 2, agents: ['Bot'] })
   })
 
+  it('names the agent from gen_ai.agent.name when the span name carries only the model', () => {
+    const hits: Row[] = [
+      {
+        trace_id: 't1',
+        span_id: 'a',
+        operation_name: 'invoke_agent gpt-5-nano',
+        gen_ai_agent_name: 'loupe agent',
+        ag_ui_thread_id: 'thread-1',
+        start_ms: 1000,
+        end_ms: 1100,
+      },
+    ]
+    expect(aggregateSessions(hits, 10)[0]).toMatchObject({ agents: ['loupe agent'] })
+  })
+
   it('rolls up tokens, cost, and error flag across traces sharing a session attribute', () => {
     const hits: Row[] = [
       { ...invokeAgent({ trace: 't1', span: 'a', agent: 'Bot', hex: 'aaaa', startMs: 1000 }), ag_ui_thread_id: 'th-1' },
@@ -196,5 +211,23 @@ describe('pickIdentityValue', () => {
   it('returns undefined when nothing is set', () => {
     expect(pickIdentityValue(undefined)).toBeUndefined()
     expect(pickIdentityValue({})).toBeUndefined()
+  })
+})
+
+describe('classifySpanRow', () => {
+  it('labels a sub-agent by the agent-name attribute over the model in the span name', () => {
+    expect(classifySpanRow('invoke_agent gpt-5-nano', '', 'loupe agent')).toEqual({
+      kind: 'sub-agent',
+      label: 'loupe agent',
+    })
+  })
+  it('falls back to parsing the span name when no attribute is present', () => {
+    expect(classifySpanRow('invoke_agent Reviewer', '')).toEqual({ kind: 'sub-agent', label: 'Reviewer' })
+  })
+  it('a purpose tag makes it a utility row regardless of agent name', () => {
+    expect(classifySpanRow('invoke_agent gpt-5-nano', 'title_generation', 'loupe agent')).toEqual({
+      kind: 'utility',
+      label: 'title_generation',
+    })
   })
 })

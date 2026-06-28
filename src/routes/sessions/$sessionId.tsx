@@ -81,8 +81,6 @@ function SessionDetail() {
 
   const spans = data?.spans ?? []
   const source = data?.source ?? null
-  const provider = data?.provider
-  const fingerprint = data?.fingerprint
   const crumbLabel = data?.title?.trim() || sessionId
 
   const inspectorView = useMemo(() => buildInspectorView(spans), [spans])
@@ -154,11 +152,6 @@ function SessionDetail() {
                 title="No session.id attribute on the spans — this session is a single trace. Multi-turn stitching is off."
               >
                 single trace
-              </Badge>
-            )}
-            {provider === 'openobserve' && (
-              <Badge variant="success">
-                via {provider} · {fingerprint}
               </Badge>
             )}
           </div>

@@ -1,6 +1,6 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isReasoningUIPart, isTextUIPart } from 'ai'
-import { AlertTriangle, Coins, Route, Sparkles, Timer } from 'lucide-react'
+import { AlertTriangle, Coins, Database, Route, Sparkles, Timer } from 'lucide-react'
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { Conversation, ConversationContent, ConversationScrollButton } from '#/components/ai-elements/conversation'
 import {
@@ -26,9 +26,9 @@ import { Button } from '#/components/ui/button.tsx'
 import { createLocalStorageStore } from '#/lib/local-storage-store'
 import { cn } from '#/lib/utils'
 import { CHAT_MODELS, type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '../chat-models'
+import type { MentionRef, PageContext } from '../logic/request'
 import { saveSession } from '../logic/sessions'
 import type { LoupeAgentUIMessage } from '../server/agent'
-import type { MentionRef, PageContext } from '../server/prompt'
 import { MentionBackdrop, useMentionPicker } from './agent-mention'
 import { AgentMessage } from './agent-message'
 
@@ -62,8 +62,8 @@ function suggestionsFor(ctx: PageContext) {
       { icon: Coins, text: 'Where did the tokens and cost go?' },
     ]
   return [
-    { icon: Route, text: 'Walk me through my latest run' },
-    { icon: AlertTriangle, text: 'What failed in the last hour?' },
+    { icon: Sparkles, text: 'What can you do?' },
+    { icon: Database, text: "Let's create a dataset from a recent run" },
   ]
 }
 
@@ -191,7 +191,10 @@ function EmptyState({ context, onPick }: { context: PageContext; onPick: (text: 
         Ask about your agents
       </Shimmer>
       <Shimmer as="p" className="mt-1 text-sm" duration={1.4} repeat={0}>
-        I read your live telemetry — explain a trace, dig into a session, or surface slow or failing tools.
+        I read your live telemetry and can turn runs into evaluation datasets.
+      </Shimmer>
+      <Shimmer as="p" className="mt-1 text-sm text-muted-foreground" duration={1.4} repeat={0}>
+        Type @ to link a specific trace or session you want me to look at.
       </Shimmer>
       <div className="mt-4 flex flex-col gap-2">
         {suggestionsFor(context).map(({ icon: Icon, text }) => (

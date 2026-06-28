@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, KeyRound, Plus, Settings2, Trash2, UserRound } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
 import {
@@ -52,12 +52,19 @@ export function IdentitySwitcher({
   selection: IdentitySelection
   onSelect: (s: IdentitySelection) => void
 }) {
-  const { data: identities = [] } = useQuery(agentIdentitiesQuery)
+  const { data: identities } = useQuery(agentIdentitiesQuery)
   const [open, setOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const [adHocOpen, setAdHocOpen] = useState(false)
 
-  const active = selection.kind === 'identity' ? identities.find((i) => i.id === selection.id) : null
+  useEffect(() => {
+    if (identities && selection.kind === 'identity' && !identities.some((identity) => identity.id === selection.id)) {
+      onSelect({ kind: 'none' })
+    }
+  }, [identities, onSelect, selection])
+
+  const availableIdentities = identities ?? []
+  const active = selection.kind === 'identity' ? availableIdentities.find((i) => i.id === selection.id) : null
   const label =
     selection.kind === 'adhoc'
       ? 'Ad-hoc token'
@@ -90,7 +97,7 @@ export function IdentitySwitcher({
               setOpen(false)
             }}
           />
-          {identities.map((i) => (
+          {availableIdentities.map((i) => (
             <Row
               key={i.id}
               icon={<Dot family={dotFamily(i.id)} />}
@@ -129,7 +136,7 @@ export function IdentitySwitcher({
         onOpenChange={setAdHocOpen}
         onSave={(token) => onSelect(token ? { kind: 'adhoc', token } : { kind: 'none' })}
       />
-      <ManageDialog open={manageOpen} onOpenChange={setManageOpen} identities={identities} />
+      <ManageDialog open={manageOpen} onOpenChange={setManageOpen} identities={availableIdentities} />
     </>
   )
 }

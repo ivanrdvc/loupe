@@ -36,7 +36,6 @@ function TraceDetail() {
 
   const spans: Span[] = loaderData?.spans ?? []
   const provider = loaderData?.provider
-  const fingerprint = loaderData?.fingerprint
   const truncated = loaderData?.truncated
   const focusSpanId = loaderData?.focusSpanId
 
@@ -80,13 +79,7 @@ function TraceDetail() {
             <span className="text-sm text-muted-foreground">
               {spans[0]?.service ?? '—'} · {(total / 1000).toFixed(2)}s · {spans.length} spans
             </span>
-            {provider === 'openobserve' ? (
-              <Badge variant="success">
-                via {provider} · {fingerprint}
-              </Badge>
-            ) : !provider ? (
-              <Badge variant="warning">no data</Badge>
-            ) : null}
+            {!provider && <Badge variant="warning">no data</Badge>}
             {truncated && <Badge variant="destructive">truncated</Badge>}
           </div>
         }

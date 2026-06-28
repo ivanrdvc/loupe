@@ -27,19 +27,19 @@ describe('summarize', () => {
 
   it('computes trace-level aggregates from spans', () => {
     const s = summarize(spans)
-    expect(s.spanCount).toBe(4)
     expect(s.durationMs).toBe(300)
-    expect(s.totalTokens).toBe(100)
-    expect(s.totalCostUsd).toBeCloseTo(0.001)
+    expect(s.detail.totalTokens).toBe(100)
+    expect(s.detail.totalCostUsd).toBeCloseTo(0.001)
     expect(s.errorCount).toBe(1)
     expect(s.agents).toEqual(['A'])
     expect(s.models).toEqual(['gpt-5-nano'])
-    expect(s.tools).toEqual([{ name: 'echo', calls: 1 }])
+    expect(s.detail.tools).toEqual([{ name: 'echo', calls: 1 }])
   })
 
-  it('ranks slowest first and surfaces errored spans', () => {
+  it('drops the root wrapper from slowest and surfaces errored spans', () => {
     const s = summarize(spans)
-    expect(s.slowest[0]).toMatchObject({ name: 'root', durationMs: 300 })
+    expect(s.detail.slowest[0]).toMatchObject({ name: 'fast', durationMs: 30 })
+    expect(s.detail.slowest.map((x) => x.name)).not.toContain('root')
     expect(s.errors).toEqual([
       { id: 'bad', name: 'bad', tool: undefined, type: undefined, message: 'boom', stack: undefined },
     ])
@@ -68,15 +68,15 @@ describe('summarize', () => {
 
   it('orders steps by start time and flags errors inline', () => {
     const s = summarize(spans)
-    expect(s.steps.map((x) => x.name)).toEqual(['root', 'fast', 'tool', 'bad'])
-    expect(s.steps.at(-1)?.error).toBe('boom')
-    expect(s.stepsTruncated).toBe(false)
+    expect(s.detail.steps.map((x) => x.name)).toEqual(['root', 'fast', 'tool', 'bad'])
+    expect(s.detail.steps.at(-1)?.error).toBe('boom')
+    expect(s.detail.stepsTruncated).toBe(false)
   })
 
   it('elides zero token/cost totals', () => {
     const s = summarize([span({ id: 'x', operation: 'chat', startMs: 0, endMs: 5 })])
-    expect(s.totalTokens).toBeUndefined()
-    expect(s.totalCostUsd).toBeUndefined()
+    expect(s.detail.totalTokens).toBeUndefined()
+    expect(s.detail.totalCostUsd).toBeUndefined()
   })
 
   it('builds a microsecond look-back window from a fixed now', () => {

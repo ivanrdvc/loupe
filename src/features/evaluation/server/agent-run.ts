@@ -1,5 +1,6 @@
 // Shared agent caller over the OpenAI-compatible Responses contract loupe speaks.
 // Used by the dataset runner.
+import type { AgentProtocol } from '../dataset-types'
 
 type AgentInputMessage = { role: string; content: string }
 type AgentInput = string | AgentInputMessage[]
@@ -61,7 +62,7 @@ function parseEndpoint(rawUrl: string): URL {
 function extractText(raw: unknown): string {
   if (raw == null || typeof raw !== 'object') return ''
   const obj = raw as Record<string, unknown>
-  if (typeof obj.output_text === 'string') return obj.output_text
+  if (typeof obj.output_text === 'string' && obj.output_text) return obj.output_text
   const output = obj.output
   if (!Array.isArray(output)) return ''
   const parts: string[] = []
@@ -94,6 +95,8 @@ function extractUsage(raw: unknown): { input: number | null; output: number | nu
   const totalReported = num(u.total_tokens)
   return { input, output, total: totalReported > 0 ? totalReported : num(input) + num(output) }
 }
+
+const DEFAULT_PROTOCOL: AgentProtocol = 'openai-responses'
 
 export async function callAgent(input: AgentCallInput): Promise<AgentCallResult> {
   const url = parseEndpoint(input.endpointUrl)
@@ -149,4 +152,101 @@ export async function callAgent(input: AgentCallInput): Promise<AgentCallResult>
     inputTokens: usage.input,
     outputTokens: usage.output,
   }
+}
+
+function toUIMessages(input: AgentInput): unknown[] {
+  const msgs = typeof input === 'string' ? [{ role: 'user', content: input }] : input
+  return msgs.map((m, i) => ({
+    id: `m${i}`,
+    role: m.role === 'assistant' || m.role === 'system' ? m.role : 'user',
+    parts: [{ type: 'text', text: m.content }],
+  }))
+}
+
+async function accumulateTextDeltas(response: Response): Promise<string> {
+  const reader = response.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let text = ''
+  let streamError: string | undefined
+  const handleLine = (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('data:')) return
+    const payload = trimmed.slice(5).trim()
+    if (payload === '[DONE]') return
+    try {
+      const evt = JSON.parse(payload) as { type?: string; delta?: string; errorText?: string }
+      if (evt.type === 'text-delta' && typeof evt.delta === 'string') text += evt.delta
+      // The agent reports tool/model failures as an error part, not an HTTP status — surface it.
+      else if (evt.type === 'error') streamError = evt.errorText || 'agent stream error'
+    } catch {
+      // keepalive / partial line — ignore
+    }
+  }
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    for (;;) {
+      const nl = buffer.indexOf('\n')
+      if (nl === -1) break
+      handleLine(buffer.slice(0, nl))
+      buffer = buffer.slice(nl + 1)
+    }
+  }
+  // A stream that ends without a trailing newline leaves the final event (often the error) here.
+  buffer += decoder.decode()
+  if (buffer) handleLine(buffer)
+  if (streamError) throw new AgentCallError(`Run failed: ${streamError}`)
+  return text
+}
+
+// AI SDK UI-message stream (loupe's own /api/chat). Usage isn't in the stream — recover it from
+// OTel later. conversationId → sessionId so trace linkage resolves.
+export async function callVercelAiStream(input: AgentCallInput): Promise<AgentCallResult> {
+  const url = parseEndpoint(input.endpointUrl)
+  const body = {
+    messages: toUIMessages(input.input),
+    ...(input.model ? { model: input.model } : {}),
+    ...(input.conversationId ? { sessionId: input.conversationId } : {}),
+  }
+  const start = performance.now()
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...input.headers },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60_000),
+    })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') throw new Error('Run timed out after 60s')
+    throw new Error(err instanceof Error ? err.message : 'Network error')
+  }
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '')
+    throw new AgentCallError(`Run failed (${response.status}): ${errorText || response.statusText}`, response.status)
+  }
+  const text = await accumulateTextDeltas(response)
+  return {
+    text,
+    durationMs: Math.round(performance.now() - start),
+    rawJson: '',
+    tokens: 0,
+    inputTokens: null,
+    outputTokens: null,
+  }
+}
+
+// One protocol per adapter; all share AgentCallInput → AgentCallResult. Add one = function + entry.
+export type AgentAdapter = (input: AgentCallInput) => Promise<AgentCallResult>
+
+const ADAPTERS: Record<AgentProtocol, AgentAdapter> = {
+  'openai-responses': callAgent,
+  'vercel-ai-stream': callVercelAiStream,
+}
+
+export function resolveAdapter(key: string | null | undefined): AgentAdapter {
+  return (key && ADAPTERS[key as AgentProtocol]) || ADAPTERS[DEFAULT_PROTOCOL]
 }

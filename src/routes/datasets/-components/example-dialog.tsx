@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { Link as LinkIcon, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { Spinner } from '#/components/spinner'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -169,6 +170,7 @@ export function ExampleDialog({
             <Button variant="outline">Cancel</Button>
           </DialogClose>
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || jsonInvalid || !inputValid}>
+            {saveMutation.isPending && <Spinner data-icon="inline-start" />}
             Save
           </Button>
         </DialogFooter>
