@@ -93,9 +93,9 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
     LIMIT ${limit}
   `
   const hits = await emptyIfColumnMissing(() => p.query(sql, { ...opts, size: limit }))
-  const maxTokensByOp = known.has('gen_ai_tool_call_result')
+  const maxResults = known.has('gen_ai_tool_call_result')
     ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, name !== undefined, opts)
-    : new Map<string, number>()
+    : { tokens: new Map<string, number>(), scanned: new Map<string, number>() }
   return hits.map((h) => {
     const calls = Number(h.calls ?? 0)
     const errors = Number(h.errors ?? 0)
@@ -113,9 +113,11 @@ export async function fetchTools(p: OpenObserveProvider, opts?: ToolListOpts): P
       avgTokensEst: tokensFromChars(toCount(h.avg_chars)),
       p50TokensEst: tokensFromChars(toCount(h.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(h.p95_chars)),
-      maxTokens: maxTokensByOp.get(raw) ?? tokensFromChars(toCount(h.max_chars)),
+      maxTokens: maxResults.tokens.get(raw) ?? tokensFromChars(toCount(h.max_chars)),
       maxTokensEst:
-        name === undefined || !maxTokensByOp.has(raw) || Number(h.calls_with_result ?? 0) > MAX_EXACT_TOOL_RESULTS,
+        name === undefined ||
+        !maxResults.tokens.has(raw) ||
+        maxResults.scanned.get(raw) !== Number(h.calls_with_result ?? 0),
       totalTokensEst: tokensFromChars(toCount(h.total_chars)),
       p50Ms: Math.round(num(h.p50_ms) ?? 0),
       p95Ms: Math.round(num(h.p95_ms) ?? 0),
@@ -137,7 +139,7 @@ async function maxResultTokensByOp(
   limit: number,
   singleTool: boolean,
   opts?: WindowOpts,
-): Promise<Map<string, number>> {
+): Promise<{ tokens: Map<string, number>; scanned: Map<string, number> }> {
   const size = limit * MAX_TOKEN_CANDIDATES
   const sql = singleTool
     ? `
@@ -160,14 +162,16 @@ async function maxResultTokensByOp(
     p.query(sql, { ...opts, size: singleTool ? MAX_EXACT_TOOL_RESULTS : size }),
   )
   const out = new Map<string, number>()
+  const scanned = new Map<string, number>()
   for (const h of hits) {
     const op = typeof h.name === 'string' ? h.name : ''
     const body = typeof h.body === 'string' ? h.body : ''
     if (!op || body.length === 0) continue
+    scanned.set(op, (scanned.get(op) ?? 0) + 1)
     const tokens = countTokens(body)
     if (tokens > (out.get(op) ?? 0)) out.set(op, tokens)
   }
-  return out
+  return { tokens: out, scanned }
 }
 
 // OO stores the body whole, so never truncated.

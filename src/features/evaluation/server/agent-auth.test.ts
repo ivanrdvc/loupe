@@ -35,6 +35,30 @@ describe('resolveAgentEndpoint', () => {
 })
 
 describe('createAuthenticatedAgentCaller', () => {
+  it('treats only credential-bearing static headers as secrets', async () => {
+    const adapter = vi.fn(async () => ({
+      text: 'ok',
+      durationMs: 1,
+      rawJson: '{}',
+      tokens: 0,
+      inputTokens: null,
+      outputTokens: null,
+    }))
+    const caller = createAuthenticatedAgentCaller(
+      {
+        ...context('header-secrets'),
+        authEndpoint: undefined,
+        staticHeaders: { 'X-Region': 'production', 'X-Api-Key': 'top-secret-value' },
+      },
+      { useIdentity: false, adapter },
+    )
+
+    await caller.call({ endpointUrl: 'https://agent.example/responses', input: 'ping' })
+
+    expect(caller.secrets()).toContain('top-secret-value')
+    expect(caller.secrets()).not.toContain('production')
+  })
+
   it('caches a minted token across calls', async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input)

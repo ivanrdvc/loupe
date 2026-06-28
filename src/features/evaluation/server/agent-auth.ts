@@ -46,6 +46,8 @@ export async function mintToken(ctx: AuthContext): Promise<MintedToken> {
   return { token, expiresAt }
 }
 
+const SECRET_HEADER = /authorization|api[-_]?key|token|secret|cookie|password/i
+
 const cache = new Map<string, MintedToken>()
 const inflight = new Map<string, Promise<MintedToken>>()
 
@@ -105,7 +107,10 @@ export function createAuthenticatedAgentCaller(
   secrets: () => Array<string | undefined>
 } {
   const adapter = options.adapter ?? callAgent
-  const staticSecrets = Object.values(ctx.staticHeaders)
+  // Only credential-bearing headers are secrets, so routing values like a region aren't scrubbed.
+  const staticSecrets = Object.entries(ctx.staticHeaders)
+    .filter(([key]) => SECRET_HEADER.test(key))
+    .map(([, value]) => value)
   let resolvedSecrets: Array<string | undefined> = [
     ...staticSecrets,
     ...(options.adHocToken ? [options.adHocToken] : []),

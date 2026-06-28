@@ -11,6 +11,15 @@ function sseStream(lines: string[]): ReadableStream<Uint8Array> {
   })
 }
 
+function rawStream(value: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(value))
+      controller.close()
+    },
+  })
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe('resolveAdapter', () => {
@@ -64,6 +73,16 @@ describe('callVercelAiStream', () => {
     )
   })
 
+  it('processes a final event without a trailing newline', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(rawStream('data: {"type":"error","errorText":"final failure"}'), { status: 200 })),
+    )
+    await expect(callVercelAiStream({ endpointUrl: 'http://localhost/api/chat', input: 'x' })).rejects.toThrow(
+      /final failure/,
+    )
+  })
+
   it('throws AgentCallError carrying the HTTP status on a non-ok response', async () => {
     vi.stubGlobal(
       'fetch',
@@ -73,5 +92,27 @@ describe('callVercelAiStream', () => {
       status: 502,
     })
     expect(AgentCallError).toBeDefined()
+  })
+})
+
+describe('callAgent', () => {
+  it('falls through an empty output_text to structured output', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              output_text: '',
+              output: [{ type: 'message', content: [{ type: 'output_text', text: 'real answer' }] }],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    )
+
+    const result = await callAgent({ endpointUrl: 'http://localhost/responses', input: 'x' })
+
+    expect(result.text).toBe('real answer')
   })
 })

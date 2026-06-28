@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { createServerFn } from '@tanstack/react-start'
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '#/db'
 import {
   agentIdentities,
@@ -37,35 +37,19 @@ import {
   resolveAgentEndpoint,
 } from '#/features/evaluation/server/agent-auth'
 import { redactSecrets, resolveAdapter } from '#/features/evaluation/server/agent-run'
+import {
+  asTags,
+  bumpVersion,
+  toDataset,
+  toExample,
+  type UpdateDatasetMetaInput,
+  updateDatasetMeta,
+  upsertDatasetExample,
+} from '#/features/evaluation/server/dataset-store'
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
 import { toolCallsFromTrace } from './eval-jobs'
-
-function toDataset(row: typeof datasets.$inferSelect): Dataset {
-  return {
-    id: String(row.id),
-    name: row.name,
-    description: row.description,
-    tags: (row.tagsJson as string[] | null) ?? [],
-    updatedAt: row.updatedAt.getTime(),
-    lastRunAt: null,
-    version: row.version,
-    endpointOverride: row.endpointOverride,
-  }
-}
-
-function toExample(row: typeof datasetExamples.$inferSelect): DatasetExample {
-  return {
-    id: String(row.id),
-    datasetId: String(row.datasetId),
-    input: (row.inputJson as ExampleInput | null) ?? '',
-    expected: row.expected,
-    metadata: (row.metadataJson as Record<string, string> | null) ?? {},
-    sourceTraceId: row.sourceTraceId,
-    sourceSpanId: row.sourceSpanId,
-  }
-}
 
 function toRun(row: typeof datasetRuns.$inferSelect): DatasetRun {
   return {
@@ -105,20 +89,31 @@ function defaultAgentName(): string | null {
   return process.env.DATASET_RUN_AGENT ?? null
 }
 
+function routedAgentName(target: AgentTarget | null, identity: AgentIdentity | null): string | null {
+  if (target?.config.adapter === 'vercel-ai-stream') return null
+  return identity?.config.entityId ?? defaultAgentName()
+}
+
 function effectiveEndpoint(override: string | null): string {
   const o = override?.trim()
   return o && o.length > 0 ? o : globalDefaultEndpoint()
 }
 
-// Drop any embedded credentials (https://user:pass@host) before persisting the URL.
+const SECRET_QUERY_PARAM = /token|key|secret|password|pass|sig|auth/i
+
+// Drop embedded credentials (https://user:pass@host) and credential-bearing query params
+// (?access_token=…) before persisting the URL.
 function auditUrl(url: string): string {
   try {
     const u = new URL(url)
     u.username = ''
     u.password = ''
+    for (const key of [...u.searchParams.keys()]) {
+      if (SECRET_QUERY_PARAM.test(key)) u.searchParams.set(key, '[REDACTED]')
+    }
     return u.toString()
   } catch {
-    return url
+    return '[unparseable endpoint redacted]'
   }
 }
 
@@ -153,11 +148,6 @@ function authContextFrom(target: AgentTarget | null, identity: AgentIdentity | n
     tokenPath: ic.tokenPath ?? tc.tokenPath,
     staticHeaders: { ...(tc.headers ?? {}), ...(ic.headers ?? {}) },
   }
-}
-
-function asTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map((t) => String(t).trim()).filter((t) => t.length > 0)
 }
 
 function runLabel(at: Date): string {
@@ -294,20 +284,17 @@ export const getDatasetDetail = createServerFn({ method: 'GET' })
   })
 
 export const createDataset = createServerFn({ method: 'POST' })
-  .inputValidator((input: CreateDatasetInput) => ({
-    name: String(input.name).trim(),
-    description: input.description == null ? null : String(input.description),
-    tags: asTags(input.tags),
-  }))
+  .inputValidator((input: CreateDatasetInput) => input)
   .handler(async ({ data }): Promise<Dataset> => {
-    if (!data.name) throw new Error('Dataset name is required')
+    const name = String(data.name).trim()
+    if (!name) throw new Error('Dataset name is required')
     const now = new Date()
     const [row] = await db
       .insert(datasets)
       .values({
-        name: data.name,
-        description: data.description,
-        tagsJson: data.tags,
+        name,
+        description: data.description == null ? null : String(data.description),
+        tagsJson: asTags(data.tags),
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -318,120 +305,12 @@ export const createDataset = createServerFn({ method: 'POST' })
   })
 
 export const updateDataset = createServerFn({ method: 'POST' })
-  .inputValidator(
-    (input: {
-      datasetId: string | number
-      name?: string
-      description?: string | null
-      tags?: string[]
-      endpointOverride?: string | null
-    }) => ({
-      datasetId: Number(input.datasetId),
-      name: input.name === undefined ? undefined : String(input.name).trim(),
-      description:
-        input.description === undefined ? undefined : input.description === null ? null : String(input.description),
-      tags: input.tags === undefined ? undefined : asTags(input.tags),
-      endpointOverride:
-        input.endpointOverride === undefined
-          ? undefined
-          : input.endpointOverride === null
-            ? null
-            : String(input.endpointOverride).trim() || null,
-    }),
-  )
-  .handler(async ({ data }): Promise<Dataset> => {
-    // version only tracks example mutations, so metadata edits don't bump it
-    const set: Partial<typeof datasets.$inferInsert> = { updatedAt: new Date() }
-    if (data.name !== undefined) set.name = data.name
-    if (data.description !== undefined) set.description = data.description
-    if (data.tags !== undefined) set.tagsJson = data.tags
-    if (data.endpointOverride !== undefined) set.endpointOverride = data.endpointOverride
-    const [row] = await db.update(datasets).set(set).where(eq(datasets.id, data.datasetId)).returning()
-    if (!row) throw new Error('updateDataset: dataset not found')
-    return toDataset(row)
-  })
-
-function bumpVersion(datasetId: number, now: Date) {
-  return db
-    .update(datasets)
-    .set({ version: sql`${datasets.version} + 1`, updatedAt: now })
-    .where(eq(datasets.id, datasetId))
-}
+  .inputValidator((input: UpdateDatasetMetaInput) => input)
+  .handler(({ data }): Promise<Dataset> => updateDatasetMeta(data))
 
 export const upsertExample = createServerFn({ method: 'POST' })
-  .inputValidator((input: UpsertExampleInput) => ({
-    datasetId: Number(input.datasetId),
-    exampleId: input.exampleId == null ? null : Number(input.exampleId),
-    input: input.input,
-    expected: input.expected == null ? null : String(input.expected),
-    metadata: input.metadata && typeof input.metadata === 'object' ? input.metadata : {},
-    sourceTraceId: input.sourceTraceId == null ? null : String(input.sourceTraceId),
-    sourceSpanId: input.sourceSpanId == null ? null : String(input.sourceSpanId),
-  }))
-  .handler(async ({ data }): Promise<DatasetExample> => {
-    const now = new Date()
-    if (data.exampleId != null) {
-      const [row] = await db
-        .update(datasetExamples)
-        .set({
-          inputJson: data.input,
-          expected: data.expected,
-          metadataJson: data.metadata,
-          sourceTraceId: data.sourceTraceId,
-          sourceSpanId: data.sourceSpanId,
-          updatedAt: now,
-        })
-        .where(eq(datasetExamples.id, data.exampleId))
-        .returning()
-      if (!row) throw new Error('upsertExample: example not found')
-      await bumpVersion(data.datasetId, now)
-      return toExample(row)
-    }
-    // Capturing the same span twice updates the existing example instead of duplicating it.
-    if (data.sourceTraceId && data.sourceSpanId) {
-      const [existing] = await db
-        .select()
-        .from(datasetExamples)
-        .where(
-          and(
-            eq(datasetExamples.datasetId, data.datasetId),
-            eq(datasetExamples.sourceTraceId, data.sourceTraceId),
-            eq(datasetExamples.sourceSpanId, data.sourceSpanId),
-          ),
-        )
-      if (existing) {
-        const [row] = await db
-          .update(datasetExamples)
-          .set({
-            inputJson: data.input,
-            expected: data.expected,
-            metadataJson: data.metadata,
-            updatedAt: now,
-          })
-          .where(eq(datasetExamples.id, existing.id))
-          .returning()
-        if (!row) throw new Error('upsertExample: update failed')
-        await bumpVersion(data.datasetId, now)
-        return toExample(row)
-      }
-    }
-    const [row] = await db
-      .insert(datasetExamples)
-      .values({
-        datasetId: data.datasetId,
-        inputJson: data.input,
-        expected: data.expected,
-        metadataJson: data.metadata,
-        sourceTraceId: data.sourceTraceId,
-        sourceSpanId: data.sourceSpanId,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning()
-    if (!row) throw new Error('upsertExample: insert failed')
-    await bumpVersion(data.datasetId, now)
-    return toExample(row)
-  })
+  .inputValidator((input: UpsertExampleInput) => input)
+  .handler(({ data }): Promise<DatasetExample> => upsertDatasetExample(data))
 
 export const deleteExamples = createServerFn({ method: 'POST' })
   .inputValidator((input: { datasetId: string | number; exampleIds: Array<string | number> }) => ({
@@ -446,16 +325,28 @@ export const deleteExamples = createServerFn({ method: 'POST' })
 
 export const deleteDataset = createServerFn({ method: 'POST' })
   .inputValidator((input: { datasetId: string | number }) => ({ datasetId: Number(input.datasetId) }))
-  .handler(async ({ data }): Promise<void> => {
-    const runRows = await db
-      .select({ id: datasetRuns.id })
-      .from(datasetRuns)
-      .where(eq(datasetRuns.datasetId, data.datasetId))
-    const runIds = runRows.map((r) => r.id)
-    if (runIds.length > 0) await db.delete(datasetRunItems).where(inArray(datasetRunItems.runId, runIds))
-    await db.delete(datasetRuns).where(eq(datasetRuns.datasetId, data.datasetId))
-    await db.delete(datasetExamples).where(eq(datasetExamples.datasetId, data.datasetId))
-    await db.delete(datasets).where(eq(datasets.id, data.datasetId))
+  .handler(({ data }): void => {
+    db.transaction((tx) => {
+      const runIds = tx
+        .select({ id: datasetRuns.id })
+        .from(datasetRuns)
+        .where(eq(datasetRuns.datasetId, data.datasetId))
+        .all()
+        .map((r) => r.id)
+      if (runIds.length > 0) {
+        const itemIds = tx
+          .select({ id: datasetRunItems.id })
+          .from(datasetRunItems)
+          .where(inArray(datasetRunItems.runId, runIds))
+          .all()
+          .map((r) => r.id)
+        if (itemIds.length > 0) tx.delete(scores).where(inArray(scores.datasetRunItemId, itemIds)).run()
+        tx.delete(datasetRunItems).where(inArray(datasetRunItems.runId, runIds)).run()
+      }
+      tx.delete(datasetRuns).where(eq(datasetRuns.datasetId, data.datasetId)).run()
+      tx.delete(datasetExamples).where(eq(datasetExamples.datasetId, data.datasetId)).run()
+      tx.delete(datasets).where(eq(datasets.id, data.datasetId)).run()
+    })
   })
 
 const TRACE_RESOLVE_DELAY_MS = 1_500
@@ -527,7 +418,7 @@ export const runDataset = createServerFn({ method: 'POST' })
 
     // conversation_id is the key loupe groups traces on; the agent echoes it onto its spans.
     // entityId routes the agent to a specific dev user, overriding the env default.
-    const agentName = identity?.config.entityId ?? defaultAgentName()
+    const agentName = routedAgentName(target, identity)
     const ov = data.overrides
     const overrideTools = ov?.tools?.filter((t) => t.name.trim())
     const sampling = ov
@@ -659,7 +550,7 @@ export const testAgentConnection = createServerFn({ method: 'POST' })
         adapter: resolveAdapter(target?.config.adapter),
       })
       secrets = agentCaller.secrets
-      const agentName = identity?.config.entityId ?? defaultAgentName()
+      const agentName = routedAgentName(target, identity)
       const res = await agentCaller.call({ endpointUrl, input: 'ping', conversationId: randomUUID(), agentName })
       return { ok: true, message: 'Agent reachable and authenticated', durationMs: res.durationMs }
     } catch (err) {

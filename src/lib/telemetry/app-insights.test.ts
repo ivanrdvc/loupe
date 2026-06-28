@@ -50,6 +50,21 @@ describe('fetchTools maxTokens is the token-max, not the char-longest body token
     expect(queries.some((q) => /partition by name/.test(q))).toBe(false)
     expect(queries.some((q) => /top 12 by result_len/.test(q))).toBe(false)
   })
+
+  it('marks max as estimated when not every result body was returned', async () => {
+    const p = {
+      name: 'app-insights',
+      fingerprint: 'f',
+      query: async (q: string) =>
+        /\| project name, body\s*\| project name, body/.test(q)
+          ? [{ name: 'execute_tool echo', body: SPARSE_BODY }]
+          : [{ name: 'execute_tool echo', calls: 2, calls_with_result: 2, max_chars: SPARSE_BODY.length }],
+    } as unknown as AppInsightsProvider
+
+    const [row] = await fetchTools(p, { name: 'echo' })
+
+    expect(row.maxTokensEst).toBe(true)
+  })
 })
 
 // Hand-built to the Azure Monitor row shape (no local Azure to capture from).

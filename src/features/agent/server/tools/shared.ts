@@ -57,16 +57,28 @@ export async function resolveMentions(mentions: MentionRef[], origin?: string): 
   )
 }
 
-export const exampleEntrySchema = z.object({
-  traceId: z.string().optional().describe('A trace to capture one example from.'),
-  sessionId: z.string().optional().describe('A session to expand into one example per trace in it.'),
-  spanId: z.string().optional().describe('Specific span; omit to pick the last chat span with output.'),
-  expected: z.string().optional().describe('Golden answer; omit to use the observed output as a draft baseline.'),
-  metadata: z
-    .record(z.string(), z.string())
-    .optional()
-    .describe('Optional labels for the example, e.g. {model, errored}.'),
-})
+export const exampleEntrySchema = z
+  .object({
+    traceId: z.string().optional().describe('A trace to capture one example from.'),
+    sessionId: z.string().optional().describe('A session to expand into one example per trace in it.'),
+    spanId: z.string().optional().describe('Specific span; omit to pick the last chat span with output.'),
+    expected: z.string().optional().describe('Golden answer; omit to use the observed output as a draft baseline.'),
+    metadata: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels for the example, e.g. {model, errored}.'),
+  })
+  .superRefine((entry, ctx) => {
+    if (Boolean(entry.traceId) === Boolean(entry.sessionId)) {
+      ctx.addIssue({ code: 'custom', message: 'Provide exactly one of traceId or sessionId.' })
+    }
+    if (entry.sessionId && entry.spanId) {
+      ctx.addIssue({ code: 'custom', path: ['spanId'], message: 'spanId is only valid with traceId.' })
+    }
+    if (entry.sessionId && entry.expected !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['expected'], message: 'expected is ambiguous for a multi-trace session.' })
+    }
+  })
 export type ExampleEntry = z.infer<typeof exampleEntrySchema>
 export type ResolvedExample = { cap: CapturedExample; expected: string | null; metadata?: Record<string, string> }
 

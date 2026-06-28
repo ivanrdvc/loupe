@@ -105,7 +105,7 @@ export async function fetchTools(p: AppInsightsProvider, opts?: ToolListOpts): P
       p50TokensEst: tokensFromChars(toCount(r.p50_chars)),
       p95TokensEst: tokensFromChars(toCount(r.p95_chars)),
       maxTokens: maxTokensByName.get(raw) ?? tokensFromChars(toCount(r.max_chars)),
-      maxTokensEst: name === undefined || !maxTokensByName.has(raw) || toCount(r.max_chars) >= APP_INSIGHTS_DIM_CAP,
+      maxTokensEst: true,
       totalTokensEst: tokensFromChars(toCount(r.total_chars)),
       p50Ms: Math.round(num(r.p50_ms) ?? 0),
       p95Ms: Math.round(num(r.p95_ms) ?? 0),

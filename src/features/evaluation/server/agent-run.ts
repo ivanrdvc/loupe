@@ -62,7 +62,7 @@ function parseEndpoint(rawUrl: string): URL {
 function extractText(raw: unknown): string {
   if (raw == null || typeof raw !== 'object') return ''
   const obj = raw as Record<string, unknown>
-  if (typeof obj.output_text === 'string') return obj.output_text
+  if (typeof obj.output_text === 'string' && obj.output_text) return obj.output_text
   const output = obj.output
   if (!Array.isArray(output)) return ''
   const parts: string[] = []
@@ -170,6 +170,20 @@ async function accumulateTextDeltas(response: Response): Promise<string> {
   let buffer = ''
   let text = ''
   let streamError: string | undefined
+  const handleLine = (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('data:')) return
+    const payload = trimmed.slice(5).trim()
+    if (payload === '[DONE]') return
+    try {
+      const evt = JSON.parse(payload) as { type?: string; delta?: string; errorText?: string }
+      if (evt.type === 'text-delta' && typeof evt.delta === 'string') text += evt.delta
+      // The agent reports tool/model failures as an error part, not an HTTP status — surface it.
+      else if (evt.type === 'error') streamError = evt.errorText || 'agent stream error'
+    } catch {
+      // keepalive / partial line — ignore
+    }
+  }
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
@@ -177,21 +191,13 @@ async function accumulateTextDeltas(response: Response): Promise<string> {
     for (;;) {
       const nl = buffer.indexOf('\n')
       if (nl === -1) break
-      const line = buffer.slice(0, nl).trim()
+      handleLine(buffer.slice(0, nl))
       buffer = buffer.slice(nl + 1)
-      if (!line.startsWith('data:')) continue
-      const payload = line.slice(5).trim()
-      if (payload === '[DONE]') continue
-      try {
-        const evt = JSON.parse(payload) as { type?: string; delta?: string; errorText?: string }
-        if (evt.type === 'text-delta' && typeof evt.delta === 'string') text += evt.delta
-        // The agent reports tool/model failures as an error part, not an HTTP status — surface it.
-        else if (evt.type === 'error') streamError = evt.errorText || 'agent stream error'
-      } catch {
-        // keepalive / partial line — ignore
-      }
     }
   }
+  // A stream that ends without a trailing newline leaves the final event (often the error) here.
+  buffer += decoder.decode()
+  if (buffer) handleLine(buffer)
   if (streamError) throw new AgentCallError(`Run failed: ${streamError}`)
   return text
 }

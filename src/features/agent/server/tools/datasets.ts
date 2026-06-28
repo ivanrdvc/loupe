@@ -1,12 +1,11 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import {
-  createDataset,
-  getDatasetDetail,
-  listDatasets,
-  updateDataset,
-  upsertExample,
-} from '#/features/evaluation/server/datasets'
+  createDatasetWithExamples,
+  updateDatasetMeta,
+  upsertDatasetExample,
+} from '#/features/evaluation/server/dataset-store'
+import { getDatasetDetail, listDatasets } from '#/features/evaluation/server/datasets'
 import { captureAll, deriveMeta, exampleEntrySchema } from './shared'
 
 /**
@@ -48,20 +47,18 @@ export const createDatasetTool = (origin?: string) =>
     }),
     execute: async ({ name, description, tags, examples }) => {
       const resolved = await captureAll(examples)
+      if (resolved.length === 0) throw new Error('No usable examples were found in the requested traces or sessions.')
       const meta = deriveMeta(resolved, { name, description, tags })
-      const ds = await createDataset({ data: meta })
-      for (const { cap, expected, metadata } of resolved) {
-        await upsertExample({
-          data: {
-            datasetId: ds.id,
-            input: cap.input,
-            expected,
-            metadata,
-            sourceTraceId: cap.sourceTraceId,
-            sourceSpanId: cap.sourceSpanId,
-          },
-        })
-      }
+      const ds = createDatasetWithExamples(
+        meta,
+        resolved.map(({ cap, expected, metadata }) => ({
+          input: cap.input,
+          expected,
+          metadata,
+          sourceTraceId: cap.sourceTraceId,
+          sourceSpanId: cap.sourceSpanId,
+        })),
+      )
       return { added: resolved.length, viewLink: `[open dataset](${origin ?? ''}/datasets/${ds.id})` }
     },
   })
@@ -82,19 +79,17 @@ export const updateDatasetTool = (origin?: string) =>
     }),
     execute: async ({ datasetId, name, description, tags, addExamples }) => {
       if (name !== undefined || description !== undefined || tags !== undefined) {
-        await updateDataset({ data: { datasetId, name, description, tags } })
+        await updateDatasetMeta({ datasetId, name, description, tags })
       }
       const resolved = await captureAll(addExamples ?? [])
       for (const { cap, expected, metadata } of resolved) {
-        await upsertExample({
-          data: {
-            datasetId,
-            input: cap.input,
-            expected,
-            metadata,
-            sourceTraceId: cap.sourceTraceId,
-            sourceSpanId: cap.sourceSpanId,
-          },
+        await upsertDatasetExample({
+          datasetId,
+          input: cap.input,
+          expected,
+          metadata,
+          sourceTraceId: cap.sourceTraceId,
+          sourceSpanId: cap.sourceSpanId,
         })
       }
       return { added: resolved.length, viewLink: `[open dataset](${origin ?? ''}/datasets/${datasetId})` }

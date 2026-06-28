@@ -56,6 +56,23 @@ describe('fetchTools maxTokens is the token-max, not the char-longest body token
     expect(queries.some((sql) => /ROW_NUMBER/.test(sql))).toBe(false)
     expect(queries.some((sql) => /LIMIT 12/.test(sql))).toBe(false)
   })
+
+  it('marks max as estimated when not every result body was returned', async () => {
+    const p = {
+      name: 'openobserve',
+      stream: 's',
+      fingerprint: 'f',
+      getKnownColumns: async () => new Set(['gen_ai_tool_call_result']),
+      query: async (sql: string) =>
+        /SELECT operation_name AS name, gen_ai_tool_call_result AS body/.test(sql)
+          ? [{ name: 'execute_tool echo', body: SPARSE_BODY }]
+          : [{ name: 'execute_tool echo', calls: 2, calls_with_result: 2, max_chars: SPARSE_BODY.length }],
+    } as unknown as OpenObserveProvider
+
+    const [row] = await fetchTools(p, { name: 'echo' })
+
+    expect(row.maxTokensEst).toBe(true)
+  })
 })
 
 // Real recorded OO hits → Span, pinning the OO-specific extraction seam.
