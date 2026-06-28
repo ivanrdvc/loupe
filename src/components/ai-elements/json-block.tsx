@@ -2,6 +2,7 @@ import { Braces, Check, Copy } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { Toggle } from '#/components/ui/toggle'
+import { useCopyToClipboard } from '#/hooks/use-copy-to-clipboard'
 import { parseJson, parseJsonConcat, prettyJson } from '#/lib/json'
 import { cn } from '#/lib/utils'
 import { CodeBlock } from './code-block'
@@ -23,15 +24,7 @@ export function PanelSection({
   children: ReactNode
 }) {
   const [showRaw, setShowRaw] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  const copy = () => {
-    if (copyText == null) return
-    navigator.clipboard.writeText(copyText).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
-  }
+  const { copied, copy } = useCopyToClipboard(1500)
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden rounded-md border">
@@ -50,7 +43,13 @@ export function PanelSection({
             </Toggle>
           )}
           {copyText != null && (
-            <Button variant="ghost" size="icon-xs" className="size-5" onClick={copy} aria-label="Copy">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="size-5"
+              onClick={() => copy(copyText)}
+              aria-label="Copy"
+            >
               {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
             </Button>
           )}

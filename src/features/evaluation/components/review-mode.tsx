@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { useEventListener } from 'usehooks-ts'
 import { JsonView } from '#/components/ai-elements/json-view'
 import { Button } from '#/components/ui/button'
 import {
@@ -134,34 +135,30 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
     [upsertMutation, advance],
   )
 
-  useEffect(() => {
+  useEventListener('keydown', (e) => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.preventDefault()
-        return
-      }
-      if (e.key === 'ArrowLeft') {
+    if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.preventDefault()
+      return
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      setIndex((i) => Math.max(0, i - 1))
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      advance()
+    } else if (e.key === 'Escape') {
+      onOpenChange(false)
+    } else if (config?.dataType === 'boolean') {
+      if (e.key === '1' || e.key.toLowerCase() === 'g') {
         e.preventDefault()
-        setIndex((i) => Math.max(0, i - 1))
-      } else if (e.key === 'ArrowRight') {
+        saveAndAdvance({ value: 1, label: null, explanation: null })
+      } else if (e.key === '0' || e.key.toLowerCase() === 'b') {
         e.preventDefault()
-        advance()
-      } else if (e.key === 'Escape') {
-        onOpenChange(false)
-      } else if (config?.dataType === 'boolean') {
-        if (e.key === '1' || e.key.toLowerCase() === 'g') {
-          e.preventDefault()
-          saveAndAdvance({ value: 1, label: null, explanation: null })
-        } else if (e.key === '0' || e.key.toLowerCase() === 'b') {
-          e.preventDefault()
-          saveAndAdvance({ value: 0, label: null, explanation: null })
-        }
+        saveAndAdvance({ value: 0, label: null, explanation: null })
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, config, advance, saveAndAdvance, onOpenChange])
+  })
 
   if (!open || items.length === 0) return null
 

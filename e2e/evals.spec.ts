@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { addExample, createDataset } from './helpers'
 
 async function createEvaluator(page: Page): Promise<string> {
   const name = `e2e eval ${Date.now()}-${Math.floor(Math.random() * 1e6)}`
@@ -31,24 +32,6 @@ test('shows a not-found state for an unknown evaluator id', async ({ page }) => 
 
   await expect(page.getByText('Evaluator not found')).toBeVisible()
 })
-
-async function createDataset(page: Page): Promise<void> {
-  const name = `e2e ds ${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-  await page.goto('/datasets')
-  await page.getByRole('button', { name: 'New dataset' }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Name', { exact: true }).fill(name)
-  await dialog.getByRole('button', { name: 'Create' }).click()
-  await expect(page).toHaveURL(/\/datasets\/\d+/)
-}
-
-async function addExample(page: Page, text: string): Promise<void> {
-  await page.getByRole('button', { name: 'Add example' }).click()
-  const sheet = page.getByRole('dialog')
-  await sheet.getByRole('textbox').first().fill(text)
-  await sheet.getByRole('button', { name: 'Save' }).click()
-  await expect(page.getByText(text)).toBeVisible()
-}
 
 // Grading a dataset run with a named evaluator stamps each score with that
 // evaluator's definitionId — so it surfaces in the evaluator's Scores table.
