@@ -30,6 +30,7 @@ interface TelemetryDataTableProps<TData> {
   searchColumnId: string
   searchPlaceholder: string
   defaultColumnVisibility?: VisibilityState
+  extraFilters?: React.ReactNode
   actions?: (table: TanstackTable<TData>) => React.ReactNode
   emptyState: (ctx: { isLoading?: boolean; scopeToMe: boolean; userId: string }) => React.ReactNode
   isLoading?: boolean
@@ -51,6 +52,7 @@ export function TelemetryDataTable<TData>({
   searchColumnId,
   searchPlaceholder,
   defaultColumnVisibility,
+  extraFilters,
   actions,
   emptyState,
   isLoading,
@@ -102,6 +104,7 @@ export function TelemetryDataTable<TData>({
         searchColumnId={searchColumnId}
         searchPlaceholder={searchPlaceholder}
         filters={filters}
+        extraFilters={extraFilters}
         range={range}
         onRangeChange={onRangeChange}
         autoRefresh={autoRefresh}

@@ -1,17 +1,17 @@
 export const queryKeys = {
   sessions: {
     all: () => ['sessions'] as const,
-    window: (range: string, userId = '') => ['sessions', userId, { range }] as const,
+    window: (range: string, userId = '', host = '') => ['sessions', userId, { range, host }] as const,
     currentUserWindow: (range: string, userId: string) => ['sessions', 'current-user', userId, { range }] as const,
     detailWindow: (id: string, range: string) => ['sessions', id, { range }] as const,
   },
   traces: {
     all: () => ['traces'] as const,
-    window: (range: string, userId = '') => ['traces', userId, { range }] as const,
+    window: (range: string, userId = '', host = '') => ['traces', userId, { range, host }] as const,
     detail: (id: string) => ['traces', id] as const,
   },
   spans: {
-    window: (range: string, userId = '') => ['spans', userId, { range }] as const,
+    window: (range: string, userId = '', host = '') => ['spans', userId, { range, host }] as const,
   },
   tasks: {
     window: (range: string, userId = '') => ['tasks', userId, { range }] as const,

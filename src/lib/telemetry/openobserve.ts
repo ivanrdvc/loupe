@@ -20,15 +20,16 @@ import {
   DEFAULT_LIST_LIMIT,
   firstString,
   groupBy,
+  identityFields,
   num,
   PROVIDER_QUERY_TIMEOUT_MS,
-  pickIdentityValue,
   SESSION_SCAN_LIMIT,
   sqlString,
   TRACE_FETCH_LIMIT,
 } from './shared'
 import type {
   GetTraceOpts,
+  IdentityFilter,
   ListSpansOpts,
   ListTracesOpts,
   LogLevel,
@@ -424,13 +425,14 @@ function window(opts: GetTraceOpts | ListTracesOpts | ListSpansOpts | undefined)
 // Returns a clause that can be appended directly after an existing WHERE.
 // Empty when no identity is requested. `AND 1=0` when an identity is requested
 // but no schema column carries it — preserves the "show nothing" intent.
-function whereIdentity(opts: { userId?: string; userName?: string } | undefined, known: ReadonlySet<string>): string {
-  const id = pickIdentityValue(opts)
-  if (!id) return ''
-  const cols = ooColumns(id.kind === 'id' ? 'userId' : 'userName', { known })
-  if (cols.length === 0) return 'AND 1 = 0'
-  const ors = cols.map((k) => `${k} = ${sqlString(id.value)}`).join(' OR ')
-  return `AND (${ors})`
+function whereIdentity(opts: IdentityFilter | undefined, known: ReadonlySet<string>): string {
+  const clauses = identityFields(opts).map(({ field, value }) => {
+    const cols = ooColumns(field, { known })
+    // Absent from schema → match nothing, don't silently drop the scope.
+    if (cols.length === 0) return '1 = 0'
+    return `(${cols.map((k) => `${k} = ${sqlString(value)}`).join(' OR ')})`
+  })
+  return clauses.length === 0 ? '' : `AND ${clauses.join(' AND ')}`
 }
 
 function hitToSpanSummary(h: Record<string, unknown>): SpanSummary {

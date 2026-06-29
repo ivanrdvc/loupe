@@ -39,6 +39,7 @@ interface DataTableProps {
   isLoading?: boolean
   onRowClick?: (row: SessionSummary) => void
   rowClassName?: (row: SessionSummary) => string | undefined
+  extraFilters?: React.ReactNode
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
   autoRefresh: AutoRefreshInterval

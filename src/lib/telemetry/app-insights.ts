@@ -23,9 +23,9 @@ import {
   classifySpanRow,
   DEFAULT_LIST_LIMIT,
   groupBy,
+  identityFields,
   num,
   PROVIDER_QUERY_TIMEOUT_MS,
-  pickIdentityValue,
   SESSION_SCAN_LIMIT,
   TRACE_FETCH_LIMIT,
 } from './shared'
@@ -201,11 +201,11 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
 
     async listTraces(opts): Promise<TraceSummary[]> {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
-      const userFilter = kqlIdentityFilter(opts)
-      const userCte = userFilter
-        ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;`
+      const identityFilter = kqlIdentityFilter(opts)
+      const userCte = identityFilter
+        ? `let _user_traces = union dependencies, requests | where ${identityFilter} | distinct operation_Id;`
         : ''
-      const userScope = userFilter ? '| where operation_Id in (_user_traces)' : ''
+      const userScope = identityFilter ? '| where operation_Id in (_user_traces)' : ''
       const serviceScope = opts?.serviceName ? `| where cloud_RoleName == ${kqlString(opts.serviceName)}` : ''
       const summarizeFilter: string[] = []
       if (opts?.triggerTypes?.length) {
@@ -305,7 +305,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
 
     async listSpans(opts): Promise<SpanSummary[]> {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT
-      const userFilter = kqlIdentityFilter(opts)
+      const identityFilter = kqlIdentityFilter(opts)
       const q = `
         let execute_tool_ids = union dependencies, requests
         | where name startswith "execute_tool "
@@ -317,7 +317,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
                  is_subagent = (name startswith "invoke_agent " and operation_ParentId in (execute_tool_ids))
                                or isnotempty(${aiCoalesce('taskParentId')})
         | where is_utility or is_subagent
-        ${userFilter ? `| where ${userFilter}` : ''}
+        ${identityFilter ? `| where ${identityFilter}` : ''}
         ${DEDUPE_SPANS_BY_ID_KQL}
         | extend
             in_tok = toint(customDimensions["gen_ai.usage.input_tokens"]),
@@ -348,14 +348,14 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
     },
 
     async listSessions(opts) {
-      const userFilter = kqlIdentityFilter(opts)
+      const identityFilter = kqlIdentityFilter(opts)
       const q = `
-        ${userFilter ? `let _user_traces = union dependencies, requests | where ${userFilter} | distinct operation_Id;` : ''}
+        ${identityFilter ? `let _user_traces = union dependencies, requests | where ${identityFilter} | distinct operation_Id;` : ''}
         union dependencies, requests
         | extend gen_op = tostring(customDimensions["gen_ai.operation.name"])
         | extend sess = ${SESSION_ID_COALESCE}
         | where isnotempty(gen_op) or name startswith "invoke_agent " or name startswith "execute_tool " or isnotempty(tostring(customDimensions["session.trigger_type"])) or isnotempty(sess)
-        ${userFilter ? '| where operation_Id in (_user_traces)' : ''}
+        ${identityFilter ? '| where operation_Id in (_user_traces)' : ''}
         ${DEDUPE_SPANS_BY_ID_KQL}
         | extend start_ms = tolong(datetime_diff('millisecond', timestamp, datetime(1970-01-01)))
         | project
@@ -391,7 +391,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
 
     async getSession(sessionId, opts): Promise<SessionFetch> {
       if (!isSafeId(sessionId)) return null
-      const userFilter = kqlIdentityFilter(opts)
+      const identityFilter = kqlIdentityFilter(opts)
       // Fallback sessions are just the trace id (operation_Id in AI), so match
       // both that and any real session attribute. Real attributes win when
       // both apply because the resulting trace set is the same anyway.
@@ -399,7 +399,7 @@ export function createAppInsightsProvider(cfg: AppInsightsConfig): AppInsightsPr
         union dependencies, requests
         | extend sess = ${SESSION_ID_COALESCE}
         | where sess == "${sessionId}" or operation_Id == "${sessionId}"
-        ${userFilter ? `| where ${userFilter}` : ''}
+        ${identityFilter ? `| where ${identityFilter}` : ''}
         | distinct operation_Id
       `
       const traceRows = await kql(tracesQ, timespanFromOpts(opts))
@@ -681,10 +681,10 @@ function rowToTraceSummary(row: Record<string, unknown>): TraceSummary {
 function kqlIdentityFilter(
   opts: GetTraceOpts | ListSessionsOpts | ListSpansOpts | ListTracesOpts | undefined,
 ): string | undefined {
-  const id = pickIdentityValue(opts)
-  if (!id) return undefined
-  const coalesce = id.kind === 'id' ? USER_ID_COALESCE : USER_NAME_COALESCE
-  return `${coalesce} == ${kqlString(id.value)}`
+  const clauses = identityFields(opts).map(
+    ({ field, value }) => `${field === 'host' ? HOST_COALESCE : aiCoalesce(field)} == ${kqlString(value)}`,
+  )
+  return clauses.length === 0 ? undefined : clauses.join(' and ')
 }
 
 function kqlString(value: string): string {

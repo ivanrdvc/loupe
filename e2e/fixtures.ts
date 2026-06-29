@@ -19,6 +19,11 @@ export const SINGLE_TRACE = {
   agent: 'SoloBot',
 } as const
 
+// host.name values on the fixture session summaries. CHAT + agent-tool are on
+// web-1; the solo trace + raw session are on worker-2.
+export const HOSTS = { web: 'web-1', worker: 'worker-2' } as const
+export const RAW_TITLE = 'Raw spans toggle'
+
 export const TASK = {
   traceId: 'tr-task-nightly',
   key: 'task:nightly-report',
