@@ -125,6 +125,33 @@
   }
 }
 
+/* Native scrollbars (the page/body scroller and any plain overflow container —
+   Radix ScrollArea hides its own native bar, so it's unaffected). Thin, themed,
+   thumb-only; pure CSS, no runtime cost. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: var(--border);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Native form controls, scrollbars, and UA surfaces follow the active theme. */
 .light {
   color-scheme: light;

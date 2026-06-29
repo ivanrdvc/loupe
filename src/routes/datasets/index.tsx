@@ -197,7 +197,7 @@ function DatasetsListPage() {
               </Button>
             )}
           </div>
-          <Button size="sm" onClick={() => setNewOpen(true)}>
+          <Button variant="brand" size="sm" onClick={() => setNewOpen(true)}>
             <Plus data-icon="inline-start" />
             New dataset
           </Button>
