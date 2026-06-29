@@ -11,11 +11,12 @@ const fetchSessions = createServerFn({ method: 'GET' })
       limit: 50,
       ...windowUs(data.range),
       ...(data.userId ? { userId: data.userId } : {}),
+      ...(data.host ? { host: data.host } : {}),
     })
   })
 
-export const sessionsQuery = (range: TimeRange = DEFAULT, userId = '') =>
+export const sessionsQuery = (range: TimeRange = DEFAULT, userId = '', host = '') =>
   queryOptions({
-    queryKey: queryKeys.sessions.window(serialize(range), userId),
-    queryFn: () => fetchSessions({ data: { range, userId } }),
+    queryKey: queryKeys.sessions.window(serialize(range), userId, host),
+    queryFn: () => fetchSessions({ data: { range, userId, host } }),
   })

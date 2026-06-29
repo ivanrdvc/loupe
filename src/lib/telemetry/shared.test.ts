@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateSessions, classifySpanRow, findSessionKey, pickIdentityValue } from './shared'
+import { aggregateSessions, classifySpanRow, findSessionKey, identityFields, pickIdentityValue } from './shared'
 
 type Row = Record<string, unknown>
 
@@ -211,6 +211,26 @@ describe('pickIdentityValue', () => {
   it('returns undefined when nothing is set', () => {
     expect(pickIdentityValue(undefined)).toBeUndefined()
     expect(pickIdentityValue({})).toBeUndefined()
+  })
+})
+
+describe('identityFields', () => {
+  it('maps the user pick to its canonical field', () => {
+    expect(identityFields({ userId: 'u1' })).toEqual([{ field: 'userId', value: 'u1' }])
+    expect(identityFields({ userName: 'alice' })).toEqual([{ field: 'userName', value: 'alice' }])
+  })
+  it('stacks host onto the user pick', () => {
+    expect(identityFields({ userId: 'u1', host: 'web-1' })).toEqual([
+      { field: 'userId', value: 'u1' },
+      { field: 'host', value: 'web-1' },
+    ])
+  })
+  it('returns host alone when no user is set', () => {
+    expect(identityFields({ host: 'web-1' })).toEqual([{ field: 'host', value: 'web-1' }])
+  })
+  it('is empty when nothing is set', () => {
+    expect(identityFields(undefined)).toEqual([])
+    expect(identityFields({})).toEqual([])
   })
 })
 

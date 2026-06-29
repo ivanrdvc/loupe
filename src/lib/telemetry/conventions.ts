@@ -48,7 +48,16 @@ const ATTRS = {
   taskSource: ['task.source'],
 } as const
 
+import type { IdentityFilter } from './types'
+
 export type CanonicalField = keyof typeof ATTRS
+
+// Exact-match dims (besides the userId/userName pick) ANDed into the provider
+// WHERE. Forks append company id here plus its ATTRS alias — the one edit point.
+export const IDENTITY_FILTERS = [{ key: 'host', field: 'host' }] as const satisfies readonly {
+  key: keyof IdentityFilter
+  field: CanonicalField
+}[]
 
 // Span dimensions the tool catalog can be filtered by. Forks append company id
 // here (plus its alias in ATTRS) — the one edit point; everything else is generic.

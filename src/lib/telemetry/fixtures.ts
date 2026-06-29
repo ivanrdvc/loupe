@@ -259,6 +259,7 @@ const SESSIONS: FixtureSession[] = [
       sessionId: 'e2e-session-chat',
       title: 'Weather in Tokyo',
       source: 'attribute',
+      host: 'web-1',
       startedAtMs: 1_700_000_000_000,
       lastSeenMs: 1_700_000_000_100,
       activeDurationMs: 100,
@@ -280,6 +281,7 @@ const SESSIONS: FixtureSession[] = [
     summary: {
       sessionId: 'e2e-trace-7f3a2b',
       source: 'trace',
+      host: 'worker-2',
       startedAtMs: 1_700_000_000_000,
       lastSeenMs: 1_700_000_000_100,
       activeDurationMs: 100,
@@ -298,6 +300,7 @@ const SESSIONS: FixtureSession[] = [
       sessionId: 'e2e-session-agent-tool',
       title: 'Records report',
       source: 'attribute',
+      host: 'web-1',
       startedAtMs: 1_700_000_000_000,
       lastSeenMs: 1_700_000_000_900,
       activeDurationMs: 900,
@@ -320,6 +323,7 @@ const SESSIONS: FixtureSession[] = [
       sessionId: 'e2e-session-raw',
       title: 'Raw spans toggle',
       source: 'attribute',
+      host: 'worker-2',
       startedAtMs: 1_700_000_000_000,
       lastSeenMs: 1_700_000_000_100,
       activeDurationMs: 100,
@@ -534,8 +538,13 @@ export function createFixturesProvider(): FixturesProvider {
       const spans = ALL_SPANS.filter((s) => s.traceId === traceId)
       return spans.length > 0 ? { spans } : null
     },
-    async listSessions() {
-      return { sessions: SESSIONS.map((s) => s.summary), truncated: false }
+    async listSessions(opts) {
+      const sessions = SESSIONS.map((s) => s.summary).filter((s) => {
+        if (opts?.host && s.host !== opts.host) return false
+        if (opts?.userId && s.userId !== opts.userId) return false
+        return true
+      })
+      return { sessions, truncated: false }
     },
     async getSession(sessionId: string): Promise<SessionFetch> {
       return SESSIONS.find((s) => s.summary.sessionId === sessionId)?.fetch ?? null

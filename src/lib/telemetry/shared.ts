@@ -2,7 +2,7 @@ import { parseJson } from '#/lib/json'
 import { extractAgentName } from '#/lib/spans/classify-span'
 import { asMessages } from '#/lib/spans/conversation'
 import { estimateCostUsd } from '#/lib/spans/llm-pricing'
-import { pickCanonical, pickCanonicalNumber } from './conventions'
+import { type CanonicalField, IDENTITY_FILTERS, pickCanonical, pickCanonicalNumber } from './conventions'
 import { classifyTraceCategory } from './trace-category'
 import type { IdentityFilter, SessionSummary, SpansViewKind, ToolErrorRow, TraceSummary } from './types'
 
@@ -41,6 +41,17 @@ export function pickIdentityValue(
   if (opts?.userId) return { kind: 'id', value: opts.userId }
   if (opts?.userName) return { kind: 'name', value: opts.userName }
   return undefined
+}
+
+export function identityFields(opts: IdentityFilter | undefined): { field: CanonicalField; value: string }[] {
+  const fields: { field: CanonicalField; value: string }[] = []
+  const user = pickIdentityValue(opts)
+  if (user) fields.push({ field: user.kind === 'id' ? 'userId' : 'userName', value: user.value })
+  for (const dim of IDENTITY_FILTERS) {
+    const value = opts?.[dim.key]
+    if (typeof value === 'string' && value) fields.push({ field: dim.field, value })
+  }
+  return fields
 }
 
 export function mapToolErrorRow(row: Record<string, unknown>): ToolErrorRow {
