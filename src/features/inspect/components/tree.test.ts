@@ -51,12 +51,19 @@ describe('buildRows — collapsible-infra promotion', () => {
     expect(rowIds(spans)).not.toContain('stray')
   })
 
-  it('keeps an errored unclassified span even inside a classified trace (error is signal)', () => {
+  it('drops an errored infra span when classified spans already tell the story', () => {
     const spans = [
       span({ id: 'agent', operation: 'invoke_agent', traceId: 'T4', parentId: null }),
       span({ id: 'chat', operation: 'chat', traceId: 'T4', parentId: 'agent' }),
       span({ id: 'cosmos404', operation: 'http', traceId: 'T4', parentId: null, hasError: true, errorType: '404' }),
     ]
-    expect(rowIds(spans)).toContain('cosmos404')
+    expect(rowIds(spans)).not.toContain('cosmos404')
+  })
+
+  it('keeps an errored infra span as last resort when nothing else is classified', () => {
+    const spans = [
+      span({ id: 'probe', operation: 'http', traceId: 'T5', parentId: null, hasError: true, errorType: '404' }),
+    ]
+    expect(rowIds(spans)).toContain('probe')
   })
 })

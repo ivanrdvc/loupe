@@ -78,7 +78,7 @@ export function buildRows(view: InspectorView, collapsedIds: Set<string>, rawRoo
       // children promote up, or a classified sibling/ancestor represents it.
       const promoted = collect(span.id, rootId)
       if (promoted.length > 0) out.push(...promoted)
-      else if (spanHasError(span)) out.push(span)
+      else if (spanHasError(span) && !tracesWithClassifiedSpan.has(span.traceId)) out.push(span)
       else if (span.parentId === null && !tracesWithClassifiedSpan.has(span.traceId)) out.push(span)
     }
     visibleChildren.set(key, out)
