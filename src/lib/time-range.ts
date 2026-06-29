@@ -39,13 +39,15 @@ export function parse(v: unknown): TimeRange {
   return DEFAULT
 }
 
-export function parseRangeUserInput(input: { range?: unknown; userId?: unknown }): {
+export function parseRangeUserInput(input: { range?: unknown; userId?: unknown; host?: unknown }): {
   range: TimeRange
   userId: string
+  host: string
 } {
   return {
     range: parse(input.range),
     userId: typeof input.userId === 'string' ? input.userId.trim() : '',
+    host: typeof input.host === 'string' ? input.host.trim() : '',
   }
 }
 

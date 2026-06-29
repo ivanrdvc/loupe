@@ -9,6 +9,7 @@ export interface WindowOpts {
 export interface IdentityFilter {
   userId?: string
   userName?: string
+  host?: string
 }
 
 interface ListOpts extends WindowOpts {
