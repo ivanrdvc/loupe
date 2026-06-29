@@ -292,7 +292,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 data-icon="inline-start" />
-              Delete
+              Delete dataset
             </Button>
             <Button
               variant="outline"
