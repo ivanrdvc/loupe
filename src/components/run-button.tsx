@@ -4,23 +4,16 @@ import { Button } from '#/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { cn } from '#/lib/utils'
 
-const GRADIENT = 'run-grad border-0 text-white hover:text-white shadow-[0_3px_16px_-4px_rgba(168,85,247,0.7)]'
-
 /** Solid brand-gradient run CTA (e.g. "Run all"). Swaps the play icon for a spinner while running. */
 export function RunButton({
   running,
   loadingText,
-  className,
   children,
   disabled,
   ...props
 }: { running?: boolean; loadingText?: React.ReactNode } & React.ComponentProps<typeof Button>) {
   return (
-    <Button
-      {...props}
-      disabled={disabled || running}
-      className={cn(GRADIENT, 'disabled:shadow-none disabled:saturate-50', className)}
-    >
+    <Button variant="brand" {...props} disabled={disabled || running}>
       {running ? <Spinner data-icon="inline-start" /> : <CirclePlay data-icon="inline-start" />}
       {running && loadingText ? loadingText : children}
     </Button>

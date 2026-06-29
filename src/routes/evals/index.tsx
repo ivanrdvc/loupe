@@ -95,7 +95,7 @@ function EvalsPage() {
           onOpenChange={setSetupOpen}
           defaultModel={judgeDefaults?.model ?? ''}
           trigger={
-            <Button size="sm">
+            <Button variant="brand" size="sm">
               <Plus data-icon="inline-start" />
               Set up evaluator
             </Button>
@@ -329,7 +329,7 @@ function EvaluatorsEmpty({ onSetup }: { onSetup: () => void }) {
         <EmptyTitle>No evaluators yet</EmptyTitle>
         <EmptyDescription>Set up an LLM-judge or code evaluator to start scoring your traces.</EmptyDescription>
       </EmptyHeader>
-      <Button size="sm" onClick={onSetup}>
+      <Button variant="brand" size="sm" onClick={onSetup}>
         <Plus data-icon="inline-start" />
         Set up evaluator
       </Button>

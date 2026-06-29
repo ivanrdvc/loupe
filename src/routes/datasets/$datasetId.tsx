@@ -338,6 +338,7 @@ function DatasetDetailLoaded({ detail }: { detail: DatasetDetail }) {
               </EmptyHeader>
               <EmptyContent>
                 <Button
+                  variant="brand"
                   size="sm"
                   onClick={() => {
                     setActiveExample(null)
