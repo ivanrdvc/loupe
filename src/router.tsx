@@ -24,7 +24,7 @@ function stringifySearch(search: Record<string, unknown>): string {
 }
 
 export function getRouter() {
-  const context = { queryClient: new QueryClient() }
+  const context = { queryClient: new QueryClient(), user: null }
 
   const router = createTanStackRouter({
     routeTree,

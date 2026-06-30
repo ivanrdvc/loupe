@@ -3,6 +3,7 @@ import { and, desc, eq, isNotNull } from 'drizzle-orm'
 import { db } from '#/db'
 import { inventory, inventoryVersions } from '#/db/schema'
 import { runDetection } from '#/features/inventory/detection'
+import { ensureSession } from '#/lib/auth/guards'
 import type { SystemPromptDetail, SystemPromptEntity, SystemPromptVersion } from './types'
 
 function toEntity(row: typeof inventory.$inferSelect): SystemPromptEntity {
@@ -21,6 +22,7 @@ function toVersion(row: typeof inventoryVersions.$inferSelect): SystemPromptVers
 }
 
 export const listSystemPrompts = createServerFn({ method: 'GET' }).handler(async (): Promise<SystemPromptEntity[]> => {
+  await ensureSession()
   void Promise.allSettled([runDetection('new_agent')])
   const rows = await db
     .select()
@@ -33,6 +35,7 @@ export const listSystemPrompts = createServerFn({ method: 'GET' }).handler(async
 export const getSystemPrompt = createServerFn({ method: 'GET' })
   .inputValidator((input: { id: number | string }) => ({ id: Number(input.id) }))
   .handler(async ({ data }): Promise<SystemPromptDetail | null> => {
+    await ensureSession()
     const [row] = await db.select().from(inventory).where(eq(inventory.id, data.id)).limit(1)
     if (!row) return null
     const versionRows = await db

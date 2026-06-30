@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, desc, eq, gte, isNotNull, isNull, sql } from 'drizzle-orm'
 import { db } from '#/db'
 import { scoreConfigs, scores } from '#/db/schema'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 import {
   type ConfigHint,
   configToHint,
@@ -151,6 +152,7 @@ export function scaleMap(configs: (typeof scoreConfigs.$inferSelect)[]): Map<str
 }
 
 export const listScoreConfigs = createServerFn({ method: 'GET' }).handler(async (): Promise<ScoreConfig[]> => {
+  await ensureSession()
   const rows = await db.select().from(scoreConfigs).orderBy(scoreConfigs.archived, scoreConfigs.name)
   return rows.map(toScoreConfig)
 })
@@ -170,6 +172,7 @@ export const upsertScoreConfig = createServerFn({ method: 'POST' })
     description: asOptString(input.description),
   }))
   .handler(async ({ data }): Promise<ScoreConfig> => {
+    await requireCan('write', 'scores')
     if (!data.name) throw new Error('Dimension name is required')
     // Server-side source of truth — these guards back up the form's validation.
     if (data.dataType === 'categorical' && (data.categories == null || data.categories.length === 0)) {
@@ -237,6 +240,7 @@ export const setScoreConfigArchived = createServerFn({ method: 'POST' })
     archived: Boolean(input.archived),
   }))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'scores')
     await db
       .update(scoreConfigs)
       .set({ archived: data.archived, updatedAt: new Date() })
@@ -249,6 +253,7 @@ export const listScoresForTarget = createServerFn({ method: 'GET' })
     targetId: String(input.targetId),
   }))
   .handler(async ({ data }): Promise<Score[]> => {
+    await ensureSession()
     const rows = await db
       .select()
       .from(scores)
@@ -272,13 +277,12 @@ export const upsertHumanScore = createServerFn({ method: 'POST' })
     value: asOptNumber(input.value),
     label: asOptString(input.label),
     explanation: asOptString(input.explanation),
-    evaluator: String(input.evaluator).trim(),
     datasetRunItemId: asOptInt(input.datasetRunItemId),
     sessionSource: input.sessionSource === 'attribute' || input.sessionSource === 'trace' ? input.sessionSource : null,
   }))
   .handler(async ({ data }): Promise<Score> => {
+    const actor = await requireCan('write', 'scores')
     if (!data.name) throw new Error('Score dimension name is required')
-    if (!data.evaluator) throw new Error('Score evaluator is required')
     // Human scores must reference a registered dimension (ingest stays lenient).
     const [cfg] = await db.select().from(scoreConfigs).where(eq(scoreConfigs.name, data.name)).limit(1)
     if (!cfg) throw new Error(`No score dimension named "${data.name}" — define it first`)
@@ -297,7 +301,7 @@ export const upsertHumanScore = createServerFn({ method: 'POST' })
         label: data.label,
         explanation: data.explanation,
         source: 'human',
-        evaluator: data.evaluator,
+        evaluator: actor.name || actor.email,
         sessionSource: data.sessionSource,
         datasetRunItemId: data.datasetRunItemId,
         createdAt: now,
@@ -323,15 +327,12 @@ export const upsertHumanScore = createServerFn({ method: 'POST' })
   })
 
 export const deleteScore = createServerFn({ method: 'POST' })
-  .inputValidator((input: number | { id: number; evaluator?: string | null }) => {
-    if (typeof input === 'number') return { id: Number(input), evaluator: null }
-    return { id: Number(input.id), evaluator: asOptString(input.evaluator) }
-  })
+  .inputValidator((input: number | { id: number }) => ({ id: Number(typeof input === 'number' ? input : input.id) }))
   .handler(async ({ data }): Promise<void> => {
+    const actor = await requireCan('write', 'scores')
     // Only human rows delete here (llm/code are immutable — re-run to replace).
-    // No real auth: scope by the client's `evaluator` so you only delete your own row.
-    const conds = [eq(scores.id, data.id), eq(scores.source, 'human')]
-    if (data.evaluator) conds.push(eq(scores.evaluator, data.evaluator))
+    // Scoped by the actor's evaluator so you only delete your own row.
+    const conds = [eq(scores.id, data.id), eq(scores.source, 'human'), eq(scores.evaluator, actor.name || actor.email)]
     await db.delete(scores).where(and(...conds))
   })
 
@@ -343,6 +344,7 @@ export const deleteScore = createServerFn({ method: 'POST' })
 export const listScoreSummaries = createServerFn({ method: 'GET' })
   .inputValidator((input: { kind: ScoreTargetKind }) => ({ kind: asTargetKind(input.kind) }))
   .handler(async ({ data }): Promise<Record<string, ScoreSummary>> => {
+    await ensureSession()
     const rows = await db.select().from(scores)
     const configs = await db.select().from(scoreConfigs)
     const scaleByName = scaleMap(configs)
@@ -389,6 +391,7 @@ export type ScoreRollupRow = {
 export const getScoreRollup = createServerFn({ method: 'GET' })
   .inputValidator((input: { sinceMs?: number }) => ({ sinceMs: asOptInt(input?.sinceMs) }))
   .handler(async ({ data }): Promise<ScoreRollupRow[]> => {
+    await ensureSession()
     // Live scores only — exclude offline run scores and dataset-judge scores.
     const runLess = and(isNull(scores.runId), isNull(scores.datasetRunItemId))
     const where = data.sinceMs ? and(runLess, gte(scores.createdAt, new Date(data.sinceMs))) : runLess
@@ -466,6 +469,7 @@ function scoreCostUsd(metadata: JsonValue | null): number {
 
 export const getOnlineEvalStats = createServerFn({ method: 'GET' }).handler(
   async (): Promise<Record<number, OnlineEvalStat>> => {
+    await ensureSession()
     const rows = await db
       .select()
       .from(scores)
@@ -602,6 +606,7 @@ export async function ingestScoreEvents(events: IngestScoreEvent[]): Promise<{ i
 export const listScoresByRun = createServerFn({ method: 'GET' })
   .inputValidator((runId: number) => Number(runId))
   .handler(async ({ data }): Promise<Score[]> => {
+    await ensureSession()
     const rows = await db.select().from(scores).where(eq(scores.runId, data)).orderBy(desc(scores.createdAt))
     return rows.map(toScore)
   })
@@ -610,6 +615,7 @@ export const listScoresByRun = createServerFn({ method: 'GET' })
 export const listScoresByDefinition = createServerFn({ method: 'GET' })
   .inputValidator((definitionId: number) => Number(definitionId))
   .handler(async ({ data }): Promise<Score[]> => {
+    await ensureSession()
     const rows = await db
       .select()
       .from(scores)

@@ -1,11 +1,13 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { getTrace } from '#/lib/telemetry'
 
 const fetchTraceSpans = createServerFn({ method: 'GET' })
   .inputValidator((traceId: string) => traceId)
   .handler(async ({ data }) => {
+    await ensureSession()
     return await getTrace(data)
   })
 

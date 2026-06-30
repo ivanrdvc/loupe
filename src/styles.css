@@ -457,3 +457,12 @@
     transform: scale(0.82) rotate(20deg);
   }
 }
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-3%, 2%, 0) scale(1.08);
+  }
+}

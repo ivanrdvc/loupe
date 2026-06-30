@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { scoreSummariesQuery } from '#/features/evaluation'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { useScopedUserId } from '#/hooks/use-user'
 import { spansQuery, tracesQuery } from './-data'
 import { SpansDataTable } from './-spans-data-table'
 import { TracesDataTable } from './-traces-data-table'
@@ -33,15 +32,14 @@ function TracesIndex() {
   const activeTab: TabValue = tab ?? 'traces'
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
-  const scopedUserId = useScopedUserId()
 
   const tracesQ = useQuery({
-    ...tracesQuery(range, scopedUserId),
+    ...tracesQuery(range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
     enabled: activeTab === 'traces',
   })
   const spansQ = useQuery({
-    ...spansQuery(range, scopedUserId),
+    ...spansQuery(range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
     enabled: activeTab === 'spans',
   })

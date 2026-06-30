@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { deleteScore, listScoresForTarget, upsertHumanScore } from '#/features/evaluation/server/scores'
-import { useUser } from '#/hooks/use-user'
+import { useCurrentUser } from '#/lib/auth'
 import {
   type ConfigHint,
   latestScores,
@@ -36,7 +36,7 @@ type Props = {
 }
 
 export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessionId }: Props) {
-  const user = useUser()
+  const user = useCurrentUser()
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState<string | null>(null) // dimension name being added
   const [defining, setDefining] = useState(false)
@@ -76,7 +76,6 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
           value: vars.value,
           label: vars.label,
           explanation: vars.explanation,
-          evaluator: user.name,
         },
       }),
     onSuccess: async () => {
@@ -88,8 +87,8 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
   })
 
   const deleteMutation = useMutation({
-    // Scope the delete to the current author — you can only delete your own row.
-    mutationFn: (id: number) => deleteScore({ data: { id, evaluator: user.name } }),
+    // Server scopes the delete to the current author — you can only delete your own row.
+    mutationFn: (id: number) => deleteScore({ data: id }),
     onSuccess: async () => {
       await invalidate()
       toast.success('Score deleted')
@@ -105,7 +104,7 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
 
   const addConfig = adding ? configByName.get(adding) : undefined
   const myExisting = (name: string) =>
-    latest.find((s) => s.name === name && s.evaluator === user.name && s.source === 'human')
+    latest.find((s) => s.name === name && s.evaluator === (user?.name ?? '') && s.source === 'human')
 
   return (
     <div className="flex flex-col gap-3">
@@ -117,7 +116,7 @@ export function ScoresSection({ targetKind, targetId, parentTraceId, parentSessi
               name={name}
               scores={latest.filter((s) => s.name === name)}
               config={configByName.get(name)}
-              currentUser={user.name}
+              currentUser={user?.name ?? ''}
               onEdit={(s) => setAdding(s.name)}
               onDelete={(id) => deleteMutation.mutate(id)}
             />

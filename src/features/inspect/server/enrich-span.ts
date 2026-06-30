@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import type { JsonValue } from '#/lib/json'
 import type { Operation, TruncatableField } from '#/lib/spans'
 
@@ -28,6 +29,7 @@ export function registerEnrichmentSource(source: EnrichmentSource): void {
 export const resolveTruncatedAttr = createServerFn({ method: 'POST' })
   .inputValidator((req: EnrichSpanRequest) => req)
   .handler(async ({ data }): Promise<JsonValue | string | null> => {
+    await ensureSession()
     for (const source of sources) {
       try {
         const result = await source.resolve(data)

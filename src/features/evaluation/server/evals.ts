@@ -3,6 +3,7 @@ import { desc, eq, inArray } from 'drizzle-orm'
 import { db } from '#/db'
 import { evalDefinitions, evalRuns, scoreConfigs, scores } from '#/db/schema'
 import { DEFAULT_JUDGE_MODEL } from '#/features/evaluation/logic/models'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 import {
   type EvalCompareRow,
   type EvalDefinition,
@@ -85,6 +86,7 @@ export const listEvalDefinitions = createServerFn({ method: 'GET' })
     mode: input?.mode === 'online' || input?.mode === 'offline' ? input.mode : null,
   }))
   .handler(async ({ data }): Promise<EvalDefinition[]> => {
+    await ensureSession()
     const rows = data.mode
       ? await db
           .select()
@@ -100,6 +102,7 @@ export type EvalDefinitionDetail = { definition: EvalDefinition; runs: EvalRun[]
 export const getEvalDefinition = createServerFn({ method: 'GET' })
   .inputValidator((id: number) => Number(id))
   .handler(async ({ data }): Promise<EvalDefinitionDetail | null> => {
+    await ensureSession()
     const [row] = await db.select().from(evalDefinitions).where(eq(evalDefinitions.id, data)).limit(1)
     if (!row) return null
     const runRows = await db
@@ -126,6 +129,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
     liveFilter: input.liveFilter === undefined ? undefined : parseLiveFilter(input.liveFilter),
   }))
   .handler(async ({ data }): Promise<EvalDefinition> => {
+    await requireCan('write', 'evals')
     if (!data.name) throw new Error('Evaluator name is required')
     const now = new Date()
     if (data.id != null) {
@@ -178,6 +182,7 @@ export const upsertEvalDefinition = createServerFn({ method: 'POST' })
 export const setEvalDefinitionLive = createServerFn({ method: 'POST' })
   .inputValidator((input: { id: number; live: boolean }) => ({ id: Number(input.id), live: Boolean(input.live) }))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'evals')
     await db
       .update(evalDefinitions)
       .set({ mode: data.live ? 'online' : 'offline', updatedAt: new Date() })
@@ -187,12 +192,14 @@ export const setEvalDefinitionLive = createServerFn({ method: 'POST' })
 export const deleteEvalDefinition = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => Number(id))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'evals')
     await db.delete(evalDefinitions).where(eq(evalDefinitions.id, data))
   })
 
 export const getEvalRun = createServerFn({ method: 'GET' })
   .inputValidator((runId: number) => Number(runId))
   .handler(async ({ data }): Promise<EvalRun | null> => {
+    await ensureSession()
     const [row] = await db.select().from(evalRuns).where(eq(evalRuns.id, data)).limit(1)
     return row ? toRun(row) : null
   })
@@ -205,6 +212,7 @@ export const blessEvalRun = createServerFn({ method: 'POST' })
     blessed: Boolean(input.blessed),
   }))
   .handler(async ({ data }): Promise<EvalRun> => {
+    await requireCan('write', 'evals')
     const [row] = await db.update(evalRuns).set({ blessed: data.blessed }).where(eq(evalRuns.id, data.id)).returning()
     if (!row) throw new Error('Run not found')
     if (data.blessed) {
@@ -219,6 +227,7 @@ export const blessEvalRun = createServerFn({ method: 'POST' })
 export const compareRuns = createServerFn({ method: 'GET' })
   .inputValidator((input: { base: number; head: number }) => ({ base: Number(input.base), head: Number(input.head) }))
   .handler(async ({ data }): Promise<EvalCompareRow[]> => {
+    await ensureSession()
     const rows = await db
       .select()
       .from(scores)
@@ -276,4 +285,7 @@ export const compareRuns = createServerFn({ method: 'GET' })
     return result.sort((a, b) => b.flippedToFail - a.flippedToFail)
   })
 
-export const getJudgeDefaults = createServerFn({ method: 'GET' }).handler(async () => resolveJudgeDefaults())
+export const getJudgeDefaults = createServerFn({ method: 'GET' }).handler(async () => {
+  await ensureSession()
+  return resolveJudgeDefaults()
+})

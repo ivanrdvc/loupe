@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ChevronRight, Ellipsis, EllipsisVertical, Keyboard, Moon, Sun } from 'lucide-react'
+import { ChevronRight, Ellipsis, EllipsisVertical, Keyboard, LogOut, Moon, Shield, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Fragment, useRef, useState } from 'react'
 import type { AnimatedIconHandle } from '#/components/icons/animated-icon'
@@ -38,8 +38,9 @@ import {
   SidebarMenuSubItem,
 } from '#/components/ui/sidebar'
 import { useChangelogUnseen } from '#/hooks/use-changelog-unseen'
-import { useUser, useUserId } from '#/hooks/use-user'
-import { currentUserSessionsQuery } from '#/lib/session-queries'
+import { authClient, useCan, useCurrentUser } from '#/lib/auth'
+import { initialsFor } from '#/lib/format'
+import { recentSessionsQuery } from '#/lib/session-queries'
 import { DEFAULT } from '#/lib/time-range'
 
 const APP_VERSION = `v${__APP_VERSION__}`
@@ -54,8 +55,7 @@ export function AppSidebar() {
   const settingsIconRef = useRef<AnimatedIconHandle>(null)
   const changelogIconRef = useRef<AnimatedIconHandle>(null)
   const changelogUnseen = useChangelogUnseen(__APP_VERSION__)
-  const [userId] = useUserId()
-  const { data: recentData } = useQuery(currentUserSessionsQuery(DEFAULT, userId))
+  const { data: recentData } = useQuery(recentSessionsQuery(DEFAULT))
   const recentSessions = recentData?.sessions ?? []
 
   return (
@@ -119,7 +119,7 @@ export function AppSidebar() {
                   ))}
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild className="text-sidebar-foreground/70">
-                      <Link to="/sessions" search={{ userId: userId || undefined }}>
+                      <Link to="/sessions">
                         <Ellipsis />
                         <span>More</span>
                       </Link>
@@ -249,10 +249,14 @@ function InventoryNav({ pathname }: { pathname: string }) {
 }
 
 function NavUser() {
-  const user = useUser()
+  const user = useCurrentUser()
   const { resolvedTheme, setTheme } = useTheme()
   const { setOpen: setShortcutsOpen } = useShortcutsDialog()
   const ThemeIcon = resolvedTheme === 'dark' ? Moon : Sun
+  const name = user?.name ?? '—'
+  const email = user?.email ?? ''
+  const initials = initialsFor(user?.name ?? user?.email ?? '')
+  const isAdmin = useCan('read', 'admin')
 
   return (
     <SidebarMenu>
@@ -265,12 +269,12 @@ function NavUser() {
             >
               <Avatar className="size-8 rounded-md">
                 <AvatarFallback className="rounded-md bg-secondary text-xs font-medium text-secondary-foreground">
-                  {user.initials}
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-sm font-medium">{user.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                <span className="truncate text-sm font-medium">{name}</span>
+                <span className="truncate text-xs text-muted-foreground">{email}</span>
               </div>
               <EllipsisVertical className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -285,17 +289,25 @@ function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="size-8 rounded-md">
                   <AvatarFallback className="rounded-md bg-secondary text-xs font-medium text-secondary-foreground">
-                    {user.initials}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 leading-tight">
-                  <span className="truncate text-sm font-medium">{user.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                  <span className="truncate text-sm font-medium">{name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              {isAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin">
+                    <Shield />
+                    Admin
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
                 <ThemeIcon />
                 Toggle theme
@@ -305,6 +317,17 @@ function NavUser() {
                 Keyboard shortcuts
               </DropdownMenuItem>
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                void authClient.signOut().then(() => {
+                  window.location.href = '/login'
+                })
+              }}
+            >
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -19,7 +19,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Textarea } from '#/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { deleteNote, getNoteForTarget, setNoteStatus, upsertNote } from '#/features/notes/server'
-import { useUser } from '#/hooks/use-user'
+import { useCurrentUser } from '#/lib/auth'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 import type { NoteTargetKind } from '../types'
@@ -32,7 +32,7 @@ type Props = {
 }
 
 export function NoteEditor({ targetKind, targetId, parentTraceId, parentSessionId }: Props) {
-  const user = useUser()
+  const user = useCurrentUser()
   const queryClient = useQueryClient()
   const {
     data: note,
@@ -64,7 +64,7 @@ export function NoteEditor({ targetKind, targetId, parentTraceId, parentSessionI
           parentTraceId,
           parentSessionId,
           body: body.trim(),
-          author: user.name,
+          author: user?.name ?? '',
         },
       }),
     onSuccess: async () => {

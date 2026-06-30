@@ -66,7 +66,6 @@ export type UpsertScoreInput = {
   value?: number | null
   label?: string | null
   explanation?: string | null
-  evaluator: string
   datasetRunItemId?: number | null
   sessionSource?: 'attribute' | 'trace' | null
 }

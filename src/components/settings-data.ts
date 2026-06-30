@@ -1,10 +1,12 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { setCookie } from '@tanstack/react-start/server'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 import { queryKeys } from '#/lib/query-keys'
 import { getActiveProviderId, listProviderStatus, PROVIDER_COOKIE, type ProviderId } from '#/lib/telemetry'
 
 const fetchProviders = createServerFn({ method: 'GET' }).handler(async () => {
+  await ensureSession()
   return { active: getActiveProviderId(), providers: listProviderStatus() }
 })
 
@@ -14,6 +16,7 @@ export const setProviderFn = createServerFn({ method: 'POST' })
     return id
   })
   .handler(async ({ data }) => {
+    await requireCan('write', 'admin')
     setCookie(PROVIDER_COOKIE, data, {
       httpOnly: true,
       sameSite: 'lax',

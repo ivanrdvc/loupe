@@ -2,7 +2,7 @@ export const queryKeys = {
   sessions: {
     all: () => ['sessions'] as const,
     window: (range: string, userId = '', host = '') => ['sessions', userId, { range, host }] as const,
-    currentUserWindow: (range: string, userId: string) => ['sessions', 'current-user', userId, { range }] as const,
+    recentWindow: (range: string) => ['sessions', 'recent', { range }] as const,
     detailWindow: (id: string, range: string) => ['sessions', id, { range }] as const,
   },
   traces: {

@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { FiresTable, rollupTasks, TaskCost, TaskHero, taskIdentity, tasksTracesQuery } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { useScopedUserId } from '#/hooks/use-user'
 import type { TraceSummary } from '#/lib/telemetry'
 import { windowMs } from '#/lib/time-range'
 
@@ -35,10 +34,9 @@ function TaskDetail() {
   const navigate = useNavigate({ from: Route.fullPath })
   const [range] = useTimeRange()
   const [autoRefresh] = useAutoRefresh()
-  const scopedUserId = useScopedUserId()
 
   const { data, isLoading } = useQuery({
-    ...tasksTracesQuery(range, scopedUserId),
+    ...tasksTracesQuery(range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
 

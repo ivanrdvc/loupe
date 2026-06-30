@@ -18,7 +18,6 @@ import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTablePagination } from '#/components/data-table-pagination'
 import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
-import { useScopeToMe, useUserId } from '#/hooks/use-user'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
 
@@ -32,7 +31,7 @@ interface TelemetryDataTableProps<TData> {
   defaultColumnVisibility?: VisibilityState
   extraFilters?: React.ReactNode
   actions?: (table: TanstackTable<TData>) => React.ReactNode
-  emptyState: (ctx: { isLoading?: boolean; scopeToMe: boolean; userId: string }) => React.ReactNode
+  emptyState: (ctx: { isLoading?: boolean }) => React.ReactNode
   isLoading?: boolean
   onRowClick?: (row: TData) => void
   rowClassName?: (row: TData) => string | undefined
@@ -65,8 +64,6 @@ export function TelemetryDataTable<TData>({
   onRefresh,
   refreshing,
 }: TelemetryDataTableProps<TData>) {
-  const [userId] = useUserId()
-  const [scopeToMe] = useScopeToMe()
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(defaultColumnVisibility ?? {})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -150,9 +147,7 @@ export function TelemetryDataTable<TData>({
               ) : (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={columns.length} className="h-48">
-                    <div className="flex h-full items-center justify-center">
-                      {emptyState({ isLoading, scopeToMe, userId })}
-                    </div>
+                    <div className="flex h-full items-center justify-center">{emptyState({ isLoading })}</div>
                   </TableCell>
                 </TableRow>
               )}

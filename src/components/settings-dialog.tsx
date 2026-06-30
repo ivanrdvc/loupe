@@ -1,17 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useState } from 'react'
 import { providersQuery, setProviderFn } from '#/components/settings-data'
 import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
-import { Switch } from '#/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
-import { useScopeToMe, useUserId } from '#/hooks/use-user'
+import { authClient, useCurrentUser } from '#/lib/auth'
 import { cn } from '#/lib/utils'
 
 const APP_VERSION = `v${__APP_VERSION__}`
@@ -136,49 +133,31 @@ function AppearancePane() {
 }
 
 function AccountPane() {
-  const [storedId, setStoredId] = useUserId()
-  const [value, setValue] = useState(storedId)
-  const [scopeToMe, setScopeToMe] = useScopeToMe()
-
-  const dirty = value.trim() !== storedId
+  const user = useCurrentUser()
 
   return (
     <div className="space-y-6">
-      <Field
-        label="User ID"
-        hint="Matched against user.id / enduser.id / ag_ui.user.id on emitted spans. Stored in your browser."
-      >
-        <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            placeholder="you@example.com"
-            className="flex-1 text-xs"
-          />
-          <Button onClick={() => setStoredId(value)} disabled={!dirty}>
-            Save
-          </Button>
+      <Field label="Signed in as">
+        <div className="text-sm">
+          <div className="font-medium text-foreground">{user?.name ?? '—'}</div>
+          <div className="text-muted-foreground">{user?.email}</div>
         </div>
       </Field>
 
-      <Field label="Scope to me" hint="Filter Traces and Sessions to your user id only. Off shows everything.">
-        <div className="flex items-center gap-3">
-          <Switch
-            checked={scopeToMe}
-            onCheckedChange={setScopeToMe}
-            disabled={!storedId}
-            aria-label="Scope list views to my user id"
-          />
-          <span className="text-sm text-muted-foreground">
-            {!storedId
-              ? 'Set a user id above first.'
-              : scopeToMe
-                ? 'On — list views are filtered.'
-                : 'Off — showing everything.'}
-          </span>
-        </div>
+      <Field label="Role" hint="Set by an owner on the Admin page.">
+        <span className="text-sm capitalize text-foreground">{user?.role ?? '—'}</span>
       </Field>
+
+      <Button
+        variant="outline"
+        onClick={() => {
+          void authClient.signOut().then(() => {
+            window.location.href = '/login'
+          })
+        }}
+      >
+        Sign out
+      </Button>
     </div>
   )
 }
