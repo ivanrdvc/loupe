@@ -27,9 +27,12 @@ loupe runs *somewhere else* relative to the app you're debugging. Resolve `$BASE
 
 ```bash
 BASE="${LOUPE_BASE_URL:-http://localhost:3000}"
+# Remote/shared loupe gates the API behind a key; local (127.0.0.1) needs none.
+AUTH=(${LOUPE_API_KEY:+-H "Authorization: Bearer $LOUPE_API_KEY"})
+curl -s "${AUTH[@]}" "$BASE/api"
 ```
 
-Never hardcode the port. Most devs run loupe locally beside their app (same machine, no auth). A shared/hosted loupe needs auth and is out of scope here. A bare `localhost:3000/traces/<id>` link *is* a loupe trace — that's your cue to curl, not to ask what loupe is.
+Never hardcode the port. Most devs run loupe locally beside their app (same machine, localhost-trust, no key needed) — pass `"${AUTH[@]}"` on every curl anyway so the same commands work against a shared/hosted loupe, which requires `LOUPE_API_KEY`. A bare `localhost:3000/traces/<id>` link *is* a loupe trace — that's your cue to curl, not to ask what loupe is.
 
 ## What to read first, by question
 
