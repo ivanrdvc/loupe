@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { OWNER, STORAGE_STATE } from './e2e/auth'
 
 // Dedicated port so the suite never reuses a running `pnpm dev` (3000).
 const PORT = 3210
@@ -11,9 +12,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['github']] : 'list',
+  globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL,
     trace: 'on-first-retry',
+    storageState: STORAGE_STATE,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
@@ -34,6 +37,10 @@ export default defineConfig({
         TELEMETRY_PROVIDER: 'fixtures',
         JUDGE_PROVIDER: 'fixtures',
         PORT: String(PORT),
+        BETTER_AUTH_URL: baseURL,
+        BETTER_AUTH_SECRET: 'e2e-better-auth-secret-do-not-use-in-prod',
+        LOUPE_OWNER_EMAIL: OWNER.email,
+        LOUPE_OWNER_PASSWORD: OWNER.password,
         DATASET_RUN_ENDPOINT: `http://localhost:${FAKE_AGENT_PORT}/v1/responses`,
         MCP_REGISTRY_REFS_JSON: JSON.stringify([
           {

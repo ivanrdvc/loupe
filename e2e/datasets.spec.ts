@@ -62,7 +62,7 @@ test('deletes a question back to the empty state', async ({ page }) => {
   await addQuestion(page, 'Disposable question')
 
   await expandRow(page, 'Disposable question')
-  await page.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
 
   await expect(page.getByText('No questions yet')).toBeVisible()
 })
@@ -154,7 +154,7 @@ test('runs a single question from its row', async ({ page }) => {
   await createDataset(page)
   await addQuestion(page, 'Ping?')
 
-  await page.getByRole('button', { name: 'Run this question' }).click()
+  await page.getByRole('button', { name: 'Run', exact: true }).click()
   await expect(page.getByText('fake agent answer')).toBeVisible({ timeout: 20_000 })
 })
 
@@ -168,7 +168,7 @@ test('expands a row to reveal the full answer and actions', async ({ page }) => 
   // The inline detail shows the answer body plus Edit / Delete actions.
   await expect(page.getByText('fake agent answer')).toHaveCount(2)
   await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete', exact: true })).toBeVisible()
 })
 
 test('surfaces an earlier run under the Previous answers disclosure', async ({ page }) => {
@@ -188,7 +188,7 @@ test('sends agent overrides (system prompt + temperature) from settings', async 
   await createDataset(page)
   await addQuestion(page, 'Ping?')
 
-  await page.getByRole('button', { name: 'Run settings' }).click()
+  await page.getByRole('button', { name: 'New run' }).click()
   const sheet = page.getByRole('dialog')
   await sheet.getByRole('button', { name: /Config/ }).click()
   await sheet.getByPlaceholder("Override the agent's system prompt…").fill('be terse')
@@ -203,7 +203,7 @@ test('auto-scores answers when an evaluator is chosen in settings', async ({ pag
   await createDataset(page)
   await addQuestion(page, 'Ping?')
 
-  await page.getByRole('button', { name: 'Run settings' }).click()
+  await page.getByRole('button', { name: 'New run' }).click()
   const sheet = page.getByRole('dialog')
   await sheet.getByRole('button', { name: /Score/ }).click()
   await sheet.getByRole('combobox', { name: 'Score' }).click()
@@ -220,7 +220,7 @@ test('shows a run failure inline when the endpoint is dead', async ({ page }) =>
   await createDataset(page)
   await addQuestion(page, 'Ping?')
 
-  await page.getByRole('button', { name: 'Run settings' }).click()
+  await page.getByRole('button', { name: 'New run' }).click()
   const sheet = page.getByRole('dialog')
   await sheet.getByPlaceholder(/responses/).fill('http://127.0.0.1:1/v1/responses')
   await sheet.getByRole('button', { name: 'Run all' }).click()

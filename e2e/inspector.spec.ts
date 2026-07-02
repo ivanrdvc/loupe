@@ -5,8 +5,9 @@ test('deep-links into the spans view and hydrates the span tree', async ({ page 
   await page.goto(`/sessions/${CHAT.sessionId}?view=spans&span=${CHAT.chatSpanId}`)
 
   // Breadcrumb resolves the loader data: title, not the raw id.
-  await expect(page.getByLabel('breadcrumb').getByRole('link', { name: 'Sessions' })).toBeVisible()
-  await expect(page.getByText(CHAT.title, { exact: true })).toBeVisible()
+  const breadcrumb = page.getByLabel('breadcrumb')
+  await expect(breadcrumb.getByRole('link', { name: 'Sessions' })).toBeVisible()
+  await expect(breadcrumb.getByText(CHAT.title, { exact: true })).toBeVisible()
   await expect(page.getByText(CHAT.toolName, { exact: false }).first()).toBeVisible()
 })
 
