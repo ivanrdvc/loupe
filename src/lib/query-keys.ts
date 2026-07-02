@@ -36,9 +36,6 @@ export const queryKeys = {
     trend: (name: string, range: string) => ['tools', 'trend', name, { range }] as const,
     body: (spanId: string) => ['tools', 'body', spanId] as const,
   },
-  providers: {
-    all: () => ['providers'] as const,
-  },
   prompts: {
     list: () => ['prompts', 'list'] as const,
     detail: (id: number) => ['prompts', 'detail', id] as const,

@@ -1,11 +1,8 @@
-import { getCookie } from '@tanstack/react-start/server'
 import type { Span } from '#/lib/spans'
 import { countTokens } from '#/lib/tokens'
 import * as analytics from './analytics'
-import { createAppInsightsProvider } from './app-insights'
 import { createClickHouseProvider } from './clickhouse'
 import { createFixturesProvider } from './fixtures'
-import { createOpenObserveProvider } from './openobserve'
 import type {
   AgentMetrics,
   CacheHitPoint,
@@ -35,53 +32,19 @@ import type {
 
 export type * from './types'
 
-// UI choice (cookie) wins, then TELEMETRY_PROVIDER, then auto.
-export const PROVIDER_COOKIE = 'tp'
-
-const PROVIDER_IDS = ['openobserve', 'app-insights', 'clickhouse', 'fixtures'] as const
+const PROVIDER_IDS = ['clickhouse', 'fixtures'] as const
 export type ProviderId = (typeof PROVIDER_IDS)[number]
-
-const isProviderId = (v: unknown): v is ProviderId => PROVIDER_IDS.includes(v as ProviderId)
-
-export interface ProviderStatus {
-  id: ProviderId
-  label: string
-  configured: boolean
-  missing?: string[]
-}
 
 const providers = new Map<ProviderId, TelemetryProvider>()
 
 function buildProvider(id: ProviderId): TelemetryProvider {
   if (id === 'fixtures') return createFixturesProvider()
-  if (id === 'clickhouse') {
-    return createClickHouseProvider({
-      url: process.env.CLICKHOUSE_URL ?? 'http://localhost:8123',
-      database: process.env.CLICKHOUSE_DB ?? 'loupe',
-      username: process.env.CLICKHOUSE_USER ?? 'loupe',
-      password: process.env.CLICKHOUSE_PASS ?? 'loupe',
-    })
-  }
-  if (id === 'openobserve') {
-    return createOpenObserveProvider({
-      baseUrl: process.env.OO_BASE_URL ?? 'http://localhost:5080',
-      org: process.env.OO_ORG ?? 'default',
-      stream: process.env.OO_STREAM ?? 'default',
-      user: process.env.OO_USER ?? 'root@example.com',
-      password: process.env.OO_PASS ?? 'Complexpass#123',
-    })
-  }
-  // app-insights — prefer resource ID (SDK + Azure AD), fall back to API key
-  const resourceId = process.env.APPLICATIONINSIGHTS_RESOURCE_ID
-  if (resourceId) return createAppInsightsProvider({ resourceId })
-  const appId = process.env.APPLICATIONINSIGHTS_APP_ID ?? process.env.AI_APP_ID
-  const apiKey = process.env.APPLICATIONINSIGHTS_API_KEY ?? process.env.AI_API_KEY
-  if (!appId || !apiKey) {
-    throw new Error(
-      'app-insights provider requires APPLICATIONINSIGHTS_RESOURCE_ID or both APPLICATIONINSIGHTS_APP_ID + APPLICATIONINSIGHTS_API_KEY',
-    )
-  }
-  return createAppInsightsProvider({ appId, apiKey })
+  return createClickHouseProvider({
+    url: process.env.CLICKHOUSE_URL ?? 'http://localhost:8123',
+    database: process.env.CLICKHOUSE_DB ?? 'loupe',
+    username: process.env.CLICKHOUSE_USER ?? 'loupe',
+    password: process.env.CLICKHOUSE_PASS ?? 'loupe',
+  })
 }
 
 function getProvider(id: ProviderId): TelemetryProvider {
@@ -93,46 +56,10 @@ function getProvider(id: ProviderId): TelemetryProvider {
   return p
 }
 
-export function listProviderStatus(): ProviderStatus[] {
-  const oo: ProviderStatus = { id: 'openobserve', label: 'OpenObserve', configured: true }
-  const ch: ProviderStatus = { id: 'clickhouse', label: 'ClickHouse', configured: true }
-  const ai: ProviderStatus = { id: 'app-insights', label: 'Application Insights', configured: true }
-  const hasResourceId = !!process.env.APPLICATIONINSIGHTS_RESOURCE_ID
-  const hasApiKey =
-    !!(process.env.APPLICATIONINSIGHTS_APP_ID ?? process.env.AI_APP_ID) &&
-    !!(process.env.APPLICATIONINSIGHTS_API_KEY ?? process.env.AI_API_KEY)
-  if (!hasResourceId && !hasApiKey) {
-    ai.configured = false
-    ai.missing = ['APPLICATIONINSIGHTS_RESOURCE_ID or APPLICATIONINSIGHTS_APP_ID+API_KEY']
-  }
-  // Fixtures only appears when explicitly requested via env. Settings shows it
-  // read-only; it is test telemetry, not a user-selectable backend.
-  if (process.env.TELEMETRY_PROVIDER === 'fixtures') {
-    return [oo, ch, ai, { id: 'fixtures', label: 'Fixtures (e2e)', configured: true }]
-  }
-  return [oo, ch, ai]
-}
-
-function readCookieChoice(): ProviderId | undefined {
-  try {
-    const v = getCookie(PROVIDER_COOKIE)
-    if (isProviderId(v)) return v
-  } catch {
-    // outside a request context (e.g. ad-hoc scripts)
-  }
-  return undefined
-}
-
-function isUsable(id: ProviderId): boolean {
-  return listProviderStatus().some((p) => p.id === id && p.configured)
-}
-
+// ClickHouse is the only live backend; Fixtures is the e2e double, selected only
+// via TELEMETRY_PROVIDER=fixtures.
 function resolveProviderId(): ProviderId {
-  const fromCookie = readCookieChoice()
-  if (fromCookie && isUsable(fromCookie)) return fromCookie
-  const fromEnv = process.env.TELEMETRY_PROVIDER
-  if (isProviderId(fromEnv) && isUsable(fromEnv)) return fromEnv
-  return isUsable('app-insights') ? 'app-insights' : 'openobserve'
+  return process.env.TELEMETRY_PROVIDER === 'fixtures' ? 'fixtures' : 'clickhouse'
 }
 
 function getActiveProvider(): TelemetryProvider {

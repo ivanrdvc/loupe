@@ -1,10 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { providersQuery, setProviderFn } from '#/components/settings-data'
 import { Button } from '#/components/ui/button'
 import { Label } from '#/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '#/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { type ColorTheme, useAppTheme } from '#/hooks/use-app-theme'
@@ -162,8 +159,6 @@ function AccountPane() {
   )
 }
 
-type ProviderId = 'openobserve' | 'app-insights'
-
 function GeneralPane() {
   return (
     <div className="space-y-6">
@@ -172,65 +167,6 @@ function GeneralPane() {
           {APP_VERSION}
         </code>
       </Field>
-      <ProviderRow />
     </div>
-  )
-}
-
-function ProviderRow() {
-  const { data } = useQuery(providersQuery())
-  const qc = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (id: ProviderId) => setProviderFn({ data: id }),
-    // The active provider feeds essentially every server-derived query, so a
-    // switch invalidates all of them — a curated allowlist silently goes stale
-    // as query families are added.
-    onSuccess: () => qc.invalidateQueries(),
-  })
-
-  const providers = (data?.providers ?? []).filter((p) => p.id === 'openobserve' || p.id === 'app-insights')
-  const active = data?.active === 'app-insights' ? 'app-insights' : 'openobserve'
-  const missing = providers.find((p) => !p.configured)?.missing
-
-  if (data?.active === 'fixtures') {
-    return (
-      <Field label="Telemetry provider" hint="Using test telemetry from TELEMETRY_PROVIDER=fixtures.">
-        <code className="inline-flex w-fit items-center rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-          Fixtures
-        </code>
-      </Field>
-    )
-  }
-
-  return (
-    <Field
-      label="Telemetry provider"
-      hint={
-        missing && missing.length > 0
-          ? `Application Insights needs ${missing.join(', ')} in .env.`
-          : 'Switch backends without restarting; persisted as a cookie.'
-      }
-    >
-      <Select
-        value={active}
-        onValueChange={(next) => {
-          if (next !== active && !mutation.isPending) mutation.mutate(next as ProviderId)
-        }}
-      >
-        <SelectTrigger className="w-full text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {providers.map((p) => (
-            <SelectItem key={p.id} value={p.id} disabled={!p.configured}>
-              {p.label}
-              {!p.configured && p.missing?.length ? (
-                <span className="ml-2 text-muted-foreground">(missing {p.missing.join(', ')})</span>
-              ) : null}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Field>
   )
 }

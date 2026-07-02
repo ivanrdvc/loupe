@@ -272,16 +272,6 @@ interface BaseProvider {
   query(q: string, opts: WindowOpts & { size?: number }): Promise<Array<Record<string, unknown>>>
 }
 
-export interface OpenObserveProvider extends BaseProvider {
-  name: 'openobserve'
-  stream: string
-  getKnownColumns(): Promise<ReadonlySet<string>>
-}
-
-export interface AppInsightsProvider extends BaseProvider {
-  name: 'app-insights'
-}
-
 export interface ClickHouseProvider extends BaseProvider {
   name: 'clickhouse'
   table: string
@@ -294,4 +284,4 @@ export interface FixturesProvider extends BaseProvider {
   name: 'fixtures'
 }
 
-export type TelemetryProvider = OpenObserveProvider | AppInsightsProvider | ClickHouseProvider | FixturesProvider
+export type TelemetryProvider = ClickHouseProvider | FixturesProvider

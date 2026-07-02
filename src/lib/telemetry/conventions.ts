@@ -105,38 +105,6 @@ export function pickCanonicalNumber(attrs: Record<string, unknown>, field: Canon
   return undefined
 }
 
-// `extras` carries OO-specific column quirks (`_o2_*` prefixes that aren't
-// OTel attrs). `known` is the schema-probe result; if absent, no filtering.
-export interface OoColumnOpts {
-  known?: ReadonlySet<string>
-  extras?: readonly string[]
-}
-
-export function ooColumns(field: CanonicalField, opts?: OoColumnOpts): string[] {
-  const base = ATTRS[field].map((k) => k.replaceAll('.', '_'))
-  const explicit = opts?.extras ?? []
-  const cols = [...new Set([...base, ...explicit])]
-  return opts?.known ? cols.filter((c) => opts.known?.has(c)) : cols
-}
-
-export function ooCoalesceAs(field: CanonicalField, alias: string, opts?: OoColumnOpts): string {
-  const cols = ooColumns(field, opts)
-  if (cols.length === 0) return `'' AS ${alias}`
-  if (cols.length === 1) return `${cols[0]} AS ${alias}`
-  return `COALESCE(${cols.join(', ')}) AS ${alias}`
-}
-
-// Bare column expression (no alias) for embedding inside a larger SQL
-// expression — e.g. a conditional aggregate `MAX(CASE WHEN … THEN <here> END)`.
-// Returns 'NULL' when no candidate column exists in the schema, so the query
-// plans instead of 400ing on an unknown field.
-export function ooCol(field: CanonicalField, known: ReadonlySet<string>): string {
-  const cols = ooColumns(field, { known })
-  if (cols.length === 0) return 'NULL'
-  if (cols.length === 1) return cols[0]
-  return `COALESCE(${cols.join(', ')})`
-}
-
 // Promoted ClickHouse columns, MATERIALIZED at ingest from the attr maps
 // (infra/clickhouse/init/01-traces.sql — keep in sync). Everything the UI
 // filters/sorts/facets by must resolve to one of these, never a Map probe.
@@ -175,13 +143,4 @@ export function chCol(field: CanonicalField): string {
   const keys = ATTRS[field]
   if (keys.length === 1) return `SpanAttributes['${keys[0]}']`
   return `arrayFirst(v -> v != '', [${keys.map((k) => `SpanAttributes['${k}']`).join(', ')}])`
-}
-
-// customDimensions is a single map column on AI, so column existence is N/A.
-// Both dotted and underscored forms must be checked: some .NET OTel
-// instrumentations write `ag_ui_thread_id` into customDimensions, while
-// others write `ag_ui.thread_id`.
-export function aiCoalesce(field: CanonicalField): string {
-  const all = bothForms(ATTRS[field])
-  return `coalesce(${all.map((k) => `tostring(customDimensions["${k}"])`).join(', ')})`
 }
