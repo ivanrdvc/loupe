@@ -4,6 +4,7 @@
 // dialect to abstract, so the price of a new provider is one branch per file.
 
 import * as ai from './analytics-app-insights'
+import * as ch from './analytics-clickhouse'
 import * as oo from './analytics-openobserve'
 import {
   FIXTURE_INVENTORY,
@@ -39,6 +40,8 @@ export async function fetchToolErrorRates(p: TelemetryProvider, opts?: TopOpts):
   switch (p.name) {
     case 'openobserve':
       return oo.fetchToolErrorRates(p, opts)
+    case 'clickhouse':
+      return ch.fetchToolErrorRates(p, opts)
     case 'app-insights':
       return ai.fetchToolErrorRates(p, opts)
     case 'fixtures':
@@ -52,6 +55,8 @@ export async function fetchTools(p: TelemetryProvider, opts?: ToolListOpts): Pro
   switch (p.name) {
     case 'openobserve':
       return oo.fetchTools(p, opts)
+    case 'clickhouse':
+      return ch.fetchTools(p, opts)
     case 'app-insights':
       return ai.fetchTools(p, opts)
     case 'fixtures':
@@ -65,6 +70,8 @@ export async function fetchToolPayloadBody(p: TelemetryProvider, spanId: string)
   switch (p.name) {
     case 'openobserve':
       return oo.fetchToolPayloadBody(p, spanId)
+    case 'clickhouse':
+      return ch.fetchToolPayloadBody(p, spanId)
     case 'app-insights':
       return ai.fetchToolPayloadBody(p, spanId)
     case 'fixtures':
@@ -82,6 +89,8 @@ export async function fetchToolPayloadOverTime(
   switch (p.name) {
     case 'openobserve':
       return oo.fetchToolPayloadOverTime(p, name, opts)
+    case 'clickhouse':
+      return ch.fetchToolPayloadOverTime(p, name, opts)
     case 'app-insights':
       return ai.fetchToolPayloadOverTime(p, name, opts)
     case 'fixtures':
@@ -95,6 +104,8 @@ export async function fetchChatLatencyOverTime(p: TelemetryProvider, opts?: Wind
   switch (p.name) {
     case 'openobserve':
       return oo.fetchChatLatencyOverTime(p, opts)
+    case 'clickhouse':
+      return ch.fetchChatLatencyOverTime(p, opts)
     case 'app-insights':
       return ai.fetchChatLatencyOverTime(p, opts)
     case 'fixtures':
@@ -108,6 +119,8 @@ export async function fetchCacheHitRateOverTime(p: TelemetryProvider, opts?: Win
   switch (p.name) {
     case 'openobserve':
       return oo.fetchCacheHitRateOverTime(p, opts)
+    case 'clickhouse':
+      return ch.fetchCacheHitRateOverTime(p, opts)
     case 'app-insights':
       return ai.fetchCacheHitRateOverTime(p, opts)
     case 'fixtures':
@@ -121,6 +134,8 @@ export async function fetchRunsPerHour(p: TelemetryProvider, opts?: WindowOpts):
   switch (p.name) {
     case 'openobserve':
       return oo.fetchRunsPerHour(p, opts)
+    case 'clickhouse':
+      return ch.fetchRunsPerHour(p, opts)
     case 'app-insights':
       return ai.fetchRunsPerHour(p, opts)
     case 'fixtures':
@@ -138,6 +153,8 @@ export async function fetchToolRecentCalls(
   switch (p.name) {
     case 'openobserve':
       return oo.fetchToolRecentCalls(p, name, opts)
+    case 'clickhouse':
+      return ch.fetchToolRecentCalls(p, name, opts)
     case 'app-insights':
       return ai.fetchToolRecentCalls(p, name, opts)
     case 'fixtures':
@@ -155,6 +172,8 @@ export async function fetchInventory(
   switch (p.name) {
     case 'openobserve':
       return oo.fetchInventory(p, kind, opts)
+    case 'clickhouse':
+      return ch.fetchInventory(p, kind, opts)
     case 'app-insights':
       return ai.fetchInventory(p, kind, opts)
     case 'fixtures':
@@ -168,6 +187,8 @@ export async function fetchAgentMetrics(p: TelemetryProvider, opts?: TopOpts): P
   switch (p.name) {
     case 'openobserve':
       return oo.fetchAgentMetrics(p, opts)
+    case 'clickhouse':
+      return ch.fetchAgentMetrics(p, opts)
     case 'app-insights':
       return ai.fetchAgentMetrics(p, opts)
     case 'fixtures':

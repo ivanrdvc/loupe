@@ -282,10 +282,16 @@ export interface AppInsightsProvider extends BaseProvider {
   name: 'app-insights'
 }
 
+export interface ClickHouseProvider extends BaseProvider {
+  name: 'clickhouse'
+  table: string
+  logsTable: string
+}
+
 // In-memory provider for the e2e suite (see fixtures.ts). Not configured in
 // production; settings shows it read-only when TELEMETRY_PROVIDER=fixtures.
 export interface FixturesProvider extends BaseProvider {
   name: 'fixtures'
 }
 
-export type TelemetryProvider = OpenObserveProvider | AppInsightsProvider | FixturesProvider
+export type TelemetryProvider = OpenObserveProvider | AppInsightsProvider | ClickHouseProvider | FixturesProvider

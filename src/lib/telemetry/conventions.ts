@@ -137,6 +137,46 @@ export function ooCol(field: CanonicalField, known: ReadonlySet<string>): string
   return `COALESCE(${cols.join(', ')})`
 }
 
+// Promoted ClickHouse columns, MATERIALIZED at ingest from the attr maps
+// (infra/clickhouse/init/01-traces.sql — keep in sync). Everything the UI
+// filters/sorts/facets by must resolve to one of these, never a Map probe.
+// Missing values are '' / 0, not NULL. Forks add company id in ATTRS + the
+// DDL + here.
+const CH_COLUMNS = {
+  sessionId: 'SessionId',
+  sessionTitle: 'SessionTitle',
+  userId: 'UserId',
+  userName: 'UserName',
+  host: 'Host',
+  agentName: 'AgentName',
+  model: 'Model',
+  totalTokens: 'TotalTokens',
+  inputTokens: 'InputTokens',
+  outputTokens: 'OutputTokens',
+  cacheReadTokens: 'CacheReadTokens',
+  costUsd: 'CostUsd',
+  provider: 'Provider',
+  llmPurpose: 'Purpose',
+  triggerType: 'TriggerType',
+  execution: 'Execution',
+  taskParentId: 'TaskParentId',
+  taskId: 'TaskId',
+  taskKind: 'TaskKind',
+  taskSchedule: 'TaskSchedule',
+  taskName: 'TaskName',
+  taskSource: 'TaskSource',
+} as const satisfies Partial<Record<CanonicalField, string>>
+
+// Column (or Map-coalesce expression for the few non-promoted fields — those
+// only appear on detail paths, never in hot WHERE/GROUP BY).
+export function chCol(field: CanonicalField): string {
+  const col = (CH_COLUMNS as Partial<Record<CanonicalField, string>>)[field]
+  if (col) return col
+  const keys = ATTRS[field]
+  if (keys.length === 1) return `SpanAttributes['${keys[0]}']`
+  return `arrayFirst(v -> v != '', [${keys.map((k) => `SpanAttributes['${k}']`).join(', ')}])`
+}
+
 // customDimensions is a single map column on AI, so column existence is N/A.
 // Both dotted and underscored forms must be checked: some .NET OTel
 // instrumentations write `ag_ui_thread_id` into customDimensions, while

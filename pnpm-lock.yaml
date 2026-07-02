@@ -37,6 +37,9 @@ importers:
       '@azure/monitor-query-logs':
         specifier: ^1.0.0
         version: 1.0.0
+      '@clickhouse/client':
+        specifier: ^1.23.0
+        version: 1.23.0
       '@fontsource-variable/fira-code':
         specifier: ^5.2.7
         version: 5.2.7
@@ -683,6 +686,10 @@ packages:
 
   '@chevrotain/types@11.1.2':
     resolution: {integrity: sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw==}
+
+  '@clickhouse/client@1.23.0':
+    resolution: {integrity: sha512-Li6TBcRKfWVxyJa8g+lJwuyn+r+zV/pJJ3yxn3TVlC00vH+zfZ6njFXsZfqIamGXHRrY5iPhAEZu2hSWzlSo3Q==}
+    engines: {node: '>=20'}
 
   '@commitlint/cli@21.0.1':
     resolution: {integrity: sha512-8vq10krmbJwBkvzXKhbs4o4JQEVscd3pqOlWuDUaDBwbeL694/P33UC29tZQFTAgPU9fVJ2+f2m3zw16yKWxHg==}
@@ -6671,6 +6678,8 @@ snapshots:
     optional: true
 
   '@chevrotain/types@11.1.2': {}
+
+  '@clickhouse/client@1.23.0': {}
 
   '@commitlint/cli@21.0.1(@types/node@25.8.0)(conventional-commits-parser@6.4.0)(typescript@6.0.3)':
     dependencies:

@@ -3,6 +3,7 @@ import type { Span } from '#/lib/spans'
 import { countTokens } from '#/lib/tokens'
 import * as analytics from './analytics'
 import { createAppInsightsProvider } from './app-insights'
+import { createClickHouseProvider } from './clickhouse'
 import { createFixturesProvider } from './fixtures'
 import { createOpenObserveProvider } from './openobserve'
 import type {
@@ -37,7 +38,7 @@ export type * from './types'
 // UI choice (cookie) wins, then TELEMETRY_PROVIDER, then auto.
 export const PROVIDER_COOKIE = 'tp'
 
-const PROVIDER_IDS = ['openobserve', 'app-insights', 'fixtures'] as const
+const PROVIDER_IDS = ['openobserve', 'app-insights', 'clickhouse', 'fixtures'] as const
 export type ProviderId = (typeof PROVIDER_IDS)[number]
 
 const isProviderId = (v: unknown): v is ProviderId => PROVIDER_IDS.includes(v as ProviderId)
@@ -53,6 +54,14 @@ const providers = new Map<ProviderId, TelemetryProvider>()
 
 function buildProvider(id: ProviderId): TelemetryProvider {
   if (id === 'fixtures') return createFixturesProvider()
+  if (id === 'clickhouse') {
+    return createClickHouseProvider({
+      url: process.env.CLICKHOUSE_URL ?? 'http://localhost:8123',
+      database: process.env.CLICKHOUSE_DB ?? 'loupe',
+      username: process.env.CLICKHOUSE_USER ?? 'loupe',
+      password: process.env.CLICKHOUSE_PASS ?? 'loupe',
+    })
+  }
   if (id === 'openobserve') {
     return createOpenObserveProvider({
       baseUrl: process.env.OO_BASE_URL ?? 'http://localhost:5080',
@@ -86,6 +95,7 @@ function getProvider(id: ProviderId): TelemetryProvider {
 
 export function listProviderStatus(): ProviderStatus[] {
   const oo: ProviderStatus = { id: 'openobserve', label: 'OpenObserve', configured: true }
+  const ch: ProviderStatus = { id: 'clickhouse', label: 'ClickHouse', configured: true }
   const ai: ProviderStatus = { id: 'app-insights', label: 'Application Insights', configured: true }
   const hasResourceId = !!process.env.APPLICATIONINSIGHTS_RESOURCE_ID
   const hasApiKey =
@@ -98,9 +108,9 @@ export function listProviderStatus(): ProviderStatus[] {
   // Fixtures only appears when explicitly requested via env. Settings shows it
   // read-only; it is test telemetry, not a user-selectable backend.
   if (process.env.TELEMETRY_PROVIDER === 'fixtures') {
-    return [oo, ai, { id: 'fixtures', label: 'Fixtures (e2e)', configured: true }]
+    return [oo, ch, ai, { id: 'fixtures', label: 'Fixtures (e2e)', configured: true }]
   }
-  return [oo, ai]
+  return [oo, ch, ai]
 }
 
 function readCookieChoice(): ProviderId | undefined {

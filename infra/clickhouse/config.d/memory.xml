@@ -1,0 +1,9 @@
+<!-- Keep the server below the container mem_limit so the OOM killer never fires.
+     Sized for a small local Docker VM; raise together with mem_limit on bigger hosts. -->
+<clickhouse>
+    <max_server_memory_usage>1000000000</max_server_memory_usage>
+    <mark_cache_size>134217728</mark_cache_size>
+    <index_mark_cache_size>67108864</index_mark_cache_size>
+    <uncompressed_cache_size>67108864</uncompressed_cache_size>
+    <merges_mutations_memory_usage_soft_limit>300000000</merges_mutations_memory_usage_soft_limit>
+</clickhouse>

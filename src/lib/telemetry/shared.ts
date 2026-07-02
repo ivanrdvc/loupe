@@ -221,7 +221,10 @@ function rollupTrace(rows: Array<Record<string, unknown>>): Omit<TraceSession, '
         })
       if (c) cost += c
       if (s && s < firstInputAtMs) {
-        const candidate = extractFirstUserText(pickCanonical(h, 'llmInput'))
+        // `first_input` is pre-extracted plain text (ClickHouse materializes it
+        // at ingest); other providers ship the raw messages JSON instead.
+        const pre = typeof h.first_input === 'string' && h.first_input.trim() ? h.first_input.trim() : undefined
+        const candidate = pre ?? extractFirstUserText(pickCanonical(h, 'llmInput'))
         if (candidate) {
           firstInput = candidate
           firstInputAtMs = s
