@@ -1,18 +1,15 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys } from '#/lib/query-keys'
 import { getSession, listRecentSessions } from '#/lib/telemetry'
-import { DEFAULT, parse, parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
+import { DEFAULT, parse, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
-const fetchCurrentUserSessions = createServerFn({ method: 'GET' })
-  .inputValidator(parseRangeUserInput)
+const fetchRecentSessions = createServerFn({ method: 'GET' })
+  .inputValidator((input: { range?: unknown }) => ({ range: parse(input.range) }))
   .handler(async ({ data }) => {
-    if (!data.userId) return { sessions: [] }
-    return await listRecentSessions({
-      limit: 5,
-      ...windowUs(data.range),
-      userId: data.userId,
-    })
+    await ensureSession()
+    return await listRecentSessions({ limit: 5, ...windowUs(data.range) })
   })
 
 const fetchSession = createServerFn({ method: 'GET' })
@@ -21,14 +18,14 @@ const fetchSession = createServerFn({ method: 'GET' })
     range: parse(input.range),
   }))
   .handler(async ({ data }) => {
+    await ensureSession()
     return await getSession(data.sessionId, windowUs(data.range))
   })
 
-export const currentUserSessionsQuery = (range: TimeRange = DEFAULT, userId = '') =>
+export const recentSessionsQuery = (range: TimeRange = DEFAULT) =>
   queryOptions({
-    queryKey: queryKeys.sessions.currentUserWindow(serialize(range), userId),
-    queryFn: () => fetchCurrentUserSessions({ data: { range, userId } }),
-    enabled: userId.length > 0,
+    queryKey: queryKeys.sessions.recentWindow(serialize(range)),
+    queryFn: () => fetchRecentSessions({ data: { range } }),
   })
 
 export const sessionQuery = (id: string, range: TimeRange = DEFAULT) =>

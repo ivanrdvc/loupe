@@ -3,6 +3,7 @@ import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { notes } from '#/db/schema'
 import type { Note, NoteStatus, NoteTargetKind, UpsertNoteInput } from '#/features/notes/types'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 
 const KINDS: NoteTargetKind[] = ['session', 'trace', 'span', 'prompt', 'experiment']
 const STATUSES: NoteStatus[] = ['open', 'resolved']
@@ -38,6 +39,7 @@ function toNote(row: typeof notes.$inferSelect): Note {
 }
 
 export const listAllNotes = createServerFn({ method: 'GET' }).handler(async (): Promise<Note[]> => {
+  await ensureSession()
   const rows = await db.select().from(notes).orderBy(asc(notes.status), desc(notes.updatedAt))
   return rows.map(toNote)
 })
@@ -48,6 +50,7 @@ export const getNoteForTarget = createServerFn({ method: 'GET' })
     targetId: String(input.targetId),
   }))
   .handler(async ({ data }): Promise<Note | null> => {
+    await ensureSession()
     const rows = await db
       .select()
       .from(notes)
@@ -72,10 +75,11 @@ export const upsertNote = createServerFn({ method: 'POST' })
     author: String(input.author),
   }))
   .handler(async ({ data }): Promise<Note> => {
+    const actor = await requireCan('write', 'notes')
     const now = new Date()
     const updateSet: Partial<typeof notes.$inferInsert> = {
       body: data.body,
-      author: data.author,
+      author: actor.name,
       updatedAt: now,
     }
     if (data.parentTraceId != null) updateSet.parentTraceId = data.parentTraceId
@@ -89,7 +93,7 @@ export const upsertNote = createServerFn({ method: 'POST' })
         parentTraceId: data.parentTraceId,
         parentSessionId: data.parentSessionId,
         body: data.body,
-        author: data.author,
+        author: actor.name,
         createdAt: now,
         updatedAt: now,
       })
@@ -105,6 +109,7 @@ export const upsertNote = createServerFn({ method: 'POST' })
 export const deleteNote = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => Number(id))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'notes')
     await db.delete(notes).where(eq(notes.id, data))
   })
 
@@ -114,6 +119,7 @@ export const setNoteStatus = createServerFn({ method: 'POST' })
     status: asStatus(input.status),
   }))
   .handler(async ({ data }): Promise<Note> => {
+    await requireCan('write', 'notes')
     const now = new Date()
     const [row] = await db
       .update(notes)
@@ -131,6 +137,7 @@ export const setNoteStatus = createServerFn({ method: 'POST' })
 export const getNoteFlagsForKind = createServerFn({ method: 'GET' })
   .inputValidator((kind: NoteTargetKind) => asKind(kind))
   .handler(async ({ data }): Promise<Record<string, boolean>> => {
+    await ensureSession()
     const rows = await db
       .select({ targetId: notes.targetId })
       .from(notes)

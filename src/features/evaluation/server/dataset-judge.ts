@@ -4,6 +4,7 @@ import { db } from '#/db'
 import { datasetExamples, datasetRunItems, datasetRuns, evalDefinitions, scoreConfigs, scores } from '#/db/schema'
 import type { ExampleInput } from '#/features/evaluation/dataset-types'
 import type { ToolCall } from '#/features/evaluation/logic/span-eval-snapshot'
+import { requireCan } from '#/lib/auth/guards'
 import { type ConfigHint, scorePassFail } from '#/lib/eval/evaluation'
 import type { JsonValue } from '#/lib/json'
 import { toolCallsFromTrace } from './eval-jobs'
@@ -42,6 +43,7 @@ export const judgeDatasetRun = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }): Promise<JudgeDatasetRunResult> => {
+    await requireCan('write', 'evals')
     const { model: defaultModel, configured } = resolveJudgeDefaults()
     if (!configured) {
       throw new Error('No judge model configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY and re-run.')

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TracesIndexRouteImport } from './routes/traces/index'
@@ -36,6 +37,7 @@ import { Route as ApiTracesIndexRouteImport } from './routes/api/traces/index'
 import { Route as InventorySystemPromptsPromptIdRouteImport } from './routes/inventory/system-prompts/$promptId'
 import { Route as EvalsRunsRunIdRouteImport } from './routes/evals/runs.$runId'
 import { Route as ApiEvalsIngestRouteImport } from './routes/api/evals/ingest'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiTracesTraceIdIndexRouteImport } from './routes/api/traces/$traceId/index'
 import { Route as ApiSessionsSessionIdIndexRouteImport } from './routes/api/sessions/$sessionId/index'
 import { Route as ApiTracesTraceIdConversationRouteImport } from './routes/api/traces/$traceId/conversation'
@@ -43,6 +45,11 @@ import { Route as ApiTracesTraceIdBriefRouteImport } from './routes/api/traces/$
 import { Route as ApiSessionsSessionIdBriefRouteImport } from './routes/api/sessions/$sessionId/brief'
 import { Route as ApiTracesTraceIdSpansSpanIdRouteImport } from './routes/api/traces/$traceId/spans/$spanId'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -180,6 +187,11 @@ const ApiEvalsIngestRoute = ApiEvalsIngestRouteImport.update({
   path: '/api/evals/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTracesTraceIdIndexRoute = ApiTracesTraceIdIndexRouteImport.update({
   id: '/api/traces/$traceId/',
   path: '/api/traces/$traceId/',
@@ -218,6 +230,7 @@ const ApiTracesTraceIdSpansSpanIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/login': typeof LoginRoute
   '/api/chat': typeof ApiChatRoute
   '/api/search': typeof ApiSearchRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
@@ -237,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof TasksIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
@@ -253,6 +267,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/login': typeof LoginRoute
   '/api/chat': typeof ApiChatRoute
   '/api/search': typeof ApiSearchRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
@@ -272,6 +287,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/traces': typeof TracesIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
@@ -289,6 +305,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/login': typeof LoginRoute
   '/api/chat': typeof ApiChatRoute
   '/api/search': typeof ApiSearchRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRoute
@@ -308,6 +325,7 @@ export interface FileRoutesById {
   '/tasks/': typeof TasksIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/traces/': typeof TracesIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/evals/ingest': typeof ApiEvalsIngestRoute
   '/evals/runs/$runId': typeof EvalsRunsRunIdRoute
   '/inventory/system-prompts/$promptId': typeof InventorySystemPromptsPromptIdRoute
@@ -326,6 +344,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/login'
     | '/api/chat'
     | '/api/search'
     | '/datasets/$datasetId'
@@ -345,6 +364,7 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/tools/'
     | '/traces/'
+    | '/api/auth/$'
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
@@ -361,6 +381,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/login'
     | '/api/chat'
     | '/api/search'
     | '/datasets/$datasetId'
@@ -380,6 +401,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/tools'
     | '/traces'
+    | '/api/auth/$'
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
@@ -396,6 +418,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/login'
     | '/api/chat'
     | '/api/search'
     | '/datasets/$datasetId'
@@ -415,6 +438,7 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/tools/'
     | '/traces/'
+    | '/api/auth/$'
     | '/api/evals/ingest'
     | '/evals/runs/$runId'
     | '/inventory/system-prompts/$promptId'
@@ -432,6 +456,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  LoginRoute: typeof LoginRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiSearchRoute: typeof ApiSearchRoute
   DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRoute
@@ -451,6 +476,7 @@ export interface RootRouteChildren {
   TasksIndexRoute: typeof TasksIndexRoute
   ToolsIndexRoute: typeof ToolsIndexRoute
   TracesIndexRoute: typeof TracesIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiEvalsIngestRoute: typeof ApiEvalsIngestRoute
   EvalsRunsRunIdRoute: typeof EvalsRunsRunIdRoute
   InventorySystemPromptsPromptIdRoute: typeof InventorySystemPromptsPromptIdRoute
@@ -467,6 +493,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -656,6 +689,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEvalsIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/traces/$traceId/': {
       id: '/api/traces/$traceId/'
       path: '/api/traces/$traceId'
@@ -704,6 +744,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  LoginRoute: LoginRoute,
   ApiChatRoute: ApiChatRoute,
   ApiSearchRoute: ApiSearchRoute,
   DatasetsDatasetIdRoute: DatasetsDatasetIdRoute,
@@ -723,6 +764,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksIndexRoute: TasksIndexRoute,
   ToolsIndexRoute: ToolsIndexRoute,
   TracesIndexRoute: TracesIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiEvalsIngestRoute: ApiEvalsIngestRoute,
   EvalsRunsRunIdRoute: EvalsRunsRunIdRoute,
   InventorySystemPromptsPromptIdRoute: InventorySystemPromptsPromptIdRoute,

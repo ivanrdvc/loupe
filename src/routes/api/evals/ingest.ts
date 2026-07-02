@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ingestScoreEvents, parseIngestScoreEvents } from '#/features/evaluation/server/scores'
+import { apiGuard } from '#/lib/auth/guards'
 
 function json(data: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(data), {
@@ -15,6 +16,8 @@ export const Route = createFileRoute('/api/evals/ingest')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const denied = apiGuard(request)
+        if (denied) return denied
         let body: unknown
         try {
           body = await request.json()

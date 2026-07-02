@@ -1,10 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { traceBriefResponse } from '#/features/query'
+import { apiGuard } from '#/lib/auth/guards'
 
 export const Route = createFileRoute('/api/traces/$traceId/brief')({
   server: {
     handlers: {
-      GET: ({ params }) => traceBriefResponse(params.traceId),
+      GET: ({ request, params }) => apiGuard(request) ?? traceBriefResponse(params.traceId),
     },
   },
 })

@@ -24,7 +24,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { NoteDialogContent } from '#/features/notes'
 import { listAllNotes } from '#/features/notes/server'
 import type { Note, NoteStatus, NoteTargetKind } from '#/features/notes/types'
-import { initialsFor } from '#/lib/current-user'
+import { initialsFor } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
 import { cn } from '#/lib/utils'
 

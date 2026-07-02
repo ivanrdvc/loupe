@@ -6,7 +6,6 @@ import { Page } from '#/components/page'
 import { MetricTiles, rollupTasks, summarizeRollup, TasksDataTable, tasksTracesQuery } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { useScopedUserId } from '#/hooks/use-user'
 import { windowMs } from '#/lib/time-range'
 
 export const Route = createFileRoute('/tasks/')({
@@ -25,10 +24,9 @@ function TasksPage() {
   const navigate = useNavigate()
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
-  const scopedUserId = useScopedUserId()
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...tasksTracesQuery(range, scopedUserId),
+    ...tasksTracesQuery(range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
 

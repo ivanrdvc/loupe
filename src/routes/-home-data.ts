@@ -6,6 +6,7 @@ import { runOnlineEvals } from '#/features/evaluation/server/online-evals'
 import { runDetection } from '#/features/inventory/detection'
 import { runToolPayloadDetection } from '#/features/inventory/detection/anomalies'
 import { type InventoryRow, listHomeInventory } from '#/features/inventory/server'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
   type CacheHitPoint,
@@ -43,6 +44,7 @@ const runsCache = new LRUCache<string, RunsPoint[]>({ max: 200 })
 const fetchInbox = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))
   .handler(async ({ data }): Promise<HomeInbox> => {
+    await ensureSession()
     const key = `${getActiveProviderId()}:${serialize(data)}`
     const cached = inboxCache.get(key)
     if (cached) return cached
@@ -75,6 +77,7 @@ function kickBackgroundJobs(window: { fromUs: number; toUs: number }): void {
 const fetchLatency = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))
   .handler(async ({ data }): Promise<LatencyPoint[]> => {
+    await ensureSession()
     const key = `${getActiveProviderId()}:${serialize(data)}`
     const cached = latencyCache.get(key)
     if (cached) return cached
@@ -87,6 +90,7 @@ const fetchLatency = createServerFn({ method: 'GET' })
 const fetchCacheHit = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))
   .handler(async ({ data }): Promise<CacheHitPoint[]> => {
+    await ensureSession()
     const key = `${getActiveProviderId()}:${serialize(data)}`
     const cached = cacheHitCache.get(key)
     if (cached) return cached
@@ -99,6 +103,7 @@ const fetchCacheHit = createServerFn({ method: 'GET' })
 const fetchRunsPerHour = createServerFn({ method: 'GET' })
   .inputValidator((input: unknown) => parse(input))
   .handler(async ({ data }): Promise<RunsPoint[]> => {
+    await ensureSession()
     const key = `${getActiveProviderId()}:${serialize(data)}`
     const cached = runsCache.get(key)
     if (cached) return cached

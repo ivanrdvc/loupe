@@ -341,3 +341,56 @@ export const scores = sqliteTable(
     index('score_definition_idx').on(table.definitionId),
   ],
 )
+
+// Auth tables: export names and camelCase keys are resolved by the better-auth
+// drizzle adapter and must not be renamed.
+export const user = sqliteTable('user', {
+  id: text().primaryKey(),
+  name: text().notNull(),
+  email: text().notNull().unique(),
+  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  image: text(),
+  role: text().notNull().default('editor'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})
+
+export const session = sqliteTable('session', {
+  id: text().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  token: text().notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})
+
+export const account = sqliteTable('account', {
+  id: text().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp_ms' }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp_ms' }),
+  scope: text(),
+  password: text(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})
+
+export const verification = sqliteTable('verification', {
+  id: text().primaryKey(),
+  identifier: text().notNull(),
+  value: text().notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})

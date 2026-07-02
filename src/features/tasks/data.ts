@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { listRecentTraces } from '#/lib/telemetry'
 import { FIRE_TRIGGER_TYPES } from '#/lib/telemetry/trace-category'
@@ -8,6 +9,7 @@ import { parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/
 const fetchTasksTraces = createServerFn({ method: 'GET' })
   .inputValidator(parseRangeUserInput)
   .handler(async ({ data }) => {
+    await ensureSession()
     return await listRecentTraces({
       limit: 500,
       triggerTypes: FIRE_TRIGGER_TYPES,

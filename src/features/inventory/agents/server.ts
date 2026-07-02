@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { inventory } from '#/db/schema'
 import { runDetection } from '#/features/inventory/detection'
+import { ensureSession } from '#/lib/auth/guards'
 import { listAgentMetrics } from '#/lib/telemetry'
 
 export interface AgentRow {
@@ -22,6 +23,7 @@ export interface AgentRow {
 }
 
 export const listAgents = createServerFn({ method: 'GET' }).handler(async (): Promise<AgentRow[]> => {
+  await ensureSession()
   // Fire-and-forget; cursor-gated to one scan per interval like the home inbox.
   void Promise.allSettled([runDetection('new_agent')])
   const [rows, metrics] = await Promise.all([

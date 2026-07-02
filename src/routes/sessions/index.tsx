@@ -4,7 +4,6 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
-import { useScopedUserId } from '#/hooks/use-user'
 import { DataTable } from './-components/data-table'
 import { HostFilter } from './-components/host-filter'
 import { useSessionSearch } from './-components/use-session-search'
@@ -33,10 +32,8 @@ function Sessions() {
   const navigate = useNavigate({ from: Route.fullPath })
   const [range, setRange] = useTimeRange()
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
-  const globalScopedUserId = useScopedUserId()
-  const scopedUserId = overrideUserId ?? globalScopedUserId
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...sessionsQuery(range, scopedUserId, host),
+    ...sessionsQuery(range, overrideUserId ?? '', host),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const sessions = data?.sessions ?? []

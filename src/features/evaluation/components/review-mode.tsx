@@ -22,7 +22,7 @@ import { scoreConfigsQuery } from '#/features/evaluation/components/queries'
 import { type ScoreDraft, ScoreInput } from '#/features/evaluation/components/score-input'
 import { useGoldenSnapshot } from '#/features/evaluation/components/use-golden-snapshot'
 import { listScoresForTarget, upsertHumanScore } from '#/features/evaluation/server/scores'
-import { useUser } from '#/hooks/use-user'
+import { useCurrentUser } from '#/lib/auth'
 import type { ScoreTargetKind } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { queryKeys } from '#/lib/query-keys'
@@ -49,7 +49,7 @@ type Props = {
 
 // Keyboard-driven one-at-a-time labeling over a filtered trace/session list.
 export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
-  const user = useUser()
+  const user = useCurrentUser()
   const queryClient = useQueryClient()
   const [index, setIndex] = useState(0)
   const [dimension, setDimension] = useState<string | null>(null)
@@ -74,8 +74,8 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
   })
 
   const myScore = useMemo(
-    () => scores?.find((s) => s.source === 'human' && s.evaluator === user.name && s.name === dimension),
-    [scores, user.name, dimension],
+    () => scores?.find((s) => s.source === 'human' && s.evaluator === (user?.name ?? '') && s.name === dimension),
+    [scores, user?.name, dimension],
   )
 
   const {
@@ -113,7 +113,6 @@ export function ReviewModeDialog({ open, onOpenChange, items }: Props) {
           value: draft.value,
           label: draft.label,
           explanation: draft.explanation,
-          evaluator: user.name,
         },
       })
     },

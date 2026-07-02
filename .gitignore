@@ -19,3 +19,5 @@ playwright-report
 external/
 __pycache__/
 *.pyc
+
+e2e/.auth/

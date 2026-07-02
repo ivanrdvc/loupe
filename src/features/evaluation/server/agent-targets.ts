@@ -4,6 +4,7 @@ import { db } from '#/db'
 import { agentTargets } from '#/db/schema'
 import type { AgentTargetConfig, AgentTargetSummary, UpsertAgentTargetInput } from '#/features/evaluation/dataset-types'
 import { invalidateTarget } from '#/features/evaluation/server/agent-auth'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 
 function toTargetSummary(row: typeof agentTargets.$inferSelect): AgentTargetSummary {
   return {
@@ -18,6 +19,7 @@ function asConfig(value: unknown): AgentTargetConfig {
 }
 
 export const listAgentTargets = createServerFn({ method: 'GET' }).handler(async (): Promise<AgentTargetSummary[]> => {
+  await ensureSession()
   const rows = await db.select().from(agentTargets).orderBy(agentTargets.label)
   return rows.map(toTargetSummary)
 })
@@ -30,6 +32,7 @@ export const upsertAgentTarget = createServerFn({ method: 'POST' })
     config: asConfig(input.config),
   }))
   .handler(async ({ data }): Promise<AgentTargetSummary> => {
+    await requireCan('write', 'agents')
     if (!data.label) throw new Error('Target label is required')
     if (!data.endpointUrl) throw new Error('Target endpoint is required')
     const now = new Date()
@@ -60,6 +63,7 @@ export const upsertAgentTarget = createServerFn({ method: 'POST' })
 export const deleteAgentTarget = createServerFn({ method: 'POST' })
   .inputValidator((input: { id: string | number }) => ({ id: Number(input.id) }))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'agents')
     if (!Number.isFinite(data.id)) return
     await db.delete(agentTargets).where(eq(agentTargets.id, data.id))
     invalidateTarget(String(data.id))

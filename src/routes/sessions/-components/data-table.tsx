@@ -3,7 +3,6 @@ import { Link } from '@tanstack/react-router'
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import type { FacetedFilterSpec } from '#/components/data-table-toolbar'
-import { ScopedEmptyState } from '#/components/scoped-empty-state'
 import { Spinner } from '#/components/spinner'
 import { TelemetryDataTable } from '#/components/telemetry-data-table'
 import { ListScoreActions, scoreSummariesQuery } from '#/features/evaluation'
@@ -80,11 +79,9 @@ export function DataTable(props: DataTableProps) {
           })}
         />
       )}
-      emptyState={({ isLoading, scopeToMe, userId }) =>
+      emptyState={({ isLoading }) =>
         isLoading ? (
           <Spinner size="md" className="text-muted-foreground" />
-        ) : scopeToMe && userId ? (
-          <ScopedEmptyState entity="sessions" />
         ) : (
           <div className="max-w-md space-y-1 text-center text-pretty text-muted-foreground">
             <div>No sessions in this window.</div>

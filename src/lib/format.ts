@@ -4,6 +4,20 @@ export function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+export function initialsFor(nameOrEmail: string): string {
+  const value = nameOrEmail.trim()
+  if (!value) return '?'
+  const parts = value
+    .replace(/@.*/, '')
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+  const initials = parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
+  return initials || '?'
+}
+
 export function formatAgo(ms: number): string {
   const s = Math.max(0, (Date.now() - ms) / 1000)
   if (s < 60) return `${Math.round(s)}s ago`

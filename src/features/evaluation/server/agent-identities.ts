@@ -8,6 +8,7 @@ import type {
   UpsertAgentIdentityInput,
 } from '#/features/evaluation/dataset-types'
 import { invalidateIdentity } from '#/features/evaluation/server/agent-auth'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 
 function toIdentitySummary(row: typeof agentIdentities.$inferSelect): AgentIdentitySummary {
   const config = (row.configJson as AgentIdentityConfig | null) ?? {}
@@ -25,6 +26,7 @@ function asConfig(value: unknown): AgentIdentityConfig {
 
 export const listAgentIdentities = createServerFn({ method: 'GET' }).handler(
   async (): Promise<AgentIdentitySummary[]> => {
+    await ensureSession()
     const rows = await db.select().from(agentIdentities).orderBy(agentIdentities.label)
     return rows.map(toIdentitySummary)
   },
@@ -37,6 +39,7 @@ export const upsertAgentIdentity = createServerFn({ method: 'POST' })
     config: asConfig(input.config),
   }))
   .handler(async ({ data }): Promise<AgentIdentitySummary> => {
+    await requireCan('write', 'agents')
     if (!data.label) throw new Error('Identity label is required')
     const now = new Date()
     if (data.id != null) {
@@ -60,6 +63,7 @@ export const upsertAgentIdentity = createServerFn({ method: 'POST' })
 export const deleteAgentIdentity = createServerFn({ method: 'POST' })
   .inputValidator((input: { id: string | number }) => ({ id: Number(input.id) }))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'agents')
     if (!Number.isFinite(data.id)) return
     await db.delete(agentIdentities).where(eq(agentIdentities.id, data.id))
     invalidateIdentity(String(data.id))

@@ -63,7 +63,7 @@ test('grades a dataset run with a named evaluator and the score lands on the eva
   await addExample(page, 'Ping?')
 
   // Pick the named evaluator as the Score in run settings → Run all auto-grades with it.
-  await page.getByRole('button', { name: 'Run settings' }).click()
+  await page.getByRole('button', { name: 'New run' }).click()
   const sheet = page.getByRole('dialog')
   await sheet.getByRole('button', { name: /Score/ }).click()
   await sheet.getByRole('combobox', { name: 'Score' }).click()

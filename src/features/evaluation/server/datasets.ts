@@ -46,6 +46,7 @@ import {
   updateDatasetMeta,
   upsertDatasetExample,
 } from '#/features/evaluation/server/dataset-store'
+import { ensureSession, requireCan } from '#/lib/auth/guards'
 import { scorePassFail } from '#/lib/eval/evaluation'
 import { errMessage } from '#/lib/format'
 import { getSession } from '#/lib/telemetry'
@@ -157,10 +158,14 @@ function runLabel(at: Date): string {
 }
 
 export const getDatasetRunDefaults = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<{ endpointUrl: string }> => ({ endpointUrl: globalDefaultEndpoint() }),
+  async (): Promise<{ endpointUrl: string }> => {
+    await ensureSession()
+    return { endpointUrl: globalDefaultEndpoint() }
+  },
 )
 
 export const listDatasets = createServerFn({ method: 'GET' }).handler(async (): Promise<DatasetListItem[]> => {
+  await ensureSession()
   const dsRows = await db.select().from(datasets).orderBy(desc(datasets.updatedAt))
   const exRows = await db.select({ datasetId: datasetExamples.datasetId }).from(datasetExamples)
   const runRows = await db
@@ -188,6 +193,7 @@ export const listDatasets = createServerFn({ method: 'GET' }).handler(async (): 
 export const getDatasetDetail = createServerFn({ method: 'GET' })
   .inputValidator((input: { datasetId: string | number }) => ({ datasetId: Number(input.datasetId) }))
   .handler(async ({ data }): Promise<DatasetDetail | null> => {
+    await ensureSession()
     if (!Number.isFinite(data.datasetId)) return null
     const [dsRow] = await db.select().from(datasets).where(eq(datasets.id, data.datasetId)).limit(1)
     if (!dsRow) return null
@@ -286,6 +292,7 @@ export const getDatasetDetail = createServerFn({ method: 'GET' })
 export const createDataset = createServerFn({ method: 'POST' })
   .inputValidator((input: CreateDatasetInput) => input)
   .handler(async ({ data }): Promise<Dataset> => {
+    await requireCan('write', 'datasets')
     const name = String(data.name).trim()
     if (!name) throw new Error('Dataset name is required')
     const now = new Date()
@@ -306,11 +313,17 @@ export const createDataset = createServerFn({ method: 'POST' })
 
 export const updateDataset = createServerFn({ method: 'POST' })
   .inputValidator((input: UpdateDatasetMetaInput) => input)
-  .handler(({ data }): Promise<Dataset> => updateDatasetMeta(data))
+  .handler(async ({ data }): Promise<Dataset> => {
+    await requireCan('write', 'datasets')
+    return updateDatasetMeta(data)
+  })
 
 export const upsertExample = createServerFn({ method: 'POST' })
   .inputValidator((input: UpsertExampleInput) => input)
-  .handler(({ data }): Promise<DatasetExample> => upsertDatasetExample(data))
+  .handler(async ({ data }): Promise<DatasetExample> => {
+    await requireCan('write', 'datasets')
+    return upsertDatasetExample(data)
+  })
 
 export const deleteExamples = createServerFn({ method: 'POST' })
   .inputValidator((input: { datasetId: string | number; exampleIds: Array<string | number> }) => ({
@@ -318,6 +331,7 @@ export const deleteExamples = createServerFn({ method: 'POST' })
     exampleIds: (Array.isArray(input.exampleIds) ? input.exampleIds : []).map(Number).filter(Number.isFinite),
   }))
   .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'datasets')
     if (data.exampleIds.length === 0) return
     await db.delete(datasetExamples).where(inArray(datasetExamples.id, data.exampleIds))
     await bumpVersion(data.datasetId, new Date())
@@ -325,7 +339,8 @@ export const deleteExamples = createServerFn({ method: 'POST' })
 
 export const deleteDataset = createServerFn({ method: 'POST' })
   .inputValidator((input: { datasetId: string | number }) => ({ datasetId: Number(input.datasetId) }))
-  .handler(({ data }): void => {
+  .handler(async ({ data }): Promise<void> => {
+    await requireCan('write', 'datasets')
     db.transaction((tx) => {
       const runIds = tx
         .select({ id: datasetRuns.id })
@@ -377,6 +392,7 @@ export const runDataset = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }): Promise<{ runId: string }> => {
+    await requireCan('write', 'datasets')
     const [ds] = await db.select().from(datasets).where(eq(datasets.id, data.datasetId)).limit(1)
     if (!ds) throw new Error('runDataset: dataset not found')
 
@@ -528,6 +544,8 @@ export const testAgentConnection = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message: string; durationMs: number | null }> => {
+    // Sends stored identity credentials to a caller-supplied endpoint — gate as a write, like runDataset.
+    await requireCan('write', 'datasets')
     let secrets: () => Array<string | undefined> = () => (data.adHocToken ? [data.adHocToken] : [])
     try {
       const target = await loadTarget(data.targetId)

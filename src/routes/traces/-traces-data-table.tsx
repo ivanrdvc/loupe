@@ -1,7 +1,6 @@
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import type { FacetedFilterSpec } from '#/components/data-table-toolbar'
-import { ScopedEmptyState } from '#/components/scoped-empty-state'
 import { Spinner } from '#/components/spinner'
 import { TelemetryDataTable } from '#/components/telemetry-data-table'
 import { ListScoreActions } from '#/features/evaluation'
@@ -82,11 +81,9 @@ export function TracesDataTable({ scoreSummaries, ...props }: TracesDataTablePro
           })}
         />
       )}
-      emptyState={({ isLoading, scopeToMe, userId }) =>
+      emptyState={({ isLoading }) =>
         isLoading ? (
           <Spinner size="md" className="text-muted-foreground" />
-        ) : scopeToMe && userId ? (
-          <ScopedEmptyState entity="traces" />
         ) : (
           <div className="text-muted-foreground">No traces in this window.</div>
         )

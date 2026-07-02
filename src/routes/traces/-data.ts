@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
 import { listRecentSpans, listRecentTraces } from '#/lib/telemetry'
 import { parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
@@ -7,6 +8,7 @@ import { parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/
 const fetchTraces = createServerFn({ method: 'GET' })
   .inputValidator(parseRangeUserInput)
   .handler(async ({ data }) => {
+    await ensureSession()
     return await listRecentTraces({
       limit: 200,
       ...windowUs(data.range),
@@ -17,6 +19,7 @@ const fetchTraces = createServerFn({ method: 'GET' })
 const fetchSpans = createServerFn({ method: 'GET' })
   .inputValidator(parseRangeUserInput)
   .handler(async ({ data }) => {
+    await ensureSession()
     return await listRecentSpans({
       limit: 200,
       ...windowUs(data.range),

@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys } from '#/lib/query-keys'
 import { listRecentSessions } from '#/lib/telemetry'
 import { DEFAULT, parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
@@ -7,6 +8,7 @@ import { DEFAULT, parseRangeUserInput, serialize, type TimeRange, windowUs } fro
 const fetchSessions = createServerFn({ method: 'GET' })
   .inputValidator(parseRangeUserInput)
   .handler(async ({ data }) => {
+    await ensureSession()
     return await listRecentSessions({
       limit: 50,
       ...windowUs(data.range),

@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys, STALE_TELEMETRY_MS } from '#/lib/query-keys'
 import {
   getToolPayloadBody,
@@ -49,6 +50,7 @@ const spanIdValidator = (input: unknown): string => {
 const fetchCatalog = createServerFn({ method: 'GET' })
   .inputValidator(parseToolsInput)
   .handler(async ({ data }): Promise<ToolRow[]> => {
+    await ensureSession()
     const { fromUs, toUs } = windowUs(data.range)
     return listTools({ fromUs, toUs, limit: 1000, dimensions: data.dimensions })
   })
@@ -56,6 +58,7 @@ const fetchCatalog = createServerFn({ method: 'GET' })
 const fetchTool = createServerFn({ method: 'GET' })
   .inputValidator(parseToolInput)
   .handler(async ({ data }): Promise<ToolRow | null> => {
+    await ensureSession()
     const { fromUs, toUs } = windowUs(data.range)
     const rows = await listTools({ fromUs, toUs, name: data.name })
     return rows[0] ?? null
@@ -64,6 +67,7 @@ const fetchTool = createServerFn({ method: 'GET' })
 const fetchRecent = createServerFn({ method: 'GET' })
   .inputValidator(parseToolInput)
   .handler(async ({ data }) => {
+    await ensureSession()
     const { fromUs, toUs } = windowUs(data.range)
     return listToolRecentCalls(data.name, { fromUs, toUs, limit: 8 })
   })
@@ -71,13 +75,17 @@ const fetchRecent = createServerFn({ method: 'GET' })
 const fetchTrend = createServerFn({ method: 'GET' })
   .inputValidator(parseToolInput)
   .handler(async ({ data }): Promise<ToolPayloadPoint[]> => {
+    await ensureSession()
     const { fromUs, toUs } = windowUs(data.range)
     return listToolPayloadOverTime(data.name, { fromUs, toUs })
   })
 
 const fetchBody = createServerFn({ method: 'GET' })
   .inputValidator(spanIdValidator)
-  .handler(async ({ data }): Promise<ToolPayloadBody | null> => getToolPayloadBody(data))
+  .handler(async ({ data }): Promise<ToolPayloadBody | null> => {
+    await ensureSession()
+    return getToolPayloadBody(data)
+  })
 
 // The full per-tool aggregate set. Shared by the /tools catalog and the
 // inspector's health hint — same numbers, one cached query.

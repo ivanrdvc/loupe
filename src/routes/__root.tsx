@@ -1,5 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { createRootRouteWithContext, HeadContent, Link, Scripts, useNavigate, useSearch } from '@tanstack/react-router'
+import {
+  createRootRouteWithContext,
+  HeadContent,
+  Link,
+  redirect,
+  Scripts,
+  useNavigate,
+  useRouterState,
+  useSearch,
+} from '@tanstack/react-router'
 import { ThemeProvider } from 'next-themes'
 import { AppSidebar } from '#/components/app-sidebar'
 import { CommandPaletteProvider } from '#/components/command-palette'
@@ -11,6 +20,8 @@ import { TooltipProvider } from '#/components/ui/tooltip'
 import { AgentLauncher, AgentPanel, AgentProvider } from '#/features/agent'
 import { InspectDrawerHost, ToolInspectDrawer, traceSpansQuery } from '#/features/inspect'
 import { useAppTheme } from '#/hooks/use-app-theme'
+import type { User } from '#/lib/auth'
+import { getSession } from '#/lib/auth/session'
 import { sessionQuery } from '#/lib/session-queries'
 import appCss from '../styles.css?url'
 
@@ -19,9 +30,17 @@ const SESSION_DRAWER_RANGE = 30
 
 interface MyRouterContext {
   queryClient: QueryClient
+  user: User | null
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+  beforeLoad: async ({ location }) => {
+    const user = await getSession()
+    if (!user && location.pathname !== '/login') {
+      throw redirect({ to: '/login', search: { redirect: location.href } })
+    }
+    return { user }
+  },
   notFoundComponent: () => (
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 p-8">
       <h1 className="text-2xl font-semibold tracking-tight">Not found</h1>
@@ -85,6 +104,7 @@ const APPLY_THEME_SCRIPT = `try{var t=localStorage.getItem('color-theme')||'loup
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   useAppTheme()
+  const bare = useRouterState({ select: (s) => s.location.pathname === '/login' })
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -96,22 +116,29 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <RouteProgress />
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="theme" disableTransitionOnChange>
           <TooltipProvider delayDuration={0}>
-            <SidebarProvider className="bg-sidebar">
-              <CommandPaletteProvider>
-                <ShortcutsDialogProvider>
-                  <AgentProvider>
-                    <AppSidebar />
-                    <SidebarInset>{children}</SidebarInset>
-                    <AgentPanel />
-                    <AgentLauncher />
-                    <SessionDrawerMount />
-                    <TraceDrawerMount />
-                    <ToolDrawerMount />
-                    <Toaster />
-                  </AgentProvider>
-                </ShortcutsDialogProvider>
-              </CommandPaletteProvider>
-            </SidebarProvider>
+            {bare ? (
+              <>
+                {children}
+                <Toaster />
+              </>
+            ) : (
+              <SidebarProvider className="bg-sidebar">
+                <CommandPaletteProvider>
+                  <ShortcutsDialogProvider>
+                    <AgentProvider>
+                      <AppSidebar />
+                      <SidebarInset>{children}</SidebarInset>
+                      <AgentPanel />
+                      <AgentLauncher />
+                      <SessionDrawerMount />
+                      <TraceDrawerMount />
+                      <ToolDrawerMount />
+                      <Toaster />
+                    </AgentProvider>
+                  </ShortcutsDialogProvider>
+                </CommandPaletteProvider>
+              </SidebarProvider>
+            )}
           </TooltipProvider>
         </ThemeProvider>
         <Scripts />
