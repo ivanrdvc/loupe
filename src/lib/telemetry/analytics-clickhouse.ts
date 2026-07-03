@@ -19,6 +19,7 @@ import type {
   ToolListOpts,
   ToolPayloadPoint,
   ToolRow,
+  ToolSortColumn,
   TopOpts,
   WindowOpts,
 } from './types'
@@ -26,6 +27,20 @@ import type {
 const BODY = "SpanAttributes['gen_ai.tool.call.result']"
 const DURATION_MS = 'intDiv(Duration, 1000000)'
 const START_MS = 'toUnixTimestamp64Milli(Timestamp)'
+
+// ToolSortColumn → an ORDER BY expression over the aggregate SELECT's aliases.
+// Token estimates sort on their char proxy (monotonic with tokensFromChars).
+const TOOL_SORT_SQL: Record<ToolSortColumn, string> = {
+  name: 'name',
+  calls: 'calls',
+  errorRate: 'errors / calls',
+  p95Ms: 'p95_ms',
+  avgTokensEst: 'avg_chars',
+  p95TokensEst: 'p95_chars',
+  maxTokens: 'max_chars',
+  totalTokensEst: 'total_chars',
+  lastSeenMs: 'last_seen_ms',
+}
 
 export async function fetchToolErrorRates(p: ClickHouseProvider, opts?: TopOpts): Promise<ToolErrorRow[]> {
   const limit = opts?.limit ?? 5
@@ -50,6 +65,9 @@ export async function fetchTools(p: ClickHouseProvider, opts?: ToolListOpts): Pr
   const name = opts?.name
   if (name !== undefined && !TOOL_NAME_RE.test(name)) return []
   const limit = name !== undefined ? 1 : (opts?.limit ?? 1000)
+  const offset = name !== undefined ? 0 : Math.max(0, opts?.offset ?? 0)
+  const orderExpr = opts?.sortBy ? TOOL_SORT_SQL[opts.sortBy] : 'calls'
+  const orderDir = opts?.sortDir === 'asc' ? 'ASC' : 'DESC'
   const nameWhere =
     name !== undefined ? `SpanName = ${chString(`execute_tool ${name}`)}` : `SpanName LIKE 'execute_tool %'`
   const dimWhere = (opts?.dimensions ?? []).map((d) => ` AND ${chCol(d.field)} = ${chString(d.value)}`).join('')
@@ -73,8 +91,8 @@ export async function fetchTools(p: ClickHouseProvider, opts?: ToolListOpts): Pr
     FROM ${p.table}
     WHERE ${nameWhere}${dimWhere} AND ${CH_TIME_WHERE}
     GROUP BY SpanName
-    ORDER BY calls DESC
-    LIMIT ${limit}
+    ORDER BY ${orderExpr} ${orderDir}
+    LIMIT ${limit} OFFSET ${offset}
   `
   const hits = await p.query(sql, { ...opts, size: limit })
   const maxResults = await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, name !== undefined, opts)

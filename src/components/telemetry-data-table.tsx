@@ -16,7 +16,7 @@ import {
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
 import { DataTablePagination } from '#/components/data-table-pagination'
-import { DataTableToolbar, type FacetedFilterSpec } from '#/components/data-table-toolbar'
+import { DataTableToolbar, type FacetedFilterSpec, type ServerFilters } from '#/components/data-table-toolbar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui/table'
 import type { TimeRange } from '#/lib/time-range'
 import { cn } from '#/lib/utils'
@@ -26,6 +26,9 @@ interface TelemetryDataTableProps<TData> {
   columns: ColumnDef<TData>[]
   getRowId: (row: TData) => string
   filters: FacetedFilterSpec[]
+  // When set, category/kind/status/search run server-side (URL params → fetch)
+  // instead of TanStack column filters on the single fetched page.
+  serverFilters?: ServerFilters
   searchColumnId: string
   searchPlaceholder: string
   defaultColumnVisibility?: VisibilityState
@@ -41,6 +44,10 @@ interface TelemetryDataTableProps<TData> {
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
   refreshing?: boolean
+  // When set, paging is server-driven: `data` is the current page, and prev/next
+  // drive `onPageChange` instead of slicing client-side. Omit for the default
+  // client-side pagination (small app-DB tables).
+  serverPagination?: { pageIndex: number; hasMore: boolean; onPageChange: (pageIndex: number) => void }
 }
 
 export function TelemetryDataTable<TData>({
@@ -48,6 +55,7 @@ export function TelemetryDataTable<TData>({
   columns,
   getRowId,
   filters,
+  serverFilters,
   searchColumnId,
   searchPlaceholder,
   defaultColumnVisibility,
@@ -63,6 +71,7 @@ export function TelemetryDataTable<TData>({
   onAutoRefreshChange,
   onRefresh,
   refreshing,
+  serverPagination,
 }: TelemetryDataTableProps<TData>) {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(defaultColumnVisibility ?? {})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -71,6 +80,9 @@ export function TelemetryDataTable<TData>({
     pageIndex: 0,
     pageSize: 50,
   })
+  // Server-paged: render the whole fetched page (one client page), server nav
+  // handles the rest. Client-paged: the usual 50/page slicing.
+  const effectivePagination = serverPagination ? { pageIndex: 0, pageSize: Math.max(data.length, 1) } : pagination
 
   const table = useReactTable({
     data,
@@ -79,7 +91,7 @@ export function TelemetryDataTable<TData>({
       sorting,
       columnVisibility,
       columnFilters,
-      pagination,
+      pagination: effectivePagination,
     },
     getRowId,
     onSortingChange: setSorting,
@@ -101,6 +113,7 @@ export function TelemetryDataTable<TData>({
         searchColumnId={searchColumnId}
         searchPlaceholder={searchPlaceholder}
         filters={filters}
+        serverFilters={serverFilters}
         extraFilters={extraFilters}
         range={range}
         onRangeChange={onRangeChange}
@@ -155,7 +168,7 @@ export function TelemetryDataTable<TData>({
           </Table>
         </div>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePagination table={table} server={serverPagination} />
     </div>
   )
 }

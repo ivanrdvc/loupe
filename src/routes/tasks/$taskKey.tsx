@@ -5,7 +5,7 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { FiresTable, rollupTasks, TaskCost, TaskHero, taskIdentity, tasksTracesQuery } from '#/features/tasks'
+import { FiresTable, rollupTasks, TaskCost, TaskHero, taskFiresQuery, taskIdentity } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import type { TraceSummary } from '#/lib/telemetry'
@@ -36,13 +36,14 @@ function TaskDetail() {
   const [autoRefresh] = useAutoRefresh()
 
   const { data, isLoading } = useQuery({
-    ...tasksTracesQuery(range),
+    ...taskFiresQuery(range, taskKey),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
 
   const { row, fires, fromMs, toMs } = useMemo(() => {
     const { from, to } = windowMs(range)
     if (!data?.traces) return { row: undefined, fires: [] as TraceSummary[], fromMs: from, toMs: to }
+    // Server already filtered by taskKey; this guards the lossy derived-identity case.
     const matchingFires = data.traces.filter((t) => taskIdentity(t).key === taskKey)
     const rows = rollupTasks(matchingFires, { fromMs: from, toMs: to })
     return {

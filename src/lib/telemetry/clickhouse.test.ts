@@ -176,13 +176,13 @@ describe('provider queries', () => {
 
   it('listTraces prefers the agent-name attr over the model in the span name', async () => {
     ch.rows = [{ trace_id: 't1', sample_agent: 'invoke_agent gpt-5-nano', sample_agent_name: 'loupe agent' }]
-    const traces = (await createClickHouseProvider(cfg).listTraces?.({})) ?? []
+    const traces = (await createClickHouseProvider(cfg).listTraces?.({}))?.traces ?? []
     expect(traces[0]?.agent).toBe('loupe agent')
   })
 
   it('listTraces falls back to parsing the span name when the attr is empty', async () => {
     ch.rows = [{ trace_id: 't2', sample_agent: 'invoke_agent Reviewer', sample_agent_name: '' }]
-    const traces = (await createClickHouseProvider(cfg).listTraces?.({})) ?? []
+    const traces = (await createClickHouseProvider(cfg).listTraces?.({}))?.traces ?? []
     expect(traces[0]?.agent).toBe('Reviewer')
   })
 
@@ -200,12 +200,49 @@ describe('provider queries', () => {
     expect(ch.calls[1].query_params).toMatchObject({ trace_ids: ['deadbeef'], from_us: 4_000_000, to_us: 10_000_000 })
   })
 
-  it('listSessions filters identity on promoted columns via bound params', async () => {
-    await createClickHouseProvider(cfg).listSessions?.({ host: 'box-1', userId: 'u-9' })
+  it('listSessions pages over session_list, filtering identity via bound params', async () => {
+    await createClickHouseProvider(cfg).listSessions?.({ host: 'box-1', userId: 'u-9', limit: 25, offset: 50 })
     const { query: sql, query_params } = ch.calls[0]
-    expect(sql).toContain('UserId = {ident_0:String}')
-    expect(sql).toContain('Host = {ident_1:String}')
-    expect(query_params).toMatchObject({ ident_0: 'u-9', ident_1: 'box-1' })
+    expect(sql).toContain('FROM session_list(')
+    expect(sql).toContain('user_id = {uid:String}')
+    expect(sql).toContain('host = {host:String}')
+    expect(sql).toContain('LIMIT 26 OFFSET 50')
+    expect(query_params).toMatchObject({ uid: 'u-9', host: 'box-1' })
+  })
+
+  it('listTraces filters category via the SQL multiIf expression, bound as a param', async () => {
+    await createClickHouseProvider(cfg).listTraces?.({ category: 'utility', search: 'x' })
+    const { query: sql, query_params } = ch.calls[0]
+    expect(sql).toContain('multiIf(')
+    expect(sql).toContain('= {category:String}')
+    expect(query_params).toMatchObject({ category: 'utility', search: '%x%' })
+  })
+
+  it('listTraces decodes a task key into an exact trace_list filter', async () => {
+    await createClickHouseProvider(cfg).listTraces?.({ taskKey: 'task:nightly' })
+    expect(ch.calls[0].query).toContain('root_task_id = {tk_id:String}')
+    expect(ch.calls[0].query_params).toMatchObject({ tk_id: 'nightly' })
+  })
+
+  it('listSpans maps kind to the Purpose predicate', async () => {
+    const p = createClickHouseProvider(cfg)
+    await p.listSpans?.({ kind: 'utility' })
+    expect(ch.calls[0].query).toContain("AND Purpose != ''")
+    ch.calls = []
+    await p.listSpans?.({ kind: 'sub-agent', minTokens: 100 })
+    expect(ch.calls[0].query).toContain("AND Purpose = ''")
+    expect(ch.calls[0].query).toContain('>= {min_tokens:Int64}')
+    expect(ch.calls[0].query_params).toMatchObject({ min_tokens: 100 })
+  })
+
+  it('listTaskRollup groups fire traces by task identity in SQL', async () => {
+    await createClickHouseProvider(cfg).listTaskRollup?.({ userId: 'u-1' })
+    const { query: sql, query_params } = ch.calls[0]
+    expect(sql).toMatch(/root_trigger_type IN \('scheduled', 'event', 'webhook'\)/)
+    expect(sql).toContain('GROUP BY key')
+    expect(sql).toContain('ORDER BY fires DESC')
+    expect(sql).toContain('trace_user_id = {uid:String}')
+    expect(query_params).toMatchObject({ uid: 'u-1' })
   })
 })
 
@@ -244,5 +281,13 @@ describe('fetchTools maxTokens is the token-max, not the char-longest body token
     const queries: string[] = []
     await fetchTools(provider(queries), { dimensions: [{ field: 'userId', value: 'u-1' }] })
     expect(queries[0]).toContain("UserId = 'u-1'")
+  })
+
+  it('emits ORDER BY / LIMIT / OFFSET from sort + offset opts', async () => {
+    const queries: string[] = []
+    await fetchTools(provider(queries), { sortBy: 'errorRate', sortDir: 'asc', offset: 50, limit: 25 })
+    const agg = queries.find((q) => /GROUP BY SpanName/.test(q)) ?? ''
+    expect(agg).toContain('ORDER BY errors / calls ASC')
+    expect(agg).toContain('LIMIT 25 OFFSET 50')
   })
 })

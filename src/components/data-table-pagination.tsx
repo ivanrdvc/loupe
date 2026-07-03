@@ -3,7 +3,46 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 import { Button } from '#/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select'
 
-export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
+export function DataTablePagination<TData>({
+  table,
+  server,
+}: {
+  table: Table<TData>
+  server?: { pageIndex: number; hasMore: boolean; onPageChange: (pageIndex: number) => void }
+}) {
+  if (server) {
+    // Total row count is unknown by design (limit+1/hasMore), so prev/next only —
+    // no "Page X of Y".
+    return (
+      <div className="-mx-0 -mb-4 shrink-0 border-t bg-background md:-mb-6">
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 lg:px-6">
+          <div className="flex items-center gap-4 lg:gap-6">
+            <div className="flex items-center justify-center text-xs font-medium">Page {server.pageIndex + 1}</div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => server.onPageChange(server.pageIndex - 1)}
+                disabled={server.pageIndex <= 0}
+              >
+                <span className="sr-only">Previous page</span>
+                <ChevronLeft aria-hidden />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => server.onPageChange(server.pageIndex + 1)}
+                disabled={!server.hasMore}
+              >
+                <span className="sr-only">Next page</span>
+                <ChevronRight aria-hidden />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="-mx-0 -mb-4 shrink-0 border-t bg-background md:-mb-6">
       <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 lg:px-6">

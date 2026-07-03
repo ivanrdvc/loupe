@@ -21,17 +21,38 @@ interface DataTableFacetedFilterProps<TData, TValue> {
     value: string
     icon?: React.ComponentType<{ className?: string }>
   }[]
+  // Controlled single-select mode (server-side filtering): the selection lives
+  // in a URL param, not TanStack column state. When onSelect is given it
+  // supersedes the column entirely.
+  selectedValue?: string
+  onSelect?: (value: string | undefined) => void
 }
 
 export function DataTableFacetedFilter<TData, TValue>({
   column,
   title,
   options,
+  selectedValue,
+  onSelect,
 }: DataTableFacetedFilterProps<TData, TValue>) {
-  const facets = column?.getFacetedUniqueValues()
-  const selectedValues = new Set(column?.getFilterValue() as string[])
+  const server = onSelect !== undefined
+  const facets = server ? undefined : column?.getFacetedUniqueValues()
+  const selectedValues = new Set(
+    server ? (selectedValue ? [selectedValue] : []) : (column?.getFilterValue() as string[]),
+  )
   const hasSelection = selectedValues.size > 0
   const selectedOptions = options.filter((o) => selectedValues.has(o.value))
+  const toggle = (value: string, isSelected: boolean) => {
+    if (server) {
+      onSelect?.(isSelected ? undefined : value)
+      return
+    }
+    if (isSelected) selectedValues.delete(value)
+    else selectedValues.add(value)
+    const next = Array.from(selectedValues)
+    column?.setFilterValue(next.length ? next : undefined)
+  }
+  const clear = () => (server ? onSelect?.(undefined) : column?.setFilterValue(undefined))
 
   return (
     <Popover>
@@ -66,18 +87,7 @@ export function DataTableFacetedFilter<TData, TValue>({
               {options.map((option) => {
                 const isSelected = selectedValues.has(option.value)
                 return (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => {
-                      if (isSelected) {
-                        selectedValues.delete(option.value)
-                      } else {
-                        selectedValues.add(option.value)
-                      }
-                      const filterValues = Array.from(selectedValues)
-                      column?.setFilterValue(filterValues.length ? filterValues : undefined)
-                    }}
-                  >
+                  <CommandItem key={option.value} onSelect={() => toggle(option.value, isSelected)}>
                     <div
                       className={cn(
                         'flex size-4 items-center justify-center rounded-[4px] border',
@@ -103,10 +113,7 @@ export function DataTableFacetedFilter<TData, TValue>({
               <>
                 <CommandSeparator />
                 <CommandGroup>
-                  <CommandItem
-                    onSelect={() => column?.setFilterValue(undefined)}
-                    className="justify-center text-center"
-                  >
+                  <CommandItem onSelect={clear} className="justify-center text-center">
                     Clear filters
                   </CommandItem>
                 </CommandGroup>

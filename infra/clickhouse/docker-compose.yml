@@ -17,6 +17,7 @@ services:
       - ch-data:/var/lib/clickhouse
       - ./init:/docker-entrypoint-initdb.d:ro
       - ./config.d/memory.xml:/etc/clickhouse-server/config.d/zz-loupe-memory.xml:ro
+      - ./users.d/memory.xml:/etc/clickhouse-server/users.d/zz-loupe-memory.xml:ro
     ulimits:
       nofile:
         soft: 262144

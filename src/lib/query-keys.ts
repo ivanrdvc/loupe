@@ -30,7 +30,8 @@ export const queryKeys = {
   },
   tools: {
     all: () => ['tools'] as const,
-    catalog: (range: string, dimensions?: string) => ['tools', 'catalog', { range, dimensions }] as const,
+    catalog: (range: string, dimensions?: string, sort?: string) =>
+      ['tools', 'catalog', { range, dimensions, sort }] as const,
     detail: (name: string, range: string) => ['tools', 'detail', name, { range }] as const,
     recent: (name: string, range: string) => ['tools', 'recent', name, { range }] as const,
     trend: (name: string, range: string) => ['tools', 'trend', name, { range }] as const,

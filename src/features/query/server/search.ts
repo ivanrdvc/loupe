@@ -1,4 +1,4 @@
-import type { SpanSummary, TraceSummary } from '#/lib/telemetry'
+import type { ListSpansOpts, ListTracesOpts, TraceCategory } from '#/lib/telemetry'
 import { listRecentSpans, listRecentTraces } from '#/lib/telemetry'
 import { badRequest, json, pageMeta, parseSince, readPage } from '../logic/respond'
 
@@ -7,69 +7,66 @@ const WINDOW_CAP = 500
 type Sort = 'recent' | 'cost' | 'tokens' | 'duration'
 const SORTS: Sort[] = ['recent', 'cost', 'tokens', 'duration']
 
-interface Filters {
-  q?: string
-  status?: 'error' | 'ok'
-  agent?: string
-  model?: string
-  session?: string
-  user?: string
-  category?: string
-  minCost?: number
-  minTokens?: number
-  minDurationMs?: number
-}
+const TRACE_CATEGORIES: readonly TraceCategory[] = [
+  'chat',
+  'sub-agent',
+  'scheduled',
+  'event',
+  'webhook',
+  'background',
+  'utility',
+  'orphan',
+]
 
-const inc = (hay: string | undefined, needle?: string) => !needle || (hay ?? '').toLowerCase().includes(needle)
 const num = (v: string | null): number | undefined => {
   const n = Number.parseFloat(v ?? '')
   return Number.isFinite(n) ? n : undefined
 }
 
-function readFilters(p: URLSearchParams): Filters {
-  const status = p.get('status')
+const str = (v: string | null): string | undefined => v?.trim() || undefined
+
+// URL params → provider filter opts (server-side WHERE). Shared prefix; the
+// per-entity builders below add the fields their SELECT supports.
+function readNumericFloors(p: URLSearchParams): Pick<ListTracesOpts, 'minCostUsd' | 'minTokens' | 'minDurationMs'> {
   return {
-    q: p.get('q')?.toLowerCase() || undefined,
-    status: status === 'error' || status === 'ok' ? status : undefined,
-    agent: p.get('agent')?.toLowerCase() || undefined,
-    model: p.get('model')?.toLowerCase() || undefined,
-    session: p.get('session')?.toLowerCase() || undefined,
-    user: p.get('user')?.toLowerCase() || undefined,
-    category: p.get('category')?.toLowerCase() || undefined,
-    minCost: num(p.get('min_cost')),
+    minCostUsd: num(p.get('min_cost')),
     minTokens: num(p.get('min_tokens')),
     minDurationMs: num(p.get('min_duration_ms')),
   }
 }
 
+function readStatus(p: URLSearchParams): 'error' | 'ok' | undefined {
+  const status = p.get('status')
+  return status === 'error' || status === 'ok' ? status : undefined
+}
+
+function readTraceOpts(p: URLSearchParams): ListTracesOpts {
+  const category = str(p.get('category'))?.toLowerCase() as TraceCategory | undefined
+  return {
+    limit: WINDOW_CAP,
+    status: readStatus(p),
+    search: str(p.get('q')),
+    agentContains: str(p.get('agent')),
+    userContains: str(p.get('user')),
+    sessionContains: str(p.get('session')),
+    ...(category && TRACE_CATEGORIES.includes(category) ? { category } : {}),
+    ...readNumericFloors(p),
+  }
+}
+
+function readSpanOpts(p: URLSearchParams): ListSpansOpts {
+  return {
+    limit: WINDOW_CAP,
+    status: readStatus(p),
+    search: str(p.get('q')),
+    agentContains: str(p.get('agent')),
+    modelContains: str(p.get('model')),
+    userContains: str(p.get('user')),
+    ...readNumericFloors(p),
+  }
+}
+
 const statusOf = (hasError?: boolean) => (hasError ? 'error' : 'ok')
-
-function matchTrace(t: TraceSummary, f: Filters): boolean {
-  return (
-    (!f.status || statusOf(t.hasError) === f.status) &&
-    inc(t.agent, f.agent) &&
-    inc(t.sessionId, f.session) &&
-    inc(`${t.userName ?? ''} ${t.userId ?? ''}`, f.user) &&
-    (!f.category || t.category === f.category) &&
-    (f.minCost == null || (t.totalCostUsd ?? 0) >= f.minCost) &&
-    (f.minTokens == null || (t.totalTokens ?? 0) >= f.minTokens) &&
-    (f.minDurationMs == null || t.durationMs >= f.minDurationMs) &&
-    inc([t.agent, t.rootOperation, t.serviceName, t.sessionId, t.category, t.llmPurpose].join(' '), f.q)
-  )
-}
-
-function matchSpan(s: SpanSummary, f: Filters): boolean {
-  return (
-    (!f.status || statusOf(s.hasError) === f.status) &&
-    inc(s.label, f.agent) &&
-    inc(s.modelId, f.model) &&
-    inc(`${s.userName ?? ''} ${s.userId ?? ''}`, f.user) &&
-    (f.minCost == null || (s.totalCostUsd ?? 0) >= f.minCost) &&
-    (f.minTokens == null || (s.totalTokens ?? 0) >= f.minTokens) &&
-    (f.minDurationMs == null || s.durationMs >= f.minDurationMs) &&
-    inc([s.spanName, s.label, s.modelId, s.kind].join(' '), f.q)
-  )
-}
 
 const sortKey =
   (sort: Sort) => (x: { startedAtMs: number; durationMs: number; totalTokens?: number; totalCostUsd?: number }) =>
@@ -99,13 +96,12 @@ export async function runSearch(p: URLSearchParams, forced?: 'traces' | 'spans')
   const { limit, offset } = readPage(p, 20)
   const sort = (SORTS.includes(p.get('sort') as Sort) ? p.get('sort') : 'recent') as Sort
   const { fromUs, toUs, label } = parseSince(p.get('since'), 7)
-  const f = readFilters(p)
   const key = sortKey(sort)
 
   if (entity === 'spans') {
-    const r = await listRecentSpans({ limit: WINDOW_CAP, fromUs, toUs })
+    const r = await listRecentSpans({ ...readSpanOpts(p), fromUs, toUs })
     if (!r) return badRequest('Active telemetry provider does not support listing spans')
-    const hits = r.spans.filter((s) => matchSpan(s, f)).sort((a, b) => key(b) - key(a))
+    const hits = r.spans.sort((a, b) => key(b) - key(a))
     return json({
       entity,
       provider: r.provider,
@@ -130,9 +126,9 @@ export async function runSearch(p: URLSearchParams, forced?: 'traces' | 'spans')
     })
   }
 
-  const r = await listRecentTraces({ limit: WINDOW_CAP, fromUs, toUs })
+  const r = await listRecentTraces({ ...readTraceOpts(p), fromUs, toUs })
   if (!r) return badRequest('Active telemetry provider does not support listing traces')
-  const hits = r.traces.filter((t) => matchTrace(t, f)).sort((a, b) => key(b) - key(a))
+  const hits = r.traces.sort((a, b) => key(b) - key(a))
   return json({
     entity,
     provider: r.provider,

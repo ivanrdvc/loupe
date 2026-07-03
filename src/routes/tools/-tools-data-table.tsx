@@ -4,7 +4,6 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  getSortedRowModel,
   type SortingState,
   useReactTable,
   type VisibilityState,
@@ -63,6 +62,9 @@ export function ToolsDataTable({
     columns,
     state: { sorting, columnVisibility, columnFilters, pagination },
     getRowId: (row) => row.name,
+    // Server owns the ORDER BY (see toolsCatalogQuery); headers just drive the
+    // URL sort param, they must not re-sort the fetched page.
+    manualSorting: true,
     onSortingChange: (updater) => {
       const next = typeof updater === 'function' ? updater(sorting) : updater
       onSortingChange(next)
@@ -73,7 +75,6 @@ export function ToolsDataTable({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
 
   return (

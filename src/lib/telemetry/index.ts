@@ -13,11 +13,13 @@ import type {
   ListLogsOpts,
   ListSessionsOpts,
   ListSpansOpts,
+  ListTaskRollupOpts,
   ListTracesOpts,
   LogRecord,
   RunsPoint,
   SessionSummary,
   SpanSummary,
+  TaskRollupRow,
   TelemetryProvider,
   ToolCallSample,
   ToolErrorRow,
@@ -91,34 +93,55 @@ export async function getTrace(traceId: string): Promise<{
 
 export async function listRecentTraces(opts?: ListTracesOpts): Promise<{
   traces: TraceSummary[]
+  hasMore: boolean
   provider: string
   fingerprint: string
 } | null> {
   const p = getActiveProvider()
   if (!p.listTraces) return null
-  return { traces: await p.listTraces(opts), provider: p.name, fingerprint: p.fingerprint }
+  const r = await p.listTraces(opts)
+  return { traces: r.traces, hasMore: r.hasMore, provider: p.name, fingerprint: p.fingerprint }
 }
 
 export async function listRecentSpans(opts?: ListSpansOpts): Promise<{
   spans: SpanSummary[]
+  hasMore: boolean
   provider: string
   fingerprint: string
 } | null> {
   const p = getActiveProvider()
   if (!p.listSpans) return null
-  return { spans: await p.listSpans(opts), provider: p.name, fingerprint: p.fingerprint }
+  const r = await p.listSpans(opts)
+  return { spans: r.spans, hasMore: r.hasMore, provider: p.name, fingerprint: p.fingerprint }
 }
 
 export async function listRecentSessions(opts?: ListSessionsOpts): Promise<{
   sessions: SessionSummary[]
   truncated: boolean
+  hasMore: boolean
   provider: string
   fingerprint: string
 } | null> {
   const p = getActiveProvider()
   if (!p.listSessions) return null
   const r = await p.listSessions(opts)
-  return { sessions: r.sessions, truncated: r.truncated, provider: p.name, fingerprint: p.fingerprint }
+  return {
+    sessions: r.sessions,
+    truncated: r.truncated,
+    hasMore: r.hasMore,
+    provider: p.name,
+    fingerprint: p.fingerprint,
+  }
+}
+
+export async function listTaskRollup(opts?: ListTaskRollupOpts): Promise<{
+  rows: TaskRollupRow[]
+  provider: string
+  fingerprint: string
+} | null> {
+  const p = getActiveProvider()
+  if (!p.listTaskRollup) return null
+  return { rows: await p.listTaskRollup(opts), provider: p.name, fingerprint: p.fingerprint }
 }
 
 export async function getSession(

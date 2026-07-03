@@ -84,11 +84,28 @@ CREATE TABLE IF NOT EXISTS loupe.otel_traces (
         SpanAttributes['gen_ai.usage.cache_read_input_tokens'],
         SpanAttributes['llm.usage.cache_read_tokens']
     ])))),
-    CostUsd Float64 MATERIALIZED toFloat64OrZero(arrayFirst(v -> v != '', [
-        SpanAttributes['gen_ai.usage.cost_total'],
-        SpanAttributes['gen_ai.usage.cost'],
-        SpanAttributes['llm.usage.cost_total']
-    ])),
+    -- Emitted cost wins; otherwise derive it from tokens × per-token price via the
+    -- model_prices dictionary (fed from @pydantic/genai-prices) — computed ONCE at
+    -- ingest and stored, so list queries SUM a float instead of re-pricing per row.
+    -- Uncached input = InputTokens - CacheReadTokens (matches genai-prices' split).
+    CostUsd Float64 MATERIALIZED if(
+        toFloat64OrZero(arrayFirst(v -> v != '', [
+            SpanAttributes['gen_ai.usage.cost_total'],
+            SpanAttributes['gen_ai.usage.cost'],
+            SpanAttributes['llm.usage.cost_total']
+        ])) > 0,
+        toFloat64OrZero(arrayFirst(v -> v != '', [
+            SpanAttributes['gen_ai.usage.cost_total'],
+            SpanAttributes['gen_ai.usage.cost'],
+            SpanAttributes['llm.usage.cost_total']
+        ])),
+        greatest(toFloat64(InputTokens) - toFloat64(CacheReadTokens), 0)
+            * dictGetFloat64('loupe.model_prices', 'input_ppt', (arrayFirst(v -> v != '', [SpanAttributes['gen_ai.provider.name'], SpanAttributes['gen_ai.system']]), toString(Model)))
+        + toFloat64(CacheReadTokens)
+            * dictGetFloat64('loupe.model_prices', 'cache_read_ppt', (arrayFirst(v -> v != '', [SpanAttributes['gen_ai.provider.name'], SpanAttributes['gen_ai.system']]), toString(Model)))
+        + toFloat64(OutputTokens)
+            * dictGetFloat64('loupe.model_prices', 'output_ppt', (arrayFirst(v -> v != '', [SpanAttributes['gen_ai.provider.name'], SpanAttributes['gen_ai.system']]), toString(Model)))
+    ),
     TriggerType LowCardinality(String) MATERIALIZED SpanAttributes['session.trigger_type'] CODEC(ZSTD(1)),
     Execution LowCardinality(String) MATERIALIZED SpanAttributes['session.execution'] CODEC(ZSTD(1)),
     TaskParentId String MATERIALIZED arrayFirst(v -> v != '', [
@@ -241,3 +258,105 @@ WHERE (GenAiOperation != ''
   AND Timestamp < fromUnixTimestamp64Micro({p_to:Int64})
   AND ({p_svc:String} = '' OR ServiceName = {p_svc:String})
 GROUP BY TraceId;
+
+
+-- ── Model prices (backs cost computation in the list views) ───────────────────
+-- LLM cost isn't in the OTel GenAI semconv — SDKs emit tokens, the backend
+-- derives cost (as Langfuse/OpenObserve/Phoenix all do). loupe's price source is
+-- @pydantic/genai-prices; infra/clickhouse/price-sync.mjs resolves the per-token
+-- price of every (provider, model) present in otel_traces via that lib and loads
+-- the result here, so the lib stays the single source of truth. The list views
+-- read it with dictGet to compute cost in SQL (→ sortable/filterable), matching
+-- the read-time estimateCostUsd exactly. Empty on a fresh volume until the sync
+-- job runs; unknown models dictGet to 0 (same as the JS path returning undefined).
+CREATE TABLE IF NOT EXISTS loupe.model_prices_src (
+    provider       LowCardinality(String),
+    model          String,
+    input_ppt      Float64,
+    output_ppt     Float64,
+    cache_read_ppt Float64,
+    updated        DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(updated)
+ORDER BY (provider, model);
+
+CREATE DICTIONARY IF NOT EXISTS loupe.model_prices (
+    provider       String,
+    model          String,
+    input_ppt      Float64,
+    output_ppt     Float64,
+    cache_read_ppt Float64
+) PRIMARY KEY provider, model
+SOURCE(CLICKHOUSE(DB 'loupe' TABLE 'model_prices_src' USER 'loupe' PASSWORD 'loupe'))
+LAYOUT(COMPLEX_KEY_HASHED())
+LIFETIME(MIN 300 MAX 600);
+
+
+-- ── Session list (session = producer-declared conversation grouping) ──────────
+-- Aggregates traces into sessions entirely in SQL — replaces the JS
+-- aggregateSessions() + SESSION_SCAN_LIMIT overfetch. Two-level: per_trace rolls
+-- each trace up (same row-set contract as listSessions' scan), then the outer
+-- SELECT groups traces by SessionId. Mirrors aggregateSessions semantics:
+--   • source must be 'attribute' — a trace with no session attr falls back to
+--     its own id and is dropped here (has_session_attr filter); those belong on
+--     the Runs page, not Sessions.
+--   • drop sessions with no user-facing trace (all event/scheduled) — HAVING.
+--   • title/user/host = value from the latest-ending trace that has one
+--     (argMaxIf on end_ms); first_input = earliest-starting trace's (argMinIf).
+--   • has_error flags AI-op or session-root error spans only.
+-- Cost mirrors estimateCostUsd (the read-time JS path): emitted CostUsd wins;
+-- otherwise it's derived from tokens × per-token price via the model_prices
+-- dictionary (kept in sync from @pydantic/genai-prices by infra/clickhouse/
+-- price-sync.mjs). Computing it here — not in JS post-query — is what makes cost
+-- sortable/filterable server-side.
+CREATE VIEW IF NOT EXISTS loupe.session_list AS
+WITH per_trace AS (
+    SELECT
+        TraceId AS trace_id,
+        max(SessionId) AS session_id,
+        max(SessionId != '') AS has_session_attr,
+        min(toUnixTimestamp64Milli(Timestamp)) AS start_ms,
+        max(toUnixTimestamp64Milli(Timestamp) + intDiv(Duration, 1000000)) AS end_ms,
+        sumIf(if(TotalTokens > 0, TotalTokens, InputTokens + OutputTokens), GenAiOperation = 'chat') AS tokens,
+        sumIf(CostUsd, GenAiOperation = 'chat') AS cost,
+        max(toUInt8(StatusCode IN ('Error', 'STATUS_CODE_ERROR')
+            AND (GenAiOperation != '' OR SpanName LIKE 'invoke_agent %'
+                 OR SpanName LIKE 'execute_tool %' OR SessionId != ''))) AS has_error,
+        max(TriggerType) AS trigger_type,
+        max(SessionTitle) AS title,
+        max(UserName) AS user_name,
+        max(UserId) AS user_id,
+        if(max(Host) != '', max(Host), max(ServiceName)) AS host,
+        argMinIf(FirstInputPreview, Timestamp, GenAiOperation = 'chat' AND FirstInputPreview != '') AS first_input,
+        groupUniqArrayIf(
+            if(AgentName != '', AgentName, extract(SpanName, '^invoke_agent\\s+([^(\\s]+)')),
+            (AgentName != '') OR (SpanName LIKE 'invoke_agent %')
+        ) AS agents
+    FROM loupe.otel_traces
+    WHERE (SpanName LIKE 'invoke_agent %'
+        OR GenAiOperation = 'chat'
+        OR (StatusCode IN ('Error', 'STATUS_CODE_ERROR') AND (GenAiOperation != '' OR SpanName LIKE 'execute_tool %'))
+        OR SessionId != '')
+      AND Timestamp >= fromUnixTimestamp64Micro({p_from:Int64})
+      AND Timestamp < fromUnixTimestamp64Micro({p_to:Int64})
+      AND ({p_svc:String} = '' OR ServiceName = {p_svc:String})
+    GROUP BY TraceId
+)
+SELECT
+    session_id,
+    min(start_ms) AS first_ms,
+    max(end_ms) AS last_ms,
+    sum(greatest(end_ms - start_ms, 0)) AS active_ms,
+    count() AS trace_count,
+    sum(tokens) AS total_tokens,
+    sum(cost) AS total_cost,
+    max(has_error) AS has_error,
+    argMaxIf(title, end_ms, title != '') AS title,
+    argMaxIf(user_name, end_ms, user_name != '') AS user_name,
+    argMaxIf(user_id, end_ms, user_id != '') AS user_id,
+    argMaxIf(host, end_ms, host != '') AS host,
+    argMinIf(first_input, start_ms, first_input != '') AS first_input,
+    arrayDistinct(arrayFlatten(groupArray(agents))) AS agents
+FROM per_trace
+WHERE has_session_attr
+GROUP BY session_id
+HAVING countIf(trigger_type = '' OR trigger_type = 'user') > 0;

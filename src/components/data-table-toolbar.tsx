@@ -1,5 +1,6 @@
 import type { Column, Table } from '@tanstack/react-table'
 import { Search, SlidersHorizontal } from 'lucide-react'
+import * as React from 'react'
 import { type AutoRefreshInterval, AutoRefreshSelect } from '#/components/auto-refresh-select'
 import { DataTableFacetedFilter } from '#/components/data-table-faceted-filter'
 import { TimeRangeSelect } from '#/components/time-range-select'
@@ -19,11 +20,23 @@ export interface FacetedFilterSpec {
   options: { label: string; value: string; icon?: React.ComponentType<{ className?: string }> }[]
 }
 
+// Server-driven filter state: selections live in URL params and drive the fetch
+// (single-select facets + debounced search), instead of TanStack column state.
+export interface ServerFilters {
+  facets: FacetedFilterSpec[]
+  values: Record<string, string | undefined>
+  onFacetChange: (columnId: string, value: string | undefined) => void
+  search: string
+  onSearchChange: (value: string) => void
+  searchPlaceholder?: string
+}
+
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
   searchColumnId?: string
   searchPlaceholder?: string
   filters?: FacetedFilterSpec[]
+  serverFilters?: ServerFilters
   extraFilters?: React.ReactNode
   range: TimeRange
   onRangeChange: (range: TimeRange) => void
@@ -39,6 +52,7 @@ export function DataTableToolbar<TData>({
   searchColumnId,
   searchPlaceholder = 'Search…',
   filters,
+  serverFilters,
   extraFilters,
   range,
   onRangeChange,
@@ -51,38 +65,81 @@ export function DataTableToolbar<TData>({
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined
   const searchValue = (searchColumn?.getFilterValue() as string) ?? ''
   const isFiltered = table.getState().columnFilters.length > 0
+  const serverActive =
+    !!serverFilters && (!!serverFilters.search || serverFilters.facets.some((f) => serverFilters.values[f.columnId]))
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-4 lg:px-6">
       <div className="flex flex-1 flex-wrap items-center gap-2">
-        {filters?.map((f) => {
-          const column = table.getColumn(f.columnId) as Column<TData, unknown> | undefined
-          if (!column) return null
-          return <DataTableFacetedFilter key={f.columnId} column={column} title={f.title} options={f.options} />
-        })}
-        {searchColumn && (
-          <div className="relative w-full min-w-0 sm:w-64">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
+        {serverFilters ? (
+          <>
+            {serverFilters.facets.map((f) => (
+              <DataTableFacetedFilter
+                key={f.columnId}
+                title={f.title}
+                options={f.options}
+                selectedValue={serverFilters.values[f.columnId]}
+                onSelect={(v) => serverFilters.onFacetChange(f.columnId, v)}
+              />
+            ))}
+            {/* Client-only facets (e.g. score flags — a scores-DB join, not telemetry). */}
+            {filters?.map((f) => {
+              const column = table.getColumn(f.columnId) as Column<TData, unknown> | undefined
+              if (!column) return null
+              return <DataTableFacetedFilter key={f.columnId} column={column} title={f.title} options={f.options} />
+            })}
+            <DebouncedSearchInput
+              value={serverFilters.search}
+              onChange={serverFilters.onSearchChange}
+              placeholder={serverFilters.searchPlaceholder ?? searchPlaceholder}
             />
-            <Input
-              placeholder={searchPlaceholder}
-              value={searchValue}
-              onChange={(e) => searchColumn.setFilterValue(e.target.value)}
-              className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
-            />
-          </div>
-        )}
-        {extraFilters}
-        {isFiltered && (
-          <Button
-            variant="ghost"
-            onClick={() => table.resetColumnFilters()}
-            className="text-primary hover:text-primary"
-          >
-            Clear filters
-          </Button>
+            {extraFilters}
+            {(serverActive || isFiltered) && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  for (const f of serverFilters.facets) serverFilters.onFacetChange(f.columnId, undefined)
+                  serverFilters.onSearchChange('')
+                  table.resetColumnFilters()
+                }}
+                className="text-primary hover:text-primary"
+              >
+                Clear filters
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            {filters?.map((f) => {
+              const column = table.getColumn(f.columnId) as Column<TData, unknown> | undefined
+              if (!column) return null
+              return <DataTableFacetedFilter key={f.columnId} column={column} title={f.title} options={f.options} />
+            })}
+            {searchColumn && (
+              <div className="relative w-full min-w-0 sm:w-64">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  placeholder={searchPlaceholder}
+                  value={searchValue}
+                  onChange={(e) => searchColumn.setFilterValue(e.target.value)}
+                  className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
+                />
+              </div>
+            )}
+            {extraFilters}
+            {isFiltered && (
+              <Button
+                variant="ghost"
+                onClick={() => table.resetColumnFilters()}
+                className="text-primary hover:text-primary"
+              >
+                Clear filters
+              </Button>
+            )}
+          </>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -120,6 +177,45 @@ export function DataTableToolbar<TData>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+    </div>
+  )
+}
+
+// Local-state search that pushes to the server param after a pause, so each
+// keystroke doesn't refetch. External resets (Clear filters) flow back in.
+function DebouncedSearchInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  const [local, setLocal] = React.useState(value)
+  const valueRef = React.useRef(value)
+  valueRef.current = value
+  const onChangeRef = React.useRef(onChange)
+  onChangeRef.current = onChange
+  React.useEffect(() => setLocal(value), [value])
+  React.useEffect(() => {
+    const id = setTimeout(() => {
+      if (local !== valueRef.current) onChangeRef.current(local)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [local])
+  return (
+    <div className="relative w-full min-w-0 sm:w-64">
+      <Search
+        className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+        aria-hidden
+      />
+      <Input
+        placeholder={placeholder}
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        className="h-8 w-full border-border bg-transparent pl-7 dark:bg-input/30"
+      />
     </div>
   )
 }

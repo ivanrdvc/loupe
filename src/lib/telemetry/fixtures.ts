@@ -6,6 +6,7 @@ import type {
   SessionFetch,
   SessionSummary,
   SpanSummary,
+  TaskRollupRow,
   ToolCallSample,
   ToolErrorRow,
   ToolPayloadPoint,
@@ -247,6 +248,17 @@ const AGENT_AS_TOOL_SPANS: Span[] = [
     sessionSource: 'attribute',
   }),
 ]
+
+// Mirrors taskIdentity (features/tasks) + the provider taskKeyWhere so the
+// fixtures rollup/detail paths agree with the real one.
+const FIRE_CATEGORIES = new Set(['scheduled', 'event', 'webhook'])
+function fixtureTaskKey(t: TraceSummary): string {
+  if (t.taskId) return `task:${t.taskId}`
+  const op = t.rootOperation?.trim()
+  if (op && !op.startsWith('invoke_agent') && !op.startsWith('execute_tool') && !op.startsWith('chat'))
+    return `op:${op}`
+  return `derived:${t.serviceName ?? ''}|${t.agent ?? ''}|${t.category ?? 'orphan'}`
+}
 
 interface FixtureSession {
   summary: SessionSummary
@@ -539,27 +551,90 @@ export function createFixturesProvider(): FixturesProvider {
       return spans.length > 0 ? { spans } : null
     },
     async listSessions(opts) {
-      const sessions = SESSIONS.map((s) => s.summary).filter((s) => {
+      const all = SESSIONS.map((s) => s.summary).filter((s) => {
         if (opts?.host && s.host !== opts.host) return false
         if (opts?.userId && s.userId !== opts.userId) return false
         return true
       })
-      return { sessions, truncated: false }
+      const offset = Math.max(0, opts?.offset ?? 0)
+      const limit = opts?.limit ?? all.length
+      const page = all.slice(offset, offset + limit + 1)
+      const hasMore = page.length > limit
+      return { sessions: page.slice(0, limit), truncated: false, hasMore }
     },
     async getSession(sessionId: string): Promise<SessionFetch> {
       return SESSIONS.find((s) => s.summary.sessionId === sessionId)?.fetch ?? null
     },
     async listTraces(opts) {
       const triggers = opts?.triggerTypes as readonly string[] | undefined
-      return TRACES.filter((t) => {
+      const all = TRACES.filter((t) => {
         if (triggers?.length && !triggers.includes(t.category ?? '')) return false
         if (opts?.serviceName && t.serviceName !== opts.serviceName) return false
         if (opts?.agentName && !(t.agent ?? '').startsWith(opts.agentName)) return false
+        if (opts?.category && t.category !== opts.category) return false
+        if (opts?.taskKey && fixtureTaskKey(t) !== opts.taskKey) return false
+        if (opts?.status === 'error' && !t.hasError) return false
+        if (opts?.status === 'ok' && t.hasError) return false
         return true
       })
+      const offset = Math.max(0, opts?.offset ?? 0)
+      const limit = opts?.limit ?? all.length
+      const page = all.slice(offset, offset + limit + 1)
+      return { traces: page.slice(0, limit), hasMore: page.length > limit }
     },
-    async listSpans() {
-      return SPAN_SUMMARIES
+    async listSpans(opts) {
+      const all = SPAN_SUMMARIES.filter((s) => {
+        if (opts?.kind && s.kind !== opts.kind) return false
+        if (opts?.status === 'error' && !s.hasError) return false
+        if (opts?.status === 'ok' && s.hasError) return false
+        return true
+      })
+      const offset = Math.max(0, opts?.offset ?? 0)
+      const limit = opts?.limit ?? all.length
+      const page = all.slice(offset, offset + limit + 1)
+      return { spans: page.slice(0, limit), hasMore: page.length > limit }
+    },
+    async listTaskRollup() {
+      const groups = new Map<string, TraceSummary[]>()
+      for (const t of TRACES) {
+        if (!t.category || !FIRE_CATEGORIES.has(t.category)) continue
+        const key = fixtureTaskKey(t)
+        const arr = groups.get(key) ?? []
+        arr.push(t)
+        groups.set(key, arr)
+      }
+      const rows: TaskRollupRow[] = []
+      for (const [key, group] of groups) {
+        const sample = group[0]
+        if (!sample) continue
+        let cost = 0
+        let hasCost = false
+        for (const t of group)
+          if (t.totalCostUsd != null) {
+            cost += t.totalCostUsd
+            hasCost = true
+          }
+        rows.push({
+          key,
+          category: sample.category ?? 'orphan',
+          fires: group.length,
+          errored: group.filter((t) => t.hasError).length,
+          avgDurationMs: Math.round(group.reduce((n, t) => n + t.durationMs, 0) / group.length),
+          lastFireMs: group.reduce((m, t) => Math.max(m, t.startedAtMs), 0),
+          sampleTraceId: sample.id,
+          fireTimestampsMs: group.map((t) => t.startedAtMs),
+          ...(sample.taskId ? { taskId: sample.taskId } : {}),
+          ...(sample.taskName ? { taskName: sample.taskName } : {}),
+          ...(sample.taskKind ? { taskKind: sample.taskKind } : {}),
+          ...(sample.taskSchedule ? { taskSchedule: sample.taskSchedule } : {}),
+          ...(sample.taskSource ? { taskSource: sample.taskSource } : {}),
+          ...(sample.rootOperation ? { rootOperation: sample.rootOperation } : {}),
+          ...(sample.agent ? { agent: sample.agent } : {}),
+          ...(sample.serviceName ? { serviceName: sample.serviceName } : {}),
+          ...(hasCost ? { costUsd: cost } : {}),
+        })
+      }
+      return rows.sort((a, b) => b.fires - a.fires)
     },
     async query() {
       return []

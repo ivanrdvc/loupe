@@ -3,10 +3,10 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import type { SortingState } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { Page } from '#/components/page'
-import { toolsCatalogQuery } from '#/features/inspect'
+import { type ToolSort, toolsCatalogQuery } from '#/features/inspect'
 import { mergeSignalsByName } from '#/features/mcp'
 import { useTimeRange } from '#/hooks/use-time-range'
-import type { ToolDimensionFilter } from '#/lib/telemetry'
+import type { ToolDimensionFilter, ToolSortColumn } from '#/lib/telemetry'
 import { TOOL_DIMENSIONS } from '#/lib/telemetry/conventions'
 import { toolSignalsQuery } from './-signals'
 import { ToolsDataTable } from './-tools-data-table'
@@ -53,7 +53,12 @@ function ToolsPage() {
     [dimValues],
   )
 
-  const { data, isLoading } = useQuery(toolsCatalogQuery(range, dimensions))
+  // Sorting is server-side: the ORDER BY is part of the fetch, not a client re-sort.
+  const sortParam: ToolSort | undefined = sort
+    ? { by: sort as ToolSortColumn, dir: desc === false ? 'asc' : 'desc' }
+    : undefined
+
+  const { data, isLoading } = useQuery(toolsCatalogQuery(range, dimensions, sortParam))
   const { data: registrySignals } = useQuery(toolSignalsQuery())
 
   const signalsByName = useMemo(

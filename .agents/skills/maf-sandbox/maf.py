@@ -66,6 +66,24 @@ from pydantic import BaseModel  # noqa: E402
 
 configure_otel_providers(enable_sensitive_data=True)
 
+# MAF stamps gen_ai.conversation.id per LLM response (a fresh resp_... id on every
+# nested call), so a single run's spans scatter across many "sessions" downstream.
+# Stamp one stable session.id per trace so a run maps to exactly one session.
+from opentelemetry import trace as _otel_trace  # noqa: E402
+from opentelemetry.sdk.trace import SpanProcessor as _SpanProcessor  # noqa: E402
+
+
+class _StableSessionId(_SpanProcessor):
+    def on_start(self, span, parent_context=None):
+        ctx = span.get_span_context()
+        if ctx and ctx.trace_id:
+            span.set_attribute("session.id", f"{ctx.trace_id:032x}")
+
+
+_sp_tp = _otel_trace.get_tracer_provider()
+if hasattr(_sp_tp, "add_span_processor"):
+    _sp_tp.add_span_processor(_StableSessionId())
+
 # Instrument the OpenAI SDK's httpx client so each completion emits a raw
 # `POST /v1/chat/completions` transport span (no gen_ai attrs → loupe `unknown`).
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # noqa: E402
