@@ -29,7 +29,9 @@ interface TelemetryDataTableProps<TData> {
   // When set, category/kind/status/search run server-side (URL params → fetch)
   // instead of TanStack column filters on the single fetched page.
   serverFilters?: ServerFilters
-  searchColumnId: string
+  // Client-mode search target column. Unused when serverFilters is set (search
+  // runs server-side), so the server-paged traces/spans tables omit it.
+  searchColumnId?: string
   searchPlaceholder: string
   defaultColumnVisibility?: VisibilityState
   extraFilters?: React.ReactNode

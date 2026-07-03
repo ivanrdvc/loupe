@@ -107,6 +107,11 @@ interface RollupOpts {
   toMs?: number
 }
 
+// DEPRECATED — flagged for removal. The JS trace-list aggregation; superseded by
+// tasksFromRollupRows over the provider's SQL GROUP BY (list + detail both use
+// that now). No app caller remains — only rollup.test.ts. Delete once the SQL
+// rollup has proven out on production multi-agent data.
+//
 // Group fire traces by task identity. Returns one row per distinct task,
 // sorted by fires desc. Input is the full trace list — this fn filters to
 // fire categories itself so callers don't have to.

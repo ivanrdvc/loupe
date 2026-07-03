@@ -1,22 +1,8 @@
-import type { ListSpansOpts, ListTracesOpts, TraceCategory } from '#/lib/telemetry'
-import { listRecentSpans, listRecentTraces } from '#/lib/telemetry'
-import { badRequest, json, pageMeta, parseSince, readPage } from '../logic/respond'
+import type { ListSort, ListSpansOpts, ListTracesOpts, TraceCategory } from '#/lib/telemetry'
+import { listRecentSpans, listRecentTraces, TRACE_CATEGORIES } from '#/lib/telemetry'
+import { badRequest, json, parseSince, readPage } from '../logic/respond'
 
-const WINDOW_CAP = 500
-
-type Sort = 'recent' | 'cost' | 'tokens' | 'duration'
-const SORTS: Sort[] = ['recent', 'cost', 'tokens', 'duration']
-
-const TRACE_CATEGORIES: readonly TraceCategory[] = [
-  'chat',
-  'sub-agent',
-  'scheduled',
-  'event',
-  'webhook',
-  'background',
-  'utility',
-  'orphan',
-]
+const SORTS: readonly ListSort[] = ['recent', 'cost', 'tokens', 'duration']
 
 const num = (v: string | null): number | undefined => {
   const n = Number.parseFloat(v ?? '')
@@ -26,7 +12,8 @@ const num = (v: string | null): number | undefined => {
 const str = (v: string | null): string | undefined => v?.trim() || undefined
 
 // URL params → provider filter opts (server-side WHERE). Shared prefix; the
-// per-entity builders below add the fields their SELECT supports.
+// per-entity builders below add the fields their SELECT supports. Sort + paging
+// are applied at the call site (ORDER BY / LIMIT / OFFSET in the provider).
 function readNumericFloors(p: URLSearchParams): Pick<ListTracesOpts, 'minCostUsd' | 'minTokens' | 'minDurationMs'> {
   return {
     minCostUsd: num(p.get('min_cost')),
@@ -43,7 +30,6 @@ function readStatus(p: URLSearchParams): 'error' | 'ok' | undefined {
 function readTraceOpts(p: URLSearchParams): ListTracesOpts {
   const category = str(p.get('category'))?.toLowerCase() as TraceCategory | undefined
   return {
-    limit: WINDOW_CAP,
     status: readStatus(p),
     search: str(p.get('q')),
     agentContains: str(p.get('agent')),
@@ -56,7 +42,6 @@ function readTraceOpts(p: URLSearchParams): ListTracesOpts {
 
 function readSpanOpts(p: URLSearchParams): ListSpansOpts {
   return {
-    limit: WINDOW_CAP,
     status: readStatus(p),
     search: str(p.get('q')),
     agentContains: str(p.get('agent')),
@@ -68,16 +53,6 @@ function readSpanOpts(p: URLSearchParams): ListSpansOpts {
 
 const statusOf = (hasError?: boolean) => (hasError ? 'error' : 'ok')
 
-const sortKey =
-  (sort: Sort) => (x: { startedAtMs: number; durationMs: number; totalTokens?: number; totalCostUsd?: number }) =>
-    sort === 'cost'
-      ? (x.totalCostUsd ?? 0)
-      : sort === 'tokens'
-        ? (x.totalTokens ?? 0)
-        : sort === 'duration'
-          ? x.durationMs
-          : x.startedAtMs
-
 const top = <T>(values: T[], n = 20): T[] => values.slice(0, n)
 const tally = (values: (string | undefined)[]): string[] => {
   const counts = new Map<string, number>()
@@ -87,29 +62,26 @@ const tally = (values: (string | undefined)[]): string[] => {
 
 /**
  * The steered research primitive shared by `/api/search` and `/api/traces`:
- * fetch a bounded recent window, then filter / free-text / sort in-memory, and
- * page the hits (`limit`/`offset`) so a wide window never overflows the caller.
- * `forced` pins the entity (the `/api/traces` alias passes 'traces').
+ * filter / sort / page entirely in the provider (WHERE + ORDER BY + LIMIT/OFFSET)
+ * and return exactly the requested page. `has_more` comes from the provider, not
+ * a scanned-window cap. `facets` reflect the returned page. `forced` pins the
+ * entity (the `/api/traces` alias passes 'traces').
  */
 export async function runSearch(p: URLSearchParams, forced?: 'traces' | 'spans'): Promise<Response> {
   const entity = forced ?? (p.get('entity') === 'spans' ? 'spans' : 'traces')
   const { limit, offset } = readPage(p, 20)
-  const sort = (SORTS.includes(p.get('sort') as Sort) ? p.get('sort') : 'recent') as Sort
+  const sortBy = (SORTS.includes(p.get('sort') as ListSort) ? p.get('sort') : 'recent') as ListSort
   const { fromUs, toUs, label } = parseSince(p.get('since'), 7)
-  const key = sortKey(sort)
 
   if (entity === 'spans') {
-    const r = await listRecentSpans({ ...readSpanOpts(p), fromUs, toUs })
+    const r = await listRecentSpans({ ...readSpanOpts(p), sortBy, limit, offset, fromUs, toUs })
     if (!r) return badRequest('Active telemetry provider does not support listing spans')
-    const hits = r.spans.sort((a, b) => key(b) - key(a))
     return json({
       entity,
       provider: r.provider,
-      // `capped`: the window hit WINDOW_CAP, so matches older than it weren't
-      // scanned — `page.has_more=false` means "end of window", not "of all data".
-      window: { since: label, scanned: r.spans.length, capped: r.spans.length >= WINDOW_CAP },
-      page: pageMeta(hits.length, limit, offset),
-      results: hits.slice(offset, offset + limit).map((s) => ({
+      window: { since: label },
+      page: { limit, offset, has_more: r.hasMore },
+      results: r.spans.map((s) => ({
         span_id: s.spanId,
         trace_id: s.traceId,
         name: s.spanName,
@@ -126,15 +98,14 @@ export async function runSearch(p: URLSearchParams, forced?: 'traces' | 'spans')
     })
   }
 
-  const r = await listRecentTraces({ ...readTraceOpts(p), fromUs, toUs })
+  const r = await listRecentTraces({ ...readTraceOpts(p), sortBy, limit, offset, fromUs, toUs })
   if (!r) return badRequest('Active telemetry provider does not support listing traces')
-  const hits = r.traces.sort((a, b) => key(b) - key(a))
   return json({
     entity,
     provider: r.provider,
-    window: { since: label, scanned: r.traces.length, capped: r.traces.length >= WINDOW_CAP },
-    page: pageMeta(hits.length, limit, offset),
-    results: hits.slice(offset, offset + limit).map((t) => ({
+    window: { since: label },
+    page: { limit, offset, has_more: r.hasMore },
+    results: r.traces.map((t) => ({
       id: t.id,
       started_at: new Date(t.startedAtMs).toISOString(),
       duration_ms: t.durationMs,

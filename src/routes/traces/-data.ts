@@ -2,21 +2,12 @@ import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { ensureSession } from '#/lib/auth/guards'
 import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
-import { listRecentSpans, listRecentTraces, type TraceCategory } from '#/lib/telemetry'
+import { listRecentSpans, listRecentTraces, TRACE_CATEGORIES, type TraceCategory } from '#/lib/telemetry'
 import { parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
 export const TRACES_PAGE_SIZE = 100
 
-const TRACE_CATEGORIES = new Set<TraceCategory>([
-  'chat',
-  'sub-agent',
-  'scheduled',
-  'event',
-  'webhook',
-  'background',
-  'utility',
-  'orphan',
-])
+const CATEGORY_SET = new Set<TraceCategory>(TRACE_CATEGORIES)
 
 export interface TraceListFilters {
   category?: string
@@ -32,7 +23,7 @@ export interface SpanListFilters {
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
 const asStatus = (v: unknown) => (v === 'error' || v === 'ok' ? v : undefined)
 const asCategory = (v: unknown) =>
-  typeof v === 'string' && TRACE_CATEGORIES.has(v as TraceCategory) ? (v as TraceCategory) : undefined
+  typeof v === 'string' && CATEGORY_SET.has(v as TraceCategory) ? (v as TraceCategory) : undefined
 const asKind = (v: unknown) => (v === 'utility' || v === 'sub-agent' ? (v as 'utility' | 'sub-agent') : undefined)
 
 const parseTracesInput = (input: unknown) => {

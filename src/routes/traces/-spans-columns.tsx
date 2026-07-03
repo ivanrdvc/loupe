@@ -36,26 +36,11 @@ export const spanColumns: ColumnDef<SpanSummary>[] = [
         </div>
       )
     },
-    filterFn: (row, _id, value) => {
-      const q = String(value ?? '')
-        .trim()
-        .toLowerCase()
-      if (!q) return true
-      const s = row.original
-      const haystack = [s.spanId, s.traceId, s.spanName, s.label, s.modelId ?? '', s.userId ?? '', s.userName ?? '']
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(q)
-    },
   },
   {
     accessorKey: 'kind',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Kind" />,
     cell: ({ row }) => <KindBadge kind={row.original.kind} />,
-    filterFn: (row, _id, value: string[]) => {
-      if (!Array.isArray(value) || value.length === 0) return true
-      return value.includes(row.original.kind)
-    },
     enableSorting: false,
   },
   {

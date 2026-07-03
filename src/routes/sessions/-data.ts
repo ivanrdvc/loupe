@@ -1,8 +1,8 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { ensureSession } from '#/lib/auth/guards'
-import { queryKeys } from '#/lib/query-keys'
-import { listRecentSessions } from '#/lib/telemetry'
+import { queryKeys, STALE_LIVE_MS } from '#/lib/query-keys'
+import { listRecentSessions, listSessionHosts } from '#/lib/telemetry'
 import { DEFAULT, parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
 export const SESSIONS_PAGE_SIZE = 50
@@ -31,4 +31,20 @@ export const sessionsQuery = (range: TimeRange = DEFAULT, userId = '', host = ''
     queryKey: [...queryKeys.sessions.window(serialize(range), userId, host), page] as const,
     queryFn: () => fetchSessions({ data: { range, userId, host, page } }),
     placeholderData: keepPreviousData,
+  })
+
+// Host facet — a window-wide GROUP BY, not the current page's hosts, so the
+// dropdown is stable across pagination.
+const fetchSessionHosts = createServerFn({ method: 'GET' })
+  .inputValidator(parseRangeUserInput)
+  .handler(async ({ data }) => {
+    await ensureSession()
+    return await listSessionHosts(windowUs(data.range))
+  })
+
+export const sessionHostsQuery = (range: TimeRange = DEFAULT) =>
+  queryOptions({
+    queryKey: [...queryKeys.sessions.window(serialize(range)), 'hosts'] as const,
+    queryFn: () => fetchSessionHosts({ data: { range } }),
+    staleTime: STALE_LIVE_MS,
   })

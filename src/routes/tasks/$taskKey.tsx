@@ -5,10 +5,9 @@ import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
 import { PageBreadcrumb } from '#/components/page-breadcrumb'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { FiresTable, rollupTasks, TaskCost, TaskHero, taskFiresQuery, taskIdentity } from '#/features/tasks'
+import { FiresTable, TaskCost, TaskHero, taskFiresQuery, taskRollupQuery, tasksFromRollupRows } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
-import type { TraceSummary } from '#/lib/telemetry'
 import { windowMs } from '#/lib/time-range'
 
 type TabValue = 'fires' | 'cost'
@@ -35,24 +34,28 @@ function TaskDetail() {
   const [range] = useTimeRange()
   const [autoRefresh] = useAutoRefresh()
 
-  const { data, isLoading } = useQuery({
+  const { data: rollup } = useQuery({
+    ...taskRollupQuery(range, taskKey),
+    refetchInterval: AUTO_REFRESH_MS[autoRefresh],
+  })
+  const { data: firesData, isLoading } = useQuery({
     ...taskFiresQuery(range, taskKey),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
 
+  // The hero row is the SQL rollup (grouped by the same taskKey WHERE that
+  // filters the fires); the fires list drives the tables. No JS re-aggregation.
   const { row, fires, fromMs, toMs } = useMemo(() => {
     const { from, to } = windowMs(range)
-    if (!data?.traces) return { row: undefined, fires: [] as TraceSummary[], fromMs: from, toMs: to }
-    // Server already filtered by taskKey; this guards the lossy derived-identity case.
-    const matchingFires = data.traces.filter((t) => taskIdentity(t).key === taskKey)
-    const rows = rollupTasks(matchingFires, { fromMs: from, toMs: to })
+    const rows = tasksFromRollupRows(rollup?.rows ?? [], { fromMs: from, toMs: to })
+    const traces = firesData?.traces ?? []
     return {
       row: rows[0],
-      fires: matchingFires.sort((a, b) => b.startedAtMs - a.startedAtMs),
+      fires: [...traces].sort((a, b) => b.startedAtMs - a.startedAtMs),
       fromMs: from,
       toMs: to,
     }
-  }, [data?.traces, taskKey, range])
+  }, [rollup?.rows, firesData?.traces, range])
 
   return (
     <div className="flex h-full flex-col">

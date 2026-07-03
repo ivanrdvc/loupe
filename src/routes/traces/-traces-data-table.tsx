@@ -73,9 +73,8 @@ export function TracesDataTable({ scoreSummaries, ...props }: TracesDataTablePro
       columns={columns}
       getRowId={(row) => row.id}
       filters={CLIENT_FILTERS}
-      searchColumnId="id"
       searchPlaceholder="Search traces, agents, users…"
-      defaultColumnVisibility={{ status: false, category: false, scoreFlag: false }}
+      defaultColumnVisibility={{ status: false, scoreFlag: false }}
       actions={(table) => (
         <ListScoreActions
           table={table}

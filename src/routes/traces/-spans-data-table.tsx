@@ -38,7 +38,6 @@ export function SpansDataTable(props: SpansDataTableProps) {
       columns={spanColumns}
       getRowId={(row) => row.spanId}
       filters={[]}
-      searchColumnId="spanName"
       searchPlaceholder="Search spans, purposes, users…"
       emptyState={({ isLoading }) =>
         isLoading ? (

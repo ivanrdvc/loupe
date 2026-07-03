@@ -244,6 +244,31 @@ describe('provider queries', () => {
     expect(sql).toContain('trace_user_id = {uid:String}')
     expect(query_params).toMatchObject({ uid: 'u-1' })
   })
+
+  it('listTaskRollup narrows to one task via the decoded taskKey WHERE', async () => {
+    await createClickHouseProvider(cfg).listTaskRollup?.({ taskKey: 'task:nightly' })
+    const { query: sql, query_params } = ch.calls[0]
+    expect(sql).toContain('root_task_id = {tk_id:String}')
+    expect(query_params).toMatchObject({ tk_id: 'nightly' })
+  })
+
+  it('listTraces maps sortBy to the ORDER BY expression', async () => {
+    await createClickHouseProvider(cfg).listTraces?.({ sortBy: 'cost' })
+    expect(ch.calls[0].query).toContain('ORDER BY total_cost DESC')
+  })
+
+  it('listSpans maps sortBy to the ORDER BY expression', async () => {
+    await createClickHouseProvider(cfg).listSpans?.({ sortBy: 'duration' })
+    expect(ch.calls[0].query).toContain('ORDER BY Duration DESC')
+  })
+
+  it('listHosts groups distinct hosts off session_list', async () => {
+    ch.rows = [{ host: 'box-1' }, { host: 'box-2' }]
+    const hosts = await createClickHouseProvider(cfg).listHosts?.({})
+    expect(ch.calls[0].query).toContain('FROM session_list(')
+    expect(ch.calls[0].query).toContain('GROUP BY host')
+    expect(hosts).toEqual(['box-1', 'box-2'])
+  })
 })
 
 describe('fetchTools maxTokens is the token-max, not the char-longest body tokenized', () => {

@@ -6,14 +6,22 @@ import { listRecentTraces, listTaskRollup } from '#/lib/telemetry'
 import { FIRE_TRIGGER_TYPES } from '#/lib/telemetry/trace-category'
 import { parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
-// List page: the provider groups fire traces by task identity in SQL.
+const parseRollupInput = (input: unknown) => {
+  const raw = (input ?? {}) as Record<string, unknown>
+  const taskKey = typeof raw.taskKey === 'string' ? raw.taskKey : ''
+  return { ...parseRangeUserInput(raw), taskKey }
+}
+
+// The provider groups fire traces by task identity in SQL. taskKey narrows it to
+// one group (detail page); absent → every task (list page).
 const fetchTaskRollup = createServerFn({ method: 'GET' })
-  .inputValidator(parseRangeUserInput)
+  .inputValidator(parseRollupInput)
   .handler(async ({ data }) => {
     await ensureSession()
     return await listTaskRollup({
       ...windowUs(data.range),
       ...(data.userId ? { userId: data.userId } : {}),
+      ...(data.taskKey ? { taskKey: data.taskKey } : {}),
     })
   })
 
@@ -21,6 +29,15 @@ export const tasksRollupQuery = (range: TimeRange, userId = '') =>
   queryOptions({
     queryKey: [...queryKeys.tasks.window(serialize(range), userId), 'rollup'] as const,
     queryFn: () => fetchTaskRollup({ data: { range, userId } }),
+    staleTime: STALE_LIVE_MS,
+  })
+
+// Detail page: the one task's rollup row, grouped server-side by the same
+// taskKey WHERE that filters its fires — no JS re-aggregation, no drift guard.
+export const taskRollupQuery = (range: TimeRange, taskKey: string, userId = '') =>
+  queryOptions({
+    queryKey: [...queryKeys.tasks.window(serialize(range), userId), 'rollup', taskKey] as const,
+    queryFn: () => fetchTaskRollup({ data: { range, userId, taskKey } }),
     staleTime: STALE_LIVE_MS,
   })
 

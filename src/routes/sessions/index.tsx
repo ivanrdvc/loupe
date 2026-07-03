@@ -7,7 +7,7 @@ import { useTimeRange } from '#/hooks/use-time-range'
 import { DataTable } from './-components/data-table'
 import { HostFilter } from './-components/host-filter'
 import { useSessionSearch } from './-components/use-session-search'
-import { sessionsQuery } from './-data'
+import { sessionHostsQuery, sessionsQuery } from './-data'
 
 export const Route = createFileRoute('/sessions/')({
   validateSearch: (
@@ -45,7 +45,7 @@ function Sessions() {
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
   const sessions = data?.sessions ?? []
-  const hosts = [...new Set(sessions.map((s) => s.host).filter((h): h is string => !!h))].sort()
+  const { data: hosts = [] } = useQuery(sessionHostsQuery(range))
 
   useSessionSearch({
     sessions,

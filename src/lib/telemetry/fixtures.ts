@@ -2,6 +2,7 @@ import type { Span } from '#/lib/spans'
 import type {
   FixturesProvider,
   InventoryObservation,
+  ListSort,
   RawPayloadBody,
   SessionFetch,
   SessionSummary,
@@ -252,7 +253,17 @@ const AGENT_AS_TOOL_SPANS: Span[] = [
 // Mirrors taskIdentity (features/tasks) + the provider taskKeyWhere so the
 // fixtures rollup/detail paths agree with the real one.
 const FIRE_CATEGORIES = new Set(['scheduled', 'event', 'webhook'])
-function fixtureTaskKey(t: TraceSummary): string {
+
+type SortableRow = { startedAtMs: number; durationMs: number; totalTokens?: number; totalCostUsd?: number }
+const sortKey = (sortBy: ListSort | undefined) => (x: SortableRow) =>
+  sortBy === 'cost'
+    ? (x.totalCostUsd ?? 0)
+    : sortBy === 'tokens'
+      ? (x.totalTokens ?? 0)
+      : sortBy === 'duration'
+        ? x.durationMs
+        : x.startedAtMs
+export function fixtureTaskKey(t: TraceSummary): string {
   if (t.taskId) return `task:${t.taskId}`
   const op = t.rootOperation?.trim()
   if (op && !op.startsWith('invoke_agent') && !op.startsWith('execute_tool') && !op.startsWith('chat'))
@@ -560,7 +571,10 @@ export function createFixturesProvider(): FixturesProvider {
       const limit = opts?.limit ?? all.length
       const page = all.slice(offset, offset + limit + 1)
       const hasMore = page.length > limit
-      return { sessions: page.slice(0, limit), truncated: false, hasMore }
+      return { sessions: page.slice(0, limit), hasMore }
+    },
+    async listHosts() {
+      return [...new Set(SESSIONS.map((s) => s.summary.host).filter((h): h is string => !!h))].sort()
     },
     async getSession(sessionId: string): Promise<SessionFetch> {
       return SESSIONS.find((s) => s.summary.sessionId === sessionId)?.fetch ?? null
@@ -577,6 +591,8 @@ export function createFixturesProvider(): FixturesProvider {
         if (opts?.status === 'ok' && t.hasError) return false
         return true
       })
+      const key = sortKey(opts?.sortBy)
+      all.sort((a, b) => key(b) - key(a))
       const offset = Math.max(0, opts?.offset ?? 0)
       const limit = opts?.limit ?? all.length
       const page = all.slice(offset, offset + limit + 1)
@@ -589,16 +605,19 @@ export function createFixturesProvider(): FixturesProvider {
         if (opts?.status === 'ok' && s.hasError) return false
         return true
       })
+      const key = sortKey(opts?.sortBy)
+      all.sort((a, b) => key(b) - key(a))
       const offset = Math.max(0, opts?.offset ?? 0)
       const limit = opts?.limit ?? all.length
       const page = all.slice(offset, offset + limit + 1)
       return { spans: page.slice(0, limit), hasMore: page.length > limit }
     },
-    async listTaskRollup() {
+    async listTaskRollup(opts) {
       const groups = new Map<string, TraceSummary[]>()
       for (const t of TRACES) {
         if (!t.category || !FIRE_CATEGORIES.has(t.category)) continue
         const key = fixtureTaskKey(t)
+        if (opts?.taskKey && key !== opts.taskKey) continue
         const arr = groups.get(key) ?? []
         arr.push(t)
         groups.set(key, arr)

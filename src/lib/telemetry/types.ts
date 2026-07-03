@@ -24,6 +24,8 @@ interface ListOpts extends WindowOpts {
   minDurationMs?: number
 }
 
+export type ListSort = 'recent' | 'cost' | 'tokens' | 'duration'
+
 // Substring (ILIKE) filters for the read-only query API (/api/search). Distinct
 // from the exact identity/facet filters the dashboard uses (agentName is a
 // prefix match; userId/userName are exact).
@@ -55,8 +57,10 @@ export interface SpanFilter {
 export type TraceFetch = { spans: Span[]; truncated?: boolean; focusSpanId?: string } | null
 
 export type GetTraceOpts = WindowOpts & IdentityFilter
-export type ListTracesOpts = ListOpts & IdentityFilter & TraceFilter & TextMatchFilter
-export type ListSpansOpts = ListOpts & IdentityFilter & SpanFilter & TextMatchFilter
+// sortBy → ORDER BY, applied by the provider (defaults to 'recent'). Kept off
+// the shared ListOpts because ToolListOpts carries its own ToolSortColumn sort.
+export type ListTracesOpts = ListOpts & IdentityFilter & TraceFilter & TextMatchFilter & { sortBy?: ListSort }
+export type ListSpansOpts = ListOpts & IdentityFilter & SpanFilter & TextMatchFilter & { sortBy?: ListSort }
 
 export type SpansViewKind = 'utility' | 'sub-agent'
 
@@ -76,15 +80,20 @@ export interface SpanSummary {
   userName?: string
 }
 
-export type TraceCategory =
-  | 'chat'
-  | 'sub-agent'
-  | 'scheduled'
-  | 'event'
-  | 'webhook'
-  | 'background'
-  | 'utility'
-  | 'orphan'
+// Single source of truth; the union type is derived so callers can iterate the
+// values (facet options, param validation) without re-listing them.
+export const TRACE_CATEGORIES = [
+  'chat',
+  'sub-agent',
+  'scheduled',
+  'event',
+  'webhook',
+  'background',
+  'utility',
+  'orphan',
+] as const
+
+export type TraceCategory = (typeof TRACE_CATEGORIES)[number]
 
 export interface TraceSummary {
   id: string
@@ -246,7 +255,9 @@ export interface TaskRollupRow {
   fireTimestampsMs: number[]
 }
 
-export type ListTaskRollupOpts = WindowOpts & IdentityFilter
+// taskKey narrows the rollup to a single task group (detail page); mirrors the
+// provider taskKeyWhere. Absent → all groups (list page).
+export type ListTaskRollupOpts = WindowOpts & IdentityFilter & { taskKey?: string }
 
 export interface ToolCallSample {
   traceId: string
@@ -336,7 +347,10 @@ interface BaseProvider {
   getTrace(traceId: string): Promise<TraceFetch>
   listTraces?(opts?: ListTracesOpts): Promise<{ traces: TraceSummary[]; hasMore: boolean }>
   listSpans?(opts?: ListSpansOpts): Promise<{ spans: SpanSummary[]; hasMore: boolean }>
-  listSessions?(opts?: ListSessionsOpts): Promise<{ sessions: SessionSummary[]; truncated: boolean; hasMore: boolean }>
+  listSessions?(opts?: ListSessionsOpts): Promise<{ sessions: SessionSummary[]; hasMore: boolean }>
+  // Distinct hosts in the window — a facet source that must not depend on the
+  // current session page (init/01-traces.sql session_list drives both).
+  listHosts?(opts?: WindowOpts): Promise<string[]>
   listTaskRollup?(opts?: ListTaskRollupOpts): Promise<TaskRollupRow[]>
   getSession?(sessionId: string, opts?: GetTraceOpts): Promise<SessionFetch>
   listLogs?(opts: ListLogsOpts): Promise<LogRecord[]>

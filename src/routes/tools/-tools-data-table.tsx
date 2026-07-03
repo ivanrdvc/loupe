@@ -3,7 +3,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   type SortingState,
   useReactTable,
   type VisibilityState,
@@ -34,6 +33,8 @@ interface ToolsDataTableProps {
   onRangeChange: (range: TimeRange) => void
   dimensions: Record<string, string>
   onDimensionChange: (key: string, value: string) => void
+  onExport: () => Promise<ToolRow[]>
+  serverPagination: { pageIndex: number; hasMore: boolean; onPageChange: (pageIndex: number) => void }
 }
 
 export function ToolsDataTable({
@@ -47,23 +48,24 @@ export function ToolsDataTable({
   onRangeChange,
   dimensions,
   onDimensionChange,
+  onExport,
+  serverPagination,
 }: ToolsDataTableProps) {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     lastSeenMs: false,
     totalTokensEst: false,
   })
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 })
 
   const columns = React.useMemo(() => toolColumns(signalsByName), [signalsByName])
 
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnVisibility, columnFilters, pagination },
+    state: { sorting, columnVisibility, columnFilters },
     getRowId: (row) => row.name,
-    // Server owns the ORDER BY (see toolsCatalogQuery); headers just drive the
-    // URL sort param, they must not re-sort the fetched page.
+    // Server owns the ORDER BY + paging (see toolsPageQuery); headers just drive
+    // the URL sort param, they must not re-sort or re-page the fetched page.
     manualSorting: true,
     onSortingChange: (updater) => {
       const next = typeof updater === 'function' ? updater(sorting) : updater
@@ -71,10 +73,8 @@ export function ToolsDataTable({
     },
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   })
 
   return (
@@ -101,13 +101,14 @@ export function ToolsDataTable({
           <Button
             variant="outline"
             disabled={data.length === 0}
-            onClick={() =>
+            onClick={async () => {
+              const all = await onExport()
               downloadCsv(
                 'tools.csv',
                 CSV_COLUMNS,
-                data.map((r) => CSV_COLUMNS.map((c) => r[c])),
+                all.map((r) => CSV_COLUMNS.map((c) => r[c])),
               )
-            }
+            }}
           >
             <Download className="size-4" aria-hidden />
             CSV
@@ -161,7 +162,7 @@ export function ToolsDataTable({
           </Table>
         </div>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePagination table={table} server={serverPagination} />
     </div>
   )
 }

@@ -24,18 +24,6 @@ export function makeTraceColumns(scoreSummaries: Record<string, ScoreSummary> = 
     statusFilterColumn<TraceSummary>(),
     scoreFlagColumn<TraceSummary>((s) => s.id, scoreSummaries),
     {
-      id: 'category',
-      accessorFn: (s) => s.category ?? 'orphan',
-      header: () => null,
-      cell: () => null,
-      filterFn: (row, _id, value: string[]) => {
-        if (!Array.isArray(value) || value.length === 0) return true
-        return value.includes(row.original.category ?? 'orphan')
-      },
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
       accessorKey: 'startedAtMs',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last seen" />,
       cell: ({ row }) => (
@@ -57,24 +45,6 @@ export function makeTraceColumns(scoreSummaries: Record<string, ScoreSummary> = 
             )}
           </div>
         )
-      },
-      filterFn: (row, _id, value) => {
-        const q = String(value ?? '')
-          .trim()
-          .toLowerCase()
-        if (!q) return true
-        const s = row.original
-        const haystack = [
-          s.id,
-          s.agent ?? '',
-          s.rootOperation ?? '',
-          s.serviceName ?? '',
-          s.userId ?? '',
-          s.userName ?? '',
-        ]
-          .join(' ')
-          .toLowerCase()
-        return haystack.includes(q)
       },
     },
     {

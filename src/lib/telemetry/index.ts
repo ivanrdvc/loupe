@@ -33,6 +33,7 @@ import type {
 } from './types'
 
 export type * from './types'
+export { TRACE_CATEGORIES } from './types'
 
 const PROVIDER_IDS = ['clickhouse', 'fixtures'] as const
 export type ProviderId = (typeof PROVIDER_IDS)[number]
@@ -117,7 +118,6 @@ export async function listRecentSpans(opts?: ListSpansOpts): Promise<{
 
 export async function listRecentSessions(opts?: ListSessionsOpts): Promise<{
   sessions: SessionSummary[]
-  truncated: boolean
   hasMore: boolean
   provider: string
   fingerprint: string
@@ -125,13 +125,12 @@ export async function listRecentSessions(opts?: ListSessionsOpts): Promise<{
   const p = getActiveProvider()
   if (!p.listSessions) return null
   const r = await p.listSessions(opts)
-  return {
-    sessions: r.sessions,
-    truncated: r.truncated,
-    hasMore: r.hasMore,
-    provider: p.name,
-    fingerprint: p.fingerprint,
-  }
+  return { sessions: r.sessions, hasMore: r.hasMore, provider: p.name, fingerprint: p.fingerprint }
+}
+
+export async function listSessionHosts(opts?: WindowOpts): Promise<string[]> {
+  const p = getActiveProvider()
+  return p.listHosts ? p.listHosts(opts) : []
 }
 
 export async function listTaskRollup(opts?: ListTaskRollupOpts): Promise<{

@@ -29,6 +29,7 @@ import type {
   ClickHouseProvider,
   GetTraceOpts,
   IdentityFilter,
+  ListSort,
   ListSpansOpts,
   ListTracesOpts,
   LogLevel,
@@ -108,6 +109,20 @@ export const CH_TRACE_CATEGORY = `multiIf(
 // from the root invoke_agent span name (mirrors extractAgentName + listTraces).
 const CH_TRACE_AGENT =
   "if(sample_agent_name != '', sample_agent_name, extract(sample_agent, '^invoke_agent\\\\s+([^(\\\\s]+)'))"
+
+// ListSort → ORDER BY expression (always DESC — lists lead with newest/largest).
+const TRACE_ORDER: Record<ListSort, string> = {
+  recent: 'first_ms',
+  cost: 'total_cost',
+  tokens: 'total_tokens',
+  duration: '(last_ms - first_ms)',
+}
+const SPAN_ORDER: Record<ListSort, string> = {
+  recent: 'Timestamp',
+  cost: 'CostUsd',
+  tokens: 'if(TotalTokens > 0, TotalTokens, InputTokens + OutputTokens)',
+  duration: 'Duration',
+}
 
 export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvider {
   const table = cfg.table ?? 'otel_traces'
@@ -230,7 +245,19 @@ export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvi
       `
       const hits = await run(sql, params)
       const hasMore = hits.length > limit
-      return { sessions: hits.slice(0, limit).map(rowToSessionSummary), truncated: false, hasMore }
+      return { sessions: hits.slice(0, limit).map(rowToSessionSummary), hasMore }
+    },
+
+    // Distinct hosts in the window, straight off session_list — a facet source
+    // independent of which session page is loaded.
+    async listHosts(opts) {
+      const { fromUs, toUs } = window(opts)
+      const rows = await run(
+        `SELECT host FROM session_list(p_from={from_us:Int64}, p_to={to_us:Int64}, p_svc={svc:String})
+         WHERE host != '' GROUP BY host ORDER BY host`,
+        { from_us: fromUs, to_us: toUs, svc: '' },
+      )
+      return rows.map((r) => String(r.host ?? '')).filter(Boolean)
     },
 
     // Task rollup grouped in SQL — mirrors features/tasks taskIdentity +
@@ -247,6 +274,11 @@ export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvi
       if (opts?.userName) {
         idClauses.push('trace_user_name = {uname:String}')
         params.uname = opts.userName
+      }
+      if (opts?.taskKey) {
+        const tk = taskKeyWhere(opts.taskKey)
+        idClauses.push(tk.clause)
+        Object.assign(params, tk.params)
       }
       const sql = `
         SELECT
@@ -381,7 +413,7 @@ export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvi
       const sql = `
         SELECT * FROM trace_list(p_from={from_us:Int64}, p_to={to_us:Int64}, p_svc={svc:String})
         ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}
-        ORDER BY first_ms DESC
+        ORDER BY ${TRACE_ORDER[opts?.sortBy ?? 'recent']} DESC
         LIMIT ${limit + 1} OFFSET ${offset}
       `
       const hits = await run(sql, params)
@@ -470,7 +502,7 @@ export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvi
           AND ${CH_TIME_WHERE}
           ${identity.clause}
           ${extra.join('\n          ')}
-        ORDER BY Timestamp DESC
+        ORDER BY ${SPAN_ORDER[opts?.sortBy ?? 'recent']} DESC
         LIMIT ${limit + 1} OFFSET ${offset}
       `
       const hits = await run(sql, { from_us: fromUs, to_us: toUs, ...identity.params, ...extraParams })
