@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { AUTO_REFRESH_MS } from '#/components/auto-refresh-select'
 import { Page } from '#/components/page'
-import { MetricTiles, rollupTasks, summarizeRollup, TasksDataTable, tasksTracesQuery } from '#/features/tasks'
+import { MetricTiles, summarizeRollup, TasksDataTable, tasksFromRollupRows, tasksRollupQuery } from '#/features/tasks'
 import { useAutoRefresh } from '#/hooks/use-auto-refresh'
 import { useTimeRange } from '#/hooks/use-time-range'
 import { windowMs } from '#/lib/time-range'
@@ -26,15 +26,15 @@ function TasksPage() {
   const [autoRefresh, setAutoRefresh] = useAutoRefresh()
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    ...tasksTracesQuery(range),
+    ...tasksRollupQuery(range),
     refetchInterval: AUTO_REFRESH_MS[autoRefresh],
   })
 
   const rows = useMemo(() => {
-    if (!data?.traces) return []
+    if (!data?.rows) return []
     const { from, to } = windowMs(range)
-    return rollupTasks(data.traces, { fromMs: from, toMs: to })
-  }, [data?.traces, range])
+    return tasksFromRollupRows(data.rows, { fromMs: from, toMs: to })
+  }, [data?.rows, range])
 
   const summary = useMemo(() => summarizeRollup(rows), [rows])
 

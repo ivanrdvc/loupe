@@ -45,6 +45,7 @@ interface DataTableProps {
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
   refreshing?: boolean
+  serverPagination?: { pageIndex: number; hasMore: boolean; onPageChange: (pageIndex: number) => void }
 }
 
 export function DataTable(props: DataTableProps) {

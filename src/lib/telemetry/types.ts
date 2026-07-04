@@ -14,6 +14,26 @@ export interface IdentityFilter {
 
 interface ListOpts extends WindowOpts {
   limit?: number
+  offset?: number
+  status?: 'error' | 'ok'
+  /** Free-text; ILIKE substring match on the list's identifying columns. */
+  search?: string
+  // Numeric floors (server-side WHERE) — used by the read-only query API.
+  minCostUsd?: number
+  minTokens?: number
+  minDurationMs?: number
+}
+
+export type ListSort = 'recent' | 'cost' | 'tokens' | 'duration'
+
+// Substring (ILIKE) filters for the read-only query API (/api/search). Distinct
+// from the exact identity/facet filters the dashboard uses (agentName is a
+// prefix match; userId/userName are exact).
+export interface TextMatchFilter {
+  agentContains?: string
+  userContains?: string
+  sessionContains?: string
+  modelContains?: string
 }
 
 export type TriggerType = 'scheduled' | 'event' | 'webhook' | 'user'
@@ -23,13 +43,24 @@ export interface TraceFilter {
   triggerTypes?: readonly TriggerType[]
   serviceName?: string
   agentName?: string
+  // Exact derived-category match (mirrors classifyTraceCategory in SQL).
+  category?: TraceCategory
+  // Encoded task identity (see features/tasks taskIdentity): task:<id> | op:<root> | derived:<svc|agent|cat>.
+  taskKey?: string
+}
+
+// Spans-tab facet.
+export interface SpanFilter {
+  kind?: SpansViewKind
 }
 
 export type TraceFetch = { spans: Span[]; truncated?: boolean; focusSpanId?: string } | null
 
 export type GetTraceOpts = WindowOpts & IdentityFilter
-export type ListTracesOpts = ListOpts & IdentityFilter & TraceFilter
-export type ListSpansOpts = ListOpts & IdentityFilter
+// sortBy → ORDER BY, applied by the provider (defaults to 'recent'). Kept off
+// the shared ListOpts because ToolListOpts carries its own ToolSortColumn sort.
+export type ListTracesOpts = ListOpts & IdentityFilter & TraceFilter & TextMatchFilter & { sortBy?: ListSort }
+export type ListSpansOpts = ListOpts & IdentityFilter & SpanFilter & TextMatchFilter & { sortBy?: ListSort }
 
 export type SpansViewKind = 'utility' | 'sub-agent'
 
@@ -49,15 +80,20 @@ export interface SpanSummary {
   userName?: string
 }
 
-export type TraceCategory =
-  | 'chat'
-  | 'sub-agent'
-  | 'scheduled'
-  | 'event'
-  | 'webhook'
-  | 'background'
-  | 'utility'
-  | 'orphan'
+// Single source of truth; the union type is derived so callers can iterate the
+// values (facet options, param validation) without re-listing them.
+export const TRACE_CATEGORIES = [
+  'chat',
+  'sub-agent',
+  'scheduled',
+  'event',
+  'webhook',
+  'background',
+  'utility',
+  'orphan',
+] as const
+
+export type TraceCategory = (typeof TRACE_CATEGORIES)[number]
 
 export interface TraceSummary {
   id: string
@@ -173,10 +209,55 @@ export interface ToolDimensionFilter {
   value: string
 }
 
+// ToolRow fields the catalog can be ordered by, server-side. avgTokensEst /
+// p95TokensEst / totalTokensEst / maxTokens sort on their char proxy (monotonic
+// with the token estimate); the rest map to a plain aggregate.
+export type ToolSortColumn =
+  | 'name'
+  | 'calls'
+  | 'errorRate'
+  | 'p95Ms'
+  | 'avgTokensEst'
+  | 'p95TokensEst'
+  | 'maxTokens'
+  | 'totalTokensEst'
+  | 'lastSeenMs'
+
 export interface ToolListOpts extends ListOpts {
   name?: string // exact tool name → single-row fetch
   dimensions?: readonly ToolDimensionFilter[]
+  sortBy?: ToolSortColumn
+  sortDir?: 'asc' | 'desc'
 }
+
+// One task-identity group (see features/tasks taskIdentity/rollupTasks). The
+// provider does the GROUP BY + aggregation in SQL; the tasks slice maps these to
+// TaskRow (spark buckets, kind, declared overlay). fireTimestampsMs feeds the
+// sparkline; identitySource is derivable from the key prefix.
+export interface TaskRollupRow {
+  key: string
+  taskId?: string
+  taskName?: string
+  taskKind?: string
+  taskSchedule?: string
+  taskSource?: string
+  rootOperation?: string
+  category: TraceCategory
+  agent?: string
+  serviceName?: string
+  fires: number
+  errored: number
+  avgDurationMs: number
+  lastFireMs: number
+  costUsd?: number
+  conversationId?: string
+  sampleTraceId: string
+  fireTimestampsMs: number[]
+}
+
+// taskKey narrows the rollup to a single task group (detail page); mirrors the
+// provider taskKeyWhere. Absent → all groups (list page).
+export type ListTaskRollupOpts = WindowOpts & IdentityFilter & { taskKey?: string }
 
 export interface ToolCallSample {
   traceId: string
@@ -264,22 +345,22 @@ export interface ListLogsOpts extends WindowOpts {
 interface BaseProvider {
   fingerprint: string
   getTrace(traceId: string): Promise<TraceFetch>
-  listTraces?(opts?: ListTracesOpts): Promise<TraceSummary[]>
-  listSpans?(opts?: ListSpansOpts): Promise<SpanSummary[]>
-  listSessions?(opts?: ListSessionsOpts): Promise<{ sessions: SessionSummary[]; truncated: boolean }>
+  listTraces?(opts?: ListTracesOpts): Promise<{ traces: TraceSummary[]; hasMore: boolean }>
+  listSpans?(opts?: ListSpansOpts): Promise<{ spans: SpanSummary[]; hasMore: boolean }>
+  listSessions?(opts?: ListSessionsOpts): Promise<{ sessions: SessionSummary[]; hasMore: boolean }>
+  // Distinct hosts in the window — a facet source that must not depend on the
+  // current session page (init/01-traces.sql session_list drives both).
+  listHosts?(opts?: WindowOpts): Promise<string[]>
+  listTaskRollup?(opts?: ListTaskRollupOpts): Promise<TaskRollupRow[]>
   getSession?(sessionId: string, opts?: GetTraceOpts): Promise<SessionFetch>
   listLogs?(opts: ListLogsOpts): Promise<LogRecord[]>
   query(q: string, opts: WindowOpts & { size?: number }): Promise<Array<Record<string, unknown>>>
 }
 
-export interface OpenObserveProvider extends BaseProvider {
-  name: 'openobserve'
-  stream: string
-  getKnownColumns(): Promise<ReadonlySet<string>>
-}
-
-export interface AppInsightsProvider extends BaseProvider {
-  name: 'app-insights'
+export interface ClickHouseProvider extends BaseProvider {
+  name: 'clickhouse'
+  table: string
+  logsTable: string
 }
 
 // In-memory provider for the e2e suite (see fixtures.ts). Not configured in
@@ -288,4 +369,4 @@ export interface FixturesProvider extends BaseProvider {
   name: 'fixtures'
 }
 
-export type TelemetryProvider = OpenObserveProvider | AppInsightsProvider | FixturesProvider
+export type TelemetryProvider = ClickHouseProvider | FixturesProvider

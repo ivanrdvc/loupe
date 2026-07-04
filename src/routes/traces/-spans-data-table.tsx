@@ -1,12 +1,12 @@
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
-import type { FacetedFilterSpec } from '#/components/data-table-toolbar'
+import type { FacetedFilterSpec, ServerFilters } from '#/components/data-table-toolbar'
 import { Spinner } from '#/components/spinner'
 import { TelemetryDataTable } from '#/components/telemetry-data-table'
 import type { SpanSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { spanColumns } from './-spans-columns'
 
-const FILTERS: FacetedFilterSpec[] = [
+export const SPAN_SERVER_FACETS: FacetedFilterSpec[] = [
   {
     columnId: 'kind',
     title: 'Kind',
@@ -27,6 +27,8 @@ interface SpansDataTableProps {
   onAutoRefreshChange: (interval: AutoRefreshInterval) => void
   onRefresh: () => void
   refreshing?: boolean
+  serverFilters?: ServerFilters
+  serverPagination?: { pageIndex: number; hasMore: boolean; onPageChange: (pageIndex: number) => void }
 }
 
 export function SpansDataTable(props: SpansDataTableProps) {
@@ -35,8 +37,7 @@ export function SpansDataTable(props: SpansDataTableProps) {
       {...props}
       columns={spanColumns}
       getRowId={(row) => row.spanId}
-      filters={FILTERS}
-      searchColumnId="spanName"
+      filters={[]}
       searchPlaceholder="Search spans, purposes, users…"
       emptyState={({ isLoading }) =>
         isLoading ? (

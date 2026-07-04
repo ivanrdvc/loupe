@@ -1,85 +1,63 @@
-import type { SpanSummary, TraceSummary } from '#/lib/telemetry'
-import { listRecentSpans, listRecentTraces } from '#/lib/telemetry'
-import { badRequest, json, pageMeta, parseSince, readPage } from '../logic/respond'
+import type { ListSort, ListSpansOpts, ListTracesOpts, TraceCategory } from '#/lib/telemetry'
+import { listRecentSpans, listRecentTraces, TRACE_CATEGORIES } from '#/lib/telemetry'
+import { badRequest, json, parseSince, readPage } from '../logic/respond'
 
-const WINDOW_CAP = 500
+const SORTS: readonly ListSort[] = ['recent', 'cost', 'tokens', 'duration']
 
-type Sort = 'recent' | 'cost' | 'tokens' | 'duration'
-const SORTS: Sort[] = ['recent', 'cost', 'tokens', 'duration']
-
-interface Filters {
-  q?: string
-  status?: 'error' | 'ok'
-  agent?: string
-  model?: string
-  session?: string
-  user?: string
-  category?: string
-  minCost?: number
-  minTokens?: number
-  minDurationMs?: number
-}
-
-const inc = (hay: string | undefined, needle?: string) => !needle || (hay ?? '').toLowerCase().includes(needle)
 const num = (v: string | null): number | undefined => {
   const n = Number.parseFloat(v ?? '')
   return Number.isFinite(n) ? n : undefined
 }
 
-function readFilters(p: URLSearchParams): Filters {
-  const status = p.get('status')
+const str = (v: string | null): string | undefined => v?.trim() || undefined
+
+// URL params → provider filter opts (server-side WHERE). Shared prefix; the
+// per-entity builders below add the fields their SELECT supports. Sort + paging
+// are applied at the call site (ORDER BY / LIMIT / OFFSET in the provider).
+const int = (v: string | null): number | undefined => {
+  const n = num(v)
+  return n === undefined ? undefined : Math.floor(n)
+}
+
+function readNumericFloors(p: URLSearchParams): Pick<ListTracesOpts, 'minCostUsd' | 'minTokens' | 'minDurationMs'> {
   return {
-    q: p.get('q')?.toLowerCase() || undefined,
-    status: status === 'error' || status === 'ok' ? status : undefined,
-    agent: p.get('agent')?.toLowerCase() || undefined,
-    model: p.get('model')?.toLowerCase() || undefined,
-    session: p.get('session')?.toLowerCase() || undefined,
-    user: p.get('user')?.toLowerCase() || undefined,
-    category: p.get('category')?.toLowerCase() || undefined,
-    minCost: num(p.get('min_cost')),
-    minTokens: num(p.get('min_tokens')),
-    minDurationMs: num(p.get('min_duration_ms')),
+    minCostUsd: num(p.get('min_cost')),
+    minTokens: int(p.get('min_tokens')),
+    minDurationMs: int(p.get('min_duration_ms')),
+  }
+}
+
+function readStatus(p: URLSearchParams): 'error' | 'ok' | undefined {
+  const status = p.get('status')
+  return status === 'error' || status === 'ok' ? status : undefined
+}
+
+function readTraceOpts(p: URLSearchParams): ListTracesOpts {
+  const category = str(p.get('category'))?.toLowerCase() as TraceCategory | undefined
+  return {
+    status: readStatus(p),
+    search: str(p.get('q')),
+    agentContains: str(p.get('agent')),
+    userContains: str(p.get('user')),
+    sessionContains: str(p.get('session')),
+    ...(category && TRACE_CATEGORIES.includes(category) ? { category } : {}),
+    ...readNumericFloors(p),
+  }
+}
+
+function readSpanOpts(p: URLSearchParams): ListSpansOpts {
+  return {
+    status: readStatus(p),
+    search: str(p.get('q')),
+    agentContains: str(p.get('agent')),
+    modelContains: str(p.get('model')),
+    userContains: str(p.get('user')),
+    sessionContains: str(p.get('session')),
+    ...readNumericFloors(p),
   }
 }
 
 const statusOf = (hasError?: boolean) => (hasError ? 'error' : 'ok')
-
-function matchTrace(t: TraceSummary, f: Filters): boolean {
-  return (
-    (!f.status || statusOf(t.hasError) === f.status) &&
-    inc(t.agent, f.agent) &&
-    inc(t.sessionId, f.session) &&
-    inc(`${t.userName ?? ''} ${t.userId ?? ''}`, f.user) &&
-    (!f.category || t.category === f.category) &&
-    (f.minCost == null || (t.totalCostUsd ?? 0) >= f.minCost) &&
-    (f.minTokens == null || (t.totalTokens ?? 0) >= f.minTokens) &&
-    (f.minDurationMs == null || t.durationMs >= f.minDurationMs) &&
-    inc([t.agent, t.rootOperation, t.serviceName, t.sessionId, t.category, t.llmPurpose].join(' '), f.q)
-  )
-}
-
-function matchSpan(s: SpanSummary, f: Filters): boolean {
-  return (
-    (!f.status || statusOf(s.hasError) === f.status) &&
-    inc(s.label, f.agent) &&
-    inc(s.modelId, f.model) &&
-    inc(`${s.userName ?? ''} ${s.userId ?? ''}`, f.user) &&
-    (f.minCost == null || (s.totalCostUsd ?? 0) >= f.minCost) &&
-    (f.minTokens == null || (s.totalTokens ?? 0) >= f.minTokens) &&
-    (f.minDurationMs == null || s.durationMs >= f.minDurationMs) &&
-    inc([s.spanName, s.label, s.modelId, s.kind].join(' '), f.q)
-  )
-}
-
-const sortKey =
-  (sort: Sort) => (x: { startedAtMs: number; durationMs: number; totalTokens?: number; totalCostUsd?: number }) =>
-    sort === 'cost'
-      ? (x.totalCostUsd ?? 0)
-      : sort === 'tokens'
-        ? (x.totalTokens ?? 0)
-        : sort === 'duration'
-          ? x.durationMs
-          : x.startedAtMs
 
 const top = <T>(values: T[], n = 20): T[] => values.slice(0, n)
 const tally = (values: (string | undefined)[]): string[] => {
@@ -90,30 +68,26 @@ const tally = (values: (string | undefined)[]): string[] => {
 
 /**
  * The steered research primitive shared by `/api/search` and `/api/traces`:
- * fetch a bounded recent window, then filter / free-text / sort in-memory, and
- * page the hits (`limit`/`offset`) so a wide window never overflows the caller.
- * `forced` pins the entity (the `/api/traces` alias passes 'traces').
+ * filter / sort / page entirely in the provider (WHERE + ORDER BY + LIMIT/OFFSET)
+ * and return exactly the requested page. `has_more` comes from the provider, not
+ * a scanned-window cap. `facets` reflect the returned page. `forced` pins the
+ * entity (the `/api/traces` alias passes 'traces').
  */
 export async function runSearch(p: URLSearchParams, forced?: 'traces' | 'spans'): Promise<Response> {
   const entity = forced ?? (p.get('entity') === 'spans' ? 'spans' : 'traces')
   const { limit, offset } = readPage(p, 20)
-  const sort = (SORTS.includes(p.get('sort') as Sort) ? p.get('sort') : 'recent') as Sort
+  const sortBy = (SORTS.includes(p.get('sort') as ListSort) ? p.get('sort') : 'recent') as ListSort
   const { fromUs, toUs, label } = parseSince(p.get('since'), 7)
-  const f = readFilters(p)
-  const key = sortKey(sort)
 
   if (entity === 'spans') {
-    const r = await listRecentSpans({ limit: WINDOW_CAP, fromUs, toUs })
+    const r = await listRecentSpans({ ...readSpanOpts(p), sortBy, limit, offset, fromUs, toUs })
     if (!r) return badRequest('Active telemetry provider does not support listing spans')
-    const hits = r.spans.filter((s) => matchSpan(s, f)).sort((a, b) => key(b) - key(a))
     return json({
       entity,
       provider: r.provider,
-      // `capped`: the window hit WINDOW_CAP, so matches older than it weren't
-      // scanned — `page.has_more=false` means "end of window", not "of all data".
-      window: { since: label, scanned: r.spans.length, capped: r.spans.length >= WINDOW_CAP },
-      page: pageMeta(hits.length, limit, offset),
-      results: hits.slice(offset, offset + limit).map((s) => ({
+      window: { since: label },
+      page: { limit, offset, has_more: r.hasMore },
+      results: r.spans.map((s) => ({
         span_id: s.spanId,
         trace_id: s.traceId,
         name: s.spanName,
@@ -130,15 +104,14 @@ export async function runSearch(p: URLSearchParams, forced?: 'traces' | 'spans')
     })
   }
 
-  const r = await listRecentTraces({ limit: WINDOW_CAP, fromUs, toUs })
+  const r = await listRecentTraces({ ...readTraceOpts(p), sortBy, limit, offset, fromUs, toUs })
   if (!r) return badRequest('Active telemetry provider does not support listing traces')
-  const hits = r.traces.filter((t) => matchTrace(t, f)).sort((a, b) => key(b) - key(a))
   return json({
     entity,
     provider: r.provider,
-    window: { since: label, scanned: r.traces.length, capped: r.traces.length >= WINDOW_CAP },
-    page: pageMeta(hits.length, limit, offset),
-    results: hits.slice(offset, offset + limit).map((t) => ({
+    window: { since: label },
+    page: { limit, offset, has_more: r.hasMore },
+    results: r.traces.map((t) => ({
       id: t.id,
       started_at: new Date(t.startedAtMs).toISOString(),
       duration_ms: t.durationMs,

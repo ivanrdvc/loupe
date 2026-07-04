@@ -1,4 +1,4 @@
-import type { TraceCategory, TraceSummary } from '#/lib/telemetry'
+import type { TaskRollupRow, TraceCategory, TraceSummary } from '#/lib/telemetry'
 import { FIRE_TRIGGER_TYPES } from '#/lib/telemetry/trace-category'
 import type { DeclaredTask } from './declared'
 import { triggerNextDueMs } from './declared'
@@ -82,6 +82,22 @@ interface SparkPoint {
   fires: number
 }
 
+function buildSpark(timestampsMs: readonly number[], fromMs: number, toMs: number, buckets: number): SparkPoint[] {
+  const bucketMs = Math.max(1, toMs - fromMs) / buckets
+  const spark: SparkPoint[] = Array.from({ length: buckets }, (_, i) => ({ t: fromMs + i * bucketMs, fires: 0 }))
+  for (const ts of timestampsMs) {
+    const point = spark[Math.min(buckets - 1, Math.max(0, Math.floor((ts - fromMs) / bucketMs)))]
+    if (point) point.fires += 1
+  }
+  return spark
+}
+
+function identitySourceFromKey(key: string): IdentitySource {
+  if (key.startsWith('task:')) return 'task.id'
+  if (key.startsWith('op:')) return 'cloud-semconv'
+  return 'derived'
+}
+
 interface RollupOpts {
   /** Number of buckets for the sparkline series. Default 16. */
   buckets?: number
@@ -91,6 +107,11 @@ interface RollupOpts {
   toMs?: number
 }
 
+// DEPRECATED — flagged for removal. The JS trace-list aggregation; superseded by
+// tasksFromRollupRows over the provider's SQL GROUP BY (list + detail both use
+// that now). No app caller remains — only rollup.test.ts. Delete once the SQL
+// rollup has proven out on production multi-agent data.
+//
 // Group fire traces by task identity. Returns one row per distinct task,
 // sorted by fires desc. Input is the full trace list — this fn filters to
 // fire categories itself so callers don't have to.
@@ -101,8 +122,6 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
   const buckets = opts.buckets ?? 16
   const toMs = opts.toMs ?? Date.now()
   const fromMs = opts.fromMs ?? fires.reduce((m, t) => Math.min(m, t.startedAtMs), toMs)
-  const span = Math.max(1, toMs - fromMs)
-  const bucketMs = span / buckets
 
   const groups = new Map<string, TraceSummary[]>()
   for (const t of fires) {
@@ -126,15 +145,12 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
         costUsd += t.totalCostUsd
         hasCost = true
       }
-    const spark: SparkPoint[] = Array.from({ length: buckets }, (_, i) => ({
-      t: fromMs + i * bucketMs,
-      fires: 0,
-    }))
-    for (const t of group) {
-      const idx = Math.min(buckets - 1, Math.max(0, Math.floor((t.startedAtMs - fromMs) / bucketMs)))
-      const point = spark[idx]
-      if (point) point.fires += 1
-    }
+    const spark = buildSpark(
+      group.map((t) => t.startedAtMs),
+      fromMs,
+      toMs,
+      buckets,
+    )
     const sharedConversation = group.every(
       (t) => t.sessionId && t.sessionId === sample.sessionId && t.sessionId !== t.id,
     )
@@ -144,7 +160,7 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
     rows.push({
       key,
       identitySource: taskIdentity(sample).source,
-      kind: deriveKind(sample),
+      kind: deriveKind(sample.taskKind, sample.category ?? 'orphan'),
       name: sample.taskName,
       taskId: sample.taskId,
       schedule: sample.taskSchedule,
@@ -169,12 +185,12 @@ export function rollupTasks(traces: TraceSummary[], opts: RollupOpts = {}): Task
   return rows
 }
 
-function deriveKind(t: TraceSummary): TaskKind {
-  const explicit = t.taskKind?.toLowerCase()
+function deriveKind(taskKind: string | undefined, category: TraceCategory): TaskKind {
+  const explicit = taskKind?.toLowerCase()
   if (explicit === 'cron' || explicit === 'one_shot' || explicit === 'event' || explicit === 'webhook') {
     return explicit
   }
-  switch (t.category) {
+  switch (category) {
     case 'scheduled':
       return 'one_shot'
     case 'event':
@@ -184,6 +200,40 @@ function deriveKind(t: TraceSummary): TaskKind {
     default:
       return 'unknown'
   }
+}
+
+// SQL-grouped task aggregates → TaskRow[]; the JS side only adds spark buckets,
+// kind, and identity source. Same shape as rollupTasks.
+export function tasksFromRollupRows(rows: readonly TaskRollupRow[], opts: RollupOpts = {}): TaskRow[] {
+  const buckets = opts.buckets ?? 16
+  const toMs = opts.toMs ?? Date.now()
+  const fromMs = opts.fromMs ?? rows.reduce((m, r) => r.fireTimestampsMs.reduce((mm, t) => Math.min(mm, t), m), toMs)
+  return rows
+    .map(
+      (r): TaskRow => ({
+        key: r.key,
+        identitySource: identitySourceFromKey(r.key),
+        kind: deriveKind(r.taskKind, r.category),
+        name: r.taskName,
+        taskId: r.taskId,
+        schedule: r.taskSchedule,
+        source: r.taskSource,
+        rootOperation: r.rootOperation,
+        category: r.category,
+        agent: r.agent,
+        serviceName: r.serviceName,
+        fires: r.fires,
+        errored: r.errored,
+        successRate: r.fires > 0 ? 1 - r.errored / r.fires : 0,
+        avgDurationMs: r.avgDurationMs,
+        lastFireMs: r.lastFireMs,
+        costUsd: r.costUsd,
+        conversationId: r.conversationId,
+        spark: buildSpark(r.fireTimestampsMs, fromMs, toMs, buckets),
+        sampleTraceId: r.sampleTraceId,
+      }),
+    )
+    .sort((a, b) => b.fires - a.fires)
 }
 
 export interface RollupSummary {

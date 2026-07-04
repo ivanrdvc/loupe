@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { AutoRefreshInterval } from '#/components/auto-refresh-select'
-import type { FacetedFilterSpec } from '#/components/data-table-toolbar'
+import type { FacetedFilterSpec, ServerFilters } from '#/components/data-table-toolbar'
 import { Spinner } from '#/components/spinner'
 import { TelemetryDataTable } from '#/components/telemetry-data-table'
 import { ListScoreActions } from '#/features/evaluation'
@@ -9,7 +9,8 @@ import type { TraceSummary } from '#/lib/telemetry'
 import type { TimeRange } from '#/lib/time-range'
 import { makeTraceColumns } from './-columns'
 
-const FILTERS: FacetedFilterSpec[] = [
+// Category + status filter server-side (URL params → provider WHERE).
+export const TRACE_SERVER_FACETS: FacetedFilterSpec[] = [
   {
     columnId: 'category',
     title: 'Category',
@@ -32,6 +33,10 @@ const FILTERS: FacetedFilterSpec[] = [
       { label: 'Error', value: 'error' },
     ],
   },
+]
+
+// Score flags come from the scores DB (a join, not telemetry) — page-local, client-side.
+const CLIENT_FILTERS: FacetedFilterSpec[] = [
   {
     columnId: 'scoreFlag',
     title: 'Score',
@@ -55,6 +60,8 @@ interface TracesDataTableProps {
   onRefresh: () => void
   refreshing?: boolean
   scoreSummaries?: Record<string, ScoreSummary>
+  serverFilters?: ServerFilters
+  serverPagination?: { pageIndex: number; hasMore: boolean; onPageChange: (pageIndex: number) => void }
 }
 
 export function TracesDataTable({ scoreSummaries, ...props }: TracesDataTableProps) {
@@ -65,10 +72,9 @@ export function TracesDataTable({ scoreSummaries, ...props }: TracesDataTablePro
       {...props}
       columns={columns}
       getRowId={(row) => row.id}
-      filters={FILTERS}
-      searchColumnId="id"
+      filters={CLIENT_FILTERS}
       searchPlaceholder="Search traces, agents, users…"
-      defaultColumnVisibility={{ status: false, category: false, scoreFlag: false }}
+      defaultColumnVisibility={{ status: false, scoreFlag: false }}
       actions={(table) => (
         <ListScoreActions
           table={table}

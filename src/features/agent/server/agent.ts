@@ -1,6 +1,8 @@
+import { getRequest } from '@tanstack/react-start/server'
 import { type InferAgentUIMessage, isStepCount, ToolLoopAgent } from 'ai'
 import { z } from 'zod'
 import { type ChatModelId, DEFAULT_CHAT_MODEL, isChatModelId } from '#/features/agent/chat-models'
+import { getCurrentUser } from '#/lib/auth/impl'
 import type { MentionRef, PageContext } from '../logic/request'
 import { resolveChatModel } from './models'
 import { BASE, requestInstructions } from './prompt'
@@ -31,12 +33,15 @@ function buildLoupeAgent() {
       const ctx = options.context ?? { pathname: '/' }
       const mentions = options.mentions?.length ? await resolveMentions(options.mentions, ctx.origin) : undefined
       const modelId: ChatModelId = isChatModelId(options.model) ? options.model : DEFAULT_CHAT_MODEL
+      // Resolve the acting user server-side (never trust the client) so the run is
+      // attributed in loupe. Non-critical: fall back to unattributed on any failure.
+      const user = await getCurrentUser(getRequest().headers).catch(() => null)
       return {
         ...settings,
         model: resolveChatModel(modelId),
         instructions: requestInstructions(ctx, mentions),
         tools: { ...makeAgentTools(ctx.origin), load_skill: loadSkillTool },
-        telemetry: agentTelemetry(options.sessionId),
+        telemetry: agentTelemetry(options.sessionId, user ? { id: user.id, name: user.name } : undefined),
       }
     },
   })

@@ -1,0 +1,12 @@
+<!-- Small-VM safety: cap per-query memory and spill big GROUP BY / ORDER BY to
+     disk instead of OOMing the server. Raise (or drop) on hosts with more RAM.
+     Server-wide caps live in config.d/memory.xml; these are per-query (profile). -->
+<clickhouse>
+    <profiles>
+        <default>
+            <max_memory_usage>900000000</max_memory_usage>
+            <max_bytes_before_external_group_by>350000000</max_bytes_before_external_group_by>
+            <max_bytes_before_external_sort>350000000</max_bytes_before_external_sort>
+        </default>
+    </profiles>
+</clickhouse>

@@ -1,0 +1,44 @@
+# Local telemetry backend: ClickHouse + OTel collector (plans/telemetry-backend.md).
+# The collector image is pinned because init/01-traces.sql must match the
+# clickhouseexporter INSERT column shape of this exact version.
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    # Sized for a small local Docker VM; raise freely on bigger hosts.
+    mem_limit: 1500m
+    environment:
+      CLICKHOUSE_DB: loupe
+      CLICKHOUSE_USER: loupe
+      CLICKHOUSE_PASSWORD: loupe
+    ports:
+      - '127.0.0.1:8123:8123'
+      - '127.0.0.1:9000:9000'
+    volumes:
+      - ch-data:/var/lib/clickhouse
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - ./config.d/memory.xml:/etc/clickhouse-server/config.d/zz-loupe-memory.xml:ro
+      - ./users.d/memory.xml:/etc/clickhouse-server/users.d/zz-loupe-memory.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8123/ping']
+      interval: 3s
+      timeout: 2s
+      retries: 30
+
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ['--config=/etc/otelcol/config.yaml']
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - '127.0.0.1:4317:4317'
+      - '127.0.0.1:4318:4318'
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+volumes:
+  ch-data:

@@ -9,7 +9,7 @@ const INDEX = {
   compose_loop:
     'GET /api/search (read facets) -> pick id -> GET /api/traces/:id (or /conversation) -> GET /api/traces/:id/spans/:spanId -> add ?detail=full when truncation hides the answer',
   context_guard:
-    'Tool/LLM I/O truncated ~400 chars by default; errors never truncated. Lists + conversation page with limit/offset (see page.has_more; window.capped means more may exist beyond the scan window). ?detail=full untruncated, ?detail=raw adds rawAttributes. Any response over ~300 KB (incl. detail=full/raw) auto-dumps to a temp file and returns { path, summary }; ?detail=dump forces it.',
+    'Tool/LLM I/O truncated ~400 chars by default; errors never truncated. Lists + conversation page with limit/offset (see page.has_more; server-side sort/filter, so a page is exact, not a scan-window sample). ?detail=full untruncated, ?detail=raw adds rawAttributes. Any response over ~300 KB (incl. detail=full/raw) auto-dumps to a temp file and returns { path, summary }; ?detail=dump forces it.',
   endpoints: [
     {
       method: 'GET',
