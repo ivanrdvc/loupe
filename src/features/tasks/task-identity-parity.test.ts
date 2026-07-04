@@ -16,6 +16,10 @@ const CASES: Array<[string, TraceSummary]> = [
   ['derived triple', { ...base, serviceName: 'report-svc', agent: 'ReportBot', category: 'scheduled' }],
   ['agent-name root falls through to derived', { ...base, rootOperation: 'invoke_agent Foo', category: 'event' }],
   ['execute_tool root falls through to derived', { ...base, rootOperation: 'execute_tool x', category: 'webhook' }],
+  // '|' in service/agent must survive: the key is compared whole, never split
+  // back into segments (taskKeyWhere rebuilds CH_DERIVED_KEY, fixtureTaskKey the
+  // string) — a split decode would fold 'b' into the agent match here.
+  ['pipe in service and agent', { ...base, serviceName: 'a|b', agent: 'x|y', category: 'scheduled' }],
   ['nothing set → orphan derived', base],
 ]
 

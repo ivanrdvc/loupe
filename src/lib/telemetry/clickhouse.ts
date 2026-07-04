@@ -110,6 +110,11 @@ export const CH_TRACE_CATEGORY = `multiIf(
 const CH_TRACE_AGENT =
   "if(sample_agent_name != '', sample_agent_name, extract(sample_agent, '^invoke_agent\\\\s+([^(\\\\s]+)'))"
 
+// The derived task key, composed identically wherever it's built or matched.
+// service.name and the agent name can both contain '|', so the key is only ever
+// compared whole — never split back into segments. Inverse: taskKeyWhere.
+const CH_DERIVED_KEY = `concat('derived:', service_name, '|', (${CH_TRACE_AGENT}), '|', (${CH_TRACE_CATEGORY}))`
+
 // ListSort → ORDER BY expression (always DESC — lists lead with newest/largest).
 const TRACE_ORDER: Record<ListSort, string> = {
   recent: 'first_ms',
@@ -315,7 +320,7 @@ export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvi
               (root_operation != '' AND root_operation NOT LIKE 'invoke_agent%'
                 AND root_operation NOT LIKE 'execute_tool%' AND root_operation NOT LIKE 'chat%'),
                 concat('op:', root_operation),
-              concat('derived:', service_name, '|', (${CH_TRACE_AGENT}), '|', (${CH_TRACE_CATEGORY}))
+              ${CH_DERIVED_KEY}
             ) AS key
           FROM trace_list(p_from={from_us:Int64}, p_to={to_us:Int64}, p_svc={svc:String})
           WHERE root_trigger_type IN ('scheduled', 'event', 'webhook')
@@ -466,6 +471,10 @@ export function createClickHouseProvider(cfg: ClickHouseConfig): ClickHouseProvi
         extra.push('AND (UserName ILIKE {user_c:String} OR UserId ILIKE {user_c:String})')
         extraParams.user_c = `%${opts.userContains}%`
       }
+      if (opts?.sessionContains) {
+        extra.push('AND SessionId ILIKE {session_c:String}')
+        extraParams.session_c = `%${opts.sessionContains}%`
+      }
       if (opts?.minCostUsd !== undefined) {
         extra.push('AND CostUsd >= {min_cost:Float64}')
         extraParams.min_cost = opts.minCostUsd
@@ -553,20 +562,15 @@ function whereIdentity(opts: IdentityFilter | undefined): { clause: string; para
 
 // Encoded task identity → a WHERE fragment over trace_list columns. Inverse of
 // features/tasks taskIdentity: task:<id> exact root_task_id, op:<root> exact
-// root_operation, derived:<svc|agent|cat> matches all three (agent may itself
-// contain '|', so service is the first segment and category the last).
+// root_operation, derived:<svc|agent|cat> matched by rebuilding the whole key
+// (CH_DERIVED_KEY) — never by splitting on '|', which svc/agent can contain.
 function taskKeyWhere(taskKey: string): { clause: string; params: Record<string, unknown> } {
   if (taskKey.startsWith('task:'))
     return { clause: 'root_task_id = {tk_id:String}', params: { tk_id: taskKey.slice(5) } }
   if (taskKey.startsWith('op:'))
     return { clause: 'root_operation = {tk_op:String}', params: { tk_op: taskKey.slice(3) } }
-  if (taskKey.startsWith('derived:')) {
-    const segs = taskKey.slice('derived:'.length).split('|')
-    return {
-      clause: `(service_name = {tk_svc:String} AND (${CH_TRACE_AGENT}) = {tk_agent:String} AND (${CH_TRACE_CATEGORY}) = {tk_cat:String})`,
-      params: { tk_svc: segs[0] ?? '', tk_agent: segs.slice(1, -1).join('|'), tk_cat: segs[segs.length - 1] ?? '' },
-    }
-  }
+  if (taskKey.startsWith('derived:'))
+    return { clause: `${CH_DERIVED_KEY} = {tk_key:String}`, params: { tk_key: taskKey } }
   return { clause: '1 = 0', params: {} } // unknown form → match nothing, not everything
 }
 

@@ -66,7 +66,7 @@ export async function fetchTools(p: ClickHouseProvider, opts?: ToolListOpts): Pr
   if (name !== undefined && !TOOL_NAME_RE.test(name)) return []
   const limit = name !== undefined ? 1 : (opts?.limit ?? 1000)
   const offset = name !== undefined ? 0 : Math.max(0, opts?.offset ?? 0)
-  const orderExpr = opts?.sortBy ? TOOL_SORT_SQL[opts.sortBy] : 'calls'
+  const orderExpr = (opts?.sortBy && TOOL_SORT_SQL[opts.sortBy]) || 'calls'
   const orderDir = opts?.sortDir === 'asc' ? 'ASC' : 'DESC'
   const nameWhere =
     name !== undefined ? `SpanName = ${chString(`execute_tool ${name}`)}` : `SpanName LIKE 'execute_tool %'`
@@ -95,7 +95,12 @@ export async function fetchTools(p: ClickHouseProvider, opts?: ToolListOpts): Pr
     LIMIT ${limit} OFFSET ${offset}
   `
   const hits = await p.query(sql, { ...opts, size: limit })
-  const maxResults = await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, limit, name !== undefined, opts)
+  // List rows sort and display the char estimate (ORDER BY max_chars); only the
+  // single-tool detail view pays for exact tokenization of every result body.
+  const maxResults =
+    name !== undefined
+      ? await maxResultTokensByOp(p, `${nameWhere}${dimWhere}`, opts)
+      : { tokens: new Map<string, number>(), scanned: new Map<string, number>() }
   return hits.map((h) => {
     const calls = Number(h.calls ?? 0)
     const errors = Number(h.errors ?? 0)
@@ -127,75 +132,25 @@ export async function fetchTools(p: ClickHouseProvider, opts?: ToolListOpts): Pr
   })
 }
 
-// Token count isn't monotonic with char length, so tokenize the longest-by-chars
-// candidates and take the real max (same contract as the OO module).
-const MAX_TOKEN_CANDIDATES = 12
+// Exact max result tokens for a single tool: token count isn't monotonic with
+// char length, so tokenize every result body and take the real max (list rows
+// use the cheaper char estimate instead).
 const MAX_EXACT_TOOL_RESULTS = 100_000
 async function maxResultTokensByOp(
   p: ClickHouseProvider,
   where: string,
-  limit: number,
-  singleTool: boolean,
   opts?: WindowOpts,
 ): Promise<{ tokens: Map<string, number>; scanned: Map<string, number> }> {
-  const size = limit * MAX_TOKEN_CANDIDATES
-  let charsGate = ''
-  if (!singleTool) {
-    // Bodies live in the attr map, so every candidate row drags the whole map
-    // from disk. Gate on the promoted chars column: only rows that could make
-    // some tool's top-N (≥ the smallest per-tool Nth-largest size) read the map.
-    const th = await p.query(
-      `SELECT min(t) AS gate FROM (
-         SELECT arrayElement(arrayReverseSort(groupArrayIf(ToolResultChars, ToolResultChars > 0)),
-                toUInt32(least(${MAX_TOKEN_CANDIDATES}, countIf(ToolResultChars > 0)))) AS t
-         FROM ${p.table}
-         WHERE ${where} AND ${CH_TIME_WHERE}
-         GROUP BY SpanName
-         HAVING countIf(ToolResultChars > 0) > 0
-       )`,
-      { ...opts, size: 1 },
-    )
-    const gate = num(th[0]?.gate)
-    if (gate === undefined) return { tokens: new Map(), scanned: new Map() }
-    charsGate = ` AND ToolResultChars >= ${Math.max(1, Math.floor(gate))}`
-  }
   // Small blocks + one thread: body rows stream instead of piling up in
   // parallel read-ahead buffers (each row drags the whole attr map).
-  const stream = 'SETTINGS max_threads = 1, max_block_size = 2048'
-  let sql: string
-  if (singleTool) {
-    sql = `
+  const sql = `
     SELECT SpanName AS name, ${BODY} AS body
     FROM ${p.table}
     WHERE ${where} AND ToolResultChars > 0 AND ${CH_TIME_WHERE}
     LIMIT ${MAX_EXACT_TOOL_RESULTS}
-    ${stream}
+    SETTINGS max_threads = 1, max_block_size = 2048
   `
-  } else {
-    // Rank candidates on the promoted chars column alone (bodies would make
-    // the window sort hold every candidate body in memory), then fetch only
-    // the winners' bodies via the span-id bloom index.
-    const idRows = await p.query(
-      `SELECT span_id FROM (
-         SELECT SpanId AS span_id,
-           row_number() OVER (PARTITION BY SpanName ORDER BY ToolResultChars DESC) AS rn
-         FROM ${p.table}
-         WHERE ${where} AND ToolResultChars > 0${charsGate} AND ${CH_TIME_WHERE}
-       ) WHERE rn <= ${MAX_TOKEN_CANDIDATES}
-       LIMIT ${size}`,
-      { ...opts, size },
-    )
-    const ids = idRows.map((r) => r.span_id).filter((v): v is string => typeof v === 'string' && SPAN_ID_RE.test(v))
-    if (ids.length === 0) return { tokens: new Map(), scanned: new Map() }
-    sql = `
-    SELECT SpanName AS name, ${BODY} AS body
-    FROM ${p.table}
-    WHERE SpanId IN (${ids.map(chString).join(', ')}) AND ${CH_TIME_WHERE}
-    LIMIT ${size}
-    ${stream}
-  `
-  }
-  const hits = await p.query(sql, { ...opts, size: singleTool ? MAX_EXACT_TOOL_RESULTS : size })
+  const hits = await p.query(sql, { ...opts, size: MAX_EXACT_TOOL_RESULTS })
   const out = new Map<string, number>()
   const scanned = new Map<string, number>()
   for (const h of hits) {

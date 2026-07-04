@@ -14,11 +14,16 @@ const str = (v: string | null): string | undefined => v?.trim() || undefined
 // URL params → provider filter opts (server-side WHERE). Shared prefix; the
 // per-entity builders below add the fields their SELECT supports. Sort + paging
 // are applied at the call site (ORDER BY / LIMIT / OFFSET in the provider).
+const int = (v: string | null): number | undefined => {
+  const n = num(v)
+  return n === undefined ? undefined : Math.floor(n)
+}
+
 function readNumericFloors(p: URLSearchParams): Pick<ListTracesOpts, 'minCostUsd' | 'minTokens' | 'minDurationMs'> {
   return {
     minCostUsd: num(p.get('min_cost')),
-    minTokens: num(p.get('min_tokens')),
-    minDurationMs: num(p.get('min_duration_ms')),
+    minTokens: int(p.get('min_tokens')),
+    minDurationMs: int(p.get('min_duration_ms')),
   }
 }
 
@@ -47,6 +52,7 @@ function readSpanOpts(p: URLSearchParams): ListSpansOpts {
     agentContains: str(p.get('agent')),
     modelContains: str(p.get('model')),
     userContains: str(p.get('user')),
+    sessionContains: str(p.get('session')),
     ...readNumericFloors(p),
   }
 }

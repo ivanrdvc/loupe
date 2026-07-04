@@ -6,7 +6,7 @@ import { listRecentTraces, listTaskRollup } from '#/lib/telemetry'
 import { FIRE_TRIGGER_TYPES } from '#/lib/telemetry/trace-category'
 import { parseRangeUserInput, serialize, type TimeRange, windowUs } from '#/lib/time-range'
 
-const parseRollupInput = (input: unknown) => {
+const parseTaskKeyInput = (input: unknown) => {
   const raw = (input ?? {}) as Record<string, unknown>
   const taskKey = typeof raw.taskKey === 'string' ? raw.taskKey : ''
   return { ...parseRangeUserInput(raw), taskKey }
@@ -15,7 +15,7 @@ const parseRollupInput = (input: unknown) => {
 // The provider groups fire traces by task identity in SQL. taskKey narrows it to
 // one group (detail page); absent → every task (list page).
 const fetchTaskRollup = createServerFn({ method: 'GET' })
-  .inputValidator(parseRollupInput)
+  .inputValidator(parseTaskKeyInput)
   .handler(async ({ data }) => {
     await ensureSession()
     return await listTaskRollup({
@@ -41,16 +41,10 @@ export const taskRollupQuery = (range: TimeRange, taskKey: string, userId = '') 
     staleTime: STALE_LIVE_MS,
   })
 
-const parseFiresInput = (input: unknown) => {
-  const raw = (input ?? {}) as Record<string, unknown>
-  const taskKey = typeof raw.taskKey === 'string' ? raw.taskKey : ''
-  return { ...parseRangeUserInput(raw), taskKey }
-}
-
 // Detail page: only the selected task's fire traces (taskKey WHERE, not a
 // 500-row superset re-filtered in JS).
 const fetchTaskFires = createServerFn({ method: 'GET' })
-  .inputValidator(parseFiresInput)
+  .inputValidator(parseTaskKeyInput)
   .handler(async ({ data }) => {
     await ensureSession()
     return await listRecentTraces({
