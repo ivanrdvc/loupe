@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.7.0...loupe-v0.8.0) (2026-07-04)
+
+
+### Features
+
+* **auth:** add authentication and role-based access control ([#90](https://github.com/ivanrdvc/loupe/issues/90)) ([c059661](https://github.com/ivanrdvc/loupe/commit/c05966192123ae8387ebda9308c2ebb1043fcb70))
+* **telemetry:** clickhouse read backend ([#92](https://github.com/ivanrdvc/loupe/issues/92)) ([2658a7a](https://github.com/ivanrdvc/loupe/commit/2658a7a5b4bef1a8f891e2b584549ecc8c231c31))
+* **telemetry:** server-side host filter + generic identity-dimension seam ([#85](https://github.com/ivanrdvc/loupe/issues/85)) ([22b9f39](https://github.com/ivanrdvc/loupe/commit/22b9f39ac9e082acd56bd2fb303101c91c512711))
+
+
+### Bug Fixes
+
+* **ui:** inspect span filtering, datasets delete affordance, button theming ([#87](https://github.com/ivanrdvc/loupe/issues/87)) ([f89a80c](https://github.com/ivanrdvc/loupe/commit/f89a80c2605025a70ebc678b03d8567812574b50))
+
 ## [0.7.0](https://github.com/ivanrdvc/loupe/compare/loupe-v0.6.0...loupe-v0.7.0) (2026-06-28)
 
 
