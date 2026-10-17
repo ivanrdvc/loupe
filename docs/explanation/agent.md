@@ -7,7 +7,7 @@ summary: Embedded chat agent that reads the user's live telemetry through read-o
 status: stable
 owner: "@ivan"
 audience: loupe-devs
-last-reviewed: 2026-06-27
+last-reviewed: 2026-10-17
 tags: [agent, llm, tools, telemetry, ai-sdk]
 ---
 
@@ -44,6 +44,30 @@ One request loop, client → server → telemetry providers and back:
 - **Models** (`server/models.ts`, `chat-models.ts`). BYO key from env — OpenAI
   Responses (`gpt-5-nano`) or Azure — selected in the composer, persisted per
   browser.
+
+## Public documentation research
+
+The assistant exposes `web_search` and `web_fetch` through
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) at
+`https://search.parallel.ai/mcp`. Search uses Fast mode without an account or API
+key. No connection is made until a web tool executes. Set `LOUPE_WEB_SEARCH=off`
+to remove both tools; local telemetry tools and the selected chat model still work.
+
+Ask, for example, "Search the public OpenTelemetry docs for the GenAI tool result
+attribute and cite the source." The assistant can use returned excerpts directly,
+or fetch a public page for more detail. Tool results go back into the existing
+`ToolLoopAgent` and the answer links to the public sources. Each tool invocation
+uses the MCP SDK's Streamable HTTP transport with a 30-second deadline and the
+agent's cancellation signal; failures remain tool errors without provider fallback.
+
+Queries and fetched URLs are sent to Parallel. Instructions restrict web use to
+explicit research requests with generic technical terms, excluding private
+telemetry, credentials, customer data and private or signed URLs. This is model
+guidance, not a data-loss-prevention boundary: deployments that require all tool
+traffic to stay local should disable web tools. Search/fetch share a hashed
+conversation identifier, and the caller does not forward model-provider keys.
+Free anonymous usage has service quotas. The existing model provider still needs
+its configured credentials.
 
 ## Dogfooding: the agent is itself an observed agent
 

@@ -40,7 +40,7 @@ function buildLoupeAgent() {
         ...settings,
         model: resolveChatModel(modelId),
         instructions: requestInstructions(ctx, mentions),
-        tools: { ...makeAgentTools(ctx.origin), load_skill: loadSkillTool },
+        tools: { ...makeAgentTools(ctx.origin, options.sessionId), load_skill: loadSkillTool },
         telemetry: agentTelemetry(options.sessionId, user ? { id: user.id, name: user.name } : undefined),
       }
     },
