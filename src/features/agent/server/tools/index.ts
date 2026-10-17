@@ -5,6 +5,7 @@ import { getToolResultTool } from './get-tool-result'
 import { getTraceTool } from './get-trace'
 import { listRecentSessionsTool, listRecentTracesTool } from './list-recent'
 import { listObservedAgentToolsTool } from './observed-tools'
+import { makeWebTools } from './web'
 
 export { resolveMentions } from './shared'
 
@@ -12,7 +13,8 @@ export { resolveMentions } from './shared'
  * The agent's tool set. `origin` is bound per request (agent.ts prepareCall) so the
  * links the tools return come back ready to emit.
  */
-export const makeAgentTools = (origin?: string) => ({
+export const makeAgentTools = (origin?: string, sessionId?: string) => ({
+  ...makeWebTools(sessionId),
   get_trace: getTraceTool(origin),
   get_session: getSessionTool(origin),
   list_recent_traces: listRecentTracesTool(),

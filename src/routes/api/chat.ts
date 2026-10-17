@@ -21,6 +21,7 @@ export const Route = createFileRoute('/api/chat')({
         return createAgentUIStreamResponse({
           agent: getLoupeAgent(),
           uiMessages: body.messages,
+          abortSignal: request.signal,
           options: {
             context: body.context,
             mentions: body.mentions,
